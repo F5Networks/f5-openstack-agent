@@ -17,7 +17,7 @@ deploy:
   access_key_id: AKIAJXW2OUXQMW3DE7PA
   secret_access_key:
     secure: $AWS_ACCESSKEY
-  bucket: dev
+  bucket: f5-openstack-dev
   skip_cleanup: true 
   acl: authenticated_read
   local_dir: $HOME/site_build
