@@ -21,7 +21,7 @@ deploy:
   skip_cleanup: true 
   acl: authenticated_read
   local_dir: $HOME/site_build
-  upload-dir: "agent"
+  upload-dir: "f5-os-agent"
   on:
     repo: $TRAVIS_REPO_SLUG
-    branch: develop
+    branch: $TRAVIS_BRANCH
