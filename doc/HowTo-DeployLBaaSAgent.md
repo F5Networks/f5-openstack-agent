@@ -6,7 +6,7 @@ Use the information in this guide to deploy the F5 LBaaS Agent in your OpenStack
 
 #Prerequisites
 
-You must [deploy the F5 LBaaS Plug-in](HowTo-DeployLBaaSPlugin.md) before you deploy the agent. 
+You must deploy the [F5 LBaaS Plug-in]({{ f5-os-lbaasv1/index.html | prepend: site.url }}) before you deploy the agent. 
 
 You must have at least one BIG-IP cluster, or 'device service group \(DSG\)' set up before you deply the agent. 
 
