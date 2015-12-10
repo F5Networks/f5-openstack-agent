@@ -20,7 +20,7 @@ This guide will help you set up load-balancing as a service (LBaaS) in OpenStack
 
 **Tip:** Make note of the IP addresses and credentials for the devices in the cluster; you'll need to enter them in the Agent config file\(s\).
 
-- Agent config file\(s\) \([see Figure 1 (PDF)](f5-os-agent/assets/lbaas-agent-config-sample.pdf)\). The installation will create a default config file, but you'll need to manually create a separate file for each Agent you deploy. 
+- Agent config file\(s\) \([see Table 1](f5-os-agent/os_lbaas_agent_config_settings.xlsx)\). The installation will create a default config file, but you'll need to manually create a separate file for each Agent you deploy. 
 
 ### Placement
 
@@ -64,7 +64,7 @@ Complete both of the installation steps \(install, then stop\) on each host on w
 
 The agent configuration settings are found in */etc/neutron/f5-bigip-lbaas-agent.ini*. \(Figure 1\) is a sample config file which shows the available options.
 
-[View Figure 1 (PDF)](f5-os-agent/assets/lbaas-agent-config-sample.pdf) 
+![Table 1. F5 OpenStack Agent Configuration Options](f5-os-agent/os_lbaas_agent_config_settings.xlsx) 
 
 ## Start the Agent
 
@@ -89,9 +89,9 @@ To check the Agent's status, run
 To check the Agent's status, run 
 `neutron agent-list`
 
-Figure 2. ![](f5-os-agent/assets/lbaas-agent-status.png "Figure 2")
+![Figure 1. Neutron Agent Status List](f5-os-agent/assets/lbaas-agent-status.png "Figure 1")
 
-**NOTE:** It may take a few seconds for the agent to appear in the status list (shown in Figure 2) after restarting. If the agent does not start properly, an error will be logged in */var/log/neutron/f5-bigip-lbaas-agent.log*.
+**NOTE:** It may take a few seconds for the agent to appear in the status list (shown in Figure 1) after restarting. If the agent does not start properly, an error will be logged in */var/log/neutron/f5-bigip-lbaas-agent.log*.
 
 ## Enable LBaaS GUI in OpenStack
 
