@@ -8,12 +8,14 @@ openstack_version:
 #How to Deploy the F5 LBaaS Agent in OpenStack
 
 ## Overview
-This guide will help you set up load-balancing as a service (LBaaS) in OpenStack using the F5 LBaaS Plug-in. Deploying the F5 LBaaS Plug-in and Agent in an OpenStack distribution allows you to provision virtual IPs, server pools, a health monitor, and load balancing on your hardware or Virtual Edition BIG-IP.
+This guide will help you set up load-balancing as a service (LBaaS) in OpenStack using the F5 LBaaS Plug-in. Deploying the F5 LBaaS Plug-in and Agent in an OpenStack distribution allows you to provision virtual IPs, server pools, health monitors, and load balancing on your hardware or Virtual Edition BIG-IP.
 
 ### Prerequisites
 
-- Install the [F5 LBaaS Plug-in]({{ f5-os-lbaasv1/index.html | prepend: site.url }}) before you deploy the Agent. 
+- Download the F5 OpenStack Plug-in package from [F5's DevCentral](https://devcentral.f5.com/d/openstack-neutron-lbaas-driver-and-agent).
 
+- Install the [F5 LBaaS Plug-in Driver]({{ f5-os-lbaasv1/index.html | prepend: site.url }}) before you deploy the Agent. 
+  
 - Set up at least one BIG-IP cluster - or, 'device service group \(DSG\)' -  before you deploy the Agent. You'll need administrator access to the BIG-IP and all cluster members to do so.
 
 **Tip:** Make note of the IP addresses and credentials for the devices in the cluster; you'll need to enter them in the Agent config file\(s\).
@@ -28,7 +30,7 @@ We also recommend running multiple F5 LBaaS agents for the same environment simu
 
 **Note:** If you choose to deploy multiple agents for the same environment, they *must* run on different hosts. 
 
-You can run multiple F5 LBaaS agents simultaneously on the same host, but they must be orchestrating different environments \(in other words, different TMOS clusters with a different environment prefixes\). 
+You can run multiple F5 LBaaS agents simultaneously on the same host, but they must be orchestrating different environments \(in other words, different TMOS clusters with unique environment prefixes\). 
 
 ## Install the Agent
 
@@ -52,10 +54,7 @@ The agent launches automatically on install; since it hasn't been configured yet
 `service f5-bigip-lbaas-agent stop`
 
 ### RedHat / CentOS
-`` \[NEED CORRECT COMMAND -- JP\]
-
-To remove any error messages logged while the process ran, run
-`rm /var/log/neutron/f5-bigip-lbaas-agent.log`.
+`service f5-bigip-lbaas-agent stop`
 
 ## Installing Additional Agents
 
@@ -73,22 +72,22 @@ The agent configuration settings are found in */etc/neutron/f5-bigip-lbaas-agent
 `rm /var/log/neutron/f5-bigip-lbaas-agent.log`
 
 ### Ubuntu
-To restart the agent, run 
-`service f5-bigip-lbaas-agent restart`
+To start the agent, run 
+`service f5-bigip-lbaas-agent start`
 
 ### Red Hat / CentOS
-To restart the agent, run 
-`??` \[NEED CORRECT COMMAND -- JP\]
+To start the agent, run 
+`service f5-bigip-lbaas-agent start`
 
 ## Check the Agent Status
 
 ### Ubuntu
 To check the Agent's status, run 
-`manager@maas-ctrl-4:\~\$ neutron agent-list`
+`neutron agent-list`
 
 ### Red Hat / CentOS
 To check the Agent's status, run 
-`??` \[NEED CORRECT COMMAND -- JP\]
+`neutron agent-list`
 
 Figure 2. ![](f5-os-agent/assets/lbaas-agent-status.png "Figure 2")
 
@@ -102,7 +101,14 @@ In the 'local\_settings' file, set  'enable\_lb'  to "True", as shown below.
 
 `OPENSTACK_NEUTRON_NETWORK = { 'enable_lb': True, ...}"` -- \[THIS NEEDS VERIFICATION AND OPENSTACK VERSIONING --JP\]
 
-Restart the web server to make the setting take effect:
+## Restart the web server to make the setting take effect:
+
+### Ubuntu
+To restart the web server, run
+`service apache2 restart`
+
+### Red Hat / CentOS
+To restart the web server, run
 `service httpd restart`
 
 ## Additional Information
@@ -111,7 +117,7 @@ Restart the web server to make the setting take effect:
 The F5 LBaaS Plug-in uses a scheduler which, by default, associates all LBaaS pools on the same cluster with the same tenant. This association is maintained in the OpenStack database. To view the associations: 
     
 1. Run `neutron agent-list`. 
-2. Run `neutron lb-pool-list-on-agent &lt;agent-id&gt;` for each LBaaS agent.
+2. Run `neutron lb-pool-list-on-agent <agent-id>` for each LBaaS agent.
 
 If you add more agent-cluster groups, the LBaaS plug-in will automatically identify which agent it should talk to in order to service a given tenant. 
 
