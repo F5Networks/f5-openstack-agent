@@ -40,7 +40,7 @@ Use the command set for your distribution to install the Neutron Gateway Package
 
 `dpkg -i f5-bigip-lbaas-agent_1.1.0-1_all.deb`
 
-## Red Hat/CentOS:
+### Red Hat/CentOS:
 
 `rpm -i f5-bigip-lbaas-agent-1.1.0-1.noarch.rpm`
 
@@ -93,7 +93,7 @@ To check the Agent's status, run
 
 **NOTE:** It may take a few seconds for the agent to appear in the status list (shown in Figure 1) after restarting. If the agent does not start properly, an error will be logged in */var/log/neutron/f5-bigip-lbaas-agent.log*.
 
-## Enable LBaaS GUI in OpenStack
+## Enable LBaaS in OpenStack GUI
 
 Go to the OpenStack cloud controller node.
  

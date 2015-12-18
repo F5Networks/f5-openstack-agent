@@ -1,0 +1,23 @@
+#Site settings
+baseurl: /f5-os-agent # the subpath of your site, e.g. /blog/
+
+# Custom vars
+current_version: 1.0.10
+repo: https://github.com/F5Networks/f5-openstack-agent
+brand: F5 Networks
+github_username: F5Networks
+product_full: F5 OpenStack LBaaSv1 Plug-in Agent
+
+defaults:
+ - 
+  scope:
+    path: "doc"
+    type: "pages"
+  values:
+    layout: "docs_page"
+
+lsi: BOOL
+
+#includes_dir: ./doc/_includes
+
+exclude: [Gemfile, license.md]

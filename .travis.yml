@@ -1,17 +1,26 @@
 language: ruby
+
 rvm:
 - 2.1
+
 env:
   global:
   - NOKOGIRI_USE_SYSTEM_LIBRARIES=true
+
 cache: bundler
+
 script: 
- - ./docScript.sh
+ - ./script/project_buildScript.sh
+
 # whitelist
 branches:
  only:
   - master
   - develop
+
+after_success:
+ - ./script/deploy_script.sh
+
 deploy:
   provider: s3
   access_key_id: AKIAJXW2OUXQMW3DE7PA
@@ -20,7 +29,7 @@ deploy:
   bucket: f5-openstack-dev
   skip_cleanup: true 
   acl: authenticated_read
-  local_dir: $HOME/site_build
+  local_dir: $HOME/site_build/f5-os-agent/
   upload-dir: "f5-os-agent"
   on:
     repo: $TRAVIS_REPO_SLUG

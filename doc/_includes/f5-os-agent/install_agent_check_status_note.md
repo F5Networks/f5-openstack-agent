@@ -1,0 +1,1 @@
+**NOTE:** It may take a few seconds for the agent to appear in the status list (shown in Figure 1) after restarting. If the agent does not start properly, an error will be logged in */var/log/neutron/f5-bigip-lbaas-agent.log*.
