@@ -1,27 +1,2 @@
-language: ruby
-rvm:
-- 2.1
-env:
-  global:
-  - NOKOGIRI_USE_SYSTEM_LIBRARIES=true
-cache: bundler
-script: 
- - ./docScript.sh
-# whitelist
-branches:
- only:
-  - master
-  - develop
-deploy:
-  provider: s3
-  access_key_id: AKIAJXW2OUXQMW3DE7PA
-  secret_access_key:
-    secure: $AWS_ACCESSKEY
-  bucket: f5-openstack-dev
-  skip_cleanup: true 
-  acl: authenticated_read
-  local_dir: $HOME/site_build
-  upload-dir: "f5-os-agent"
-  on:
-    repo: $TRAVIS_REPO_SLUG
-    branch: $TRAVIS_BRANCH
+language:
+
