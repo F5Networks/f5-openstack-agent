@@ -20,10 +20,10 @@ limitations under the License.
 This repo houses the code for the F5 OpenStack plugin agent. The agent allows you to deploy BIG-IP services in an OpenStack environment. 
 
 ## Installation & Configuration
-See [How to Install the F5 OpenStack LBaaSv1 PLugin Agent](http://f5networks.github.io/f5-openstack-docs/lbaasv1-plugin-install-agent/).
+See the [LBaaSv1 Documentation](http://f5-openstack-lbaasv1.readthedocs.org/en/)
 
 ## Documentation
-See [Documentation](http://f5networks.github.io/f5-openstack-agent).
+Coming soon!
 
 ## Filing Issues
 If you find an issue we would love to hear about it.  Please let us know by
@@ -86,5 +86,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
  
 ### Contributor License Agreement
-Individuals or business entities who contribute to this project must have completed and submitted the [F5 Contributor License Agreement](http://f5networks.github.io/f5-openstack-docs/cla_landing/index.html) to Openstack_CLA@f5.com prior to their
+Individuals or business entities who contribute to this project must have completed and submitted the [F5 Contributor License Agreement](http://f5-openstack-docs.readthedocs.org/en/latest/cla_landing.html) to Openstack_CLA@f5.com prior to their
 code submission being included in this project.
