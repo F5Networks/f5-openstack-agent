@@ -9,5 +9,5 @@ install:
     - pip install hacking pytest pytest-cov .
     - pip install -r requirements.txt
 script:
-    - flake8 .
+    - flake8 f5_openstack_agent
     - py.test --cov --ignore=test/
