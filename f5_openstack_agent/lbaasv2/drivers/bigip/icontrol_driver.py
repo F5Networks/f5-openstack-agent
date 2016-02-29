@@ -13,27 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# pylint: disable=broad-except,star-args,no-self-use
 
-import datetime
-from eventlet import greenthread
-import hashlib
 import logging as std_logging
 from time import time
-import urllib2
 import uuid
 
+from neutron.common.exceptions import InvalidConfigurationOption
+from neutron.plugins.common import constants as plugin_const
+from neutron_lbaas.services.loadbalancer import constants as lb_const
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_utils import importutils
-from neutron_lbaas.services.loadbalancer import constants as lb_const
 
-from neutron.plugins.common import constants as plugin_const
-from neutron.common.exceptions import NeutronException, \
-    InvalidConfigurationOption
-
-from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import LBaaSBaseDriver
+from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import \
+    LBaaSBaseDriver
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import OBJ_PREFIX
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
 LOG = logging.getLogger(__name__)
 NS_PREFIX = 'qlbaas-'
@@ -43,183 +38,185 @@ __VERSION__ = '0.1.1'
 OPTS = [
     cfg.StrOpt(
         'bigiq_hostname',
-        help=_('The hostname (name or IP address) to use for the BIG-IQ host'),
+        help='The hostname (name or IP address) to use for the BIG-IQ host'
     ),
     cfg.StrOpt(
         'bigiq_admin_username',
         default='admin',
-        help=_('The admin username to use for BIG-IQ authentication'),
+        help='The admin username to use for BIG-IQ authentication',
     ),
     cfg.StrOpt(
         'bigiq_admin_password',
         default='[Provide password in config file]',
         secret=True,
-        help=_('The admin password to use for BIG-IQ authentication')
+        help='The admin password to use for BIG-IQ authentication'
     ),
     cfg.StrOpt(
         'openstack_keystone_uri',
         default='http://192.0.2.248:5000/',
-        help=_('The admin password to use for BIG-IQ authentication')
+        help='The admin password to use for BIG-IQ authentication'
     ),
     cfg.StrOpt(
         'openstack_admin_username',
         default='admin',
-        help=_('The admin username to use for authentication '
-               'with the Keystone service'),
+        help='The admin username to use for authentication '
+             'with the Keystone service'
     ),
     cfg.StrOpt(
         'openstack_admin_password',
         default='[Provide password in config file]',
         secret=True,
-        help=_('The admin password to use for authentication'
-               ' with the Keystone service')
+        help='The admin password to use for authentication'
+             ' with the Keystone service'
     ),
     cfg.StrOpt(
         'bigip_management_username',
         default='admin',
-        help=_('The admin username that the BIG-IQ will use to manage '
-               'discovered BIG-IPs'),
+        help='The admin username that the BIG-IQ will use to manage '
+             'discovered BIG-IPs'
     ),
     cfg.StrOpt(
         'bigip_management_password',
         default='[Provide password in config file]',
         secret=True,
-        help=_('The admin password that the BIG-IQ will use to manage '
-               'discovered BIG-IPs')
+        help='The admin password that the BIG-IQ will use to manage '
+             'discovered BIG-IPs'
     ),
     cfg.StrOpt(
         'f5_device_type', default='external',
-        help=_('What type of device onboarding')
+        help='What type of device onboarding'
     ),
     cfg.StrOpt(
         'f5_ha_type', default='pair',
-        help=_('Are we standalone, pair(active/standby), or scalen')
+        help='Are we standalone, pair(active/standby), or scalen'
     ),
     cfg.ListOpt(
         'f5_external_physical_mappings', default=['default:1.1:True'],
-        help=_('Mapping between Neutron physical_network to interfaces')
+        help='Mapping between Neutron physical_network to interfaces'
     ),
     cfg.StrOpt(
         'sync_mode', default='replication',
-        help=_('The sync mechanism: autosync or replication'),
+        help='The sync mechanism: autosync or replication'
     ),
     cfg.StrOpt(
         'f5_sync_mode', default='replication',
-        help=_('The sync mechanism: autosync or replication'),
+        help='The sync mechanism: autosync or replication'
     ),
     cfg.StrOpt(
         'f5_vtep_folder', default='Common',
-        help=_('Folder for the VTEP SelfIP'),
+        help='Folder for the VTEP SelfIP'
     ),
     cfg.StrOpt(
         'f5_vtep_selfip_name', default=None,
-        help=_('Name of the VTEP SelfIP'),
+        help='Name of the VTEP SelfIP'
     ),
     cfg.ListOpt(
         'advertised_tunnel_types', default=['gre', 'vxlan'],
-        help=_('tunnel types which are advertised to other VTEPs'),
+        help='tunnel types which are advertised to other VTEPs'
     ),
     cfg.BoolOpt(
         'f5_populate_static_arp', default=True,
-        help=_('create static arp entries based on service entries'),
+        help='create static arp entries based on service entries'
     ),
     cfg.StrOpt(
         'vlan_binding_driver',
         default=None,
-        help=_('driver class for binding vlans to device ports'),
+        help='driver class for binding vlans to device ports'
     ),
     cfg.StrOpt(
         'interface_port_static_mappings',
         default=None,
-        help=_('JSON encoded static mapping of'
-               'devices to list of '
-               'interface and port_id')
+        help='JSON encoded static mapping of'
+             'devices to list of '
+             'interface and port_id'
     ),
     cfg.StrOpt(
         'l3_binding_driver',
         default=None,
-        help=_('driver class for binding l3 address to l2 ports'),
+        help='driver class for binding l3 address to l2 ports'
     ),
     cfg.StrOpt(
         'l3_binding_static_mappings', default=None,
-        help=_('JSON encoded static mapping of'
-               'subnet_id to list of '
-               'port_id, device_id list.')
+        help='JSON encoded static mapping of'
+             'subnet_id to list of '
+             'port_id, device_id list.'
     ),
     cfg.BoolOpt(
         'f5_route_domain_strictness', default=False,
-        help=_('Strict route domain isolation'),
+        help='Strict route domain isolation'
     ),
     cfg.BoolOpt(
         'f5_common_external_networks', default=True,
-        help=_('Treat external networks as common')
+        help='Treat external networks as common'
     ),
     cfg.StrOpt(
         'icontrol_vcmp_hostname',
-        help=_('The hostname (name or IP address) to use for vCMP Host '
-               'iControl access'),
+        help='The hostname (name or IP address) to use for vCMP Host '
+             'iControl access'
     ),
     cfg.StrOpt(
         'icontrol_hostname',
         default="localhost",
-        help=_('The hostname (name or IP address) to use for iControl access'),
+        help='The hostname (name or IP address) to use for iControl access'
     ),
     cfg.StrOpt(
         'icontrol_username', default='admin',
-        help=_('The username to use for iControl access'),
+        help='The username to use for iControl access'
     ),
     cfg.StrOpt(
         'icontrol_password', default='admin', secret=True,
-        help=_('The password to use for iControl access'),
+        help='The password to use for iControl access'
     ),
     cfg.IntOpt(
         'icontrol_connection_timeout', default=30,
-        help=_('How many seconds to timeout a connection to BIG-IP'),
+        help='How many seconds to timeout a connection to BIG-IP'
     ),
     cfg.IntOpt(
         'icontrol_connection_retry_interval', default=10,
-        help=_('How many seconds to wait between retry connection attempts'),
+        help='How many seconds to wait between retry connection attempts'
     ),
     cfg.DictOpt(
         'common_network_ids', default={},
-        help=_('network uuid to existing Common networks mapping')
+        help='network uuid to existing Common networks mapping'
     ),
     cfg.StrOpt(
         'icontrol_config_mode', default='objects',
-        help=_('Whether to use iapp or objects for bigip configuration'),
+        help='Whether to use iapp or objects for bigip configuration'
     ),
     cfg.IntOpt(
         'max_namespaces_per_tenant', default=1,
-        help=_('How many routing tables the BIG-IP will allocate per tenant'
-               ' in order to accommodate overlapping IP subnets'),
-    ),
+        help='How many routing tables the BIG-IP will allocate per tenant'
+             ' in order to accommodate overlapping IP subnets'
+    )
 ]
+
 
 def is_connected(method):
     """Decorator to check we are connected before provisioning."""
     def wrapper(*args, **kwargs):
-        """ Necessary wrapper """
+        """Necessary wrapper """
         instance = args[0]
         if instance.connected:
             try:
                 return method(*args, **kwargs)
             except IOError as ioe:
-                LOG.error(_('IO Error detected: %s' % method.__name__))
+                LOG.error('IO Error detected: %s' % method.__name__)
                 instance.connect_bigips()
                 raise ioe
         else:
-            LOG.error(_('Cannot execute %s. Not connected. Connecting.'
-                        % method.__name__))
+            LOG.error('Cannot execute %s. Not connected. Connecting.'
+                      % method.__name__)
             instance.connect_bigips()
     return wrapper
+
 
 class iControlDriver(LBaaSBaseDriver):
     """F5 LBaaS Driver for BIG-IP using iControl"""
 
     def __init__(self, conf, registerOpts=True):
-        """ The registerOpts parameter allows a test to
-            turn off config option handling so that it can
-            set the options manually instead. """
+        # The registerOpts parameter allows a test to
+        # turn off config option handling so that it can
+        # set the options manually instead. """
         super(iControlDriver, self).__init__(conf)
         self.conf = conf
         if registerOpts:
@@ -234,11 +231,11 @@ class iControlDriver(LBaaSBaseDriver):
         self.__traffic_groups = []
 
         if self.conf.f5_global_routed_mode:
-            LOG.info(_('WARNING - f5_global_routed_mode enabled.'
-                       ' There will be no L2 or L3 orchestration'
-                       ' or tenant isolation provisioned. All vips'
-                       ' and pool members must be routable through'
-                       ' pre-provisioned SelfIPs.'))
+            LOG.info('WARNING - f5_global_routed_mode enabled.'
+                     ' There will be no L2 or L3 orchestration'
+                     ' or tenant isolation provisioned. All vips'
+                     ' and pool members must be routable through'
+                     ' pre-provisioned SelfIPs.')
             self.conf.use_namespaces = False
             self.conf.f5_snat_mode = True
             self.conf.f5_snat_addresses_per_subnet = 0
@@ -248,21 +245,21 @@ class iControlDriver(LBaaSBaseDriver):
             self.agent_configurations['tunnel_types'] = \
                 self.conf.advertised_tunnel_types
             for net_id in self.conf.common_network_ids:
-                LOG.debug(_('network %s will be mapped to /Common/%s'
-                            % (net_id, self.conf.common_network_ids[net_id])))
+                LOG.debug('network %s will be mapped to /Common/%s'
+                          % (net_id, self.conf.common_network_ids[net_id]))
 
             self.agent_configurations['common_networks'] = \
                 self.conf.common_network_ids
 
             if self.conf.environment_prefix:
-                LOG.debug(_('BIG-IP name prefix for this environment: %s' %
-                            self.conf.environment_prefix))
-                #bigip_interfaces.OBJ_PREFIX = \
+                LOG.debug('BIG-IP name prefix for this environment: %s' %
+                          self.conf.environment_prefix)
+                # bigip_interfaces.OBJ_PREFIX = \
                 #            self.conf.environment_prefix + '_'
 
-            LOG.debug(_('Setting static ARP population to %s'
-                        % self.conf.f5_populate_static_arp))
-            #f5const.FDB_POPULATE_STATIC_ARP = self.conf.f5_populate_static_arp
+            LOG.debug('Setting static ARP population to %s'
+                      % self.conf.f5_populate_static_arp)
+            # f5const.FDB_POPULATE_STATIC_ARP=self.conf.f5_populate_static_arp
 
         self._init_bigip_hostnames()
 
@@ -277,32 +274,31 @@ class iControlDriver(LBaaSBaseDriver):
         self.lbaas_builder_bigip_objects = None
         self.lbaas_builder_bigiq_iapp = None
 
-        #self._init_bigip_managers()
-        #self.connect_bigips()
+        # self._init_bigip_managers()
+        # self.connect_bigips()
         self.connected = True
 
-        LOG.info(_('iControlDriver initialized to %d bigips with username:%s'
-                   % (len(self.__bigips), self.conf.icontrol_username)))
-        LOG.info(_('iControlDriver dynamic agent configurations:%s'
-                   % self.agent_configurations))
+        LOG.info('iControlDriver initialized to %d bigips with username:%s'
+                 % (len(self.__bigips), self.conf.icontrol_username))
+        LOG.info('iControlDriver dynamic agent configurations:%s'
+                 % self.agent_configurations)
 
     def connect_bigips(self):
-        """ Connect big-ips """
+        """Connect big-ips """
         pass
 
     def post_init(self):
-        """ Run and Post Initialization Tasks """
+        """Run and Post Initialization Tasks """
         # run any post initialized tasks, now that the agent
         # is fully connected
-        LOG.debug(
-            'Getting BIG-IP device interface for VLAN Binding')
+        LOG.debug('Getting BIG-IP device interface for VLAN Binding')
 
     def _init_bigip_managers(self):
-        """ Setup the managers that create big-ip configurations. """
+        """Setup the managers that create big-ip configurations. """
         pass
 
     def _init_bigip_hostnames(self):
-        """ Validate and parse bigip credentials """
+        """Validate and parse bigip credentials """
         if not self.conf.icontrol_hostname:
             raise InvalidConfigurationOption(
                 opt_name='icontrol_hostname',
@@ -339,46 +335,46 @@ class iControlDriver(LBaaSBaseDriver):
             )
 
     def _init_bigips(self):
-        """ Connect to all BIG-IPs """
+        """Connect to all BIG-IPs """
         pass
 
     def _open_bigip(self, hostname):
-        """ Open bigip connection """
-        LOG.info(_('Opening iControl connection to %s @ %s' %
-                   (self.conf.icontrol_username, hostname)))
+        """Open bigip connection """
+        LOG.info('Opening iControl connection to %s @ %s' %
+                 (self.conf.icontrol_username, hostname))
 
     def _init_bigip(self, bigip, hostname, check_group_name=None):
-        """ Prepare a bigip for usage """
+        """Prepare a bigip for usage """
         pass
 
     def _validate_ha(self, first_bigip):
-        """ if there was only one address supplied and
-            this is not a standalone device, get the
-            devices trusted by this device. """
+        # if there was only one address supplied and
+        # this is not a standalone device, get the
+        # devices trusted by this device. """
         pass
 
     def _init_agent_config(self, local_ips):
-        """ Init agent config """
+        """Init agent config """
         pass
 
     def generate_capacity_score(self, capacity_policy=None):
-        """ Generate the capacity score of connected devices """
+        """Generate the capacity score of connected devices """
         return 0
 
     def set_context(self, context):
-        """ Context to keep for database access """
+        """Context to keep for database access """
         self.context = context
 
     def set_plugin_rpc(self, plugin_rpc):
-        """ Provide Plugin RPC access """
+        """Provide Plugin RPC access """
         self.plugin_rpc = plugin_rpc
 
     def set_tunnel_rpc(self, tunnel_rpc):
-        """ Provide FDB Connector with ML2 RPC access """
+        """Provide FDB Connector with ML2 RPC access """
         pass
 
     def set_l2pop_rpc(self, l2pop_rpc):
-        """ Provide FDB Connector with ML2 RPC access """
+        """Provide FDB Connector with ML2 RPC access """
         pass
 
     def exists(self, service):
@@ -389,7 +385,6 @@ class iControlDriver(LBaaSBaseDriver):
         """Remove cached objects so they can be created if necessary"""
         pass
 
-    # pylint: disable=unused-argument
     @serialized('update_loadbalancer')
     @is_connected
     def create_loadbalancer(self, loadbalancer, service):
@@ -512,7 +507,7 @@ class iControlDriver(LBaaSBaseDriver):
             # it can result in the process of a stats request after the pool
             # and tenant are long gone. Check if the tenant exists.
             if not service['pool'] or not hostbigip.system.folder_exists(
-               bigip_interfaces.OBJ_PREFIX + service['pool']['tenant_id']):
+                    OBJ_PREFIX + service['pool']['tenant_id']):
                 return None
             pool = service['pool']
             pool_stats = hostbigip.pool.get_statistics(
@@ -537,8 +532,8 @@ class iControlDriver(LBaaSBaseDriver):
                     update_if_status = [plugin_const.ACTIVE,
                                         plugin_const.DOWN,
                                         plugin_const.INACTIVE]
-                    if PLUGIN_CREATED_FLAG not in update_if_status:
-                        update_if_status.append(PLUGIN_CREATED_FLAG)
+                    if plugin_const.ACTIVE not in update_if_status:
+                        update_if_status.append(plugin_const.ACTIVE)
 
                     for member in service['members']:
                         if member['status'] in update_if_status:
@@ -598,7 +593,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('remove_orphans')
     def remove_orphans(self, all_pools):
-        """ Remove out-of-date configuration on big-ips """
+        """Remove out-of-date configuration on big-ips """
         existing_tenants = []
         existing_pools = []
         for pool in all_pools:
@@ -619,19 +614,19 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.system.purge_orphaned_folders(existing_tenants)
 
     def fdb_add(self, fdb):
-        """ Add (L2toL3) forwarding database entries """
+        """Add (L2toL3) forwarding database entries """
         self.remove_ips_from_fdb_update(fdb)
         for bigip in self.get_all_bigips():
             self.bigip_l2_manager.add_bigip_fdb(bigip, fdb)
 
     def fdb_remove(self, fdb):
-        """ Remove (L2toL3) forwarding database entries """
+        """Remove (L2toL3) forwarding database entries """
         self.remove_ips_from_fdb_update(fdb)
         for bigip in self.get_all_bigips():
             self.bigip_l2_manager.remove_bigip_fdb(bigip, fdb)
 
     def fdb_update(self, fdb):
-        """ Update (L2toL3) forwarding database entries """
+        """Update (L2toL3) forwarding database entries """
         self.remove_ips_from_fdb_update(fdb)
         for bigip in self.get_all_bigips():
             self.bigip_l2_manager.update_bigip_fdb(bigip, fdb)
@@ -649,11 +644,11 @@ class iControlDriver(LBaaSBaseDriver):
                     mac_ip[1] = None
 
     def tunnel_update(self, **kwargs):
-        """ Tunnel Update from Neutron Core RPC """
+        """Tunnel Update from Neutron Core RPC """
         pass
 
     def tunnel_sync(self):
-        """ Advertise all bigip tunnel endpoints """
+        """Advertise all bigip tunnel endpoints """
         # Only sync when supported types are present
         if not [i for i in self.agent_configurations['tunnel_types']
                 if i in ['gre', 'vxlan']]:
@@ -685,14 +680,14 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('backup_configuration')
     @is_connected
     def backup_configuration(self):
-        """ Save Configuration on Devices """
+        """Save Configuration on Devices """
         for bigip in self.get_all_bigips():
-            LOG.debug(_('_backup_configuration: saving device %s.'
-                        % bigip.icontrol.hostname))
+            LOG.debug('_backup_configuration: saving device %s.'
+                      % bigip.icontrol.hostname)
             bigip.cluster.save_config()
 
     def _service_exists(self, service):
-        """ Returns whether the bigip has a pool for the service """
+        """Returns whether the bigip has a pool for the service """
         if not service['pool']:
             return False
         if self.lbaas_builder_bigiq_iapp:
@@ -711,57 +706,58 @@ class iControlDriver(LBaaSBaseDriver):
                 config_mode=self.conf.icontrol_config_mode)
 
     def _common_service_handler(self, service):
-        """ Assure that the service is configured on bigip(s) """
+        """Assure that the service is configured on bigip(s) """
         start_time = time()
-        LOG.debug("    _common_service_handler took %.5f secs" % (time() - start_time))
+        LOG.debug("    _common_service_handler took %.5f secs" %
+                  (time() - start_time))
 
     def _update_service_status(self, service):
-        """ Update status of objects in OpenStack """
+        """Update status of objects in OpenStack """
         pass
 
     def _update_members_status(self, members):
-        """ Update member status in OpenStack """
+        """Update member status in OpenStack """
         pass
 
     def _update_pool_status(self, pool):
-        """ Update pool status in OpenStack """
+        """Update pool status in OpenStack """
         pass
 
     def _update_pool_monitors_status(self, service):
-        """ Update pool monitor status in OpenStack """
+        """Update pool monitor status in OpenStack """
         pass
 
     def _update_vip_status(self, vip):
-        """ Update vip status in OpenStack """
+        """Update vip status in OpenStack """
         pass
 
     def _service_to_traffic_group(self, service):
-        """ Hash service tenant id to index of traffic group """
+        """Hash service tenant id to index of traffic group """
         pass
 
     def tenant_to_traffic_group(self, tenant_id):
-        """ Hash tenant id to index of traffic group """
+        """Hash tenant id to index of traffic group """
         pass
 
     def get_bigip(self):
-        """ Get one consistent big-ip """
+        """Get one consistent big-ip """
         pass
 
     def get_bigip_hosts(self):
-        """ Get all big-ips hostnames under management """
+        """Get all big-ips hostnames under management """
         return self.__bigips
 
     def get_all_bigips(self):
-        """ Get all big-ips under management """
-        #return self.__bigips.values()
+        """Get all big-ips under management """
+        # return self.__bigips.values()
         pass
 
     def get_config_bigips(self):
-        """ Return a list of big-ips that need to be configured.
-            In replication sync mode, we configure all big-ips
-            individually. In autosync mode we only use one big-ip
-            and then sync the configuration to the other big-ips.
-        """
+        # Return a list of big-ips that need to be configured.
+        # In replication sync mode, we configure all big-ips
+        # individually. In autosync mode we only use one big-ip
+        # and then sync the configuration to the other big-ips.
+
         pass
 
     def get_inbound_throughput(self, bigip, global_statistics=None):
@@ -801,16 +797,17 @@ class iControlDriver(LBaaSBaseDriver):
         pass
 
     def sync_if_clustered(self):
-        """ sync device group if not in replication mode """
+        """sync device group if not in replication mode """
         pass
 
     def _sync_with_retries(self, bigip, force_now=False,
                            attempts=4, retry_delay=130):
-        """ sync device group """
+        """sync device group """
         pass
 
+
 def _validate_bigip_version(bigip, hostname):
-    """ Ensure the BIG-IP has sufficient version """
+    """Ensure the BIG-IP has sufficient version """
     major_version = "12"
     minor_version = "0"
     return major_version, minor_version

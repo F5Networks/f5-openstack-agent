@@ -1,4 +1,3 @@
-""" Abstract Base Driver Class """
 # Copyright 2014 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +15,7 @@
 
 
 class LBaaSBaseDriver(object):
-    """ Abstract base LBaaS Driver class for interfacing
-        with the Agent Manager """
+    """Abstract base LBaaS Driver class for interfacing with Agent Manager """
 
     def __init__(self, conf):
         self.agent_id = None
@@ -27,116 +25,116 @@ class LBaaSBaseDriver(object):
         self.agent_configurations = {}
 
     def set_context(self, context):
-        """ Set the global context object for the lbaas driver """
+        """Set the global context object for the lbaas driver """
         raise NotImplementedError()
 
     def post_init(self):
-        """ Run after agent is fully connected """
+        """Run after agent is fully connected """
         raise NotImplementedError()
 
     def set_tunnel_rpc(self, tunnel_rpc):
-        """ Provide FDB Connector RPC access """
+        """Provide FDB Connector RPC access """
         raise NotImplementedError()
 
     def set_l2pop_rpc(self, l2pop_rpc):
-        """ Provide FDB Connector with L2 Population RPC access """
+        """Provide FDB Connector with L2 Population RPC access """
         raise NotImplementedError()
 
     def connect(self):
-        """ Connect backend API endpoints """
+        """Connect backend API endpoints """
         raise NotImplementedError()
 
     def flush_cache(self):
-        """ Remove all cached items """
+        """Remove all cached items """
         raise NotImplementedError()
 
     def backup_configuration(self):
-        """ Persist backend configuratoins """
+        """Persist backend configuratoins """
         raise NotImplementedError()
 
     def get_stats(self, service):
-        """ Get Stats for a Pool Service """
+        """Get Stats for a Pool Service """
         raise NotImplementedError()
 
     def exists(self, service):
-        """ Check If LBaaS Service is Defined on Driver Target """
+        """Check If LBaaS Service is Defined on Driver Target """
         raise NotImplementedError()
 
     def sync(self, service):
-        """ Force Sync a Service on Driver Target """
+        """Force Sync a Service on Driver Target """
         raise NotImplementedError()
 
     def remove_orphans(self, known_services):
-        """ Remove Unknown Service from Driver Target """
+        """Remove Unknown Service from Driver Target """
         raise NotImplementedError()
 
     def create_vip(self, vip, service):
-        """ LBaaS Create VIP """
+        """LBaaS Create VIP """
         raise NotImplementedError()
 
     def update_vip(self, old_vip, vip, service):
-        """ LBaaS Update VIP """
+        """LBaaS Update VIP """
         raise NotImplementedError()
 
     def delete_vip(self, vip, service):
-        """ LBaaS Delete VIP """
+        """LBaaS Delete VIP """
         raise NotImplementedError()
 
     def create_pool(self, pool, service):
-        """ LBaaS Delete VIP """
+        """LBaaS Delete VIP """
         raise NotImplementedError()
 
     def update_pool(self, old_pool, pool, service):
-        """ LBaaS Update Pool """
+        """LBaaS Update Pool """
         raise NotImplementedError()
 
     def delete_pool(self, pool, service):
-        """ LBaaS Delete Pool """
+        """LBaaS Delete Pool """
         raise NotImplementedError()
 
     def create_member(self, member, service):
-        """ LBaaS Create Member """
+        """LBaaS Create Member """
         raise NotImplementedError()
 
     def update_member(self, old_member, member, service):
-        """ LBaaS Update Member """
+        """LBaaS Update Member """
         raise NotImplementedError()
 
     def delete_member(self, member, service):
-        """ LBaaS Delete Member """
+        """LBaaS Delete Member """
         raise NotImplementedError()
 
     def create_pool_health_monitor(self, health_monitor, pool, service):
-        """ LBaaS Create Pool Health Monitor """
+        """LBaaS Create Pool Health Monitor """
         raise NotImplementedError()
 
     def update_health_monitor(self, old_health_monitor,
                               health_monitor,
                               pool,
                               service):
-        """ LBaaS Update Health Monitor """
+        """LBaaS Update Health Monitor """
         raise NotImplementedError()
 
     def delete_pool_health_monitor(self, health_monitor, pool, service):
-        """ LBaaS Delete Health Monitor """
+        """LBaaS Delete Health Monitor """
         raise NotImplementedError()
 
     def tunnel_update(self, **kwargs):
-        """ Neutron Core Tunnel Update """
+        """Neutron Core Tunnel Update """
         raise NotImplementedError()
 
     def tunnel_sync(self):
-        """ Neutron Core Tunnel Sync Messages """
+        """Neutron Core Tunnel Sync Messages """
         raise NotImplementedError()
 
     def fdb_add(self, fdb_entries):
-        """ L2 Population FDB Add """
+        """L2 Population FDB Add """
         raise NotImplementedError()
 
     def fdb_remove(self, fdb_entries):
-        """ L2 Population FDB Remove """
+        """L2 Population FDB Remove """
         raise NotImplementedError()
 
     def fdb_update(self, fdb_entries):
-        """ L2 Population FDB Update """
+        """L2 Population FDB Update """
         raise NotImplementedError()

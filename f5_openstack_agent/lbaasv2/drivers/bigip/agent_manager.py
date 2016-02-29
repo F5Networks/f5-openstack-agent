@@ -31,14 +31,16 @@ from neutron_lbaas._i18n import _
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
-from f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc import LBaaSv2PluginRPC
+from f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc import \
+    LBaaSv2PluginRPC
 
 LOG = logging.getLogger(__name__)
 
 OPTS = [
     cfg.StrOpt(
         'f5_bigip_lbaas_device_driver',
-        default=('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.iControlDriver'),
+        default=('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
+                 'iControlDriver'),
         help=('The driver used to provision BigIPs')
     ),
     cfg.BoolOpt(
@@ -201,7 +203,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         self.plugin_rpc = None
 
         self.service_resync_interval = conf.service_resync_interval
-        LOG.debug('setting service resync intervl to %d seconds' % self.service_resync_interval)
+        LOG.debug('setting service resync intervl to %d seconds' %
+                  self.service_resync_interval)
 
         self.context = ncontext.get_admin_context_without_session()
         self.agent_host = conf.host
@@ -236,8 +239,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
     def _load_driver(self, conf):
         self.lbdriver = None
 
-        LOG.debug(_('loading LBaaS driver %s' %
-                    conf.f5_bigip_lbaas_device_driver))
+        LOG.debug('loading LBaaS driver %s' %
+                  conf.f5_bigip_lbaas_device_driver)
         try:
             self.lbdriver = importutils.import_object(
                 conf.f5_bigip_lbaas_device_driver,
@@ -250,11 +253,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             else:
                 self.agent_host = None
                 LOG.error(_('Driver did not initialize. Fix the driver config '
-                            'and restart the agent.'))
+                          'and restart the agent.'))
                 return
         except ImportError as ie:
-            msg = _('Error importing loadbalancer device driver: %s error %s'
-                    % (conf.f5_bigip_lbaas_device_drver, repr(ie)))
+            msg = ('Error importing loadbalancer device driver: %s error %s'
+                   % (conf.f5_bigip_lbaas_device_drver, repr(ie)))
             LOG.error(msg)
             raise SystemExit(msg)
 
@@ -327,10 +330,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             LOG.error("Exception: %s" % exc.message)
 
     @log_helpers.log_method_call
-    def update_loadbalancer(self, context, old_loadbalancer, loadbalancer, service):
+    def update_loadbalancer(self, context, old_loadbalancer,
+                            loadbalancer, service):
         """Handle RPC cast from plugin to update_loadbalancer."""
         try:
-            self.lbdriver.update_loadbalancer(old_loadbalancer, loadbalancer, service)
+            self.lbdriver.update_loadbalancer(old_loadbalancer,
+                                              loadbalancer, service)
             self.cache.put(service, self.agent_host)
         except NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
@@ -480,7 +485,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
     def tunnel_update(self, context, **kwargs):
         """Handle RPC cast from core to update tunnel definitions."""
         try:
-            LOG.debug(_('received tunnel_update: %s' % kwargs))
+            LOG.debug(_('received tunnel_update: %s') % kwargs)
             self.lbdriver.tunnel_update(**kwargs)
         except NeutronException as exc:
             LOG.error("tunnel_update: NeutronException: %s" % exc.msg)
@@ -491,8 +496,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
     def add_fdb_entries(self, context, fdb_entries, host=None):
         """Handle RPC cast from core to update tunnel definitions."""
         try:
-            LOG.debug(_('received add_fdb_entries: %s host: %s'
-                        % (fdb_entries, host)))
+            LOG.debug('received add_fdb_entries: %s host: %s'
+                      % (fdb_entries, host))
             self.lbdriver.fdb_add(fdb_entries)
         except NeutronException as exc:
             LOG.error("fdb_add: NeutronException: %s" % exc.msg)
@@ -503,8 +508,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
     def remove_fdb_entries(self, context, fdb_entries, host=None):
         """Handle RPC cast from core to update tunnel definitions."""
         try:
-            LOG.debug(_('received remove_fdb_entries: %s host: %s'
-                        % (fdb_entries, host)))
+            LOG.debug('received remove_fdb_entries: %s host: %s'
+                      % (fdb_entries, host))
             self.lbdriver.fdb_remove(fdb_entries)
         except NeutronException as exc:
             LOG.error("remove_fdb_entries: NeutronException: %s" % exc.msg)
@@ -515,8 +520,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
     def update_fdb_entries(self, context, fdb_entries, host=None):
         """Handle RPC cast from core to update tunnel definitions."""
         try:
-            LOG.debug(_('received update_fdb_entries: %s host: %s'
-                        % (fdb_entries, host)))
+            LOG.debug('received update_fdb_entries: %s host: %s'
+                      % (fdb_entries, host))
             self.lbdriver.fdb_update(fdb_entries)
         except NeutronException as exc:
             LOG.error("update_fdb_entrie: NeutronException: %s" % exc.msg)
