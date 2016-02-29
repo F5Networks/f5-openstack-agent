@@ -20,6 +20,16 @@ from eventlet import greenthread
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
+OBJ_PREFIX = 'uuid_'
+
+
+def strip_domain_address(ip_address):
+    # Strip domain from ip address
+    mask_index = ip_address.find('/')
+    if mask_index > 0:
+        return ip_address[:mask_index].split('%')[0] + ip_address[mask_index:]
+    else:
+        return ip_address.split('%')[0]
 
 
 def serialized(method_name):
