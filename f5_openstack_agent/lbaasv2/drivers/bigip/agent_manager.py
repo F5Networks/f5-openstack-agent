@@ -206,7 +206,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.service_resync_interval)
 
-        self.context = ncontext.get_admin_context_without_session()
         self.agent_host = conf.host
 
         self._load_driver(conf)

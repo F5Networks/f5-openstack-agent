@@ -27,6 +27,8 @@ LOG = logging.getLogger
 
 class LBaaSv2PluginRPC(object):
 
+    RPC_API_NAMESPACE = None
+
     def __init__(self, topic, context, env, group, host):
         super(LBaaSv2PluginRPC, self).__init__()
 
@@ -46,7 +48,7 @@ class LBaaSv2PluginRPC(object):
 
     def make_msg(self, method, **kwargs):
         return {'method': method,
-                'namespace': constants.RPC_API_NAMESPACE,
+                'namespace': self.RPC_API_NAMESPACE,
                 'args': kwargs}
 
     def call(self, context, msg, **kwargs):
@@ -91,4 +93,18 @@ class LBaaSv2PluginRPC(object):
             context,
             self.make_msg('service_stats', service=service),
             topic='%s.%s' % (self.topic, agent['host'])
+        )
+
+    @log_helpers.log_method_call
+    def update_loadbalancer_status(self,
+                                   lb_id,
+                                   provisioning_status,
+                                   operating_status):
+        return self.cast(
+            self.context,
+            self.make_msg('update_loadbalancer_status',
+                          loadbalancer_id=lb_id,
+                          status=provisioning_status,
+                          operating_status=operating_status),
+            topic=self.topic
         )

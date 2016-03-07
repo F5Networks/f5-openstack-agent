@@ -385,7 +385,7 @@ class iControlDriver(LBaaSBaseDriver):
         """Remove cached objects so they can be created if necessary"""
         pass
 
-    @serialized('update_loadbalancer')
+    @serialized('create_loadbalancer')
     @is_connected
     def create_loadbalancer(self, loadbalancer, service):
         """Create virtual server"""
@@ -400,6 +400,25 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('delete_loadbalancer')
     @is_connected
     def delete_loadbalancer(self, loadbalancer, service):
+        """Delete virtual server"""
+        self._common_service_handler(service)
+
+
+    @serialized('create_listener')
+    @is_connected
+    def create_listener(self, listener, service):
+        """Create virtual server"""
+        self._common_service_handler(service)
+
+    @serialized('update_listener')
+    @is_connected
+    def update_listener(self, old_listener, listener, service):
+        """Update virtual server"""
+        self._common_service_handler(service)
+
+    @serialized('delete_listener')
+    @is_connected
+    def delete_listener(self, listener, service):
         """Delete virtual server"""
         self._common_service_handler(service)
 
@@ -711,10 +730,41 @@ class iControlDriver(LBaaSBaseDriver):
         LOG.debug("    _common_service_handler took %.5f secs" %
                   (time() - start_time))
 
+        if not 'loadbalancer' in service:
+            LOG.error("Service handler called with incomplete "
+                      "service: No loadbalancer")
+            return
+        self._update_service_status(service)
+
     def _update_service_status(self, service):
         """Update status of objects in OpenStack """
-        pass
-
+        if not self.plugin_rpc:
+            LOG.error("Cannot update status in Neutron without "
+                      "RPC handler.")
+            return
+            
+        if 'members' in service:
+            # Call update_members_status
+            self._update_member_status(service['members'])
+        if 'healthmonitors' in service:
+            # Call update_monitor_status
+            self._update_health_monitor_status(
+                service['healthmonitors']
+            )
+        if 'pools' in service:
+            # Call update_pool_status
+            self._update_pool_status(
+                service['pools']
+            )
+        if 'listeners' in service:
+            # Call update_listner_status
+            self._update_listener_status(
+                service['listeners']
+            )
+        self._update_loadbalancer_status(
+            service['loadbalancer']
+        )
+                                             
     def _update_members_status(self, members):
         """Update member status in OpenStack """
         pass
@@ -723,13 +773,28 @@ class iControlDriver(LBaaSBaseDriver):
         """Update pool status in OpenStack """
         pass
 
-    def _update_pool_monitors_status(self, service):
+    def _update_health_monitor_status(self, service):
         """Update pool monitor status in OpenStack """
         pass
 
-    def _update_vip_status(self, vip):
-        """Update vip status in OpenStack """
+    def _update_listener_status(self, listeners):
+        """Update listener status in OpenStack """
         pass
+
+    def _update_loadbalancer_status(self, loadbalancer):
+        """Update loadbalancer status in OpenStack """
+        status = plugin_const.ACTIVE
+        operating_status = 'ONLINE'
+        if (loadbalancer['provisioning_status'] ==
+                plugin_const.PENDING_CREATE):
+            self.plugin_rpc.update_loadbalancer_status(
+                loadbalancer['id'],
+                status,
+                operating_status
+            )
+        elif (loadbalancer['provisioning_status'] ==
+                  plugin_const.PENDING_DELETE):
+            pass
 
     def _service_to_traffic_group(self, service):
         """Hash service tenant id to index of traffic group """
