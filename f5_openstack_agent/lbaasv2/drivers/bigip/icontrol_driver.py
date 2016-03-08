@@ -796,8 +796,6 @@ class iControlDriver(LBaaSBaseDriver):
             elif provisioning_status == plugin_const.PENDING_DELETE:
                 self.plugin_rpc.listener_destroyed(
                     listener['id'])
-            else:
-                LOG.error('Listener provisioning status is invalid')
                 
     def _update_loadbalancer_status(self, loadbalancer):
         """Update loadbalancer status in OpenStack """

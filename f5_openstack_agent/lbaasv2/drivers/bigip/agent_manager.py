@@ -25,14 +25,13 @@ from oslo_service import periodic_task
 from oslo_utils import importutils
 
 from neutron.agent import rpc as agent_rpc
-from neutron.common.exceptions import NeutronException
+from neutron.common import exceptions as q_exception
 from neutron import context as ncontext
-from neutron_lbaas._i18n import _
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
-from f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc import \
-    LBaaSv2PluginRPC
+from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
+
 
 LOG = logging.getLogger(__name__)
 
@@ -131,9 +130,11 @@ class LogicalServiceCache(object):
 
     @property
     def size(self):
+        """Return the number of services cached."""
         return len(self.services)
 
     def put(self, service, agent_host):
+        """Add a service to the cache."""
         if 'port_id' in service['loadbalancer']:
             port_id = service['loadbalancer']['port_id']
         else:
@@ -150,6 +151,7 @@ class LogicalServiceCache(object):
             s.agent_host = agent_host
 
     def remove(self, service):
+        """Remove a service from the cache."""
         if not isinstance(service, self.Service):
             loadbalancer_id = service['loadbalancer']['id']
         else:
@@ -158,25 +160,30 @@ class LogicalServiceCache(object):
             del(self.services[loadbalancer_id])
 
     def remove_by_loadbalancer_id(self, loadbalancer_id):
+        """Remove service by providing the loadbalancer id."""
         if loadbalancer_id in self.services:
             del(self.services[loadbalancer_id])
 
     def get_by_loadbalancer_id(self, loadbalancer_id):
+        """Retreive service by providing the loadbalancer id."""
         if loadbalancer_id in self.services:
             return self.services[loadbalancer_id]
         else:
             return None
 
     def get_loadbalancer_ids(self):
+        """Return a list of cached loadbalancer ids."""
         return self.services.keys()
 
     def get_tenant_ids(self):
+        """Return a list of tenant ids in the service cache."""
         tenant_ids = {}
         for service in self.services:
             tenant_ids[service.tenant_id] = 1
         return tenant_ids.keys()
 
     def get_agent_hosts(self):
+        """Return a list of agent ids stored in the service cache."""
         agent_hosts = {}
         for service in self.services:
             agent_hosts[service.agent_host] = 1
@@ -184,11 +191,14 @@ class LogicalServiceCache(object):
 
 
 class LbaasAgentManager(periodic_task.PeriodicTasks):
+    """Periodic task that is an endpoing for plugin to agent RPC."""
+
     RPC_API_VERSION = '1.0'
 
     target = oslo_messaging.Target(version='1.0')
 
     def __init__(self, conf):
+        """Initialize LbaasAgentManager."""
         super(LbaasAgentManager, self).__init__(conf)
         LOG.debug("Initializing LbaasAgentManager")
 
@@ -248,11 +258,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             if self.lbdriver.agent_id:
                 self.agent_host = conf.host + ":" + self.lbdriver.agent_id
                 self.lbdriver.agent_host = self.agent_host
-                LOG.debug(_('setting agent host to ') + '%s' % self.agent_host)
+                LOG.debug('setting agent host to %s' % self.agent_host)
             else:
                 self.agent_host = None
-                LOG.error(_('Driver did not initialize. Fix the driver config '
-                          'and restart the agent.'))
+                LOG.error('Driver did not initialize. Fix the driver config '
+                          'and restart the agent.')
                 return
         except ImportError as ie:
             msg = ('Error importing loadbalancer device driver: %s error %s'
@@ -268,7 +278,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             topic = topic + '_' + self.conf.environment_prefix
             LOG.debug('agent in %s environment will send callbacks to %s'
                       % (self.conf.environment_prefix, topic))
-        self.plugin_rpc = LBaaSv2PluginRPC(
+        self.plugin_rpc = plugin_rpc.LBaaSv2PluginRPC(
             topic,
             self.context,
             self.conf.environment_prefix,
@@ -301,9 +311,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             LOG.exception(("Failed to report state: " + str(e.message)))
 
     def initialize_service_hook(self, started_by):
-
-        LOG.debug("called initialize_service_hook")
-
+        """Create service hook to listen for messanges on agent topic."""
         node_topic = "%s_%s.%s" % (constants_v2.TOPIC_LOADBALANCER_AGENT_V2,
                                    self.conf.environment_prefix,
                                    self.agent_host)
@@ -312,19 +320,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         started_by.conn.create_consumer(
             node_topic, endpoints, fanout=False)
 
-    def test_rpc(self, context, arg):
-        res = "Result from test_rpc " + str(arg)
-        LOG.debug(res)
-        return res
-
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to create_loadbalancer."""
         try:
             self.lbdriver.create_loadbalancer(loadbalancer, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+        except q_exception.NeutronException as exc:
+            LOG.error("q_exception.NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
 
@@ -336,8 +339,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             self.lbdriver.update_loadbalancer(old_loadbalancer,
                                               loadbalancer, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+        except q_exception.NeutronException as exc:
+            LOG.error("q_exception.NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
 
@@ -347,8 +350,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.delete_loadbalancer(loadbalancer, service)
             self.cache.remove_by_loadbalancer_id(loadbalancer['id'])
-        except NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+        except q_exception.NeutronException as exc:
+            LOG.error("q_exception.NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
 
@@ -358,8 +361,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.create_listener(listener, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+        except q_exception.NeutronException as exc:
+            LOG.error("q_exception.NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
 
@@ -369,8 +372,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.update_listener(old_listener, listener, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+        except q_exception.NeutronException as exc:
+            LOG.error("q_exception.NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
 
@@ -380,7 +383,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.delete_listener(listener, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("delete_listener: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("delete_listener: Exception: %s" % exc.message)
@@ -391,7 +394,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.create_pool(pool, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
@@ -402,7 +405,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.update_pool(old_pool, pool, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
@@ -413,7 +416,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.delete_pool(pool, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("delete_pool: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("delete_pool: Exception: %s" % exc.message)
@@ -424,7 +427,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.create_member(member, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("create_member: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("create_member: Exception: %s" % exc.message)
@@ -435,7 +438,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.update_member(old_member, member, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("update_member: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("update_member: Exception: %s" % exc.message)
@@ -446,7 +449,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.delete_member(member, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("delete_member: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("delete_member: Exception: %s" % exc.message)
@@ -459,7 +462,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             self.lbdriver.create_pool_health_monitor(health_monitor,
                                                      pool, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("create_pool_health_monitor: NeutronException: %s"
                       % exc.msg)
         except Exception as exc:
@@ -475,7 +478,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
                                                 health_monitor,
                                                 pool, service)
             self.cache.put(service, self.agent_host)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("update_health_monitor: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("update_health_monitor: Exception: %s" % exc.message)
@@ -484,9 +487,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
     def tunnel_update(self, context, **kwargs):
         """Handle RPC cast from core to update tunnel definitions."""
         try:
-            LOG.debug(_('received tunnel_update: %s') % kwargs)
+            LOG.debug('received tunnel_update: %s' % kwargs)
             self.lbdriver.tunnel_update(**kwargs)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("tunnel_update: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("tunnel_update: Exception: %s" % exc.message)
@@ -498,7 +501,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             LOG.debug('received add_fdb_entries: %s host: %s'
                       % (fdb_entries, host))
             self.lbdriver.fdb_add(fdb_entries)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("fdb_add: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("fdb_add: Exception: %s" % exc.message)
@@ -510,7 +513,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             LOG.debug('received remove_fdb_entries: %s host: %s'
                       % (fdb_entries, host))
             self.lbdriver.fdb_remove(fdb_entries)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("remove_fdb_entries: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("remove_fdb_entries: Exception: %s" % exc.message)
@@ -522,7 +525,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             LOG.debug('received update_fdb_entries: %s host: %s'
                       % (fdb_entries, host))
             self.lbdriver.fdb_update(fdb_entries)
-        except NeutronException as exc:
+        except q_exception.NeutronException as exc:
             LOG.error("update_fdb_entrie: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("update_fdb_entrie: Exception: %s" % exc.message)
