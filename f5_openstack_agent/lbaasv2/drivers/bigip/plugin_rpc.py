@@ -108,3 +108,33 @@ class LBaaSv2PluginRPC(object):
                           operating_status=operating_status),
             topic=self.topic
         )
+
+    @log_helpers.log_method_call
+    def loadbalancer_destroyed(self, loadbalancer_id):
+        return self.cast(
+            self.context,
+            self.make_msg('loadbalancer_destroyed',
+                          loadbalancer_id=loadbalancer_id),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def update_listener_status(self,
+                               listener_id,
+                               provisioning_status):
+        return self.cast(
+            self.context,
+            self.make_msg('update_listener_status',
+                          listener_id=listener_id,
+                          provisioning_status=provisioning_status),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def listener_destroyed(self, listener_id):
+        return self.cast(
+            self.context,
+            self.make_msg('listener_destroyed',
+                          listener_id=listener_id),
+            topic=self.topic
+        )

@@ -408,6 +408,7 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def create_listener(self, listener, service):
         """Create virtual server"""
+        LOG.debug("Creating listener")
         self._common_service_handler(service)
 
     @serialized('update_listener')
@@ -757,7 +758,7 @@ class iControlDriver(LBaaSBaseDriver):
                 service['pools']
             )
         if 'listeners' in service:
-            # Call update_listner_status
+            # Call update_listener_status
             self._update_listener_status(
                 service['listeners']
             )
@@ -779,22 +780,40 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _update_listener_status(self, listeners):
         """Update listener status in OpenStack """
-        pass
 
+        for listener in listeners:
+            print listener
+            if 'provisioning_status' in listener:
+                provisioning_status = listener['provisioning_status']
+            else:
+                return
+            
+            if (provisioning_status == plugin_const.PENDING_CREATE or
+                provisioning_status == plugin_const.PENDING_UPDATE):
+                    self.plugin_rpc.update_listener_status(
+                        listener['id'],
+                        plugin_const.ACTIVE)
+            elif provisioning_status == plugin_const.PENDING_DELETE:
+                self.plugin_rpc.listener_destroyed(
+                    listener['id'])
+            else:
+                LOG.error('Listener provisioning status is invalid')
+                
     def _update_loadbalancer_status(self, loadbalancer):
         """Update loadbalancer status in OpenStack """
-        status = plugin_const.ACTIVE
-        operating_status = 'ONLINE'
-        if (loadbalancer['provisioning_status'] ==
-                plugin_const.PENDING_CREATE):
+        provisioning_status = loadbalancer['provisioning_status']
+
+        if (provisioning_status == plugin_const.PENDING_CREATE or
+            provisioning_status == plugin_const.PENDING_UPDATE):
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
-                status,
-                operating_status
-            )
-        elif (loadbalancer['provisioning_status'] ==
-                  plugin_const.PENDING_DELETE):
-            pass
+                plugin_const.ACTIVE,
+                lb_const.ONLINE)
+        elif provisioning_status == plugin_const.PENDING_DELETE:
+            self.plugin_rpc.loadbalancer_destroyed(
+                loadbalancer['id'])
+        else:
+            LOG.error('Loadbalancer provisioning status is invalid')
 
     def _service_to_traffic_group(self, service):
         """Hash service tenant id to index of traffic group """
