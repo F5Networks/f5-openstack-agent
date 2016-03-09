@@ -1,33 +1,38 @@
-""" F5 Networks LBaaS Driver using iControl API of BIG-IP """
-# Copyright 2014-2016 F5 Networks Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
+import datetime
+import hashlib
 import logging as std_logging
-from time import time
+import urllib2
 import uuid
 
+from eventlet import greenthread
+from time import time
+
 from neutron.common.exceptions import InvalidConfigurationOption
-from neutron.plugins.common import constants as plugin_const
+from neutron.common.exceptions import NeutronException
 from neutron_lbaas.services.loadbalancer import constants as lb_const
+from neutron.plugins.common import constants as plugin_const
+
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
+from f5.bigip import BigIP
+from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
+    ClusterManager
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
+from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
+    LBaaSBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import \
     LBaaSBaseDriver
+from f5_openstack_agent.lbaasv2.drivers.bigip.network_service import \
+    NetworkServiceBuilder
+from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
+    SystemHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
+    BigipTenantManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import OBJ_PREFIX
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils as util
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
@@ -193,9 +198,8 @@ OPTS = [
 
 
 def is_connected(method):
-    """Decorator to check we are connected before provisioning."""
+    # Decorator to check we are connected before provisioning.
     def wrapper(*args, **kwargs):
-        """Necessary wrapper """
         instance = args[0]
         if instance.connected:
             try:
@@ -212,7 +216,6 @@ def is_connected(method):
 
 
 class iControlDriver(LBaaSBaseDriver):
-    """F5 LBaaS Driver for BIG-IP using iControl"""
 
     def __init__(self, conf, registerOpts=True):
         # The registerOpts parameter allows a test to
@@ -226,10 +229,16 @@ class iControlDriver(LBaaSBaseDriver):
         self.device_type = conf.f5_device_type
         self.plugin_rpc = None
         self.__last_connect_attempt = None
+        self.connected = False
 
         # BIG-IP containers
         self.__bigips = {}
         self.__traffic_groups = []
+        self.agent_configurations = {}
+        self.tenant_manager = None
+        self.cluster_manager = None
+        self.system_helper = None
+        self.lbaas_builder = None
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -255,29 +264,16 @@ class iControlDriver(LBaaSBaseDriver):
             if self.conf.environment_prefix:
                 LOG.debug('BIG-IP name prefix for this environment: %s' %
                           self.conf.environment_prefix)
-                # bigip_interfaces.OBJ_PREFIX = \
-                #            self.conf.environment_prefix + '_'
+                util.OBJ_PREFIX = \
+                    self.conf.environment_prefix + '_'
 
             LOG.debug('Setting static ARP population to %s'
                       % self.conf.f5_populate_static_arp)
-            # f5const.FDB_POPULATE_STATIC_ARP=self.conf.f5_populate_static_arp
+            f5const.FDB_POPULATE_STATIC_ARP = self.conf.f5_populate_static_arp
 
         self._init_bigip_hostnames()
-
-        self.vcmp_manager = None
-        self.tenant_manager = None
-        self.fdb_connector = None
-        self.bigip_l2_manager = None
-        self.vlan_binding = None
-        self.l3_binding = None
-        self.network_builder = None
-        self.lbaas_builder_bigip_iapp = None
-        self.lbaas_builder_bigip_objects = None
-        self.lbaas_builder_bigiq_iapp = None
-
-        # self._init_bigip_managers()
-        # self.connect_bigips()
-        self.connected = True
+        self._init_bigip_managers()
+        self.connect_bigips()
 
         LOG.info('iControlDriver initialized to %d bigips with username:%s'
                  % (len(self.__bigips), self.conf.icontrol_username))
@@ -285,21 +281,37 @@ class iControlDriver(LBaaSBaseDriver):
                  % self.agent_configurations)
 
     def connect_bigips(self):
-        """Connect big-ips """
-        pass
+        self._init_bigips()
+        if self.conf.f5_global_routed_mode:
+            local_ips = []
+        else:
+            local_ips = self.network_builder.initialize_tunneling()
+
+        self._init_agent_config(local_ips)
 
     def post_init(self):
-        """Run and Post Initialization Tasks """
         # run any post initialized tasks, now that the agent
         # is fully connected
-        LOG.debug('Getting BIG-IP device interface for VLAN Binding')
+        if self.network_builder:
+            self.network_builder.post_init()
 
     def _init_bigip_managers(self):
-        """Setup the managers that create big-ip configurations. """
-        pass
+
+        self.tenant_manager = BigipTenantManager(self.conf, self)
+        self.cluster_manager = ClusterManager()
+        self.system_helper = SystemHelper()
+        self.lbaas_builder = LBaaSBuilder(self.conf, self)
+
+        if self.conf.f5_global_routed_mode:
+            self.network_builder = None
+        else:
+            self.network_builder = NetworkServiceBuilder(
+                self.conf,
+                self,
+                self.conf.f5_global_routed_mode)
 
     def _init_bigip_hostnames(self):
-        """Validate and parse bigip credentials """
+        # Validate and parse bigip credentials
         if not self.conf.icontrol_hostname:
             raise InvalidConfigurationOption(
                 opt_name='icontrol_hostname',
@@ -336,55 +348,226 @@ class iControlDriver(LBaaSBaseDriver):
             )
 
     def _init_bigips(self):
-        """Connect to all BIG-IPs """
-        pass
+        # Connect to all BIG-IPs
+        if self.connected:
+            return
+        try:
+            if not self.conf.debug:
+                sudslog = std_logging.getLogger('suds.client')
+                sudslog.setLevel(std_logging.FATAL)
+                requests_log = std_logging.getLogger(
+                    "requests.packages.urllib3")
+                requests_log.setLevel(std_logging.ERROR)
+                requests_log.propagate = False
+
+            else:
+                requests_log = std_logging.getLogger(
+                    "requests.packages.urllib3")
+                requests_log.setLevel(std_logging.DEBUG)
+                requests_log.propagate = True
+
+            self.__last_connect_attempt = datetime.datetime.now()
+
+            first_bigip = self._open_bigip(self.hostnames[0])
+            self._init_bigip(first_bigip, self.hostnames[0], None)
+            self.__bigips[self.hostnames[0]] = first_bigip
+
+            device_group_name = self._validate_ha(first_bigip)
+            self._init_traffic_groups(first_bigip)
+
+            # connect to the rest of the devices
+            for hostname in self.hostnames[1:]:
+                bigip = self._open_bigip(hostname)
+                self._init_bigip(bigip, hostname, device_group_name)
+                self.__bigips[hostname] = bigip
+
+            self.connected = True
+
+        except NeutronException as exc:
+            LOG.error('Could not communicate with all ' +
+                      'iControl devices: %s' % exc.msg)
+            greenthread.sleep(5)
+            raise
+        except Exception as exc:
+            LOG.error('Could not communicate with all ' +
+                      'iControl devices: %s' % exc.message)
+            greenthread.sleep(5)
+            raise
 
     def _open_bigip(self, hostname):
-        """Open bigip connection """
+        # Open bigip connection """
         LOG.info('Opening iControl connection to %s @ %s' %
                  (self.conf.icontrol_username, hostname))
+        return BigIP(hostname,
+                     self.conf.icontrol_username,
+                     self.conf.icontrol_password)
 
     def _init_bigip(self, bigip, hostname, check_group_name=None):
-        """Prepare a bigip for usage """
-        pass
+        # Prepare a bigip for usage
+
+        # TODO(jl) is this necessary with F5 SDK?
+        # self.system_helper.set_folder(bigip, name='/Common')
+
+        major_version, minor_version = self._validate_bigip_version(
+            bigip, hostname)
+
+        device_group_name = None
+        extramb = self.system_helper.get_provision_extramb(bigip)
+        if int(extramb) < f5const.MIN_EXTRA_MB:
+            raise f5ex.ProvisioningExtraMBValidateFailed(
+                'Device %s BIG-IP not provisioned for '
+                'management LARGE.' % hostname)
+
+        if self.conf.f5_ha_type == 'pair' and \
+                self.cluster_manager.get_sync_status(bigip) == 'Standalone':
+            raise f5ex.BigIPClusterInvalidHA(
+                'HA mode is pair and bigip %s in standalone mode'
+                % hostname)
+
+        if self.conf.f5_ha_type == 'scalen' and \
+                self.cluster_manager.get_sync_status(bigip) == 'Standalone':
+            raise f5ex.BigIPClusterInvalidHA(
+                'HA mode is pair and bigip %s in standalone mode'
+                % hostname)
+
+        if self.conf.f5_ha_type != 'standalone':
+            device_group_name = self.cluster_manager.get_device_group(bigip)
+            if not device_group_name:
+                raise f5ex.BigIPClusterInvalidHA(
+                    'HA mode is %s and no sync failover '
+                    'device group found for device %s.'
+                    % (self.conf.f5_ha_type, hostname))
+            if check_group_name and device_group_name != check_group_name:
+                raise f5ex.BigIPClusterInvalidHA(
+                    'Invalid HA. Device %s is in device group'
+                    ' %s but should be in %s.'
+                    % (hostname, device_group_name, check_group_name))
+            bigip.device_group_name = device_group_name
+
+        if self.network_builder:
+            for network in self.conf.common_network_ids.values():
+                if not self.network_builder.vlan_exists(network,
+                                                        folder='Common'):
+                    raise f5ex.MissingNetwork(
+                        'Common network %s on %s does not exist'
+                        % (network, bigip.hostname))
+
+        bigip.device_name = self.cluster_manager.get_device_name(bigip)
+        bigip.mac_addresses = self.system_helper.get_mac_addresses(bigip)
+        bigip.device_interfaces = \
+            self.system_helper.get_interface_macaddresses_dict(bigip)
+        bigip.assured_networks = []
+        bigip.assured_tenant_snat_subnets = {}
+        bigip.assured_gateway_subnets = []
+
+        if self.conf.f5_ha_type != 'standalone':
+            if self.conf.f5_sync_mode == 'autosync':
+                self.cluster_manager.enable_auto_sync(bigip, device_group_name)
+            else:
+                self.cluster_manager.disable_auto_sync(bigip,
+                                                       device_group_name)
+
+        # Turn off tunnel syncing... our VTEPs are local SelfIPs
+        if self.system_helper.get_tunnel_sync(bigip) == 'enable':
+            self.system_helper.set_tunnel_sync(bigip, enabled=False)
+
+        LOG.debug('Connected to iControl %s @ %s ver %s.%s'
+                  % (self.conf.icontrol_username, hostname,
+                     major_version, minor_version))
+        return bigip
 
     def _validate_ha(self, first_bigip):
         # if there was only one address supplied and
         # this is not a standalone device, get the
         # devices trusted by this device. """
-        pass
+        device_group_name = None
+        if self.conf.f5_ha_type == 'standalone':
+            if len(self.hostnames) != 1:
+                raise f5ex.BigIPClusterInvalidHA(
+                    'HA mode is standalone and %d hosts found.'
+                    % len(self.hostnames))
+        elif self.conf.f5_ha_type == 'pair':
+            device_group_name = self.cluster_manager.\
+                get_device_group(first_bigip)
+            if len(self.hostnames) != 2:
+                mgmt_addrs = []
+                devices = self.cluster_manager.devices(first_bigip,
+                                                       device_group_name)
+                for device in devices:
+                    mgmt_addrs.append(
+                        self.cluster_manager.get_mgmt_addr_by_device(device))
+                self.hostnames = mgmt_addrs
+            if len(self.hostnames) != 2:
+                raise f5ex.BigIPClusterInvalidHA(
+                    'HA mode is pair and %d hosts found.'
+                    % len(self.hostnames))
+        elif self.conf.f5_ha_type == 'scalen':
+            device_group_name = self.cluster_manager.\
+                get_device_group(first_bigip)
+            if len(self.hostnames) < 2:
+                mgmt_addrs = []
+                devices = self.cluster_manager.devices(first_bigip,
+                                                       device_group_name)
+                for device in devices:
+                    mgmt_addrs.append(
+                        self.cluster_manager.get_mgmt_addr_by_device(
+                            first_bigip, device))
+                self.hostnames = mgmt_addrs
+        return device_group_name
 
     def _init_agent_config(self, local_ips):
-        """Init agent config """
-        pass
+        # Init agent config
+        icontrol_endpoints = {}
+        for host in self.__bigips:
+            hostbigip = self.__bigips[host]
+            ic_host = {}
+            ic_host['version'] = self.system_helper.get_version(hostbigip)
+            ic_host['device_name'] = hostbigip.device_name
+            ic_host['platform'] = self.system_helper.get_platform(hostbigip)
+            ic_host['serial_number'] = self.system_helper.get_serial_number(
+                hostbigip)
+            icontrol_endpoints[host] = ic_host
+
+        self.agent_configurations['tunneling_ips'] = local_ips
+        self.agent_configurations['icontrol_endpoints'] = icontrol_endpoints
+
+        if self.network_builder:
+            self.agent_configurations['bridge_mappings'] = \
+                self.network_builder.interface_mapping
 
     def generate_capacity_score(self, capacity_policy=None):
         """Generate the capacity score of connected devices """
         return 0
 
     def set_context(self, context):
-        """Context to keep for database access """
-        self.context = context
+        # Context to keep for database access
+        if self.network_builder:
+            self.network_builder.set_context(context)
 
     def set_plugin_rpc(self, plugin_rpc):
-        """Provide Plugin RPC access """
+        # Provide Plugin RPC access
         self.plugin_rpc = plugin_rpc
 
     def set_tunnel_rpc(self, tunnel_rpc):
-        """Provide FDB Connector with ML2 RPC access """
-        pass
+        # Provide FDB Connector with ML2 RPC access
+        if self.network_builder:
+            self.network_builder.set_tunnel_rpc(tunnel_rpc)
 
     def set_l2pop_rpc(self, l2pop_rpc):
-        """Provide FDB Connector with ML2 RPC access """
-        pass
+        # Provide FDB Connector with ML2 RPC access
+        if self.network_builder:
+            self.network_builder.set_l2pop_rpc(l2pop_rpc)
 
     def exists(self, service):
-        """Check that service exists"""
+        # Check that service exists"""
         return True
 
     def flush_cache(self):
-        """Remove cached objects so they can be created if necessary"""
-        pass
+        # Remove cached objects so they can be created if necessary
+        for bigip in self.get_all_bigips():
+            bigip.assured_networks = []
+            bigip.assured_tenant_snat_subnets = {}
+            bigip.assured_gateway_subnets = []
 
     @serialized('create_loadbalancer')
     @is_connected
@@ -608,22 +791,22 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.system.purge_orphaned_folders(existing_tenants)
 
     def fdb_add(self, fdb):
-        """Add (L2toL3) forwarding database entries """
+        # Add (L2toL3) forwarding database entries
         self.remove_ips_from_fdb_update(fdb)
         for bigip in self.get_all_bigips():
-            self.bigip_l2_manager.add_bigip_fdb(bigip, fdb)
+            self.network_builder.add_bigip_fdb(bigip, fdb)
 
     def fdb_remove(self, fdb):
-        """Remove (L2toL3) forwarding database entries """
+        # Remove (L2toL3) forwarding database entries
         self.remove_ips_from_fdb_update(fdb)
         for bigip in self.get_all_bigips():
-            self.bigip_l2_manager.remove_bigip_fdb(bigip, fdb)
+            self.network_builder.remove_bigip_fdb(bigip, fdb)
 
     def fdb_update(self, fdb):
-        """Update (L2toL3) forwarding database entries """
+        # Update (L2toL3) forwarding database entries
         self.remove_ips_from_fdb_update(fdb)
         for bigip in self.get_all_bigips():
-            self.bigip_l2_manager.update_bigip_fdb(bigip, fdb)
+            self.network_builder.update_bigip_fdb(bigip, fdb)
 
     # remove ips from fdb update so we do not try to
     # add static arps for them because we do not have
@@ -638,11 +821,10 @@ class iControlDriver(LBaaSBaseDriver):
                     mac_ip[1] = None
 
     def tunnel_update(self, **kwargs):
-        """Tunnel Update from Neutron Core RPC """
+        # Tunnel Update from Neutron Core RPC
         pass
 
     def tunnel_sync(self):
-        """Advertise all bigip tunnel endpoints """
         # Only sync when supported types are present
         if not [i for i in self.agent_configurations['tunnel_types']
                 if i in ['gre', 'vxlan']]:
@@ -652,8 +834,8 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in self.get_all_bigips():
             if bigip.local_ip:
                 tunnel_ips.append(bigip.local_ip)
-        if self.fdb_connector:
-            self.fdb_connector.advertise_tunnel_ips(tunnel_ips)
+
+        self.network_builder.tunnel_sync(tunnel_ips)
 
     @serialized('sync')
     @is_connected
@@ -674,41 +856,81 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('backup_configuration')
     @is_connected
     def backup_configuration(self):
-        """Save Configuration on Devices """
+        # Save Configuration on Devices
         for bigip in self.get_all_bigips():
             LOG.debug('_backup_configuration: saving device %s.'
-                      % bigip.icontrol.hostname)
-            bigip.cluster.save_config()
+                      % bigip.hostname)
+            self.cluster_manager.save_config(bigip)
 
     def _service_exists(self, service):
-        """Returns whether the bigip has a pool for the service """
-        if not service['pool']:
+        # Returns whether the bigip has a pool for the service
+        if not service['loadbalancer']:
             return False
-        if self.lbaas_builder_bigiq_iapp:
-            builder = self.lbaas_builder_bigiq_iapp
-            readiness = builder.check_tenant_bigiq_readiness(service)
-            use_bigiq = readiness['found_bigips']
-        else:
-            use_bigiq = False
-        if use_bigiq:
-            return self.lbaas_builder_bigiq_iapp.exists(service)
-        else:
-            bigip = self.get_bigip()
-            return bigip.pool.exists(
-                name=service['pool']['id'],
-                folder=service['pool']['tenant_id'],
-                config_mode=self.conf.icontrol_config_mode)
+
+        # bigip = self.get_bigip()
+        # return bigip.pool.exists(
+        #        name=service['pool']['id'],
+        #        folder=service['pool']['tenant_id'],
+        #        config_mode=self.conf.icontrol_config_mode)
+        return True
 
     def _common_service_handler(self, service):
-        """Assure that the service is configured on bigip(s) """
+        # Assure that the service is configured on bigip(s)
         start_time = time()
-        LOG.debug("    _common_service_handler took %.5f secs" %
+
+        # if not service['pool']:
+        #    LOG.error("_common_service_handler: Service pool is None")
+        #    return
+
+        self.tenant_manager.assure_tenant_created(service)
+        LOG.debug("    _assure_tenant_created took %.5f secs" %
                   (time() - start_time))
 
-        if not 'loadbalancer' in service:
-            LOG.error("Service handler called with incomplete "
-                      "service: No loadbalancer")
-            return
+        traffic_group = self.service_to_traffic_group(service)
+
+        if self.network_builder:
+            start_time = time()
+            self.network_builder.prep_service_networking(
+                service, traffic_group)
+            if time() - start_time > .001:
+                LOG.debug("    _prep_service_networking "
+                          "took %.5f secs" % (time() - start_time))
+
+        all_subnet_hints = {}
+
+        for bigip in self.get_config_bigips():
+            # check_for_delete_subnets:
+            #     keep track of which subnets we should check to delete
+            #     for a deleted vip or member
+            # do_not_delete_subnets:
+            #     If we add an IP to a subnet we must not delete the subnet
+            all_subnet_hints[bigip.device_name] = \
+                {'check_for_delete_subnets': {},
+                 'do_not_delete_subnets': []}
+
+        self.lbaas_builder.assure_service(service,
+                                          traffic_group,
+                                          all_subnet_hints)
+
+        if self.network_builder:
+            start_time = time()
+            try:
+                self.network_builder.post_service_networking(
+                    service, all_subnet_hints)
+            except NeutronException as exc:
+                LOG.error("post_service_networking exception: %s"
+                          % str(exc.msg))
+            except Exception as exc:
+                LOG.error("post_service_networking exception: %s"
+                          % str(exc.message))
+            LOG.debug("    _post_service_networking took %.5f secs" %
+                      (time() - start_time))
+
+        start_time = time()
+        self.tenant_manager.assure_tenant_cleanup(service, all_subnet_hints)
+        LOG.debug("    _assure_tenant_cleanup took %.5f secs" %
+                  (time() - start_time))
+
         self._update_service_status(service)
 
     def _update_service_status(self, service):
@@ -828,34 +1050,45 @@ class iControlDriver(LBaaSBaseDriver):
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
 
-    def _service_to_traffic_group(self, service):
-        """Hash service tenant id to index of traffic group """
-        pass
+    def service_to_traffic_group(self, service):
+        # Hash service tenant id to index of traffic group
+        return self.tenant_to_traffic_group(
+            service['loadbalancer']['tenant_id'])
 
     def tenant_to_traffic_group(self, tenant_id):
-        """Hash tenant id to index of traffic group """
-        pass
+        # Hash tenant id to index of traffic group
+        hexhash = hashlib.md5(tenant_id).hexdigest()
+        tg_index = int(hexhash, 16) % len(self.__traffic_groups)
+        return self.__traffic_groups[tg_index]
 
     def get_bigip(self):
-        """Get one consistent big-ip """
-        pass
+        # Get one consistent big-ip
+        hostnames = sorted(self.__bigips)
+        for i in range(len(hostnames)):
+            try:
+                bigip = self.__bigips[hostnames[i]]
+                return bigip
+            except urllib2.URLError:
+                pass
+        raise urllib2.URLError('cannot communicate to any bigips')
 
     def get_bigip_hosts(self):
-        """Get all big-ips hostnames under management """
+        # Get all big-ips hostnames under management
         return self.__bigips
 
     def get_all_bigips(self):
-        """Get all big-ips under management """
-        # return self.__bigips.values()
-        pass
+        # Get all big-ips under management
+        return self.__bigips.values()
 
     def get_config_bigips(self):
         # Return a list of big-ips that need to be configured.
-        # In replication sync mode, we configure all big-ips
-        # individually. In autosync mode we only use one big-ip
-        # and then sync the configuration to the other big-ips.
-
-        pass
+        #    In replication sync mode, we configure all big-ips
+        #    individually. In autosync mode we only use one big-ip
+        #    and then sync the configuration to the other big-ips.
+        if self.conf.f5_sync_mode == 'replication':
+            return self.get_all_bigips()
+        else:
+            return [self.get_bigip()]
 
     def get_inbound_throughput(self, bigip, global_statistics=None):
         pass
@@ -891,20 +1124,54 @@ class iControlDriver(LBaaSBaseDriver):
         pass
 
     def _init_traffic_groups(self, bigip):
-        pass
+        self.__traffic_groups = self.cluster_manager.get_traffic_groups(bigip)
+        if 'traffic-group-local-only' in self.__traffic_groups:
+            self.__traffic_groups.remove('traffic-group-local-only')
+        self.__traffic_groups.sort()
 
     def sync_if_clustered(self):
-        """sync device group if not in replication mode """
-        pass
+        # sync device group if not in replication mode
+        if self.conf.f5_ha_type == 'standalone' or \
+                self.conf.f5_sync_mode == 'replication' or \
+                len(self.get_all_bigips()) < 2:
+            return
+        bigip = self.get_bigip()
+        self._sync_with_retries(bigip)
 
     def _sync_with_retries(self, bigip, force_now=False,
                            attempts=4, retry_delay=130):
-        """sync device group """
-        pass
+        # sync device group
+        for attempt in range(1, attempts + 1):
+            LOG.debug('Syncing Cluster... attempt %d of %d'
+                      % (attempt, attempts))
+            try:
+                if attempt != 1:
+                    force_now = False
+                self.cluster_manager.sync(bigip.device_group_name,
+                                          force_now=force_now)
+                LOG.debug('Cluster synced.')
+                return
+            except Exception as exc:
+                LOG.error('ERROR: Cluster sync failed: %s' % exc)
+                if attempt == attempts:
+                    raise
+                LOG.error('Wait another %d seconds for devices '
+                          'to recover from failed sync.' % retry_delay)
+                greenthread.sleep(retry_delay)
 
 
-def _validate_bigip_version(bigip, hostname):
-    """Ensure the BIG-IP has sufficient version """
-    major_version = "12"
-    minor_version = "0"
-    return major_version, minor_version
+    def _validate_bigip_version(self, bigip, hostname):
+        # Ensure the BIG-IP has sufficient version
+        major_version = self.system_helper.get_major_version(bigip)
+        if major_version < f5const.MIN_TMOS_MAJOR_VERSION:
+            raise f5ex.MajorVersionValidateFailed(
+                'Device %s must be at least TMOS %s.%s'
+                % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
+                   f5const.MIN_TMOS_MINOR_VERSION))
+        minor_version = self.system_helper.get_minor_version(bigip)
+        if minor_version < f5const.MIN_TMOS_MINOR_VERSION:
+            raise f5ex.MinorVersionValidateFailed(
+                'Device %s must be at least TMOS %s.%s'
+                % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
+                   f5const.MIN_TMOS_MINOR_VERSION))
+        return major_version, minor_version
