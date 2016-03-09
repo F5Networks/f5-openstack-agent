@@ -90,19 +90,24 @@ class ServiceModelAdapter(object):
                                                       healthmonitor)
 
     @staticmethod
-    def get_partition(service):
+    def get_folder(service):
 
         loadbalancer = service["loadbalancer"]
-        tenant_id = None
+        folder = None
+
         if "tenant_id" in loadbalancer:
             tenant_id = loadbalancer["tenant_id"]
-        folder_name = ServiceModelAdapter.get_folder_name(tenant_id)
-
-        folder = {"name": folder_name,
-                  "subPath": "/",
-                  "fullPath": "/" + folder_name,
-                  "hidden": False,
-                  "inheritedDevicegroup": True}
+            folder_name = ServiceModelAdapter.get_folder_name(tenant_id)
+            folder = {"name": folder_name,
+                      "subPath": "/",
+                      "fullPath": "/" + folder_name,
+                      "hidden": False,
+                      "inheritedDevicegroup": True}
+            if "traffic_group" in loadbalancer:
+                folder['trafficGroup'] = loadbalancer["traffic_gropu"]
+                folder['inheritedTrafficGroup'] = False
+            else:
+                folder['inheritedTrafficGroup'] = True
 
         return folder
 
