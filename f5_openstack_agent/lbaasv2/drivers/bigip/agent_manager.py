@@ -455,12 +455,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             LOG.error("delete_member: Exception: %s" % exc.message)
 
     @log_helpers.log_method_call
-    def create_pool_health_monitor(self, context, health_monitor,
-                                   pool, service):
+    def create_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to create_pool_health_monitor."""
         try:
-            self.lbdriver.create_pool_health_monitor(health_monitor,
-                                                     pool, service)
+            self.lbdriver.create_health_monitor(health_monitor, service)
             self.cache.put(service, self.agent_host)
         except q_exception.NeutronException as exc:
             LOG.error("create_pool_health_monitor: NeutronException: %s"
@@ -471,17 +469,29 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
 
     @log_helpers.log_method_call
     def update_health_monitor(self, context, old_health_monitor,
-                              health_monitor, pool, service):
+                              health_monitor, service):
         """Handle RPC cast from plugin to update_health_monitor."""
         try:
             self.lbdriver.update_health_monitor(old_health_monitor,
                                                 health_monitor,
-                                                pool, service)
+                                                service
+            )
             self.cache.put(service, self.agent_host)
         except q_exception.NeutronException as exc:
             LOG.error("update_health_monitor: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("update_health_monitor: Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
+    def delete_health_monitor(self, context, health_monitor, service):
+        """Handle RPC cast from plugin to delete_health_monitor."""
+        try:
+            self.lbdriver.delete_health_monitor(health_monitor, service)
+            self.cache.put(service, self.agent_host)
+        except q_exception.NeutronException as exc:
+            LOG.error("delete_health_monitor: NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("delete_health_monitor: Exception: %s" % exc.message)
 
     @log_helpers.log_method_call
     def tunnel_update(self, context, **kwargs):

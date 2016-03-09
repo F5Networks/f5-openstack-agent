@@ -22,6 +22,7 @@ from neutron.common.exceptions import InvalidConfigurationOption
 from neutron.plugins.common import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 from oslo_config import cfg
+from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import \
@@ -459,9 +460,9 @@ class iControlDriver(LBaaSBaseDriver):
         """Delete pool member"""
         self._common_service_handler(service)
 
-    @serialized('create_pool_health_monitor')
+    @serialized('create_health_monitor')
     @is_connected
-    def create_pool_health_monitor(self, health_monitor, pool, service):
+    def create_health_monitor(self, health_monitor, service):
         """Create pool health monitor"""
         self._common_service_handler(service)
         return True
@@ -469,42 +470,15 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('update_health_monitor')
     @is_connected
     def update_health_monitor(self, old_health_monitor,
-                              health_monitor, pool, service):
+                              health_monitor, service):
         """Update pool health monitor"""
-        # The altered health monitor does not mark its
-        # status as PENDING_UPDATE properly.  Force it.
-        for i in range(len(service['pool']['health_monitors_status'])):
-            if service['pool']['health_monitors_status'][i]['monitor_id'] == \
-                    health_monitor['id']:
-                service['pool']['health_monitors_status'][i]['status'] = \
-                    plugin_const.PENDING_UPDATE
         self._common_service_handler(service)
         return True
 
-    @serialized('delete_pool_health_monitor')
+    @serialized('delete_health_monitor')
     @is_connected
-    def delete_pool_health_monitor(self, health_monitor, pool, service):
+    def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor"""
-        # Two behaviors of the plugin dictate our behavior here.
-        # 1. When a plug-in deletes a monitor that is not being
-        # used by a pool, it does not notify the drivers. Therefore,
-        # we need to aggresively remove monitors that are not in use.
-        # 2. When a plug-in deletes a monitor which is being
-        # used by one or more pools, it calls delete_pool_health_monitor
-        # against the driver that owns each pool, but it does not
-        # set status to PENDING_DELETE in the health_monitors_status
-        # list for the pool monitor. This may be a bug or perhaps this
-        # is intended to be a synchronous process.
-        #
-        # In contrast, when a pool monitor association is deleted, the
-        # PENDING DELETE status is set properly, so this code will
-        # run unnecessarily in that case.
-        for status in service['pool']['health_monitors_status']:
-            if status['monitor_id'] == health_monitor['id']:
-                # Signal to our own code that we should delete the
-                # pool health monitor. The plugin should do this.
-                status['status'] = plugin_const.PENDING_DELETE
-
         self._common_service_handler(service)
         return True
     # pylint: enable=unused-argument
@@ -766,37 +740,78 @@ class iControlDriver(LBaaSBaseDriver):
             service['loadbalancer']
         )
                                              
-    def _update_members_status(self, members):
+    def _update_member_status(self, members):
         """Update member status in OpenStack """
-        pass
+        print members
+        for member in members:
+            print member
+            if 'provisioning_status' in member:
+                provisioning_status = member['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                    provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_member_status(
+                            member['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    self.plugin_rpc.member_destroyed(
+                        member['id'])
 
-    def _update_pool_status(self, pool):
-        """Update pool status in OpenStack """
-        pass
-
-    def _update_health_monitor_status(self, service):
+    def _update_health_monitor_status(self, health_monitors):
         """Update pool monitor status in OpenStack """
-        pass
+        print health_monitors
+        for health_monitor in health_monitors:
+            print health_monitor
+            if 'provisioning_status' in health_monitor:
+                provisioning_status = health_monitor['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                    provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_health_monitor_status(
+                            health_monitor['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    print "DESTROYING HEALTH MONITOR"
+                    self.plugin_rpc.health_monitor_destroyed(health_monitor['id'])
 
+    @log_helpers.log_method_call
+    def _update_pool_status(self, pools):
+        """Update pool status in OpenStack """
+        for pool in pools:
+            if 'provisioning_status' in pool:
+                provisioning_status = pool['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                    provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_pool_status(
+                            pool['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    self.plugin_rpc.pool_destroyed(
+                        pool['id'])
+
+    @log_helpers.log_method_call
     def _update_listener_status(self, listeners):
         """Update listener status in OpenStack """
-
         for listener in listeners:
-            print listener
             if 'provisioning_status' in listener:
                 provisioning_status = listener['provisioning_status']
-            else:
-                return
             
-            if (provisioning_status == plugin_const.PENDING_CREATE or
-                provisioning_status == plugin_const.PENDING_UPDATE):
-                    self.plugin_rpc.update_listener_status(
-                        listener['id'],
-                        plugin_const.ACTIVE)
-            elif provisioning_status == plugin_const.PENDING_DELETE:
-                self.plugin_rpc.listener_destroyed(
-                    listener['id'])
-                
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                    provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_listener_status(
+                            listener['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    self.plugin_rpc.listener_destroyed(
+                        listener['id'])
+
+    @log_helpers.log_method_call                
     def _update_loadbalancer_status(self, loadbalancer):
         """Update loadbalancer status in OpenStack """
         provisioning_status = loadbalancer['provisioning_status']
