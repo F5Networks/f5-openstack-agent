@@ -38,6 +38,7 @@ class BigipTenantManager(object):
         self.driver = driver
         self.system_helper = SystemHelper()
         self.network_helper = NetworkHelper()
+        self.service_adapter = self.driver.service_adapter
 
     def assure_tenant_created(self, service):
         # Create tenant partition.
@@ -48,9 +49,9 @@ class BigipTenantManager(object):
 
         # create tenant folder
         for bigip in self.driver.get_config_bigips():
-            folder_name = ServiceModelAdapter.get_folder_name(tenant_id)
+            folder_name = self.service_adapter.get_folder_name(tenant_id)
             if not self.system_helper.folder_exists(bigip, folder_name):
-                folder = ServiceModelAdapter.get_folder(service)
+                folder = self.service_adapter.get_folder(service)
                 self.system_helper.create_folder(bigip, folder)
 
         # folder must sync before route domains are created.
@@ -59,7 +60,7 @@ class BigipTenantManager(object):
         # create tenant route domain
         if self.conf.use_namespaces:
             for bigip in self.driver.get_all_bigips():
-                folder_name = OBJ_PREFIX + tenant_id
+                folder_name = conf.environment_prefix + tenant_id
                 if not self.network_helper.route_domain_exists(bigip,
                                                                folder_name):
                     self.network_helper.create_route_domain(
@@ -81,8 +82,8 @@ class BigipTenantManager(object):
     def _assure_bigip_tenant_cleanup(self, bigip, service, subnet_hints):
         # if something was deleted check whether to do
         #    domain+folder teardown
-        tenant_id = service['pool']['tenant_id']
-        if service['pool']['status'] == plugin_const.PENDING_DELETE or \
+        tenant_id = service['loadbalancer']['tenant_id']
+        if service['loadbalancer']['provisioing_status'] == plugin_const.PENDING_DELETE or \
                 len(subnet_hints['check_for_delete_subnets']) > 0:
             existing_monitors = bigip.monitor.get_monitors(folder=tenant_id)
             existing_pools = bigip.pool.get_pools(folder=tenant_id)
@@ -108,7 +109,7 @@ class BigipTenantManager(object):
         self.system_helper.force_root_folder(bigip)
         sudslog.setLevel(std_logging.ERROR)
 
-        folder_name = ServiceModelAdapter.get_folder_name(tenant_id)
+        folder_name = self.service_adapter.get_folder_name(tenant_id)
         try:
             self.system_helper.delete_folder(bigip, folder_name)
         except f5ex.SystemDeleteException:
@@ -130,7 +131,7 @@ class BigipTenantManager(object):
         # is clearly the last change that needs to be synced.
         self.driver.sync_if_clustered()
         greenthread.sleep(5)
-        folder_name = ServiceModelAdapter.get_folder_name(tenant_id)
+        folder_name = self.service_adapter.get_folder_name(tenant_id)
         try:
             self.system_helper.delete_folder(bigip, folder_name)
         except f5ex.SystemDeleteException:

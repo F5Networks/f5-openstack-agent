@@ -27,6 +27,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import \
     LBaaSBaseDriver
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_service import \
     NetworkServiceBuilder
+from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
+    ServiceModelAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
@@ -162,7 +164,7 @@ OPTS = [
     ),
     cfg.StrOpt(
         'icontrol_hostname',
-        default="localhost",
+        default="10.190.5.7",
         help='The hostname (name or IP address) to use for iControl access'
     ),
     cfg.StrOpt(
@@ -239,6 +241,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.cluster_manager = None
         self.system_helper = None
         self.lbaas_builder = None
+        self.service_adapter = None
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -297,6 +300,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _init_bigip_managers(self):
 
+        self.service_adapter = ServiceModelAdapter(self.conf)
         self.tenant_manager = BigipTenantManager(self.conf, self)
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
@@ -878,9 +882,9 @@ class iControlDriver(LBaaSBaseDriver):
         # Assure that the service is configured on bigip(s)
         start_time = time()
 
-        # if not service['pool']:
-        #    LOG.error("_common_service_handler: Service pool is None")
-        #    return
+        if not service['loadbalancer']:
+            LOG.error("_common_service_handler: Service loadbalancer is None")
+            return
 
         self.tenant_manager.assure_tenant_created(service)
         LOG.debug("    _assure_tenant_created took %.5f secs" %
@@ -888,6 +892,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         traffic_group = self.service_to_traffic_group(service)
 
+        LOG.debug("XXXXXXXXXX: traffic group created ")
         if self.network_builder:
             start_time = time()
             self.network_builder.prep_service_networking(
@@ -897,7 +902,7 @@ class iControlDriver(LBaaSBaseDriver):
                           "took %.5f secs" % (time() - start_time))
 
         all_subnet_hints = {}
-
+        LOG.debug("XXXXXXXXXX: getting bigip configs")
         for bigip in self.get_config_bigips():
             # check_for_delete_subnets:
             #     keep track of which subnets we should check to delete
@@ -908,9 +913,11 @@ class iControlDriver(LBaaSBaseDriver):
                 {'check_for_delete_subnets': {},
                  'do_not_delete_subnets': []}
 
+        LOG.debug("XXXXXXXXX: Pre assure service")
         self.lbaas_builder.assure_service(service,
                                           traffic_group,
                                           all_subnet_hints)
+        LOG.debug("XXXXXXXXX: Post assure service")
 
         if self.network_builder:
             start_time = time()

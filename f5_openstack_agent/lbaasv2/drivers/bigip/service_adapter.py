@@ -14,9 +14,8 @@
 #
 
 import hashlib
-from oslo_log import log as logging
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import utils
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
@@ -32,72 +31,68 @@ class ServiceModelAdapter(object):
     an LBaaS service objet.
     """
 
-    @staticmethod
-    def get_pool(service):
+    def __init__(self, conf):
+        """Initialize the service model adapter with config."""
+        self.conf = conf
+
+    def get_pool(self, service):
         pool = service["pool"]
         loadbalancer = service["loadbalancer"]
         healthmonitor = None
         if "healthmonitor" in service:
             healthmonitor = service["healthmonitor"]
 
-        return ServiceModelAdapter._map_pool(loadbalancer, pool, healthmonitor)
+        return self._map_pool(loadbalancer, pool, healthmonitor)
 
-    @staticmethod
-    def get_pool_name(service):
+    def get_pool_name(self, service):
         pool = service["pool"]
         loadbalancer = service["loadbalancer"]
 
         return {"name": pool["name"],
-                "partition": loadbalancer["partition"]}
+                "partition": self.get_folder_name(loadbalancer['tenant_id'])}
 
-    @staticmethod
-    def get_virtual(service):
+    def get_virtual(self, service):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
-        vip = ServiceModelAdapter._map_virtual(loadbalancer, listener)
-        ServiceModelAdapter._add_bigip_items(listener, vip)
+        vip = self._map_virtual(loadbalancer, listener)
+        self._add_bigip_items(listener, vip)
         return vip
 
-    @staticmethod
-    def get_virtual_name(service):
+    def get_virtual_name(self, service):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
         return {"name": listener["name"],
-                "partition": loadbalancer["partition"]}
+                "partition": self.get_folder_name(loadbalancer['tenant_id'])}
 
-    @staticmethod
-    def get_traffic_group(service):
+    def get_traffic_group(self, service):
         tg = None
         loadbalancer = service["loadbalancer"]
         if "traffic_group" in loadbalancer:
             listener = service["listener"]
             tg = {"name": listener["name"],
-                  "partition": loadbalancer["partition"],
+                  "partition": self.get_folder_name(loadbalancer['tenant_id']),
                   "traffic_group": loadbalancer["traffic_group"]}
 
         return tg
 
-    @staticmethod
-    def get_member_attributes(service):
+    def get_member_attributes(self, service):
         pass
 
-    @staticmethod
-    def get_healthmonitor(service):
+    def get_healthmonitor(self, service):
         healthmonitor = service["healthmonitor"]
         loadbalancer = service["loadbalancer"]
-        return ServiceModelAdapter._map_healthmonitor(loadbalancer,
-                                                      healthmonitor)
+        return self._map_healthmonitor(loadbalancer,
+                                       healthmonitor)
 
-    @staticmethod
-    def get_folder(service):
+    def get_folder(self, service):
 
         loadbalancer = service["loadbalancer"]
         folder = None
 
         if "tenant_id" in loadbalancer:
             tenant_id = loadbalancer["tenant_id"]
-            folder_name = ServiceModelAdapter.get_folder_name(tenant_id)
+            folder_name = self.get_folder_name(tenant_id)
             folder = {"name": folder_name,
                       "subPath": "/",
                       "fullPath": "/" + folder_name,
@@ -111,33 +106,21 @@ class ServiceModelAdapter(object):
 
         return folder
 
-    @staticmethod
-    def set_partition(service):
-        loadbalancer = service["loadbalancer"]
-        tenant_id = None
-        if "tenant_id" in loadbalancer:
-            tenant_id = loadbalancer["tenant_id"]
-        loadbalancer["partition"] = ServiceModelAdapter.\
-            get_folder_name(tenant_id)
-
-    @staticmethod
-    def get_folder_name(tenant_id):
+    def get_folder_name(self, tenant_id):
         if tenant_id is not None:
-            name = utils.OBJ_PREFIX + tenant_id.replace('/', '')
+            name = self.conf.environment_prefix + tenant_id.replace('/', '')
         else:
             name = "Common"
 
         return name
 
-    @staticmethod
-    def tenant_to_traffic_group(tenant_id, traffic_groups):
+    def tenant_to_traffic_group(self, tenant_id, traffic_groups):
         # Hash tenant id to index of traffic group
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(traffic_groups)
         return traffic_groups[tg_index]
 
-    @staticmethod
-    def _map_healthmonitor(lbaas_healthmonitor, healthmonitor):
+    def _map_healthmonitor(self, lbaas_healthmonitor, healthmonitor):
         # always expect these two
         healthmonitor["name"] = lbaas_healthmonitor["id"]
         healthmonitor["partition"] = lbaas_healthmonitor["partition"]
@@ -145,20 +128,20 @@ class ServiceModelAdapter(object):
         # type
         if "type" in lbaas_healthmonitor:
             # healthmonitor["type"] = lbaas_healthmonitor["type"].lower()
-            if lbaas_healthmonitor["type"] == "HTTP" or \
-                    lbaas_healthmonitor["type"] == "HTTPS":
+            if (lbaas_healthmonitor["type"] == "HTTP" or
+                    lbaas_healthmonitor["type"] == "HTTPS"):
 
                 # url path
                 if "url_path" in lbaas_healthmonitor:
-                    healthmonitor["send"] = "GET " +\
-                        lbaas_healthmonitor["url_path"] +\
-                        " HTTP/1.0\\r\\n\\r\\n"
+                    healthmonitor["send"] = ("GET " +
+                                             lbaas_healthmonitor["url_path"] +
+                                             " HTTP/1.0\\r\\n\\r\\n")
                 else:
                     healthmonitor["send"] = "GET / HTTP/1.0\\r\\n\\r\\n"
 
                 # expected codes
-                healthmonitor["recv"] = ServiceModelAdapter.\
-                    _get_recv_text(lbaas_healthmonitor)
+                healthmonitor["recv"] = self._get_recv_text(
+                    lbaas_healthmonitor)
 
         # interval - delay
         if "delay" in lbaas_healthmonitor:
@@ -167,17 +150,16 @@ class ServiceModelAdapter(object):
         # timeout
         if "timeout" in lbaas_healthmonitor:
             if "max_retries" in lbaas_healthmonitor:
-                timeout = int(lbaas_healthmonitor["max_retries"]) *\
-                    int(lbaas_healthmonitor["timeout"])
+                timeout = (int(lbaas_healthmonitor["max_retries"]) *
+                           int(lbaas_healthmonitor["timeout"]))
                 healthmonitor["timeout"] = timeout
 
-    @staticmethod
-    def _get_recv_text(lbaas_healthmonitor):
+    def _get_recv_text(self, lbaas_healthmonitor):
         if "expected_codes" in lbaas_healthmonitor:
             try:
                 if lbaas_healthmonitor['expected_codes'].find(",") > 0:
-                    status_codes = lbaas_healthmonitor['expected_codes'].\
-                        split(',')
+                    status_codes = (
+                        lbaas_healthmonitor['expected_codes'].split(','))
                     recv_text = "HTTP/1.(0|1) ("
                     for status in status_codes:
                         int(status)
@@ -185,15 +167,17 @@ class ServiceModelAdapter(object):
                     recv_text = recv_text[:-1]
                     recv_text += ")"
                 elif lbaas_healthmonitor['expected_codes'].find("-") > 0:
-                    status_range = lbaas_healthmonitor['expected_codes'].\
-                        split('-')
+                    status_range = (
+                        lbaas_healthmonitor['expected_codes'].split('-'))
                     start_range = status_range[0]
                     int(start_range)
                     stop_range = status_range[1]
                     int(stop_range)
-                    recv_text = "HTTP/1.(0|1) [" + \
-                        start_range + "-" + \
+                    recv_text = (
+                        "HTTP/1.(0|1) [" +
+                        start_range + "-" +
                         stop_range + "]"
+                    )
                 else:
                     int(lbaas_healthmonitor['expected_codes'])
                     recv_text = "HTTP/1.(0|1) " +\
@@ -208,27 +192,26 @@ class ServiceModelAdapter(object):
 
         return recv_text
 
-    @staticmethod
-    def get_monitor_type(service):
+    def get_monitor_type(self, service):
         monitor_type = None
         lbaas_healthmonitor = service["healthmonitor"]
         if "type" in lbaas_healthmonitor:
             monitor_type = lbaas_healthmonitor["type"]
         return monitor_type
 
-    @staticmethod
-    def _map_pool(loadbalancer, lbaas_pool, lbaas_hm):
+    def _map_pool(self, loadbalancer, lbaas_pool, lbaas_hm):
         pool = dict()
 
         # always expect these two
         pool["name"] = lbaas_pool["name"]
-        pool["partition"] = loadbalancer["partition"]
+
+        pool["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
 
         if "description" in lbaas_pool:
             pool["description"] = lbaas_pool["description"]
 
         if "lb_algorithm" in lbaas_pool:
-            pool["loadBalancingMode"] = ServiceModelAdapter._get_lb_method(
+            pool["loadBalancingMode"] = self._get_lb_method(
                 lbaas_pool["lb_algorithm"])
 
         if lbaas_hm is not None:
@@ -236,8 +219,7 @@ class ServiceModelAdapter(object):
 
         return pool
 
-    @staticmethod
-    def _get_lb_method(method):
+    def _get_lb_method(self, method):
         lb_method = method.upper()
 
         if lb_method == 'LEAST_CONNECTIONS':
@@ -255,12 +237,11 @@ class ServiceModelAdapter(object):
         else:
             return 'round-robin'
 
-    @staticmethod
-    def _map_virtual(loadbalancer, listener):
+    def _map_virtual(self, loadbalancer, listener):
         vip = {}
         # always expect these two
         vip["name"] = listener["name"]
-        vip["partition"] = loadbalancer["partition"]
+        vip["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
 
         # TODO(jl) future work to handle TERMINATED_HTTPS, SNI containers
 
@@ -308,19 +289,17 @@ class ServiceModelAdapter(object):
 
         return vip
 
-    @staticmethod
-    def _add_bigip_items(listener, vip):
+    def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
 
         virtual_type = 'fastl4'
         if 'protocol' in listener:
-            if listener['protocol'] == 'HTTP' or \
-               listener['protocol'] == 'HTTPS':
+            if (listener['protocol'] == 'HTTP' or
+               listener['protocol'] == 'HTTPS'):
                 virtual_type = 'standard'
 
         if 'session_persistence' in listener:
-            if listener['session_persistence'] == \
-               'APP_COOKIE':
+            if listener['session_persistence'] == 'APP_COOKIE':
                 virtual_type = 'standard'
 
         if virtual_type == 'fastl4':

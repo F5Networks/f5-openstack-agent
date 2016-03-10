@@ -49,7 +49,7 @@ OPTS = [
     ),
     cfg.BoolOpt(
         'f5_global_routed_mode',
-        default=False,
+        default=True,
         help=('Disable all L2 and L3 integration in favor of global routing')
     ),
     cfg.BoolOpt(
@@ -266,7 +266,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
                 return
         except ImportError as ie:
             msg = ('Error importing loadbalancer device driver: %s error %s'
-                   % (conf.f5_bigip_lbaas_device_drver, repr(ie)))
+                   % (conf.f5_bigip_lbaas_device_driver, repr(ie)))
             LOG.error(msg)
             raise SystemExit(msg)
 
@@ -474,8 +474,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         try:
             self.lbdriver.update_health_monitor(old_health_monitor,
                                                 health_monitor,
-                                                service
-            )
+                                                service)
             self.cache.put(service, self.agent_host)
         except q_exception.NeutronException as exc:
             LOG.error("update_health_monitor: NeutronException: %s" % exc.msg)
