@@ -13,14 +13,8 @@
 # limitations under the License.
 #
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from oslo_log import log as logging
-
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
-    import BigIPResourceHelper
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
-    import ResourceType
-from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter \
-    import ServiceModelAdapter
 
 LOG = logging.getLogger(__name__)
 
@@ -32,8 +26,11 @@ class ListenerServiceBuilder(object):
     objects on one or more BIG-IP systems. Maps LBaaS listener
     defined in service object to a BIG-IP virtual server.
     """
-    def __init__(self):
-        self.vs_manager = BigIPResourceHelper(ResourceType.virtual)
+
+    def __init__(self, service_adapter):
+        self.vs_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual)
+        self.service_adapter = service_adapter
 
     def create_listener(self, service, bigips):
         """Create listener on set of BIG-IPs.
@@ -45,14 +42,14 @@ class ListenerServiceBuilder(object):
         and load balancer definition.
         :param bigips: Array of BigIP class instances to create Listener.
         """
-        vip = ServiceModelAdapter.get_virtual(service)
+        vip = self.service_adapter.get_virtual(service)
 
         for bigip in bigips:
             self.vs_manager.create(bigip, vip)
 
         # Traffic group is added after create in order to take adavantage
         # of BIG-IP defaults.
-        traffic_group = ServiceModelAdapter.get_traffic_group(service)
+        traffic_group = self.service_adapter.get_traffic_group(service)
         if traffic_group:
             for bigip in bigips:
                 self.vs_manager.update(bigip, traffic_group)
@@ -64,13 +61,13 @@ class ListenerServiceBuilder(object):
         and load balancer definition.
         :param bigip: Array of BigIP class instances to create Listener.
         """
-        vip = ServiceModelAdapter.get_virtual_name(service)
+        vip = self.service_adapter.get_virtual_name(service)
         return self.vs_manager.load(bigip=bigip,
                                     name=vip["name"],
                                     partition=vip["partition"])
 
     def delete_listener(self, service, bigips):
-        """Deletes Listener from a set of BIG-IP systems.
+        """Delete Listener from a set of BIG-IP systems.
 
         Deletes virtual server that represents a Listener object.
 
@@ -78,14 +75,14 @@ class ListenerServiceBuilder(object):
         and load balancer definition.
         :param bigips: Array of BigIP class instances to delete Listener.
         """
-        vip = ServiceModelAdapter.get_virtual_name(service)
+        vip = self.service_adapter.get_virtual_name(service)
         for bigip in bigips:
             self.vs_manager.delete(bigip,
                                    name=vip["name"],
                                    partition=vip["partition"])
 
     def updatelistener(self, service, bigips):
-        """Updates Listener from a single BIG-IP system.
+        """Update Listener from a single BIG-IP system.
 
         Updates virtual servers that represents a Listener object.
 
@@ -93,7 +90,7 @@ class ListenerServiceBuilder(object):
         and load balancer definition.
         :param bigips: Array of BigIP class instances to update.
         """
-        vip = ServiceModelAdapter.get_virtual(service)
+        vip = self.service_adapter.get_virtual(service)
 
         for bigip in bigips:
             self.vs_manager.update(bigip, vip)

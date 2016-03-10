@@ -191,10 +191,11 @@ class LBaaSv2PluginRPC(object):
         )
 
     @log_helpers.log_method_call
-    def update_health_monitor_status(self,
-                             health_monitor_id,
-                             provisioning_status,
-                             operating_status):
+    def update_health_monitor_status(
+            self,
+            health_monitor_id,
+            provisioning_status,
+            operating_status):
         """Update the database with health_monitor status."""
         return self._cast(
             self.context,
@@ -214,4 +215,3 @@ class LBaaSv2PluginRPC(object):
                            healthmonitor_id=healthmonitor_id),
             topic=self.topic
         )
-        

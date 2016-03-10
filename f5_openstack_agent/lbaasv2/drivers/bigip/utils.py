@@ -45,7 +45,7 @@ def serialized(method_name):
             service = None
             if len(args) > 0:
                 last_arg = args[-1]
-                if isinstance(last_arg, dict) and ('pool' in last_arg):
+                if isinstance(last_arg, dict) and ('loadbalancer' in last_arg):
                     service = last_arg
             if 'service' in kwargs:
                 service = kwargs['service']
