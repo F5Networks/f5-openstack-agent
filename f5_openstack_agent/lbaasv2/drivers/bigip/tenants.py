@@ -23,10 +23,7 @@ import logging as std_logging
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
-from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
-    ServiceModelAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import OBJ_PREFIX
 
 LOG = logging.getLogger(__name__)
 
@@ -60,7 +57,7 @@ class BigipTenantManager(object):
         # create tenant route domain
         if self.conf.use_namespaces:
             for bigip in self.driver.get_all_bigips():
-                folder_name = conf.environment_prefix + tenant_id
+                folder_name = self.conf.environment_prefix + tenant_id
                 if not self.network_helper.route_domain_exists(bigip,
                                                                folder_name):
                     self.network_helper.create_route_domain(

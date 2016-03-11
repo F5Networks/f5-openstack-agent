@@ -13,13 +13,14 @@
 # limitations under the License.
 #
 
-import time
+from time import time
 
 from oslo_log import log as logging
 
 from neutron.plugins.common import constants as plugin_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import listener_service
+from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
 
 LOG = logging.getLogger(__name__)
 
@@ -34,120 +35,135 @@ class LBaaSBuilder(object):
         self.l2_service = l2_service
         self.service_adapter = driver.service_adapter
         self.listener_builder = listener_service.ListenerServiceBuilder(
+            self.service_adapter)
+        self.pool_builder = pool_service.PoolServiceBuilder(
             self.service_adapter
         )
 
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
-        # Assure that the service is configured
 
-        self._assure_loadbalancer_create(service)
+        start_time = time()
 
-        self._assure_listener_create(service)
+        self._assure_loadbalancer_created(service)
 
-        # start_time = time.time()
-        # self._assure_pool_create(service['pool'])
-        # LOG.debug("    _assure_pool_create took %.5f secs" %
-        #           (time.time() - start_time))
+        self._assure_listeners_created(service)
 
-        # start_time = time.time()
-        # self._assure_pool_monitors(service)
-        # LOG.debug("    _assure_pool_monitors took %.5f secs" %
-        #           (time.time() - start_time))
+        self._assure_pools_created(service)
 
-        # start_time = time.time()
-        # self._assure_members(service, all_subnet_hints)
-        # LOG.debug("    _assure_members took %.5f secs" %
-        #           (time.time() - start_time))
+        self._assure_monitors(service)
 
-        start_time = time.time()
-        self._assure_pool_delete(service)
-        LOG.debug("    _assure_pool_delete took %.5f secs" %
-                  (time.time() - start_time))
+        self._assure_members(service, all_subnet_hints)
 
-        start_time = time.time()
-        self._assure_loadbalancer_delete(service)
-        LOG.debug("    _assure_loadbalancer_delete took %.5f secs" %
-                  (time.time() - start_time))
+        self._assure_pools_deleted(service)
 
-        self._assure_listener_delete(service)
+        self._assure_listeners_deleted(service)
 
+        self._assure_loadbalancer_deleted(service)
+
+        LOG.debug("    _assure_service took %.5f secs" %
+                  (time() - start_time))
         return all_subnet_hints
 
-    def _assure_loadbalancer_create(self, service):
-        if not service['loadbalancer']:
+    def _assure_loadbalancer_created(self, service):
+        if 'loadbalancer' not in service:
             return
 
-    def _assure_listener_create(self, service):
+    def _assure_listeners_created(self, service):
+        if 'listeners' not in service:
+            return
 
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_all_bigips()
 
         for listener in listeners:
-            # create a service object in form expected by builder
             svc = {"loadbalancer": loadbalancer,
                    "listener": listener}
+            if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
+                self.listener_builder.create_listener(svc, bigips)
 
-            # create
-            self.listener_builder.create_listener(svc, bigips)
+    def _assure_pools_created(self, service):
+        if "pools" not in service:
+            return
 
-    def _assure_listener_delete(self, service):
-
-        listeners = service["listeners"]
+        pools = service["pools"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_all_bigips()
 
-        for listener in listeners:
-            # Is the lister being deleted
-            if listener['provisioning_status'] == plugin_const.PENDING_DELETE:
-                # Create a service object in form expected by builder
-                svc = {"loadbalancer": loadbalancer,
-                       "listener": listener}
-                self.listener_builder.delete_listener(svc, bigips)
+        for pool in pools:
+            svc = {"loadbalancer": loadbalancer,
+                   "pool": pool}
+            if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
+                self.pool_builder.create_pool(svc, bigips)
 
-    def _assure_pool_create(self, pool):
-        # Provision Pool - Create/Update
-        # Service Layer (Shared Config)
-        # for bigip in self.driver.get_config_bigips():
-        #    self.bigip_pool_manager.assure_bigip_pool_create(bigip, pool)
-        pass
+    def _assure_monitors(self, service):
+        if not (("pools" in service) and ("healthmonitors" in service)):
+            return
 
-    def _assure_pool_monitors(self, service):
-        # Provision Health Monitors - Create/Update
-        # Service Layer (Shared Config)
-        # for bigip in self.driver.get_config_bigips():
-        #    self.bigip_pool_manager.assure_bigip_pool_monitors(bigip, service)
-        pass
+        monitors = service["healthmonitors"]
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_all_bigips()
+
+        for monitor in monitors:
+            svc = {"loadbalancer": loadbalancer,
+                   "healthmonitor": monitor,
+                   "pool": self._get_pool_by_id(service, monitor["pool_id"])}
+            if monitor['provisioning_status'] == plugin_const.PENDING_DELETE:
+                self.pool_builder.delete_healthmonitor(svc, bigips)
+            else:
+                self.pool_builder.create_healthmonitor(svc, bigips)
 
     def _assure_members(self, service, all_subnet_hints):
-        # Service Layer (Shared Config)
-        # for bigip in self.driver.get_config_bigips():
-        #    subnet_hints = all_subnet_hints[bigip.device_name]
-        #    self.bigip_pool_manager.assure_bigip_members(
-        #        bigip, service, subnet_hints)
+        if not (("pools" in service) and ("members" in service)):
+            return
 
-        # avoids race condition:
-        # deletion of pool member objects must sync before we
-        # remove the selfip from the peer bigips.
-        self.driver.sync_if_clustered()
+        members = service["members"]
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_all_bigips()
 
-    def _assure_loadbalancer_delete(self, service):
+        for member in members:
+            svc = {"loadbalancer": loadbalancer,
+                   "member": member,
+                   "pool": self._get_pool_by_id(service, member["pool_id"])}
+            if member['provisioning_status'] == plugin_const.PENDING_DELETE:
+                self.pool_builder.delete_member(svc, bigips)
+            else:
+                self.pool_builder.create_member(svc, bigips)
+
+    def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
                 plugin_const.PENDING_DELETE):
             return
 
-    def _assure_pool_delete(self, service):
-        # Assure pool is deleted from big-ip
-        if 'pool' not in service:
+    def _assure_pools_deleted(self, service):
+        if 'pools' not in service:
             return
 
-        if service['pool']['status'] != plugin_const.PENDING_DELETE:
+        pools = service["pools"]
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_all_bigips()
+
+        for pool in pools:
+            # Is the pool being deleted?
+            if pool['provisioning_status'] == plugin_const.PENDING_DELETE:
+                svc = {"loadbalancer": loadbalancer,
+                       "pool": pool}
+                self.pool_builder.delete_pool(svc, bigips)
+
+    def _assure_listeners_deleted(self, service):
+        if 'listeners' not in service:
             return
 
-        # Service Layer (Shared Config)
-        # for bigip in self.driver.get_config_bigips():
-        #    self.bigip_pool_manager.assure_bigip_pool_delete(bigip, service)
+        listeners = service["listeners"]
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_all_bigips()
+
+        for listener in listeners:
+            svc = {"loadbalancer": loadbalancer,
+                   "listener": listener}
+            if listener['provisioning_status'] == plugin_const.PENDING_DELETE:
+                self.listener_builder.delete_listener(svc, bigips)
 
     def _check_monitor_delete(self, service):
         # If the pool is being deleted, then delete related objects
@@ -159,3 +175,10 @@ class LBaaSBuilder(object):
                 member['status'] = plugin_const.PENDING_DELETE
             for monitor in service['pool']['health_monitors_status']:
                 monitor['status'] = plugin_const.PENDING_DELETE
+
+    def _get_pool_by_id(self, service, id):
+        pools = service["pools"]
+        for pool in pools:
+            if pool["id"] == id:
+                return pool
+        return None

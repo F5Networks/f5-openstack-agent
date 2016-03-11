@@ -19,7 +19,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
     BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
     ResourceType
-from service_adapter import ServiceModelAdapter
 
 LOG = logging.getLogger(__name__)
 
@@ -31,11 +30,11 @@ class PoolServiceBuilder(object):
     health monitors, and members on one or more BIG-IP systems.
     """
 
-    def __init__(self):
+    def __init__(self, service_adapter):
+        self.service_adapter = service_adapter
         self.http_mon_helper = BigIPResourceHelper(ResourceType.http_monitor)
         self.https_mon_helper = BigIPResourceHelper(ResourceType.https_monitor)
         self.tcp_mon_helper = BigIPResourceHelper(ResourceType.tcp_monitor)
-        self.member_helper = BigIPResourceHelper(ResourceType.member)
         self.pool_helper = BigIPResourceHelper(ResourceType.pool)
 
     def create_pool(self, service, bigips):
@@ -47,7 +46,7 @@ class PoolServiceBuilder(object):
         and load balancer definition.
         :param bigips: Array of BigIP class instances to create Listener.
         """
-        pool = ServiceModelAdapter.get_pool(service)
+        pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
             self.pool_helper.create(bigip, pool)
 
@@ -60,7 +59,7 @@ class PoolServiceBuilder(object):
         and load balancer definition.
         :param bigips: Array of BigIP class instances to delete pool.
         """
-        pool = ServiceModelAdapter.get_pool(service)
+        pool = self.service_adapter.get_pool(service)
 
         for bigip in bigips:
             # TODO(jl) handle deleting members, monitors
@@ -89,30 +88,30 @@ class PoolServiceBuilder(object):
         and load balancer definition.
         :param bigip: Array of BigIP class instances to create Listener.
         """
-        pool = ServiceModelAdapter.get_pool(service)
+        pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
             self.pool_helper.update(bigip, pool)
 
     def create_healthmonitor(self, service, bigips):
         # create member
-        hm = ServiceModelAdapter.get_healthmonitor(service)
+        hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
 
         for bigip in bigips:
             hm_helper.create(bigip, hm)
 
         # update pool with new health monitor
-        pool = ServiceModelAdapter.get_pool(service)
+        pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
             self.pool_helper.update(bigip, pool)
 
     def delete_healthmonitor(self, service, bigips):
         # delete health monitor
-        hm = ServiceModelAdapter.get_healthmonitor(service)
+        hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
 
         # update pool
-        pool = ServiceModelAdapter.get_pool(service)
+        pool = self.service_adapter.get_pool(service)
         pool["monitor"] = ""
 
         for bigip in bigips:
@@ -122,41 +121,58 @@ class PoolServiceBuilder(object):
             self.pool_helper.update(bigip, pool)
 
     def update_healthmonitor(self, service, bigips):
-        hm = ServiceModelAdapter.get_healthmonitor(service)
+        hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
         for bigip in bigips:
             hm_helper.delete(bigip,
                              name=hm["name"],
                              partition=hm["partition"])
 
+    # Note: can't use BigIPResourceHelper class because members
+    # are created within pool objects. Following member methods
+    # use the F5 SDK directly.
     def create_member(self, service, bigips):
-        # create health monitor
-        member = ServiceModelAdapter.get_member_attributes(service)
+        pool = self.service_adapter.get_pool(service)
+        member = self.service_adapter.get_member(service)
         for bigip in bigips:
-            self.member_helper.create(bigip, member)
-
-        # update pool with new health monitor
-        pool = ServiceModelAdapter.get_pool(service)
-        for bigip in bigips:
-            self.pool_helper.update(bigip, pool)
+            part = pool["partition"]
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
+            m = p.members_s.members
+            # TODO(jl) update if exists?
+            m.create(**member)
 
     def delete_member(self, service, bigips):
-
-        member = ServiceModelAdapter.get_member_attributes(service)
+        pool = self.service_adapter.get_pool(service)
+        member = self.service_adapter.get_member(service)
         for bigip in bigips:
-            self.member_helper.delete(bigip,
-                                      name=member["name"],
-                                      partition=member["partition"])
+            part = pool["partition"]
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
+            m = p.members_s.members
+            if m.exists(name=member["name"], partition=part):
+                m = m.load(name=member["name"], partition=part)
+                m.delete()
 
     def update_member(self, service, bigips):
-        member = ServiceModelAdapter.get_member_attributes(service)
+        pool = self.service_adapter.get_pool(service)
+        member = self.service_adapter.get_member(service)
         for bigip in bigips:
-            self.member_helper.delete(bigip,
-                                      name=member["name"],
-                                      partition=member["partition"])
+            part = pool["partition"]
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
+            m = p.members_s.members
+
+            # TODO(jl) handle state -- SDK enforces at least state=None
+            if m.exists(name=member["name"], partition=part):
+                m = m.load(name=member["name"], partition=part)
+                m.update(**member)
 
     def _get_monitor_helper(self, service):
-        monitor_type = ServiceModelAdapter.get_monitor_type(service)
+        monitor_type = self.service_adapter.get_monitor_type(service)
         if monitor_type == "HTTPS":
             hm = self.https_mon_helper
         elif monitor_type == "TCP":
