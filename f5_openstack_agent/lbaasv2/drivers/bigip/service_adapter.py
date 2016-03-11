@@ -76,8 +76,10 @@ class ServiceModelAdapter(object):
 
         return tg
 
-    def get_member_attributes(self, service):
-        pass
+    def get_member(self, service):
+        loadbalancer = service["loadbalancer"]
+        member = service["member"]
+        return self._map_member(loadbalancer, member)
 
     def get_healthmonitor(self, service):
         healthmonitor = service["healthmonitor"]
@@ -120,10 +122,13 @@ class ServiceModelAdapter(object):
         tg_index = int(hexhash, 16) % len(traffic_groups)
         return traffic_groups[tg_index]
 
-    def _map_healthmonitor(self, lbaas_healthmonitor, healthmonitor):
+    def _map_healthmonitor(self, loadbalancer, lbaas_healthmonitor):
+        healthmonitor = {}
+
         # always expect these two
-        healthmonitor["name"] = lbaas_healthmonitor["id"]
-        healthmonitor["partition"] = lbaas_healthmonitor["partition"]
+        healthmonitor["name"] = "hm_" + lbaas_healthmonitor["id"]
+        healthmonitor["partition"] = \
+            self.get_folder_name(loadbalancer['tenant_id'])
 
         # type
         if "type" in lbaas_healthmonitor:
@@ -153,6 +158,8 @@ class ServiceModelAdapter(object):
                 timeout = (int(lbaas_healthmonitor["max_retries"]) *
                            int(lbaas_healthmonitor["timeout"]))
                 healthmonitor["timeout"] = timeout
+
+        return healthmonitor
 
     def _get_recv_text(self, lbaas_healthmonitor):
         if "expected_codes" in lbaas_healthmonitor:
@@ -215,7 +222,7 @@ class ServiceModelAdapter(object):
                 lbaas_pool["lb_algorithm"])
 
         if lbaas_hm is not None:
-            pool["monitor"] = lbaas_hm["monitor_id"]
+            pool["monitor"] = "hm_" + lbaas_hm["id"]
 
         return pool
 
@@ -325,3 +332,15 @@ class ServiceModelAdapter(object):
                 vip['sourceAddressTranslation']['pool'] = vip["snat_pool_name"]
             else:
                 vip['sourceAddressTranslation']['type'] = 'automap'
+
+    def _map_member(self, loadbalancer, lbaas_member):
+        member = {}
+        port = lbaas_member["protocol_port"]
+        ip_address = lbaas_member["address"]
+        if ':' in ip_address:
+            member['name'] = ip_address + '.' + str(port)
+        else:
+            member['name'] = ip_address + ':' + str(port)
+        member["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
+        member["address"] = ip_address
+        return member
