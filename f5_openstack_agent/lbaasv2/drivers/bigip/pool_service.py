@@ -203,18 +203,16 @@ class PoolServiceBuilder(object):
                                             err.message))
                 continue
 
-            if member_exists:
-                LOG.debug("Member %s already created: " % member["name"])
-            else:
-                try:
-                    m.create(**member)
-                except HTTPError as err:
-                    LOG.error("Error creating member %s on BIG-IP %s. "
-                              "Repsponse status code: %s. Response "
-                              "message: %s." % (member["name"],
-                                                bigip.device_name,
-                                                err.response.status_code,
-                                                err.message))
+            #if not member_exists:
+            try:
+                m.create(**member)
+            except HTTPError as err:
+                LOG.error("Error creating member %s on BIG-IP %s. "
+                          "Repsponse status code: %s. Response "
+                          "message: %s." % (member["name"],
+                                            bigip.device_name,
+                                            err.response.status_code,
+                                            err.message))
 
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)

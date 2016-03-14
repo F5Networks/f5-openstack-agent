@@ -44,11 +44,13 @@ class ServiceModelAdapter(object):
 
         return self._map_pool(loadbalancer, pool, healthmonitor)
 
-    def get_pool_name(self, service):
-        pool = service["pool"]
-        loadbalancer = service["loadbalancer"]
+    def init_pool_name(self, loadbalancer, pool):
+        if "name" not in pool or not pool["name"]:
+            name = self.conf.environment_prefix + "_" + pool["id"]
+        else:
+            name = pool["name"]
 
-        return {"name": pool["name"],
+        return {"name": name,
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}
 
     def get_virtual(self, service):
@@ -58,21 +60,23 @@ class ServiceModelAdapter(object):
         self._add_bigip_items(listener, vip)
         return vip
 
-    def get_virtual_name(self, service):
-        listener = service["listener"]
-        loadbalancer = service["loadbalancer"]
+    def init_virtual_name(self, loadbalancer, listener):
+        if "name" not in listener or not listener["name"]:
+            name = self.conf.environment_prefix + "_" + listener["id"]
+        else:
+            name = listener["name"]
 
-        return {"name": listener["name"],
+        return {"name": name,
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}
 
     def get_traffic_group(self, service):
         tg = None
         loadbalancer = service["loadbalancer"]
+
         if "traffic_group" in loadbalancer:
             listener = service["listener"]
-            tg = {"name": listener["name"],
-                  "partition": self.get_folder_name(loadbalancer['tenant_id']),
-                  "traffic_group": loadbalancer["traffic_group"]}
+            tg = self.init_virtual_name(loadbalancer, listener)
+            tg["traffic_group"] = loadbalancer["traffic_group"]
 
         return tg
 
@@ -88,7 +92,6 @@ class ServiceModelAdapter(object):
                                        healthmonitor)
 
     def get_folder(self, service):
-
         loadbalancer = service["loadbalancer"]
         folder = None
 
@@ -110,7 +113,8 @@ class ServiceModelAdapter(object):
 
     def get_folder_name(self, tenant_id):
         if tenant_id is not None:
-            name = self.conf.environment_prefix + tenant_id.replace('/', '')
+            name = self.conf.environment_prefix + "_" + \
+                   tenant_id.replace('/', '')
         else:
             name = "Common"
 
@@ -123,12 +127,8 @@ class ServiceModelAdapter(object):
         return traffic_groups[tg_index]
 
     def _map_healthmonitor(self, loadbalancer, lbaas_healthmonitor):
-        healthmonitor = {}
-
-        # always expect these two
-        healthmonitor["name"] = "hm_" + lbaas_healthmonitor["id"]
-        healthmonitor["partition"] = \
-            self.get_folder_name(loadbalancer['tenant_id'])
+        healthmonitor = self.init_monitor_name(loadbalancer,
+                                               lbaas_healthmonitor)
 
         # type
         if "type" in lbaas_healthmonitor:
@@ -160,6 +160,15 @@ class ServiceModelAdapter(object):
                 healthmonitor["timeout"] = timeout
 
         return healthmonitor
+
+    def init_monitor_name(self, loadbalancer, monitor):
+        if "name" not in monitor or not monitor["name"]:
+            name = self.conf.environment_prefix + "_" + monitor["id"]
+        else:
+            name = monitor["name"]
+
+        return {"name": name,
+                "partition": self.get_folder_name(loadbalancer['tenant_id'])}
 
     def _get_recv_text(self, lbaas_healthmonitor):
         if "expected_codes" in lbaas_healthmonitor:
@@ -207,12 +216,7 @@ class ServiceModelAdapter(object):
         return monitor_type
 
     def _map_pool(self, loadbalancer, lbaas_pool, lbaas_hm):
-        pool = dict()
-
-        # always expect these two
-        pool["name"] = lbaas_pool["name"]
-
-        pool["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
+        pool = self.init_pool_name(loadbalancer, lbaas_pool)
 
         if "description" in lbaas_pool:
             pool["description"] = lbaas_pool["description"]
@@ -245,10 +249,7 @@ class ServiceModelAdapter(object):
             return 'round-robin'
 
     def _map_virtual(self, loadbalancer, listener):
-        vip = {}
-        # always expect these two
-        vip["name"] = listener["name"]
-        vip["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
+        vip = self.init_virtual_name(loadbalancer, listener)
 
         # TODO(jl) future work to handle TERMINATED_HTTPS, SNI containers
 
