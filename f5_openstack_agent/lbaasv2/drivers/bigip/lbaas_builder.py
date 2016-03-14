@@ -44,6 +44,7 @@ class LBaaSBuilder(object):
         """Assure that a service is configured on the BIGIP."""
 
         start_time = time()
+        LOG.debug("Starting assure_service")
 
         self._assure_loadbalancer_created(service)
 
@@ -81,7 +82,13 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "listener": listener}
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
-                self.listener_builder.create_listener(svc, bigips)
+                try:
+                    self.listener_builder.create_listener(svc, bigips)
+                except Exception as err:
+                    LOG.error("Error in "
+                              "LBaaSBuilder._assure_listeners_created."
+                              "Message: %s" % err.message)
+                    continue
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -95,7 +102,13 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "pool": pool}
             if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
-                self.pool_builder.create_pool(svc, bigips)
+                try:
+                    self.pool_builder.create_pool(svc, bigips)
+                except Exception as err:
+                    LOG.error("Error in "
+                              "LBaaSBuilder._assure_pools_created."
+                              "Message: %s" % err.message)
+                    continue
 
     def _assure_monitors(self, service):
         if not (("pools" in service) and ("healthmonitors" in service)):
@@ -110,9 +123,20 @@ class LBaaSBuilder(object):
                    "healthmonitor": monitor,
                    "pool": self._get_pool_by_id(service, monitor["pool_id"])}
             if monitor['provisioning_status'] == plugin_const.PENDING_DELETE:
-                self.pool_builder.delete_healthmonitor(svc, bigips)
+                try:
+                    self.pool_builder.delete_healthmonitor(svc, bigips)
+                except Exception as err:
+                    LOG.error("Error in "
+                              "LBaaSBuilder._assure_monitors (delete)."
+                              "Message: %s" % err.message)
+                    continue
             else:
-                self.pool_builder.create_healthmonitor(svc, bigips)
+                try:
+                    self.pool_builder.create_healthmonitor(svc, bigips)
+                except Exception as err:
+                    LOG.error("Error in "
+                              "LBaaSBuilder._assure_monitors (create)."
+                              "Message: %s" % err.message)
 
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
@@ -127,9 +151,20 @@ class LBaaSBuilder(object):
                    "member": member,
                    "pool": self._get_pool_by_id(service, member["pool_id"])}
             if member['provisioning_status'] == plugin_const.PENDING_DELETE:
-                self.pool_builder.delete_member(svc, bigips)
+                try:
+                    self.pool_builder.delete_member(svc, bigips)
+                except Exception as err:
+                    LOG.error("Error in "
+                              "LBaaSBuilder._assure_members (delete)."
+                              "Message: %s" % err.message)
+                    continue
             else:
-                self.pool_builder.create_member(svc, bigips)
+                try:
+                    self.pool_builder.create_member(svc, bigips)
+                except Exception as err:
+                    LOG.error("Error in "
+                              "LBaaSBuilder._assure_members (create)."
+                              "Message: %s" % err.message)
 
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
@@ -149,7 +184,12 @@ class LBaaSBuilder(object):
             if pool['provisioning_status'] == plugin_const.PENDING_DELETE:
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
-                self.pool_builder.delete_pool(svc, bigips)
+                try:
+                    self.pool_builder.delete_pool(svc, bigips)
+                except Exception as err:
+                    LOG.error("Error in "
+                              "LBaaSBuilder._assure_pools_deleted."
+                              "Message: %s" % err.message)
 
     def _assure_listeners_deleted(self, service):
         if 'listeners' not in service:
@@ -163,7 +203,12 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "listener": listener}
             if listener['provisioning_status'] == plugin_const.PENDING_DELETE:
-                self.listener_builder.delete_listener(svc, bigips)
+                try:
+                    self.listener_builder.delete_listener(svc, bigips)
+                except Exception as err:
+                    LOG.error("Error in "
+                              "LBaaSBuilder._assure_listeners_deleted."
+                              "Message: %s" % err.message)
 
     def _check_monitor_delete(self, service):
         # If the pool is being deleted, then delete related objects

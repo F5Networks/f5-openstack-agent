@@ -145,7 +145,7 @@
         "weight": 1,
         "admin_state_up": true,
         "subnet_id": "b064a1a3-70e5-40fa-a61f-3f200933c892",
-        "address": "172.16.101.9",
+        "address": "172.16.101.59",
         "protocol_port": 8080,
         "id": "25c7746b-73da-45cb-a28d-043993f5ba1d",
         "tenant_id": "cd6a91ccb44945129ac78e7c992655eb",
@@ -156,7 +156,7 @@
         "weight": 1,
         "admin_state_up": true,
         "subnet_id": "b064a1a3-70e5-40fa-a61f-3f200933c892",
-        "address": "172.16.101.9",
+        "address": "172.16.101.59",
         "protocol_port": 80,
         "id": "2e8a89ce-1a01-454c-8e1f-c71ae2589234",
         "tenant_id": "cd6a91ccb44945129ac78e7c992655eb",
@@ -167,7 +167,7 @@
         "weight": 1,
         "admin_state_up": true,
         "subnet_id": "b064a1a3-70e5-40fa-a61f-3f200933c892",
-        "address": "172.16.101.10",
+        "address": "172.16.101.60",
         "protocol_port": 80,
         "id": "55c44558-0fcc-403a-a61b-7ca03110f9f8",
         "tenant_id": "cd6a91ccb44945129ac78e7c992655eb",
@@ -224,13 +224,9 @@
         "max_retries": 10,
         "http_method": "GET",
         "timeout": 1,
-        "pools": [
-          {
-            "id": "9c78a69e-9cd5-4d51-ba02-2d9cfde043a2"
-          }
-        ],
+        "pool_id": "9c78a69e-9cd5-4d51-ba02-2d9cfde043a2",
         "url_path": "/",
-       "type": "PING",
+        "type": "HTTP",
         "id": "42dc3312-332a-405d-a761-4c517b4dda92"
       }
     ]
