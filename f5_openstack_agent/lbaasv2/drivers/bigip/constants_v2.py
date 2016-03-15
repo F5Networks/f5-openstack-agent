@@ -36,7 +36,7 @@ TOPIC_PROCESS_ON_HOST_V2 = 'f5-lbaasv2-process-on-controller'
 TOPIC_LOADBALANCER_AGENT_V2 = 'f5-lbaasv2-process-on-agent'
 
 RPC_API_VERSION = '1.0'
-#RPC_API_NAMESPACE = ""
+# RPC_API_NAMESPACE = ""
 
 FDB_POPULATE_STATIC_ARP = True
 # for test only

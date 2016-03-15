@@ -13,8 +13,10 @@
 # limitations under the License.
 #
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from oslo_log import log as logging
+from requests.exceptions import HTTPError
+
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 
 LOG = logging.getLogger(__name__)
 
@@ -28,7 +30,7 @@ class ListenerServiceBuilder(object):
     """
 
     def __init__(self, service_adapter):
-        self.vs_manager = resource_helper.BigIPResourceHelper(
+        self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
         self.service_adapter = service_adapter
 
@@ -45,14 +47,31 @@ class ListenerServiceBuilder(object):
         vip = self.service_adapter.get_virtual(service)
 
         for bigip in bigips:
-            self.vs_manager.create(bigip, vip)
+            try:
+                self.vs_helper.create(bigip, vip)
+            except HTTPError as err:
+                LOG.error("Error creating virtual server for listener %s "
+                          "on BIG-IP %s. Repsponse status code: %s. Response "
+                          "message: %s." % (vip["name"],
+                                            bigip.device_name,
+                                            err.response.status_code,
+                                            err.message))
 
         # Traffic group is added after create in order to take adavantage
         # of BIG-IP defaults.
         traffic_group = self.service_adapter.get_traffic_group(service)
         if traffic_group:
             for bigip in bigips:
-                self.vs_manager.update(bigip, traffic_group)
+                try:
+                    self.vs_helper.update(bigip, traffic_group)
+                except HTTPError as err:
+                    LOG.error(
+                        "Error updating virtual server for listener %s "
+                        "on BIG-IP %s. Repsponse status code: %s. Response "
+                        "message: %s." % (vip["name"],
+                                          bigip.device_name,
+                                          err.response.status_code,
+                                          err.message))
 
     def get_listener(self, service, bigip):
         """Retrieve BIG-IP virtual from a single BIG-IP system.
@@ -61,10 +80,20 @@ class ListenerServiceBuilder(object):
         and load balancer definition.
         :param bigip: Array of BigIP class instances to create Listener.
         """
+        obj = None
         vip = self.service_adapter.get_virtual_name(service)
-        return self.vs_manager.load(bigip=bigip,
-                                    name=vip["name"],
-                                    partition=vip["partition"])
+        try:
+            obj = self.vs_helper.load(bigip=bigip,
+                                      name=vip["name"],
+                                      partition=vip["partition"])
+        except HTTPError as err:
+            LOG.error("Error loading virtual server for listener %s "
+                      "on BIG-IP %s. Repsponse status code: %s. Response "
+                      "message: %s." % (vip["name"],
+                                        bigip.device_name,
+                                        err.response.status_code,
+                                        err.message))
+        return obj
 
     def delete_listener(self, service, bigips):
         """Delete Listener from a set of BIG-IP systems.
@@ -77,11 +106,20 @@ class ListenerServiceBuilder(object):
         """
         vip = self.service_adapter.get_virtual_name(service)
         for bigip in bigips:
-            self.vs_manager.delete(bigip,
-                                   name=vip["name"],
-                                   partition=vip["partition"])
+            try:
+                self.vs_helper.delete(bigip,
+                                      name=vip["name"],
+                                      partition=vip["partition"])
+            except HTTPError as err:
+                LOG.error(
+                    "Error deleting virtual server for listener %s "
+                    "on BIG-IP %s. Repsponse status code: %s. Response "
+                    "message: %s." % (vip["name"],
+                                      bigip.device_name,
+                                      err.response.status_code,
+                                      err.message))
 
-    def updatelistener(self, service, bigips):
+    def update_listener(self, service, bigips):
         """Update Listener from a single BIG-IP system.
 
         Updates virtual servers that represents a Listener object.
@@ -93,4 +131,13 @@ class ListenerServiceBuilder(object):
         vip = self.service_adapter.get_virtual(service)
 
         for bigip in bigips:
-            self.vs_manager.update(bigip, vip)
+            try:
+                self.vs_helper.update(bigip, vip)
+            except HTTPError as err:
+                LOG.error(
+                    "Error updating virtual server for listener %s "
+                    "on BIG-IP %s. Repsponse status code: %s. Response "
+                    "message: %s." % (vip["name"],
+                                      bigip.device_name,
+                                      err.response.status_code,
+                                      err.message))
