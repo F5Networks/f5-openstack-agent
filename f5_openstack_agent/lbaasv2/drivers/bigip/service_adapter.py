@@ -46,7 +46,7 @@ class ServiceModelAdapter(object):
 
     def init_pool_name(self, loadbalancer, pool):
         if "name" not in pool or not pool["name"]:
-            name = self.conf.environment_prefix + pool["id"]
+            name = self.conf.environment_prefix + "_" + pool["id"]
         else:
             name = pool["name"]
 
@@ -62,7 +62,7 @@ class ServiceModelAdapter(object):
 
     def init_virtual_name(self, loadbalancer, listener):
         if "name" not in listener or not listener["name"]:
-            name = self.conf.environment_prefix + listener["id"]
+            name = self.conf.environment_prefix + "_" + listener["id"]
         else:
             name = listener["name"]
 
@@ -126,7 +126,8 @@ class ServiceModelAdapter(object):
 
     def get_folder_name(self, tenant_id):
         if tenant_id is not None:
-            name = self.conf.environment_prefix + tenant_id.replace('/', '')
+            name = self.conf.environment_prefix + "_" + \
+                tenant_id.replace('/', '')
         else:
             name = "Common"
 
@@ -175,7 +176,7 @@ class ServiceModelAdapter(object):
 
     def init_monitor_name(self, loadbalancer, monitor):
         if "name" not in monitor or not monitor["name"]:
-            name = self.conf.environment_prefix + monitor["id"]
+            name = self.conf.environment_prefix + "_" + monitor["id"]
         else:
             name = monitor["name"]
 

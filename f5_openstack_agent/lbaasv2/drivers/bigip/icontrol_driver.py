@@ -33,7 +33,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
     BigipTenantManager
-from f5_openstack_agent.lbaasv2.drivers.bigip import utils as util
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import OBJ_PREFIX
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
@@ -242,12 +241,6 @@ class iControlDriver(LBaaSBaseDriver):
         self.system_helper = None
         self.lbaas_builder = None
         self.service_adapter = None
-
-        if self.conf.environment_prefix:
-            LOG.debug('BIG-IP name prefix for this environment: %s' %
-                      self.conf.environment_prefix)
-            util.OBJ_PREFIX = self.conf.environment_prefix + '_'
-        self.conf.environment_prefix = util.OBJ_PREFIX
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
