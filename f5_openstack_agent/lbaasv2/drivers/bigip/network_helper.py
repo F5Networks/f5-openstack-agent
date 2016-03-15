@@ -26,19 +26,19 @@ class NetworkHelper(object):
         pass
 
     def get_l2gre_tunnel_key(self, bigip, name, folder):
-        pass
+        return None
 
     def get_vlan_id(self, bigip, name, folder):
-        pass
+        return None
 
     def get_vxlan_tunnel_key(self, bigip, name, folder):
-        pass
+        return None
 
     def get_selfip_addr(self, bigip, vtep_selfip_name, vtep_folder):
-        pass
+        return None
 
     def get_selfips(self, bigip, folder, vlan):
-        pass
+        return []
 
     def delete_selfip(self, bigip, name, folder):
         pass
@@ -50,10 +50,10 @@ class NetworkHelper(object):
         # if domain_id:
         #    route_name += folder_name + '_aux_' + str(domain_id)
         # return route.exists(name=route_name)
-        return True
+        return False
 
     def get_route_domain(self, bigip, folder):
-        pass
+        return None
 
     def create_route_domain(self, bigip, folder_name, strictness=None):
         pass
@@ -62,13 +62,13 @@ class NetworkHelper(object):
         pass
 
     def get_route_domain_ids(self, bigip, folder):
-        pass
+        return []
 
     def get_route_domain_names(self, bigip, folder):
-        pass
+        return []
 
     def get_vlans_in_route_domain_by_id(self, bigip, folder, route_domain_id):
-        pass
+        return []
 
     def arp_delete_by_subnet(self, bigip, subnet=None, mask=None, folder=None):
         pass

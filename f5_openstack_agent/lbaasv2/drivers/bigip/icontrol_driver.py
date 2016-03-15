@@ -243,6 +243,12 @@ class iControlDriver(LBaaSBaseDriver):
         self.lbaas_builder = None
         self.service_adapter = None
 
+        if self.conf.environment_prefix:
+            LOG.debug('BIG-IP name prefix for this environment: %s' %
+                      self.conf.environment_prefix)
+            util.OBJ_PREFIX = self.conf.environment_prefix + '_'
+        self.conf.environment_prefix = util.OBJ_PREFIX
+
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
                      ' There will be no L2 or L3 orchestration'
@@ -263,15 +269,6 @@ class iControlDriver(LBaaSBaseDriver):
 
             self.agent_configurations['common_networks'] = \
                 self.conf.common_network_ids
-
-            if self.conf.environment_prefix:
-                LOG.debug('BIG-IP name prefix for this environment: %s' %
-                          self.conf.environment_prefix)
-
-                util.OBJ_PREFIX = self.conf.environment_prefix + '_'
-
-            self.conf.environment_prefix = util.OBJ_PREFIX
-
             LOG.debug('Setting static ARP population to %s'
                       % self.conf.f5_populate_static_arp)
             f5const.FDB_POPULATE_STATIC_ARP = self.conf.f5_populate_static_arp

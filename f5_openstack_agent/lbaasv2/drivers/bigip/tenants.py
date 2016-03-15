@@ -85,14 +85,15 @@ class BigipTenantManager(object):
         # Remove tenant in replication sync-mode
         domain_names = self.network_helper.get_route_domain_names(bigip,
                                                                   tenant_id)
-        for domain_name in domain_names:
-            self.network_helper.delete_route_domain(bigip,
-                                                    tenant_id,
-                                                    domain_name)
-        sudslog = std_logging.getLogger('suds.client')
-        sudslog.setLevel(std_logging.FATAL)
+        if domain_names:
+            for domain_name in domain_names:
+                self.network_helper.delete_route_domain(bigip,
+                                                        tenant_id,
+                                                        domain_name)
+        # sudslog = std_logging.getLogger('suds.client')
+        # sudslog.setLevel(std_logging.FATAL)
         self.system_helper.force_root_folder(bigip)
-        sudslog.setLevel(std_logging.ERROR)
+        # sudslog.setLevel(std_logging.ERROR)
 
         folder_name = self.service_adapter.get_folder_name(tenant_id)
         try:
