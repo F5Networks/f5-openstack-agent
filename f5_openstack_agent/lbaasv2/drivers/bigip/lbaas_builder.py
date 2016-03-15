@@ -101,9 +101,20 @@ class LBaaSBuilder(object):
         for pool in pools:
             svc = {"loadbalancer": loadbalancer,
                    "pool": pool}
+
             if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.create_pool(svc, bigips)
+
+                    # update default pool for listener
+                    if "listener_id" in pool:
+                        svc["listener"] = self._get_listener_by_id(
+                            service,
+                            pool["listener_id"])
+                        vip_svc = {"loadbalancer": loadbalancer}
+                        vip_svc["listener"] = \
+                            self.service_adapter.get_vip_default_pool(svc)
+                        self.listener_builder.update_listener(vip_svc, bigips)
                 except Exception as err:
                     LOG.error("Error in "
                               "LBaaSBuilder._assure_pools_created."
@@ -186,6 +197,17 @@ class LBaaSBuilder(object):
                        "pool": pool}
                 try:
                     self.pool_builder.delete_pool(svc, bigips)
+
+                    # update default pool for listener
+                    if "listener_id" in pool:
+                        svc["listener"] = self._get_listener_by_id(
+                            service,
+                            pool["listener_id"])
+                        svc["listener"]["default_pool_id"] = ""
+                        vip_svc = {"loadbalancer": loadbalancer}
+                        vip_svc["listener"] = \
+                            self.service_adapter.get_vip_default_pool(svc)
+                        self.listener_builder.update_listener(vip_svc, bigips)
                 except Exception as err:
                     LOG.error("Error in "
                               "LBaaSBuilder._assure_pools_deleted."
@@ -226,4 +248,11 @@ class LBaaSBuilder(object):
         for pool in pools:
             if pool["id"] == id:
                 return pool
+        return None
+
+    def _get_listener_by_id(self, service, id):
+        listeners = service["listeners"]
+        for listener in listeners:
+            if listener["id"] == id:
+                return listener
         return None

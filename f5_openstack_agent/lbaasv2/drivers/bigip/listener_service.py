@@ -119,7 +119,7 @@ class ListenerServiceBuilder(object):
                                       err.response.status_code,
                                       err.message))
 
-    def updatelistener(self, service, bigips):
+    def update_listener(self, service, bigips):
         """Update Listener from a single BIG-IP system.
 
         Updates virtual servers that represents a Listener object.

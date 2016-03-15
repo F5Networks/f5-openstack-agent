@@ -203,7 +203,7 @@ class PoolServiceBuilder(object):
                                             err.message))
                 continue
 
-            #if not member_exists:
+            # if not member_exists:
             try:
                 m.create(**member)
             except HTTPError as err:
@@ -264,7 +264,6 @@ class PoolServiceBuilder(object):
                                                 bigip.device_name,
                                                 err.response.status_code,
                                                 err.message))
-
 
     def update_member(self, service, bigips):
         # TODO(jl) handle state -- SDK enforces at least state=None

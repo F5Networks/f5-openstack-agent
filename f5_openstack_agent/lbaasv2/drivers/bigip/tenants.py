@@ -15,7 +15,6 @@
 #
 
 from eventlet import greenthread
-from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
 
 import logging as std_logging
@@ -70,28 +69,17 @@ class BigipTenantManager(object):
         # Called for every bigip only in replication mode,
         # otherwise called once.
         for bigip in self.driver.get_config_bigips():
-            # subnet_hints = all_subnet_hints[bigip.device_name]
-            # self._assure_bigip_tenant_cleanup(bigip, service, subnet_hints)
-            pass
+            subnet_hints = all_subnet_hints[bigip.device_name]
+            self._assure_bigip_tenant_cleanup(bigip, service, subnet_hints)
 
     # called for every bigip only in replication mode.
     # otherwise called once
     def _assure_bigip_tenant_cleanup(self, bigip, service, subnet_hints):
-        # if something was deleted check whether to do
-        #    domain+folder teardown
         tenant_id = service['loadbalancer']['tenant_id']
-        if service['loadbalancer']['provisioing_status'] == plugin_const.PENDING_DELETE or \
-                len(subnet_hints['check_for_delete_subnets']) > 0:
-            existing_monitors = bigip.monitor.get_monitors(folder=tenant_id)
-            existing_pools = bigip.pool.get_pools(folder=tenant_id)
-            existing_vips = bigip.virtual_server.get_virtual_service_insertion(
-                folder=tenant_id)
-
-            if not (existing_monitors or existing_pools or existing_vips):
-                if self.conf.f5_sync_mode == 'replication':
-                    self._remove_tenant_replication_mode(bigip, tenant_id)
-                else:
-                    self._remove_tenant_autosync_mode(bigip, tenant_id)
+        if self.conf.f5_sync_mode == 'replication':
+            self._remove_tenant_replication_mode(bigip, tenant_id)
+        else:
+            self._remove_tenant_autosync_mode(bigip, tenant_id)
 
     def _remove_tenant_replication_mode(self, bigip, tenant_id):
         # Remove tenant in replication sync-mode

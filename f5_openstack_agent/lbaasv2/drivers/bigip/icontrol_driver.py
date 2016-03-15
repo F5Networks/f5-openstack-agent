@@ -9,8 +9,8 @@ from time import time
 
 from neutron.common.exceptions import InvalidConfigurationOption
 from neutron.common.exceptions import NeutronException
-from neutron_lbaas.services.loadbalancer import constants as lb_const
 from neutron.plugins.common import constants as plugin_const
+from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -33,8 +33,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
     BigipTenantManager
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import OBJ_PREFIX
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils as util
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import OBJ_PREFIX
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
@@ -267,8 +267,10 @@ class iControlDriver(LBaaSBaseDriver):
             if self.conf.environment_prefix:
                 LOG.debug('BIG-IP name prefix for this environment: %s' %
                           self.conf.environment_prefix)
-                util.OBJ_PREFIX = \
-                    self.conf.environment_prefix + '_'
+
+                util.OBJ_PREFIX = self.conf.environment_prefix + '_'
+
+            self.conf.environment_prefix = util.OBJ_PREFIX
 
             LOG.debug('Setting static ARP population to %s'
                       % self.conf.f5_populate_static_arp)
@@ -588,9 +590,8 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('delete_loadbalancer')
     @is_connected
     def delete_loadbalancer(self, loadbalancer, service):
-        """Delete virtual server"""
-        self._common_service_handler(service)
-
+        """Delete loadbalancer"""
+        self._common_service_handler(service, True)
 
     @serialized('create_listener')
     @is_connected
@@ -657,7 +658,7 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('update_health_monitor')
     @is_connected
     def update_health_monitor(self, old_health_monitor,
-                              health_monitor, service):
+                              health_monitor, pool, service):
         """Update pool health monitor"""
         self._common_service_handler(service)
         return True
@@ -878,7 +879,7 @@ class iControlDriver(LBaaSBaseDriver):
         #        config_mode=self.conf.icontrol_config_mode)
         return True
 
-    def _common_service_handler(self, service):
+    def _common_service_handler(self, service, delete_partition=False):
         # Assure that the service is configured on bigip(s)
         start_time = time()
 
@@ -933,10 +934,14 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.debug("    _post_service_networking took %.5f secs" %
                       (time() - start_time))
 
-        start_time = time()
-        self.tenant_manager.assure_tenant_cleanup(service, all_subnet_hints)
-        LOG.debug("    _assure_tenant_cleanup took %.5f secs" %
-                  (time() - start_time))
+        # only delete partition if loadbalancer is being deleted
+        if delete_partition:
+            try:
+                self.tenant_manager.assure_tenant_cleanup(service,
+                                                          all_subnet_hints)
+            except Exception as err:
+                LOG.error("Error deleting tenant partition. Message: %s"
+                          % err.message)
 
         self._update_service_status(service)
 
@@ -946,7 +951,7 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.error("Cannot update status in Neutron without "
                       "RPC handler.")
             return
-            
+
         if 'members' in service:
             # Call update_members_status
             self._update_member_status(service['members'])
@@ -968,16 +973,14 @@ class iControlDriver(LBaaSBaseDriver):
         self._update_loadbalancer_status(
             service['loadbalancer']
         )
-                                             
+
     def _update_member_status(self, members):
         """Update member status in OpenStack """
-        print members
         for member in members:
-            print member
             if 'provisioning_status' in member:
                 provisioning_status = member['provisioning_status']
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                    provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE):
                         self.plugin_rpc.update_member_status(
                             member['id'],
                             plugin_const.ACTIVE,
@@ -989,21 +992,19 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _update_health_monitor_status(self, health_monitors):
         """Update pool monitor status in OpenStack """
-        print health_monitors
         for health_monitor in health_monitors:
-            print health_monitor
             if 'provisioning_status' in health_monitor:
                 provisioning_status = health_monitor['provisioning_status']
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                    provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE):
                         self.plugin_rpc.update_health_monitor_status(
                             health_monitor['id'],
                             plugin_const.ACTIVE,
                             lb_const.ONLINE
                         )
                 elif provisioning_status == plugin_const.PENDING_DELETE:
-                    print "DESTROYING HEALTH MONITOR"
-                    self.plugin_rpc.health_monitor_destroyed(health_monitor['id'])
+                    self.plugin_rpc.health_monitor_destroyed(
+                        health_monitor['id'])
 
     @log_helpers.log_method_call
     def _update_pool_status(self, pools):
@@ -1012,7 +1013,7 @@ class iControlDriver(LBaaSBaseDriver):
             if 'provisioning_status' in pool:
                 provisioning_status = pool['provisioning_status']
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                    provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE):
                         self.plugin_rpc.update_pool_status(
                             pool['id'],
                             plugin_const.ACTIVE,
@@ -1028,9 +1029,8 @@ class iControlDriver(LBaaSBaseDriver):
         for listener in listeners:
             if 'provisioning_status' in listener:
                 provisioning_status = listener['provisioning_status']
-            
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                    provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE):
                         self.plugin_rpc.update_listener_status(
                             listener['id'],
                             plugin_const.ACTIVE,
@@ -1040,13 +1040,13 @@ class iControlDriver(LBaaSBaseDriver):
                     self.plugin_rpc.listener_destroyed(
                         listener['id'])
 
-    @log_helpers.log_method_call                
+    @log_helpers.log_method_call
     def _update_loadbalancer_status(self, loadbalancer):
         """Update loadbalancer status in OpenStack """
         provisioning_status = loadbalancer['provisioning_status']
 
         if (provisioning_status == plugin_const.PENDING_CREATE or
-            provisioning_status == plugin_const.PENDING_UPDATE):
+                provisioning_status == plugin_const.PENDING_UPDATE):
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 plugin_const.ACTIVE,
@@ -1165,7 +1165,6 @@ class iControlDriver(LBaaSBaseDriver):
                 LOG.error('Wait another %d seconds for devices '
                           'to recover from failed sync.' % retry_delay)
                 greenthread.sleep(retry_delay)
-
 
     def _validate_bigip_version(self, bigip, hostname):
         # Ensure the BIG-IP has sufficient version
