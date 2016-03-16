@@ -60,7 +60,12 @@ class ServiceModelAdapter(object):
         self._add_bigip_items(listener, vip)
         return vip
 
-    def init_virtual_name(self, loadbalancer, listener):
+    def get_virtual_name(self, service):
+        listener = service["listener"]
+        loadbalancer = service["loadbalancer"]
+        return self._init_virtual_name(loadbalancer, listener)
+
+    def _init_virtual_name(self, loadbalancer, listener):
         if "name" not in listener or not listener["name"]:
             name = self.conf.environment_prefix + "_" + listener["id"]
         else:
@@ -75,7 +80,7 @@ class ServiceModelAdapter(object):
 
         if "traffic_group" in loadbalancer:
             listener = service["listener"]
-            tg = self.init_virtual_name(loadbalancer, listener)
+            tg = self._init_virtual_name(loadbalancer, listener)
             tg["traffic_group"] = loadbalancer["traffic_group"]
 
         return tg
@@ -84,7 +89,7 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
         pool = service["pool"]
-        vip = self.init_virtual_name(loadbalancer, listener)
+        vip = self._init_virtual_name(loadbalancer, listener)
         if "default_pool_id" in listener:
             p = self.init_pool_name(loadbalancer, pool)
             vip["pool"] = p["name"]
@@ -97,6 +102,11 @@ class ServiceModelAdapter(object):
         loadbalancer = service["loadbalancer"]
         member = service["member"]
         return self._map_member(loadbalancer, member)
+
+    def get_member_node(self, service):
+        loadbalancer = service["loadbalancer"]
+        member = service["member"]
+        return self._map_node(loadbalancer, member)
 
     def get_healthmonitor(self, service):
         healthmonitor = service["healthmonitor"]
@@ -239,7 +249,8 @@ class ServiceModelAdapter(object):
                 lbaas_pool["lb_algorithm"])
 
         if lbaas_hm is not None:
-            pool["monitor"] = "hm_" + lbaas_hm["id"]
+            pool["monitor"] = self.conf.environment_prefix + "_" + \
+                lbaas_hm["id"]
 
         return pool
 
@@ -262,7 +273,7 @@ class ServiceModelAdapter(object):
             return 'round-robin'
 
     def _map_virtual(self, loadbalancer, listener):
-        vip = self.init_virtual_name(loadbalancer, listener)
+        vip = self._init_virtual_name(loadbalancer, listener)
 
         # TODO(jl) future work to handle TERMINATED_HTTPS, SNI containers
 
@@ -307,6 +318,9 @@ class ServiceModelAdapter(object):
 
         if "default_tls_container_ref" in listener:
             pass
+
+        if "pool" in listener:
+            vip["pool"] = listener["pool"]
 
         return vip
 
@@ -358,3 +372,56 @@ class ServiceModelAdapter(object):
         member["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
         member["address"] = ip_address
         return member
+
+    def _map_node(self, loadbalancer, lbaas_member):
+        member = {}
+        member["name"] = lbaas_member["address"]
+        member["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
+
+        return member
+"""
+    def _map_session_persistence(self, listener):
+
+        if 'session_persistence' in listener and \
+                listener['session_persistence']:
+            # branch on persistence type
+            persistence_type = listener['session_persistence']['type']
+            set_persist = bigip_vs.set_persist_profile
+            set_fallback_persist = bigip_vs.set_fallback_persist_profile
+
+            if persistence_type == 'SOURCE_IP':
+                # add source_addr persistence profile
+                LOG.debug('adding source_addr primary persistence')
+                set_persist(name=vip['id'],
+                            profile_name='/Common/source_addr',
+                            folder=vip['tenant_id'])
+            elif persistence_type == 'HTTP_COOKIE':
+                # HTTP cookie persistence requires an HTTP profile
+                LOG.debug('adding http profile and' +
+                          ' primary cookie persistence')
+                bigip_vs.add_profile(name=vip['id'],
+                                     profile_name='/Common/http',
+                                     folder=vip['tenant_id'])
+                # add standard cookie persistence profile
+                set_persist(name=vip['id'],
+                            profile_name='/Common/cookie',
+                            folder=vip['tenant_id'])
+                if pool['lb_method'] == 'SOURCE_IP':
+                    set_fallback_persist(name=vip['id'],
+                                         profile_name='/Common/source_addr',
+                                         folder=vip['tenant_id'])
+            elif persistence_type == 'APP_COOKIE':
+                self._set_bigip_vip_cookie_persist(bigip, service)
+        else:
+            bigip_vs.remove_all_persist_profiles(name=vip['id'],
+                                                 folder=vip['tenant_id'])
+
+
+
+            found_profile = self._which_persistence_profile(profile_name,
+                                                            folder)
+            if found_profile:
+                profile_name = found_profile
+            payload = dict()
+            payload['persist'] = [{'name': profile_name}]
+"""
