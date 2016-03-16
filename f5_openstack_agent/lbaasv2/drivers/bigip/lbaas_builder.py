@@ -83,6 +83,13 @@ class LBaaSBuilder(object):
                    "listener": listener}
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
+
+                    if "default_pool_id" in listener:
+                        pool = self._get_pool_by_id(
+                            service, listener["default_pool_id"])
+                        if pool is not None:
+                            svc["pool"] = pool
+
                     self.listener_builder.create_listener(svc, bigips)
                 except Exception as err:
                     LOG.error("Error in "
@@ -96,6 +103,7 @@ class LBaaSBuilder(object):
 
         pools = service["pools"]
         loadbalancer = service["loadbalancer"]
+
         bigips = self.driver.get_all_bigips()
 
         for pool in pools:
@@ -106,20 +114,27 @@ class LBaaSBuilder(object):
                 try:
                     self.pool_builder.create_pool(svc, bigips)
 
-                    # update default pool for listener
-                    if "listener_id" in pool:
-                        svc["listener"] = self._get_listener_by_id(
-                            service,
-                            pool["listener_id"])
-                        vip_svc = {"loadbalancer": loadbalancer}
-                        vip_svc["listener"] = \
-                            self.service_adapter.get_vip_default_pool(svc)
-                        self.listener_builder.update_listener(vip_svc, bigips)
+                    if "listeners" in pool:
+                        pool_name = self.service_adapter.init_pool_name(
+                            loadbalancer, pool)["name"]
+                        listeners = pool["listeners"]
+                        for listener in listeners:
+                            self._update_listener_pool(
+                                service, listener["id"], pool_name, bigips)
+
                 except Exception as err:
                     LOG.error("Error in "
                               "LBaaSBuilder._assure_pools_created."
                               "Message: %s" % err.message)
                     continue
+
+    def _update_listener_pool(self, service, listener_id, pool_name, bigips):
+        listener = self._get_listener_by_id(service, listener_id)
+        if listener is not None:
+            listener["pool"] = pool_name
+            svc = {"loadbalancer": service["loadbalancer"],
+                   "listener": listener}
+            self.listener_builder.update_listener(svc, bigips)
 
     def _assure_monitors(self, service):
         if not (("pools" in service) and ("healthmonitors" in service)):
@@ -196,18 +211,15 @@ class LBaaSBuilder(object):
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
                 try:
-                    self.pool_builder.delete_pool(svc, bigips)
+                    # remove default pool from virtual
+                    if "listeners" in pool:
+                        pool_name = ""
+                        listeners = pool["listeners"]
+                        for listener in listeners:
+                            self._update_listener_pool(
+                                service, listener["id"], pool_name, bigips)
 
-                    # update default pool for listener
-                    if "listener_id" in pool:
-                        svc["listener"] = self._get_listener_by_id(
-                            service,
-                            pool["listener_id"])
-                        svc["listener"]["default_pool_id"] = ""
-                        vip_svc = {"loadbalancer": loadbalancer}
-                        vip_svc["listener"] = \
-                            self.service_adapter.get_vip_default_pool(svc)
-                        self.listener_builder.update_listener(vip_svc, bigips)
+                    self.pool_builder.delete_pool(svc, bigips)
                 except Exception as err:
                     LOG.error("Error in "
                               "LBaaSBuilder._assure_pools_deleted."
@@ -244,15 +256,17 @@ class LBaaSBuilder(object):
                 monitor['status'] = plugin_const.PENDING_DELETE
 
     def _get_pool_by_id(self, service, id):
-        pools = service["pools"]
-        for pool in pools:
-            if pool["id"] == id:
-                return pool
+        if "pools" in service:
+            pools = service["pools"]
+            for pool in pools:
+                if pool["id"] == id:
+                    return pool
         return None
 
     def _get_listener_by_id(self, service, id):
-        listeners = service["listeners"]
-        for listener in listeners:
-            if listener["id"] == id:
-                return listener
+        if "listeners" in service:
+            listeners = service["listeners"]
+            for listener in listeners:
+                if listener["id"] == id:
+                    return listener
         return None

@@ -36,7 +36,9 @@ class PoolServiceBuilder(object):
         self.http_mon_helper = BigIPResourceHelper(ResourceType.http_monitor)
         self.https_mon_helper = BigIPResourceHelper(ResourceType.https_monitor)
         self.tcp_mon_helper = BigIPResourceHelper(ResourceType.tcp_monitor)
+        self.ping_mon_helper = BigIPResourceHelper(ResourceType.ping_monitor)
         self.pool_helper = BigIPResourceHelper(ResourceType.pool)
+        self.node_helper = BigIPResourceHelper(ResourceType.node)
 
     def create_pool(self, service, bigips):
         """Create a pool on set of BIG-IPs.
@@ -133,6 +135,16 @@ class PoolServiceBuilder(object):
         pool["monitor"] = ""
 
         for bigip in bigips:
+            # need to first remove monitor reference from pool
+            try:
+                self.pool_helper.update(bigip, pool)
+            except HTTPError as err:
+                LOG.error("Error updating pool %s on BIG-IP %s. "
+                          "Repsponse status code: %s. Response "
+                          "message: %s." % (pool["name"],
+                                            bigip.device_name,
+                                            err.response.status_code,
+                                            err.message))
             try:
                 hm_helper.delete(bigip,
                                  name=hm["name"],
@@ -141,15 +153,6 @@ class PoolServiceBuilder(object):
                 LOG.error("Error deleting health monitor %s on BIG-IP %s. "
                           "Repsponse status code: %s. Response "
                           "message: %s." % (hm["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
-            try:
-                self.pool_helper.update(bigip, pool)
-            except HTTPError as err:
-                LOG.error("Error updating pool %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (pool["name"],
                                             bigip.device_name,
                                             err.response.status_code,
                                             err.message))
@@ -203,16 +206,16 @@ class PoolServiceBuilder(object):
                                             err.message))
                 continue
 
-            # if not member_exists:
-            try:
-                m.create(**member)
-            except HTTPError as err:
-                LOG.error("Error creating member %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (member["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
+            if not member_exists:
+                try:
+                    m.create(**member)
+                except HTTPError as err:
+                    LOG.error("Error creating member %s on BIG-IP %s. "
+                              "Repsponse status code: %s. Response "
+                              "message: %s." % (member["name"],
+                                                bigip.device_name,
+                                                err.response.status_code,
+                                                err.message))
 
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
@@ -257,6 +260,10 @@ class PoolServiceBuilder(object):
                     continue
                 try:
                     m.delete()
+                    node = self.service_adapter.get_member_node(service)
+                    self.node_helper.delete(bigip,
+                                            name=node["name"],
+                                            partition=node["partition"])
                 except HTTPError as err:
                     LOG.error("Error deleting member %s on BIG-IP %s. "
                               "Repsponse status code: %s. Response "
@@ -324,6 +331,8 @@ class PoolServiceBuilder(object):
             hm = self.https_mon_helper
         elif monitor_type == "TCP":
             hm = self.tcp_mon_helper
+        elif monitor_type == "PING":
+            hm = self.ping_mon_helper
         else:
             hm = self.http_mon_helper
         return hm

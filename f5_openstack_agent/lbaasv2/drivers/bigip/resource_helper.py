@@ -26,6 +26,8 @@ class ResourceType(Enum):
     http_monitor = 7
     https_monitor = 8
     tcp_monitor = 9
+    ping_monitor = 10
+    node = 11
 
 
 class BigIPResourceHelper(object):
@@ -128,8 +130,11 @@ class BigIPResourceHelper(object):
             ResourceType.http_monitor:
                 lambda bigip: bigip.ltm.monitor.https.http,
             ResourceType.https_monitor:
-                lambda bigip: bigip.ltm.monitor.https.http,
+                lambda bigip: bigip.ltm.monitor.https_s.https,
             ResourceType.tcp_monitor:
-                lambda bigip: bigip.ltm.monitor.https.tcp
+                lambda bigip: bigip.ltm.monitor.tcps.tcp,
+            ResourceType.ping_monitor:
+                lambda bigip: bigip.ltm.monitor.gateway_icmps.gateway_icmp,
+            ResourceType.node: lambda bigip: bigip.ltm.nodes.node
 
         }[self.resource_type](bigip)
