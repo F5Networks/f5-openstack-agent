@@ -16,6 +16,8 @@ limitations under the License.
 
 # f5-openstack-agent
 
+[![Build Status](https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=master)](https://travis-ci.org/F5Networks/f5-openstack-agent)
+
 ## Introduction
 This repo houses the code for the F5 OpenStack plugin agent. The agent allows you to deploy BIG-IP services in an OpenStack environment. 
 
