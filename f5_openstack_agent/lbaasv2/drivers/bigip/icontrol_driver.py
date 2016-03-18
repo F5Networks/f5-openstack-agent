@@ -291,12 +291,12 @@ class iControlDriver(LBaaSBaseDriver):
         # run any post initialized tasks, now that the agent
         # is fully connected
         if self.vlan_binding:
-            LOG.error(
+            LOG.debug(
                 'Getting BIG-IP device interface for VLAN Binding')
             self.vlan_binding.register_bigip_interfaces()
 
         if self.l3_binding:
-            LOG.error('Getting BIG-IP MAC Address for L3 Binding')
+            LOG.debug('Getting BIG-IP MAC Address for L3 Binding')
             self.l3_binding.register_bigip_mac_addresses()
 
         if self.network_builder:
@@ -480,7 +480,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         bigip.device_name = self.cluster_manager.get_device_name(bigip)
         bigip.mac_addresses = self.system_helper.get_mac_addresses(bigip)
-        LOG.error("Initialized BIG-IP %s with MAC addresses %s" %
+        LOG.debug("Initialized BIG-IP %s with MAC addresses %s" %
                   (bigip.device_name, ', '.join(bigip.mac_addresses)))
         bigip.device_interfaces = \
             self.system_helper.get_interface_macaddresses_dict(bigip)

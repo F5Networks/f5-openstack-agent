@@ -62,12 +62,12 @@ class L3BindingBase(object):
         # after BIG-IP endpoints are registered.
         if not self.__initialized__bigip_ports:
             for bigip in self.driver.get_all_bigips():
-                LOG.error('Request Port information for MACs: %s'
+                LOG.debug('Request Port information for MACs: %s'
                           % bigip.mac_addresses)
                 if self.driver.plugin_rpc:
                     ports = self.driver.plugin_rpc.get_ports_for_mac_addresses(
                         mac_addresses=bigip.mac_addresses)
-                    LOG.error('Neutron returned Port Info: %s' % ports)
+                    LOG.debug('Neutron returned Port Info: %s' % ports)
                     for port in ports:
                         port_id = port['id']
                         device_id = port['device_id']
@@ -82,7 +82,7 @@ class L3BindingBase(object):
                                 else:
                                     self.l3_binding_mappings[subnet_id] = \
                                         [(port_id, device_id)]
-                                LOG.error('adding mapping information '
+                                LOG.debug('adding mapping information '
                                           'subnet %s to port: %s, device %s'
                                           % (subnet_id, port_id, device_id))
             self.__initialized__bigip_ports = True
