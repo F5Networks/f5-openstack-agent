@@ -1,4 +1,5 @@
-# Copyright 2014-2016 F5 Networks Inc.
+""" Module for managing L3 to L2 port bindings on F5 BIG-IP in Neutron """
+# Copyright 2014 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,12 @@
 # limitations under the License.
 #
 
-from oslo_log import log as logging
+# pylint: disable=no-self-use
+
+try:
+    from neutron.openstack.common import log as logging
+except ImportError:
+    from oslo_log import log as logging
 
 import json
 
@@ -21,10 +27,10 @@ LOG = logging.getLogger(__name__)
 
 
 class L3BindingBase(object):
-    # Base Class for L3 address bindings to L3 port
-    def __init__(self, conf, plugin_rpc):
+    """Base Class for L3 address bindings to L3 port """
+    def __init__(self, conf, driver):
         self.conf = conf
-        self.plugin_rpc = plugin_rpc
+        self.driver = driver
         self.l3_binding_mappings = {}
         self.__initialized__bigip_ports = False
 
@@ -51,15 +57,15 @@ class L3BindingBase(object):
         else:
             LOG.debug('l3_binding_static_mappings not configured')
 
-    def register_bigip_mac_addresses(self, bigips):
+    def register_bigip_mac_addresses(self):
         # Delayed binding BIG-IP ports will be called
         # after BIG-IP endpoints are registered.
         if not self.__initialized__bigip_ports:
-            for bigip in bigips:
+            for bigip in self.driver.get_all_bigips():
                 LOG.debug('Request Port information for MACs: %s'
                           % bigip.mac_addresses)
-                if self.plugin_rpc:
-                    ports = self.plugin_rpc.get_ports_for_mac_addresses(
+                if self.driver.plugin_rpc:
+                    ports = self.driver.plugin_rpc.get_ports_for_mac_addresses(
                         mac_addresses=bigip.mac_addresses)
                     LOG.debug('Neutron returned Port Info: %s' % ports)
                     for port in ports:
@@ -93,7 +99,7 @@ class L3BindingBase(object):
 
 
 class AllowedAddressPairs(L3BindingBase):
-    # Class for configurg L3 address bindings to L2 ports
+    """Class for configuring L3 address bindings to L2 ports """
     def __init__(self, conf, driver):
         super(AllowedAddressPairs, self).__init__(conf, driver)
 
@@ -108,8 +114,8 @@ class AllowedAddressPairs(L3BindingBase):
                     LOG.debug('adding allowed address pair '
                               'address: %s port: %s device: %s'
                               % (ip_address, port_id, device_id))
-                    if self.plugin_rpc:
-                        self.plugin_rpc.add_allowed_address(
+                    if self.driver.plugin_rpc:
+                        self.driver.plugin_rpc.add_allowed_address(
                             port_id=port_id,
                             ip_address=ip_address
                         )
@@ -131,8 +137,8 @@ class AllowedAddressPairs(L3BindingBase):
                     LOG.debug('removing allowed address pair '
                               'address: %s port: %s device: %s'
                               % (ip_address, port_id, device_id))
-                    if self.plugin_rpc:
-                        self.plugin_rpc.remove_allowed_address(
+                    if self.driver.plugin_rpc:
+                        self.driver.plugin_rpc.remove_allowed_address(
                             port_id=port_id,
                             ip_address=ip_address
                         )

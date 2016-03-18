@@ -19,7 +19,6 @@ import netaddr
 from neutron.common.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
-from oslo_utils import importutils
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
@@ -39,24 +38,10 @@ class NetworkServiceBuilder(object):
         self.driver = driver
         self.l2_service = L2ServiceBuilder(conf, f5_global_routed_mode)
 
-        if self.conf.l3_binding_driver:
-            try:
-                self.l3_binding = importutils.import_object(
-                    self.conf.l3_binding_driver,
-                    driver.conf,
-                    driver.plugin_rpc)
-            except ImportError:
-                LOG.error('Failed to import L3 binding driver: %s'
-                          % self.conf.l3_binding_driver)
-        else:
-            LOG.debug('No L3 binding driver configured. '
-                      'No L3 binding will be done.')
-            self.l3_binding = None
-
         self.bigip_selfip_manager = BigipSelfIpManager(
-            self.conf, self.l2_service, self.l3_binding)
+            self.conf, self.l2_service, self.driver.l3_binding)
         self.bigip_snat_manager = BigipSnatManager(
-            self.conf, self.l2_service, self.l3_binding)
+            self.conf, self.l2_service, self.driver.l3_binding)
 
         self.rds_cache = {}
         self.interface_mapping = self.l2_service.interface_mapping
@@ -66,10 +51,6 @@ class NetworkServiceBuilder(object):
         # run any post initialized tasks, now that the agent
         # is fully connected
         self.l2_service.post_init()
-
-        if self.l3_binding:
-            LOG.debug('Getting BIG-IP MAC Address for L3 Binding')
-            self.l3_binding.register_bigip_mac_addresses()
 
     def tunnel_sync(self, tunnel_ips):
         self.l2_service.tunnel_sync(tunnel_ips)
