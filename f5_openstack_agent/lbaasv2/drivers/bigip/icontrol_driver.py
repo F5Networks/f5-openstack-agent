@@ -15,6 +15,7 @@ from neutron_lbaas.services.loadbalancer import constants as lb_const
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
+from oslo_utils import importutils
 
 from f5.bigip import BigIP
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
@@ -241,6 +242,8 @@ class iControlDriver(LBaaSBaseDriver):
         self.system_helper = None
         self.lbaas_builder = None
         self.service_adapter = None
+        self.vlan_binding = None
+        self.l3_binding = None
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -287,10 +290,39 @@ class iControlDriver(LBaaSBaseDriver):
     def post_init(self):
         # run any post initialized tasks, now that the agent
         # is fully connected
+        bigips = self.get_all_bigips()
+        if self.vlan_binding:
+            LOG.error(
+                'Getting BIG-IP device interface for VLAN Binding')
+            self.vlan_binding.register_bigip_interfaces()
+
+        if self.l3_binding:
+            LOG.error('Getting BIG-IP MAC Address for L3 Binding')
+            self.l3_binding.register_bigip_mac_addresses()
+
         if self.network_builder:
             self.network_builder.post_init()
 
     def _init_bigip_managers(self):
+
+        if self.conf.vlan_binding_driver:
+            try:
+                self.vlan_binding = importutils.import_object(
+                    self.conf.vlan_binding_driver, self.conf, self)
+            except ImportError:
+                LOG.error(_('Failed to import VLAN binding driver: %s'
+                            % self.conf.vlan_binding_driver))
+
+        if self.conf.l3_binding_driver:
+            try:
+                self.l3_binding = importutils.import_object(
+                    self.conf.l3_binding_driver, self.conf, self)
+            except ImportError:
+                LOG.error('Failed to import L3 binding driver: %s'
+                          % self.conf.l3_binding_driver)
+        else:
+            LOG.debug('No L3 binding driver configured.'
+                      ' No L3 binding will be done.')
 
         self.service_adapter = ServiceModelAdapter(self.conf)
         self.tenant_manager = BigipTenantManager(self.conf, self)
@@ -394,15 +426,14 @@ class iControlDriver(LBaaSBaseDriver):
         # Open bigip connection """
         LOG.info('Opening iControl connection to %s @ %s' %
                  (self.conf.icontrol_username, hostname))
+
         return BigIP(hostname,
                      self.conf.icontrol_username,
-                     self.conf.icontrol_password)
+                     self.conf.icontrol_password,
+                     loglevel=logging.DEBUG)
 
     def _init_bigip(self, bigip, hostname, check_group_name=None):
         # Prepare a bigip for usage
-
-        # TODO(jl) is this necessary with F5 SDK?
-        # self.system_helper.set_folder(bigip, name='/Common')
 
         major_version, minor_version = self._validate_bigip_version(
             bigip, hostname)
@@ -450,6 +481,8 @@ class iControlDriver(LBaaSBaseDriver):
 
         bigip.device_name = self.cluster_manager.get_device_name(bigip)
         bigip.mac_addresses = self.system_helper.get_mac_addresses(bigip)
+        LOG.error("Initialized BIG-IP %s with MAC addresses %s" %
+                  (bigip.device_name, ', '.join(bigip.mac_addresses)))
         bigip.device_interfaces = \
             self.system_helper.get_interface_macaddresses_dict(bigip)
         bigip.assured_networks = []

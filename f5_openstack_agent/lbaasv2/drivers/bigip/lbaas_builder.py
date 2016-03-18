@@ -70,6 +70,12 @@ class LBaaSBuilder(object):
         if 'loadbalancer' not in service:
             return
 
+        if self.driver.l3_binding:
+            loadbalancer = service["loadbalancer"]
+            self.driver.l3_binding.bind_address(
+                subnet_id=loadbalancer["vip_subnet_id"],
+                ip_address=loadbalancer["vip_address"])
+
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
             return
@@ -83,13 +89,6 @@ class LBaaSBuilder(object):
                    "listener": listener}
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
-
-                    if "default_pool_id" in listener:
-                        pool = self._get_pool_by_id(
-                            service, listener["default_pool_id"])
-                        if pool is not None:
-                            svc["pool"] = pool
-
                     self.listener_builder.create_listener(svc, bigips)
                 except Exception as err:
                     LOG.error("Error in "
@@ -196,6 +195,12 @@ class LBaaSBuilder(object):
         if (service['loadbalancer']['provisioning_status'] !=
                 plugin_const.PENDING_DELETE):
             return
+
+        if self.driver.l3_binding:
+            loadbalancer = service["loadbalancer"]
+            self.driver.l3_binding.unbind_address(
+                subnet_id=loadbalancer["vip_subnet_id"],
+                ip_address=loadbalancer["vip_address"])
 
     def _assure_pools_deleted(self, service):
         if 'pools' not in service:

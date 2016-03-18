@@ -17,6 +17,8 @@ import hashlib
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
+
 LOG = logging.getLogger(__name__)
 
 
@@ -34,6 +36,10 @@ class ServiceModelAdapter(object):
     def __init__(self, conf):
         """Initialize the service model adapter with config."""
         self.conf = conf
+        if self.conf.environment_prefix:
+            self.prefix = self.conf.environment_prefix + '_'
+        else:
+            self.prefix = utils.OBJ_PREFIX + '_'
 
     def get_pool(self, service):
         pool = service["pool"]
@@ -46,7 +52,7 @@ class ServiceModelAdapter(object):
 
     def init_pool_name(self, loadbalancer, pool):
         if "name" not in pool or not pool["name"]:
-            name = self.conf.environment_prefix + "_" + pool["id"]
+            name = self.prefix + pool["id"]
         else:
             name = pool["name"]
 
@@ -67,7 +73,7 @@ class ServiceModelAdapter(object):
 
     def _init_virtual_name(self, loadbalancer, listener):
         if "name" not in listener or not listener["name"]:
-            name = self.conf.environment_prefix + "_" + listener["id"]
+            name = self.prefix + listener["id"]
         else:
             name = listener["name"]
 
@@ -136,7 +142,7 @@ class ServiceModelAdapter(object):
 
     def get_folder_name(self, tenant_id):
         if tenant_id is not None:
-            name = self.conf.environment_prefix + "_" + \
+            name = self.prefix + \
                 tenant_id.replace('/', '')
         else:
             name = "Common"
@@ -186,7 +192,7 @@ class ServiceModelAdapter(object):
 
     def init_monitor_name(self, loadbalancer, monitor):
         if "name" not in monitor or not monitor["name"]:
-            name = self.conf.environment_prefix + "_" + monitor["id"]
+            name = self.prefix + monitor["id"]
         else:
             name = monitor["name"]
 
@@ -249,8 +255,7 @@ class ServiceModelAdapter(object):
                 lbaas_pool["lb_algorithm"])
 
         if lbaas_hm is not None:
-            pool["monitor"] = self.conf.environment_prefix + "_" + \
-                lbaas_hm["id"]
+            pool["monitor"] = self.prefix + lbaas_hm["id"]
 
         return pool
 
@@ -334,8 +339,20 @@ class ServiceModelAdapter(object):
                 virtual_type = 'standard'
 
         if 'session_persistence' in listener:
-            if listener['session_persistence'] == 'APP_COOKIE':
+            persistence_type = listener['session_persistence']
+            if persistence_type == 'APP_COOKIE':
                 virtual_type = 'standard'
+                vip['persist'] = [{'name': '/Common/cookie'}]
+
+            elif persistence_type == 'SOURCE_IP':
+                vip['persist'] = [{'name': '/Common/source_addr'}]
+
+            elif persistence_type == 'HTTP_COOKIE':
+                vip['persist'] = [{'name': '/Common/cookie'}]
+
+        else:
+            vip['fallbackPersistence'] = ''
+            vip['persist'] = []
 
         if virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']

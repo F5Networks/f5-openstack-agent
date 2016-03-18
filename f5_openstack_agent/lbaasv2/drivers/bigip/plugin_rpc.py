@@ -215,3 +215,13 @@ class LBaaSv2PluginRPC(object):
                            healthmonitor_id=healthmonitor_id),
             topic=self.topic
         )
+
+    # for L3 binding
+    @log_helpers.log_method_call
+    def get_ports_for_mac_addresses(self, mac_addresses=None):
+        return self._call(
+            self.context,
+            self._make_msg('get_ports_for_mac_addresses',
+                           mac_addresses=mac_addresses),
+            topic=self.topic
+        )

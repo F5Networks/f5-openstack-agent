@@ -79,7 +79,7 @@ class VLANBindingBase(object):
                     json_example = json.loads(example)
                     LOG.warning(
                         'The device %s at %s does not have interface bindings'
-                        % (bigip.device_name, bigip.icontrol.hostname),
+                        % (bigip.device_name, bigip.hostname),
                         ' even though VLAN binding has been requested',
                     )
                     LOG.warning(
