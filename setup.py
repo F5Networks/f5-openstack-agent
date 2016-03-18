@@ -12,62 +12,13 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import os
+import setuptools
 
-from setuptools import find_packages
-from setuptools import setup
+try:
+    import multiprocessing
+except ImportError:
+    pass
 
-if 'PROJECT_DIR' in os.environ:
-    project_dir = os.environ['PROJECT_DIR']
-else:
-    project_dir = os.path.curdir
-
-
-def version():
-    if 'VERSION' in os.environ:
-        version = os.environ['VERSION']
-    elif os.path.isfile('VERSION'):
-        with open('VERSION') as f:
-            version = f.read()
-    else:
-        version = 'Unknown'
-
-    return version
-
-
-def release():
-    if 'RELEASE' in os.environ:
-        release = os.environ['RELEASE']
-    elif os.path.isfile('RELEASE'):
-        with open('RELEASE') as f:
-            release = f.read().strip()
-    else:
-        release = 'Unknown'
-
-    return release
-
-
-def readme():
-    with open('README.md') as f:
-        return f.read()
-
-setup(name='f5-openstack-agent',
-
-      description='F5 Networks Agent for OpenStack services',
-      long_description=readme(),
-      version=version(),
-      author='f5-openstack-agent',
-      author_email='f5-openstack-agent@f5.com',
-      url='https://github.com/F5Networks/f5-openstack-agent',
-
-      # Runtime dependencies.
-      install_requires=[],
-
-      packages=find_packages(exclude=["*.test", "*.test.*", "test*", "test"]),
-
-      classifiers=['Development Status :: 2 - Pre-Alpha',
-                   'License :: OSI Approved :: Apache Software License',
-                   'Operating System :: OS Independent',
-                   'Programming Language :: Python',
-                   'Intended Audience :: System Administrators']
-      )
+setuptools.setup(
+    setup_requires=['pbr>=1.8'],
+    pbr=True)
