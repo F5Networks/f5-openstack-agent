@@ -1,0 +1,12 @@
+[Unit]
+Description=F5 LBaaSv2 BIG-IP Agent
+After=syslog.target network.target
+Requires=network.target
+
+[Service]
+#User=neutron
+ExecStart=/usr/bin/f5-oslbaasv2-agent --log-file /var/log/neutron/f5-openstack-agent.log --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/services/f5/f5-openstack-agent.ini
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
