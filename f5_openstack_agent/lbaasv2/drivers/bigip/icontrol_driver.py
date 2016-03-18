@@ -290,7 +290,6 @@ class iControlDriver(LBaaSBaseDriver):
     def post_init(self):
         # run any post initialized tasks, now that the agent
         # is fully connected
-        bigips = self.get_all_bigips()
         if self.vlan_binding:
             LOG.error(
                 'Getting BIG-IP device interface for VLAN Binding')
@@ -310,8 +309,8 @@ class iControlDriver(LBaaSBaseDriver):
                 self.vlan_binding = importutils.import_object(
                     self.conf.vlan_binding_driver, self.conf, self)
             except ImportError:
-                LOG.error(_('Failed to import VLAN binding driver: %s'
-                            % self.conf.vlan_binding_driver))
+                LOG.error('Failed to import VLAN binding driver: %s'
+                          % self.conf.vlan_binding_driver)
 
         if self.conf.l3_binding_driver:
             try:

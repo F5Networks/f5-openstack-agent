@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 
 
 class L3BindingBase(object):
-    """ Base Class for L3 address bindings to L3 port """
+    """Base Class for L3 address bindings to L3 port """
     def __init__(self, conf, driver):
         self.conf = conf
         self.driver = driver
@@ -37,7 +37,7 @@ class L3BindingBase(object):
         LOG.debug('reading static L3 address bindings')
         if self.conf.l3_binding_static_mappings:
             LOG.debug('bindings: %s '
-                        % self.conf.l3_binding_static_mappings)
+                      % self.conf.l3_binding_static_mappings)
             l3_binding_static_mappings = \
                 json.loads(self.conf.l3_binding_static_mappings)
             for subnet_id in l3_binding_static_mappings:
@@ -53,7 +53,7 @@ class L3BindingBase(object):
                                 self.l3_binding_mappings[subnet_id] = \
                                     binding_list
                             LOG.debug('bind subnet %s to port: %s, device %s'
-                                        % (subnet_id, port_id, device_id))
+                                      % (subnet_id, port_id, device_id))
         else:
             LOG.debug('l3_binding_static_mappings not configured')
 
@@ -63,7 +63,7 @@ class L3BindingBase(object):
         if not self.__initialized__bigip_ports:
             for bigip in self.driver.get_all_bigips():
                 LOG.error('Request Port information for MACs: %s'
-                            % bigip.mac_addresses)
+                          % bigip.mac_addresses)
                 if self.driver.plugin_rpc:
                     ports = self.driver.plugin_rpc.get_ports_for_mac_addresses(
                         mac_addresses=bigip.mac_addresses)
@@ -83,8 +83,8 @@ class L3BindingBase(object):
                                     self.l3_binding_mappings[subnet_id] = \
                                         [(port_id, device_id)]
                                 LOG.error('adding mapping information '
-                                            'subnet %s to port: %s, device %s'
-                                            % (subnet_id, port_id, device_id))
+                                          'subnet %s to port: %s, device %s'
+                                          % (subnet_id, port_id, device_id))
             self.__initialized__bigip_ports = True
 
     def bind_address(self, subnet_id=None, ip_address=None):
@@ -99,21 +99,21 @@ class L3BindingBase(object):
 
 
 class AllowedAddressPairs(L3BindingBase):
-    """ Class for configuring L3 address bindings to L2 ports """
+    """Class for configuring L3 address bindings to L2 ports """
     def __init__(self, conf, driver):
         super(AllowedAddressPairs, self).__init__(conf, driver)
 
     def bind_address(self, subnet_id=None, ip_address=None):
         LOG.debug('checking for required port bindings '
-                    'subnet_id: %s ip_address %s'
-                    % (subnet_id, ip_address))
+                  'subnet_id: %s ip_address %s'
+                  % (subnet_id, ip_address))
         if subnet_id in self.l3_binding_mappings:
             binding_list = self.l3_binding_mappings[subnet_id]
             for (port_id, device_id) in binding_list:
                 if port_id:
                     LOG.debug('adding allowed address pair '
-                                'address: %s port: %s device: %s'
-                                % (ip_address, port_id, device_id))
+                              'address: %s port: %s device: %s'
+                              % (ip_address, port_id, device_id))
                     if self.driver.plugin_rpc:
                         self.driver.plugin_rpc.add_allowed_address(
                             port_id=port_id,
@@ -128,15 +128,15 @@ class AllowedAddressPairs(L3BindingBase):
 
     def unbind_address(self, subnet_id=None, ip_address=None):
         LOG.debug('checking for removal of port bindings '
-                    'subnet_id: %s ip_address %s'
-                    % (subnet_id, ip_address))
+                  'subnet_id: %s ip_address %s'
+                  % (subnet_id, ip_address))
         if subnet_id in self.l3_binding_mappings:
             binding_list = self.l3_binding_mappings[subnet_id]
             for (port_id, device_id) in binding_list:
                 if port_id:
                     LOG.debug('removing allowed address pair '
-                                'address: %s port: %s device: %s'
-                                % (ip_address, port_id, device_id))
+                              'address: %s port: %s device: %s'
+                              % (ip_address, port_id, device_id))
                     if self.driver.plugin_rpc:
                         self.driver.plugin_rpc.remove_allowed_address(
                             port_id=port_id,

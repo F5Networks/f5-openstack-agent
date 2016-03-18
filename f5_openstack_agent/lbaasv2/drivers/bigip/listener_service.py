@@ -141,28 +141,3 @@ class ListenerServiceBuilder(object):
                                       bigip.device_name,
                                       err.response.status_code,
                                       err.message))
-
-    def _update_listener_session_persistence(self, service, bigips):
-
-        # ? pool lb method for fallback
-
-        listener = service["listener"]
-        pool = service["pool"]
-        if 'session_persistence' in listener:
-            persistence_type = listener['session_persistence']
-            if persistence_type == 'APP_COOKIE':
-                # add profile '/Common/http'
-                # set fallback if pool has source_ip lb method
-                # create rules if cookie name
-                pass
-
-            elif persistence_type == 'HTTP_COOKIE':
-                # add profile '/Common/http'
-                # set fallback if pool has source_ip lb method
-                pass
-        else:
-            # remove profiles?
-            pass
-
-    def _add_profile(self, service, profile_name):
-        pass
