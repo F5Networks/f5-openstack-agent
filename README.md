@@ -21,11 +21,8 @@ limitations under the License.
 ## Introduction
 This repo houses the code for the F5 OpenStack plugin agent. The agent allows you to deploy BIG-IP services in an OpenStack environment. 
 
-## Installation & Configuration
-See [How to Install the F5 OpenStack LBaaSv1 PLugin Agent](http://f5networks.github.io/f5-openstack-docs/lbaasv1-plugin-install-agent/).
-
 ## Documentation
-See [Documentation](http://f5networks.github.io/f5-openstack-agent).
+See [Documentation](http://f5-openstack-lbaasv2.rtfd.org).
 
 ## Filing Issues
 If you find an issue we would love to hear about it.  Please let us know by
@@ -33,34 +30,39 @@ filing an issue in this repository and tell us as much as you can about what
 you found and how you found it.
 
 ## Contributing
-See [Contributing](CONTRIBUTING.md)
+See [Contributing](CONTRIBUTING.md).
 
 ## Test
 Before you open a pull request, your code must have passing
 [pytest](http://pytest.org) unit tests. In addition, you should include a set of
-functional tests written to use a real BIG-IP device for testing. Information on
+functional tests written to use a real BIG-IP® device for testing. Information on
 how to run our set of tests is included below.
 
 #### Unit Tests
 We use pytest for our unit tests.
+
 1. If you haven't already, install the required test packages and the requirements.txt in your virtual environment.
-```shell
+
+```
 $ pip install hacking pytest pytest-cov
 $ pip install -r requirements.txt
 ```
-2. Run the tests and produce a coverage report.  The `--cov-report=html` will
+
+2. Run the tests and produce a coverage report. The `--cov-report=html` will
 create a `htmlcov/` directory that you can view in your browser to see the
 missing lines of code.
-```shell
-py.test --cov ./icontrol --cov-report=html
-open htmlcov/index.html
+
+```
+$ py.test --cov ./icontrol --cov-report=html
+$ open htmlcov/index.html
 ```
 
 #### Style Checks
 We use the hacking module for our style checks (installed as part of
 step 1 in the Unit Test section).
-```shell
-flake8 ./
+
+```
+$ flake8 ./
 ```
 
 ## Contact
@@ -70,7 +72,7 @@ flake8 ./
 Copyright 2015-2016 F5 Networks Inc.
 
 ## Support
-See [Support](SUPPORT.md)
+See [Support](SUPPORT.md).
 
 ## License
  
@@ -88,5 +90,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
  
 ### Contributor License Agreement
-Individuals or business entities who contribute to this project must have completed and submitted the [F5 Contributor License Agreement](http://f5networks.github.io/f5-openstack-docs/cla_landing/index.html) to Openstack_CLA@f5.com prior to their
-code submission being included in this project.
+Individuals or business entities who contribute to this project must have completed and submitted the [F5 Contributor License Agreement](http://f5-openstack-docs.readthedocs.org/en/latest/cla_landing.html#cla-landing) to Openstack_CLA@f5.com prior to their code submission being included in this project.
