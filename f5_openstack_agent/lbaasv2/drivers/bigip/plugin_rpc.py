@@ -226,6 +226,26 @@ class LBaaSv2PluginRPC(object):
         )
 
     @log_helpers.log_method_call
+    def add_allowed_address(self, port_id=None, ip_address=None):
+        return self._call(
+            self.context,
+            self._make_msg('add_allowed_address',
+                           port_id=port_id,
+                           ip_address=ip_address),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def remove_allowed_address(self, port_id=None, ip_address=None):
+        return self._call(
+            self.context,
+            self._make_msg('remove_allowed_address',
+                           port_id=port_id,
+                           ip_address=ip_address),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
     def get_all_loadbalancers(self):
         return self._call(
             self.context,

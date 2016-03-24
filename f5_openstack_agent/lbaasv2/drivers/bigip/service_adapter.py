@@ -50,6 +50,9 @@ class ServiceModelAdapter(object):
 
         return self._map_pool(loadbalancer, pool, healthmonitor)
 
+    def snat_mode(self):
+        return self.conf.f5_snat_mode
+
     def init_pool_name(self, loadbalancer, pool):
         if "name" not in pool or not pool["name"]:
             name = self.prefix + pool["id"]
@@ -61,6 +64,7 @@ class ServiceModelAdapter(object):
 
     def get_virtual(self, service):
         listener = service["listener"]
+        listener["use_snat"] = self.snat_mode()
         loadbalancer = service["loadbalancer"]
         vip = self._map_virtual(loadbalancer, listener)
         self._add_bigip_items(listener, vip)
