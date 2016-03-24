@@ -26,7 +26,9 @@ from oslo_utils import importutils
 
 from neutron.agent import rpc as agent_rpc
 from neutron.common import exceptions as q_exception
+from neutron.common import topics
 from neutron import context as ncontext
+from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
@@ -216,10 +218,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.service_resync_interval)
 
+        # Load the iControl driver.
         self.agent_host = conf.host
-
         self._load_driver(conf)
 
+        # Initialize agent configurations
         agent_configurations = (
             {'environment_prefix': self.conf.environment_prefix,
              'environment_group_number': self.conf.environment_group_number,
@@ -232,6 +235,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
                 if len(nv) > 1:
                     agent_configurations[nv[0]] = nv[1]
 
+        # Initialize agent-state
         self.agent_state = {
             'binary': constants_v2.AGENT_BINARY_NAME,
             'host': self.agent_host,
@@ -243,7 +247,15 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         }
 
         self.admin_state_up = True
+
+        # Set iControl driver context for RPC.
+        self.lbdriver.set_context(self.context)
+
+        # Setup RPC:
         self._setup_rpc()
+
+        # Allow driver to run post init process not that the RPC is all setup.
+        self.lbdriver.post_init()
 
     def _load_driver(self, conf):
         self.lbdriver = None
@@ -291,6 +303,30 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         self.lbdriver.set_plugin_rpc(self.plugin_rpc)
 
         self._setup_state_rpc(topic)
+
+        # Setup message queues to listen for updates from
+        # Neutron.
+        if not self.conf.f5_global_routed_mode:
+            # Core plugin
+            self.lbdriver.set_tunnel_rpc(agent_rpc.PluginApi(topics.PLUGIN))
+
+            consumers = [[constants_v2.TUNNEL, topics.UPDATE]]
+            if self.conf.l2_population:
+                # L2 Populate plugin Callbacks API
+                self.lbdriver.set_l2pop_rpc(
+                    l2pop_rpc.L2populationAgentNotifyAPI())
+
+                consumers.append(
+                    [topics.L2POPULATION, topics.UPDATE, self.agent_host]
+                )
+
+            self.endpoints = [self]
+
+            self.connection = agent_rpc.create_consumers(
+                self.endpoints,
+                topics.AGENT,
+                consumers
+            )
 
     def _setup_state_rpc(self, topic):
         # Agent state API
@@ -491,6 +527,20 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             LOG.error("delete_health_monitor: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("delete_health_monitor: Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
+    def agent_updated(self, context, payload):
+        """Handle the agent_updated notification event."""
+        if payload['admin_state_up'] != self.admin_state_up:
+            self.admin_state_up = payload['admin_state_up']
+            if self.admin_state_up:
+                # FIXME: This needs to be changed back to True
+                self.needs_resync = False
+            else:
+                for loadbalancer_id in self.cache.get_loadbalancer_ids():
+                    LOG.debug("DESTROYING loadbalancer: " + loadbalancer_id)
+                    # self.destroy_service(loadbalancer_id)
+            LOG.info(_("agent_updated by server side %s!"), payload)
 
     @log_helpers.log_method_call
     def tunnel_update(self, context, **kwargs):

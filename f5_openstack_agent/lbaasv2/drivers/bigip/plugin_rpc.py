@@ -24,7 +24,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as constants
 
 LOG = logging.getLogger
 
-
 class LBaaSv2PluginRPC(object):
     """Client interface for agent to plugin RPC."""
 
@@ -225,3 +224,12 @@ class LBaaSv2PluginRPC(object):
                            mac_addresses=mac_addresses),
             topic=self.topic
         )
+
+    @log_helpers.log_method_call
+    def get_all_loadbalancers(self):
+        return self._call(
+            self.context,
+            self._make_msg('get_all_loadbalancers'),
+            topic=self.topic
+        )
+                           
