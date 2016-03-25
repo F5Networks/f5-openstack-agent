@@ -1,4 +1,4 @@
-""" Module for managing L3 to L2 port bindings on F5 BIG-IP in Neutron """
+"""Module for managing L3 to L2 port bindings on F5 BIG-IP in Neutron."""
 # Copyright 2014 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,18 +16,16 @@
 
 # pylint: disable=no-self-use
 
-try:
-    from neutron.openstack.common import log as logging
-except ImportError:
-    from oslo_log import log as logging
-
 import json
+
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
 
 class L3BindingBase(object):
-    """Base Class for L3 address bindings to L3 port """
+    """Base Class for L3 address bindings to L3 port."""
+
     def __init__(self, conf, driver):
         self.conf = conf
         self.driver = driver
@@ -38,6 +36,8 @@ class L3BindingBase(object):
         if self.conf.l3_binding_static_mappings:
             LOG.debug('bindings: %s '
                       % self.conf.l3_binding_static_mappings)
+            # FIXME(RB): need to do some error handling here if the user
+            # specifies the static mappings incorrectly.
             l3_binding_static_mappings = \
                 json.loads(self.conf.l3_binding_static_mappings)
             for subnet_id in l3_binding_static_mappings:
@@ -99,7 +99,8 @@ class L3BindingBase(object):
 
 
 class AllowedAddressPairs(L3BindingBase):
-    """Class for configuring L3 address bindings to L2 ports """
+    """Class for configuring L3 address bindings to L2 ports."""
+
     def __init__(self, conf, driver):
         super(AllowedAddressPairs, self).__init__(conf, driver)
 

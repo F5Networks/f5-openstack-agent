@@ -15,11 +15,6 @@
 import f5_openstack_agent
 import setuptools
 
-try:
-    import multiprocessing
-except ImportError:
-    pass
-
 setuptools.setup(
     version=f5_openstack_agent.__version__,
     name="f5-openstack-agent",

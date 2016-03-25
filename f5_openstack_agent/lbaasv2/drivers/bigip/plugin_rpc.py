@@ -82,15 +82,6 @@ class LBaaSv2PluginRPC(object):
         return func(context, msg['method'], **msg['args'])
 
     @log_helpers.log_method_call
-    def assure_service(self, context, service, agent):
-        """Assure service consistency."""
-        return self._cast(
-            context,
-            self._make_msg('assure_service', service=service),
-            topic='%s.%s' % (self.topic, agent['host'])
-        )
-
-    @log_helpers.log_method_call
     def update_loadbalancer_status(self,
                                    lb_id,
                                    provisioning_status,
@@ -218,10 +209,130 @@ class LBaaSv2PluginRPC(object):
 
     # for L3 binding
     @log_helpers.log_method_call
+    def add_allowed_address(self, port_id=None, ip_address=None):
+        """Add allowed address to the port."""
+        return self._call(
+            self.context,
+            self._make_msg('add_allowed_address',
+                           port_id=port_id,
+                           ip_address=ip_address),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def remove_allowed_address(self, port_id=None, ip_address=None):
+        """Remove allowed address on the port."""
+        return self._call(
+            self.context,
+            self._make_msg('remove_allowed_address',
+                           port_id=port_id,
+                           ip_address=ip_address),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
     def get_ports_for_mac_addresses(self, mac_addresses=None):
+        """Get a list of ports that correspond to the mac addrs."""
         return self._call(
             self.context,
             self._make_msg('get_ports_for_mac_addresses',
                            mac_addresses=mac_addresses),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def get_ports_on_network(self, network_id=None):
+        """Get a list of ports on the network."""
+        return self._call(
+            self.context,
+            self._make_msg('get_ports_on_network',
+                           network_id=network_id),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def get_port_by_name(self, port_name=None):
+        """Get a list of ports that have the name port_name."""
+        return self._call(
+            self.context,
+            self._make_msg('get_port_by_name',
+                           port_name=port_name),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def create_port_on_subnet(self, subnet_id=None,
+                              mac_address=None, name=None,
+                              fixed_address_count=1,
+                              host=None):
+        """Add a neutron port to the subnet."""
+        return self._call(
+            self.context,
+            self._make_msg('create_port_on_subnet',
+                           subnet_id=subnet_id,
+                           mac_address=mac_address,
+                           name=name,
+                           fixed_address_count=fixed_address_count,
+                           host=host),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def create_port_on_subnet_with_specific_ip(self, subnet_id=None,
+                                               mac_address=None,
+                                               name=None,
+                                               ip_address=None,
+                                               host=None):
+        """Add a neutron port to the subnet with given IP."""
+        return self._call(
+            self.context,
+            self._make_msg('create_port_on_subnet',
+                           subnet_id=subnet_id,
+                           mac_address=mac_address,
+                           name=name,
+                           ip_address=ip_address,
+                           host=host),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def delete_port_by_name(self, port_name=None):
+        """Delete ports with the given name."""
+        return self._cast(
+            self.context,
+            self._make_msg('delete_port_by_name',
+                           port_name=port_name),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def delete_port(self, port_id=None, mac_address=None):
+        """Delete port with the given port_id."""
+        return self._cast(
+            self.context,
+            self._make_msg('delete_port',
+                           port_id=port_id,
+                           mac_address=mac_address),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def get_service_by_loadbalancer_id(self,
+                                       context,
+                                       loadbalancer_id=None):
+        """Retrieve the service definition for this loadbalancer."""
+        return self._call(
+            self.context,
+            self._make_msg('get_service_by_loadbalancer_id',
+                           loadbalancer_id=loadbalancer_id),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def get_all_loadbalancers(self):
+        """Retrieve a list of loadbalancers in Neutron."""
+        return self._call(
+            self.context,
+            self._make_msg('get_all_loadbalancers'),
             topic=self.topic
         )
