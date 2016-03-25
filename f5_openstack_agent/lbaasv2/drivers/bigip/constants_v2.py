@@ -31,6 +31,9 @@ VTEP_SELFIP_NAME = 'vtep'
 
 AGENT_BINARY_NAME = 'f5-oslbaasv2-agent'
 
+DEFAULT_PARTITION = 'Common'
+DEFAULT_ROUTE_DOMAIN_ID = 0
+
 # RPC channel names
 TOPIC_PROCESS_ON_HOST_V2 = 'f5-lbaasv2-process-on-controller'
 TOPIC_LOADBALANCER_AGENT_V2 = 'f5-lbaasv2-process-on-agent'

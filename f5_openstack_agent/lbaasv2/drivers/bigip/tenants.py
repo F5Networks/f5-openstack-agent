@@ -41,7 +41,7 @@ class BigipTenantManager(object):
         tenant_id = service['loadbalancer']['tenant_id']
         traffic_group = self.driver.service_to_traffic_group(service)
         traffic_group = '/Common/' + traffic_group
-        service["traffic_gorup"] = traffic_group
+        service["traffic_group"] = traffic_group
 
         # create tenant folder
         for bigip in self.driver.get_config_bigips():

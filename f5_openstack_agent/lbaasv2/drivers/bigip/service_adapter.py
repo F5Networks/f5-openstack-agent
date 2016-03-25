@@ -137,7 +137,7 @@ class ServiceModelAdapter(object):
                       "hidden": False,
                       "inheritedDevicegroup": True}
             if "traffic_group" in loadbalancer:
-                folder['trafficGroup'] = loadbalancer["traffic_gropu"]
+                folder['trafficGroup'] = loadbalancer["traffic_group"]
                 folder['inheritedTrafficGroup'] = False
             else:
                 folder['inheritedTrafficGroup'] = True

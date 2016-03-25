@@ -20,6 +20,9 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import ResourceType
+from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
+    NetworkHelper
+from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -31,6 +34,24 @@ class BigipSelfIpManager(object):
         self.l2_service = l2_service
         self.l3_binding = l3_binding
         self.selfip_manager = BigIPResourceHelper(ResourceType.selfip)
+        self.network_helper = NetworkHelper()
+
+    def create_bigip_selfip(self, bigip, model):
+        if not model['name']:
+            return False
+        s = bigip.net.selfips.selfip
+        if s.exists(name=model['name'], partition=model['partition']):
+            return True
+        try:
+            self.selfip_manager.create(bigip, model)
+        except HTTPError as err:
+            if err.response.status_code is not 400:
+                raise
+            if err.response.text.find("must be one of the vlans "
+                                      "in the associated route domain") > 0:
+                self.network_helper.add_vlan_to_domain(name=model['vlan_name'],
+                                                  partition=model['partition'])
+                self.selfip_manager.create(bigip, model)
 
     def assure_bigip_selfip(self, bigip, service, subnetinfo):
 
@@ -66,9 +87,10 @@ class BigipSelfIpManager(object):
             "netmask": netaddr.IPNetwork(subnet['cidr']).netmask,
             "vlan_name": network_name,
             "floating": "False",
-            "folder": network_folder,
-            "preserve_vlan_name": preserve_network_name}
-        self.selfip_manager.create(bigip, model)
+            "partition": network_folder,
+            "preserve_vlan_name": preserve_network_name
+        }
+        self.create(bigip, model)
         # TO DO: we need to only bind the local SelfIP to the
         # local device... not treat it as if it was floating
         if self.l3_binding:
@@ -110,14 +132,17 @@ class BigipSelfIpManager(object):
         floating_selfip_name = "gw-" + subnet['id']
         netmask = netaddr.IPNetwork(subnet['cidr']).netmask
 
-        bigip.selfip.create(name=floating_selfip_name,
-                            ip_address=subnet['gateway_ip'],
-                            netmask=netmask,
-                            vlan_name=network_name,
-                            floating=True,
-                            traffic_group=traffic_group,
-                            folder=network_folder,
-                            preserve_vlan_name=preserve_network_name)
+        model = {
+            'name': floating_selfip_name,
+            'ip_address': subnet['gateway_ip'],
+            'netmask': netmask,
+            'vlan_name': network_name,
+            'floating': True,
+            'traffic_group': traffic_group,
+            'partition': network_folder,
+            'preserve_vlan_name': preserve_network_name
+        }
+        self.create(bigip, model)
 
         if self.l3_binding:
             self.l3_binding.bind_address(subnet_id=subnet['id'],
