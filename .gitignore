@@ -105,3 +105,4 @@ docs/_build/
 # PyBuilder
 target/
 
+test/logs/
