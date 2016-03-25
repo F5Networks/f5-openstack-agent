@@ -32,7 +32,7 @@ def test_create_listener():
         # create partition
         lb_service.prep_service(service, bigips)
 
-        # create BIG-IP virtual servers
+        # create BIG-IP® virtual servers
         pools = service["pools"]
         loadbalancer = service["loadbalancer"]
 

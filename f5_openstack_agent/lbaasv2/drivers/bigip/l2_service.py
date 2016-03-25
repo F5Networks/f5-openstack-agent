@@ -33,7 +33,7 @@ def prefixed(name):
 
 
 def _get_tunnel_name(network):
-    # BIG-IP object name for a tunnel
+    # BIG-IP® object name for a tunnel
     tunnel_type = network['provider:network_type']
     tunnel_id = network['provider:segmentation_id']
     return 'tunnel-' + str(tunnel_type) + '-' + str(tunnel_id)
