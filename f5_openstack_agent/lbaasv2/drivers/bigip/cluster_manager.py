@@ -14,11 +14,19 @@
 #
 
 from oslo_log import log as logging
+import time
+
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as const
 
 LOG = logging.getLogger(__name__)
 
 
+class BigIPClusterSyncFailure(Exception):
+    pass
+
+
 class ClusterManager(object):
+    """Set of functions to help manage BIG-IP clusters."""
 
     def devices(self, bigip):
         return bigip.cm.devices.get_collection()
@@ -34,8 +42,12 @@ class ClusterManager(object):
         dg.update(autoSync='enabled')
 
     def get_sync_status(self, bigip):
-        # need bigip.cm.sync-status
-        return ''
+        sync_status = bigip.cm.sync_status
+        sync_status.refresh()
+
+        status = sync_status.entries[
+            'https://localhost/mgmt/tm/cm/sync-status/0']
+        return status['nestedStats']['entries']['status']['description']
 
     def get_traffic_groups(self, bigip):
         traffic_groups = []
@@ -45,17 +57,8 @@ class ClusterManager(object):
 
         return traffic_groups
 
-    def sync(self, bigip, name, force_now=False):
-        # force_now=True is typically used for initial sync.
-        # In order to avoid sync problems, you should wait until devices
-        # in the group are connected.
-        pass
-
-    def sync_local_device_to_group(self, device_group_name):
-        pass
-
     def save_config(self, bigip):
-        # need bigip.sys.config
+        # not used?
         pass
 
     def get_device_group(self, bigip):
@@ -81,3 +84,117 @@ class ClusterManager(object):
                 return device.managementIp
 
         return None
+
+    def sync(self, bigip, name, force_now=False):
+        state = ''
+        sync_start_time = time.time()
+        dev_name = self.get_device_name(bigip)
+        sleep_delay = const.SYNC_DELAY
+
+        attempts = 0
+        if force_now:
+            bigip.cm.sync(name)
+            time.sleep(sleep_delay)
+            attempts += 1
+
+        while attempts < const.MAX_SYNC_ATTEMPTS:
+            state = self.get_sync_status(bigip)
+            if state in ['Standalone', 'In Sync']:
+                break
+
+            elif state == 'Awaiting Initial Sync':
+                attempts += 1
+                LOG.info(
+                    'Cluster',
+                    "Device %s - Synchronizing initial config to group %s"
+                    % (dev_name, name))
+                bigip.cm.sync(name)
+                time.sleep(sleep_delay)
+
+            elif state in ['Disconnected',
+                           'Not All Devices Synced',
+                           'Changes Pending']:
+                attempts += 1
+
+                last_log_time = 0
+                now = time.time()
+                wait_start_time = now
+                # Keep checking the sync state in a quick loop.
+                # We want to detect In Sync as quickly as possible.
+                while now - wait_start_time < sleep_delay:
+                    # Only log once per second
+                    if now - last_log_time >= 1:
+                        LOG.info(
+                            'Cluster',
+                            'Device %s, Group %s not synced. '
+                            % (dev_name, name) +
+                            'Waiting. State is: %s'
+                            % state)
+                        last_log_time = now
+                    state = self.get_sync_status(bigip)
+                    if state in ['Standalone', 'In Sync']:
+                        break
+                    time.sleep(.5)
+                    now = time.time()
+                else:
+                    # if we didn't break out due to the group being in sync
+                    # then attempt to force a sync.
+                    bigip.cm.sync(name)
+                    sleep_delay += const.SYNC_DELAY
+                    # no need to sleep here because we already spent the sleep
+                    # interval checking status.
+                    continue
+
+                # Only a break from the inner while loop due to Standalone or
+                # In Sync will reach here.
+                # Normal exit of the while loop reach the else statement
+                # above which continues the outer loop
+                break
+
+            elif state == 'Sync Failure':
+                LOG.info('Cluster',
+                         "Device %s - Synchronization failed for %s"
+                         % (dev_name, name))
+                LOG.debug('Cluster', 'SYNC SECONDS (Sync Failure): ' +
+                          str(time.time() - sync_start_time))
+                raise BigIPClusterSyncFailure(
+                    'Device service group %s' % name +
+                    ' failed after ' +
+                    '%s attempts.' % const.MAX_SYNC_ATTEMPTS +
+                    ' Correct sync problem manually' +
+                    ' according to sol13946 on ' +
+                    ' support.f5.com.')
+            else:
+                attempts += 1
+                LOG.info('Cluster',
+                         "Device %s " % dev_name +
+                         "Synchronizing config attempt %s to group %s:"
+                         % (attempts, name) + " current state: %s" % state)
+                bigip.cm.sync(name)
+                time.sleep(sleep_delay)
+                sleep_delay += const.SYNC_DELAY
+        else:
+            if state == 'Disconnected':
+                LOG.debug('Cluster',
+                          'SYNC SECONDS(Disconnected): ' +
+                          str(time.time() - sync_start_time))
+                raise BigIPClusterSyncFailure(
+                    'Device service group %s' % name +
+                    ' could not reach a sync state' +
+                    ' because they can not communicate' +
+                    ' over the sync network. Please' +
+                    ' check connectivity.')
+            else:
+                LOG.debug('Cluster', 'SYNC SECONDS(Timeout): ' +
+                          str(time.time() - sync_start_time))
+                raise BigIPClusterSyncFailure(
+                    'Device service group %s' % name +
+                    ' could not reach a sync state after ' +
+                    '%s attempts.' % const.MAX_SYNC_ATTEMPTS +
+                    ' It is in %s state currently.' % state +
+                    ' Correct sync problem manually' +
+                    ' according to sol13946 on ' +
+                    ' support.f5.com.')
+
+        LOG.debug('Cluster', 'SYNC SECONDS(Success): ' +
+                  str(time.time() - sync_start_time))
