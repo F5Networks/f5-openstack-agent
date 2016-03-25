@@ -340,6 +340,37 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
     def _report_state(self):
 
         try:
+            # assure the agent is connected
+            # FIXME: what happens if we can't connect.
+            if not self.lbdriver.connected:
+                self.lbdriver.connect()
+
+            service_count = self.cache.size
+            self.agent_state['configurations']['services'] = service_count
+            if hasattr(self.lbdriver, 'service_queue'):
+                self.agent_state['configurations']['request_queue_depth'] = (
+                    len(self.lbdriver.service_queue)
+                )
+
+            # Add configuration from icontrol_driver.
+            if self.lbdriver.agent_configurations:
+                self.agent_state['configurations'].update(
+                    self.lbdriver.agent_configurations
+                )
+
+            # Compute the capacity score.
+            if self.conf.capacity_policy:
+                env_score = (
+                    self.lbdriver.generate_capacity_score(
+                        self.conf.capacity_policy
+                    )
+                )
+                self.agent_state['configurations'][
+                    'environment_capaciy_score'] = env_score
+            else:
+                self.agent_state['configurations'][
+                    'environment_capacity_score'] = 0
+
             LOG.debug("reporting state of agent as: %s" % self.agent_state)
             self.state_rpc.report_state(self.context, self.agent_state)
             self.agent_state.pop('start_flag', None)
@@ -540,7 +571,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
                 for loadbalancer_id in self.cache.get_loadbalancer_ids():
                     LOG.debug("DESTROYING loadbalancer: " + loadbalancer_id)
                     # self.destroy_service(loadbalancer_id)
-            LOG.info(_("agent_updated by server side %s!"), payload)
+            LOG.info("agent_updated by server side %s!", payload)
 
     @log_helpers.log_method_call
     def tunnel_update(self, context, **kwargs):
