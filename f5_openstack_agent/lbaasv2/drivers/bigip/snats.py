@@ -15,6 +15,12 @@
 
 import os
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
+    NetworkHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
+    BigIPResourceHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
+    ResourceType
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -25,6 +31,11 @@ class BigipSnatManager(object):
         self.driver = driver
         self.l2_service = l2_service
         self.l3_binding = l3_binding
+        self.snat_manager = BigIPResourceHelper(ResourceType.snat)
+        self.snatpool_manager = BigIPResourceHelper(ResourceType.snatpool)
+        self.snat_translation_manager = BigIPResourceHelper(
+            ResourceType.snat_translation)
+        self.network_helper = NetworkHelper()
 
     def _get_snat_name(self, subnet, tenant_id):
         # Get the snat name based on HA type
@@ -48,6 +59,7 @@ class BigipSnatManager(object):
         elif self.driver.conf.f5_ha_type == 'scalen':
             traffic_group = self.driver.tenant_to_traffic_group(tenant_id)
             return os.path.basename(traffic_group)
+        # If this is an error shouldn't we raise?
         LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
         return ''
 
@@ -109,12 +121,29 @@ class BigipSnatManager(object):
                 index_snat_name = '/Common/' + index_snat_name
 
             snat_traffic_group = self._get_snat_traffic_group(tenant_id)
-            bigip.snat.create(name=index_snat_name,
-                              ip_address=ip_address,
-                              traffic_group=snat_traffic_group,
-                              snat_pool_name=snat_info['pool_name'],
-                              folder=snat_info['network_folder'],
-                              snat_pool_folder=snat_info['pool_folder'])
+            # snat.create() did  the following in LBaaSv1
+            # Creates the SNAT
+            #   * if the traffic_group is empty it uses a const
+            #     but this seems like it should be an error see message
+            #     in this file about this
+            # Create a SNAT Pool if a name was passed in
+            #   * Add the snat to the list of members
+            model = {
+                "name": index_snat_name,
+                "partition": snat_info['network_folder'],
+                "address": ip_address,
+                "trafficGroup": snat_traffic_group,
+
+            }
+            snat = self.snat_manager.create(bigip, model)
+
+            model = {
+                "name": snat_info['pool_name'],
+                "partition": snat_info['pool_folder']
+            }
+            snatpool = self.snatpool_manager.create(bigip, model)
+            snatpool.members.append(snat.fullPath)
+            snatpool.update()
 
             if self.l3_binding:
                 self.l3_binding.bind_address(subnet_id=subnet['id'],
@@ -170,25 +199,36 @@ class BigipSnatManager(object):
                 tmos_snat_name = index_snat_name
 
             if self.l3_binding:
-                ip_address = bigip.snat.get_snat_ipaddress(
-                    folder=tenant_id,
-                    snataddress_name=index_snat_name)
-                self.l3_binding.unbind_address(subnet_id=subnet['id'],
-                                               ip_address=ip_address)
+                snat_xlate = self.snat_translation_manager.load(
+                    bigip, name=index_snat_name, partition=tenant_id)
+                self.l3_binding.unbind_address(
+                    subnet_id=subnet['id'], ip_address=snat_xlate.address)
 
             # Remove translation address from tenant snat pool
-            bigip.snat.remove_from_pool(
-                name=tenant_id,
-                member_name=tmos_snat_name,
-                folder=tenant_id)
+            # This seems strange that name and partition are tenant_id
+            # but that is what the v1 code was doing.
+            # The v1 code was also comparing basename in some cases
+            # which seems dangerous because the folder may be in play?
+            LOG.debug('Remove translation address from tenant SNAT pool')
+            snatpool = self.snatpool_manager.load(bigip, tenant_id, tenant_id)
+            snatpool.members = [
+                member for member in snatpool.members
+                if os.path.basename(member) != tmos_snat_name
+            ]
+            snatpool.update()
 
             # Delete snat pool if empty (no members)
+            # In LBaaSv1 the snat.remove_from_pool() method did this if
+            # there was only one member and it matched the one we were
+            # deleting making this call basically useless, but the simplified
+            # code above makes this still necessary and probably what the
+            # original authors intended anyway since there is logging here
+            # but not in the snat.py module from LBaaSv1
             LOG.debug('Check if snat pool is empty')
-            if not len(bigip.snat.get_snatpool_members(name=tenant_id,
-                                                       folder=tenant_id)):
+            if not snatpool.members:
                 LOG.debug('Snat pool is empty - delete snatpool')
-                bigip.snat.delete_snatpool(name=tenant_id,
-                                           folder=tenant_id)
+                snatpool.delete()
+
             # Check if subnet in use by any tenants/snatpools. If in use,
             # add subnet to hints list of subnets in use.
             self._remove_assured_tenant_snat_subnet(bigip, tenant_id, subnet)
@@ -209,7 +249,10 @@ class BigipSnatManager(object):
                 in_use_subnets.add(subnet['id'])
             else:
                 LOG.debug('Check subnet in use by any tenant')
-                if bigip.snat.get_snatpool_member_use_count(subnet['id']):
+                member_use_count = \
+                    self.network_helper.get_snatpool_member_use_count(
+                        bigip, subnet['id'])
+                if member_use_count:
                     LOG.debug('Subnet in use - do not delete')
                     in_use_subnets.add(subnet['id'])
                 else:
@@ -218,7 +261,10 @@ class BigipSnatManager(object):
             # Check if trans addr in use by any snatpool.  If not in use,
             # okay to delete associated neutron port.
             LOG.debug('Check trans addr %s in use.' % tmos_snat_name)
-            if not bigip.snat.get_snatpool_member_use_count(tmos_snat_name):
+            in_use_count = \
+                self.network_helper.get_snatpool_member_use_count(
+                    bigip, tmos_snat_name)
+            if not in_use_count:
                 LOG.debug('Trans addr not in use - delete')
                 deleted_names.add(index_snat_name)
             else:

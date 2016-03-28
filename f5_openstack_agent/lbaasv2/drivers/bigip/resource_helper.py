@@ -135,6 +135,10 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.ltm.monitor.tcps.tcp,
             ResourceType.ping_monitor:
                 lambda bigip: bigip.ltm.monitor.gateway_icmps.gateway_icmp,
-            ResourceType.node: lambda bigip: bigip.ltm.nodes.node
-
+            ResourceType.node: lambda bigip: bigip.ltm.nodes.node,
+            ResourceType.snat: lambda bigip: bigip.ltm.snats.snat,
+            ResourceType.snatpool:
+                lambda bigip: bigip.ltm.snatpools.snatpool,
+            ResourceType.snat_translation:
+                lambda bigip: bigip.ltm.snat_translations.snat_translation
         }[self.resource_type](bigip)
