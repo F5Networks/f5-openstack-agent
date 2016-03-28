@@ -16,10 +16,13 @@
 import netaddr
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
+    NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import ResourceType
+from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -31,6 +34,24 @@ class BigipSelfIpManager(object):
         self.l2_service = l2_service
         self.l3_binding = l3_binding
         self.selfip_manager = BigIPResourceHelper(ResourceType.selfip)
+        self.network_helper = NetworkHelper()
+
+    def create_bigip_selfip(self, bigip, model):
+        if not model['name']:
+            return False
+        s = bigip.net.selfips.selfip
+        if s.exists(name=model['name'], partition=model['partition']):
+            return True
+        try:
+            self.selfip_manager.create(bigip, model)
+        except HTTPError as err:
+            if err.response.status_code is not 400:
+                raise
+            if err.response.text.find("must be one of the vlans "
+                                      "in the associated route domain") > 0:
+                self.network_helper.add_vlan_to_domain(
+                    name=model['vlan_name'], partition=model['partition'])
+                self.selfip_manager.create(bigip, model)
 
     def assure_bigip_selfip(self, bigip, service, subnetinfo):
 
@@ -66,9 +87,10 @@ class BigipSelfIpManager(object):
             "netmask": netaddr.IPNetwork(subnet['cidr']).netmask,
             "vlan_name": network_name,
             "floating": "False",
-            "folder": network_folder,
-            "preserve_vlan_name": preserve_network_name}
-        self.selfip_manager.create(bigip, model)
+            "partition": network_folder,
+            "preserve_vlan_name": preserve_network_name
+        }
+        self.create(bigip, model)
         # TO DO: we need to only bind the local SelfIP to the
         # local device... not treat it as if it was floating
         if self.l3_binding:
@@ -110,14 +132,17 @@ class BigipSelfIpManager(object):
         floating_selfip_name = "gw-" + subnet['id']
         netmask = netaddr.IPNetwork(subnet['cidr']).netmask
 
-        bigip.selfip.create(name=floating_selfip_name,
-                            ip_address=subnet['gateway_ip'],
-                            netmask=netmask,
-                            vlan_name=network_name,
-                            floating=True,
-                            traffic_group=traffic_group,
-                            folder=network_folder,
-                            preserve_vlan_name=preserve_network_name)
+        model = {
+            'name': floating_selfip_name,
+            'ip_address': subnet['gateway_ip'],
+            'netmask': netmask,
+            'vlan_name': network_name,
+            'floating': True,
+            'traffic_group': traffic_group,
+            'partition': network_folder,
+            'preserve_vlan_name': preserve_network_name
+        }
+        self.create(bigip, model)
 
         if self.l3_binding:
             self.l3_binding.bind_address(subnet_id=subnet['id'],
@@ -125,18 +150,23 @@ class BigipSelfIpManager(object):
 
         # Setup a wild card ip forwarding virtual service for this subnet
         gw_name = "gw-" + subnet['id']
-        bigip.virtual_server.create_ip_forwarder(
-            name=gw_name, ip_address='0.0.0.0',
-            mask='0.0.0.0',
-            vlan_name=network_name,
-            traffic_group=traffic_group,
-            folder=network_folder,
-            preserve_vlan_name=preserve_network_name)
-
-        # Setup the IP forwarding virtual server to use the Self IPs
-        # as the forwarding SNAT addresses
-        bigip.virtual_server.set_snat_automap(name=gw_name,
-                                              folder=network_folder)
+        vs = bigip.ltm.virtuals.virtual
+        if not vs.exists(name=gw_name, partition=network_folder):
+            vs.create(
+                name=gw_name,
+                partition=network_folder,
+                destination='0.0.0.0:0',
+                mask='0.0.0.0',
+                vlansEnabled=True,
+                vlans=[network_name],
+                sourceAddressTranslation={'type': 'automap'},
+                ipForward=True
+            )
+        else:
+            vs.load(name=gw_name, partition=network_folder)
+        virtual_address = bigip.ltm.virtual_address_s.virtual_address
+        virtual_address.load(name='0.0.0.0:0', partition=network_folder)
+        virtual_address.update(trafficGroup=traffic_group)
         bigip.assured_gateway_subnets.append(subnet['id'])
 
     def delete_gateway_on_subnet(self, bigip, subnetinfo):
@@ -155,19 +185,26 @@ class BigipSelfIpManager(object):
 
         floating_selfip_name = "gw-" + subnet['id']
         if self.driver.conf.f5_populate_static_arp:
-            bigip.arp.delete_by_subnet(subnet=subnetinfo['subnet']['cidr'],
-                                       mask=None,
-                                       folder=network_folder)
-        bigip.selfip.delete(name=floating_selfip_name,
-                            folder=network_folder)
+            self.network_helper.arp_delete_by_subnet(
+                bigip,
+                partition=network_folder,
+                subnet=subnetinfo['subnet']['cidr'],
+                mask=None
+            )
+
+        self.network_helper.delete_selfip(
+            bigip, floating_selfip_name, network_folder)
 
         if self.l3_binding:
             self.l3_binding.unbind_address(subnet_id=subnet['id'],
                                            ip_address=subnet['gateway_ip'])
 
         gw_name = "gw-" + subnet['id']
-        bigip.virtual_server.delete(name=gw_name,
-                                    folder=network_folder)
+
+        vs = bigip.ltm.virtuals.virtual
+        if vs.exists(name=gw_name, partition=network_folder):
+            vs.load(name=gw_name, partition=network_folder)
+            vs.delete()
 
         if subnet['id'] in bigip.assured_gateway_subnets:
             bigip.assured_gateway_subnets.remove(subnet['id'])
