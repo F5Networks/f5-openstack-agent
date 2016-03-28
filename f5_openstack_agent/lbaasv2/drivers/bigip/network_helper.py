@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import os
 
 import constants_v2 as const
 import netaddr
@@ -316,3 +317,12 @@ class NetworkHelper(object):
                 mac_addresses.append(arp.macAddress)
                 arp.delete()
         return mac_addresses
+
+    def get_snatpool_member_use_count(self, bigip, member_name):
+        snat_count = 0
+        snatpools = bigip.ltm.snatpools.get_collection()
+        for snatpool in snatpools:
+            for member in snatpool.members:
+                if member_name == os.path.basename(member):
+                    snat_count += 1
+        return snat_count
