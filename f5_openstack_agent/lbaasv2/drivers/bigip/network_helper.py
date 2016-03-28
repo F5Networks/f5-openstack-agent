@@ -71,6 +71,30 @@ class NetworkHelper(object):
             p.create(**payload)
         return p
 
+    def create_multipoint_tunnel(self, bigip, model):
+        payload = {'name': model.get('name', None),
+                   'partition': model.get('partition',
+                                          const.DEFAULT_PARTITION),
+                   'profile': model.get('profile', None),
+                   'key': model.get('key', 0),
+                   'localAddress': model.get('localAddress', None),
+                   'remoteAddress': model.get('remoteAddress', '0.0.0.0')}
+        description = model.get('description', None)
+        if description:
+            payload['description'] = description
+        route_domain_id = model.pop('route_domain_id',
+                                    const.DEFAULT_ROUTE_DOMAIN_ID)
+        t = bigip.net.tunnels_s.tunnels.tunnel
+        if t.exists(name=payload['name'], partition=payload['partition']):
+            t.load(name=payload['name'], partition=payload['partition'])
+        else:
+            t.create(**payload)
+            if not payload['partition'] == const.DEFAULT_PARTITION:
+                self.add_vlan_to_domain_by_id(bigip, payload['name'],
+                                              payload['partition'],
+                                              route_domain_id)
+        return t
+
     def get_tunnel_key(self, bigip, name, partition=const.DEFAULT_PARTITION):
         t = bigip.net.tunnels_s.tunnels.tunnel
         t.load(name=name, partition=partition)
@@ -160,6 +184,20 @@ class NetworkHelper(object):
         r.load(name=name, partition=partition)
         return r
 
+    def get_route_domain_by_id(self, bigip, partition=const.DEFAULT_PARTITION,
+                               id=const.DEFAULT_ROUTE_DOMAIN_ID):
+        ret_rd = None
+        rdc = bigip.net.route_domains
+        params = {}
+        if partition:
+            params = {'params': {'$filter': 'partition eq %s' % partition}}
+        route_domains = rdc.get_collection(requests_params=params)
+        for rd in route_domains:
+            if rd.id == id:
+                ret_rd = rd
+                break
+        return ret_rd
+
     def _get_next_domain_id(self, bigip):
         """Get next route domain id """
         rd_ids = sorted(self.get_route_domain_ids(bigip, partition=''))
@@ -233,12 +271,53 @@ class NetworkHelper(object):
         rd = self.get_route_domain(bigip, partition)
         return getattr(rd, 'vlans', [])
 
-    def add_vlan_to_domain(self,
-                           bigip,
-                           name,
-                           partition=const.DEFAULT_PARTITION):
-        """Add VLANs to Domain """
+    def create_vlan(self, bigip, model):
+        name = model.get('name', None)
+        partition = model.get('partition', const.DEFAULT_PARTITION)
+        tag = model.get('tag', 0)
+        description = model.get('description', None)
+        route_domain_id = model.get('route_domain_id',
+                                    const.DEFAULT_ROUTE_DOMAIN_ID)
+        if not name:
+            return None
+        v = bigip.net.vlans.vlan
+        if v.exists(name=name, partition=partition):
+            v.load(name=name, partition=partition)
+        else:
+            payload = {'name': name,
+                       'partition': partition,
+                       'tag': tag}
+            if description:
+                payload['description'] = description
+            v.create(**payload)
+            interface = model.get('interface', None)
+            if interface:
+                payload = {'name': interface,
+                           ('tagged' if tag else 'untagged'): True}
+                i = v.interfaces_s.interfaces
+                i.create(**payload)
+            if not partition == const.DEFAULT_PARTITION:
+                self.add_vlan_to_domain_by_id(bigip, name, partition,
+                                              route_domain_id)
+        return v
+
+    def add_vlan_to_domain(self, bigip, name, partition=const.DEFAULT_PARTITION):
+        """ Add VLANs to Domain """
         rd = self.get_route_domain(bigip, partition)
+        existing_vlans = getattr(rd, 'vlans', [])
+        if name in existing_vlans:
+            return False
+
+        existing_vlans.append(name)
+        rd.vlans = existing_vlans
+        rd.update()
+        return True
+
+    def add_vlan_to_domain_by_id(self, bigip, name,
+                                 partition=const.DEFAULT_PARTITION,
+                                 id=const.DEFAULT_ROUTE_DOMAIN_ID):
+        """ Add VLANs to Domain by ID """
+        rd = self.get_route_domain_by_id(bigip, partition, id)
         existing_vlans = getattr(rd, 'vlans', [])
         if name in existing_vlans:
             return False
@@ -251,19 +330,10 @@ class NetworkHelper(object):
     def get_vlans_in_route_domain_by_id(self, bigip,
                                         partition=const.DEFAULT_PARTITION,
                                         id=const.DEFAULT_ROUTE_DOMAIN_ID):
-        rdc = bigip.net.route_domains
-        params = {'params': {'$filter': 'partition eq %s' % partition}}
-        route_domains = rdc.get_collection(requests_params=params)
-        rds_list = []
-        for rd in route_domains:
-            if rd.id == id:
-                # there can be only one...
-                rds_list.append(rd)
-                break
+        rd = self.get_route_domain_by_id(bigip, partition, id)
         vlans = []
-        if not rds_list:
+        if not rd:
             return vlans
-        rd = rds_list[0]
         if getattr(rd, 'vlans', None):
             for vlan in rd.vlans:
                 vlans.append(vlan)
@@ -282,7 +352,8 @@ class NetworkHelper(object):
                         subnet[0:mask_div][0:rd_div] + subnet[mask_div:])
                 else:
                     network = netaddr.IPNetwork(subnet)
-            except Exception:
+            except Exception as exc:
+                LOG.error('ARP', exc.message)
                 return []
         elif not mask:
             return []
@@ -293,7 +364,8 @@ class NetworkHelper(object):
                     network = netaddr.IPNetwork(subnet[0:rd_div] + '/' + mask)
                 else:
                     network = netaddr.IPNetwork(subnet + '/' + mask)
-            except Exception:
+            except Exception as exc:
+                LOG.error('ARP', exc.message)
                 return []
 
         return self._delete_by_network(bigip, partition, network)
