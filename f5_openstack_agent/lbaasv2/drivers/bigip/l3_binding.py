@@ -1,4 +1,4 @@
-"""Module for managing L3 to L2 port bindings on F5 BIG-IP in Neutron."""
+"""Module for managing L3 to L2 port bindings on F5® BIG-IP® in Neutron."""
 # Copyright 2014 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,8 +58,8 @@ class L3BindingBase(object):
             LOG.debug('l3_binding_static_mappings not configured')
 
     def register_bigip_mac_addresses(self):
-        # Delayed binding BIG-IP ports will be called
-        # after BIG-IP endpoints are registered.
+        # Delayed binding BIG-IP® ports will be called
+        # after BIG-IP® endpoints are registered.
         if not self.__initialized__bigip_ports:
             for bigip in self.driver.get_all_bigips():
                 LOG.debug('Request Port information for MACs: %s'

@@ -19,7 +19,7 @@ limitations under the License.
 [![Build Status](https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=master)](https://travis-ci.org/F5Networks/f5-openstack-agent)
 
 ## Introduction
-This repo houses the code for the F5 OpenStack plugin agent. The agent allows you to deploy BIG-IP services in an OpenStack environment. 
+This repo houses the code for the F5® OpenStack plugin agent. The agent allows you to deploy BIG-IP® services in an OpenStack environment. 
 
 ## Documentation
 See [Documentation](http://f5-openstack-lbaasv2.rtfd.org).
@@ -90,4 +90,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
  
 ### Contributor License Agreement
-Individuals or business entities who contribute to this project must have completed and submitted the [F5 Contributor License Agreement](http://f5-openstack-docs.readthedocs.org/en/latest/cla_landing.html#cla-landing) to Openstack_CLA@f5.com prior to their code submission being included in this project.
+Individuals or business entities who contribute to this project must have completed and submitted the [F5® Contributor License Agreement](http://f5-openstack-docs.readthedocs.org/en/latest/cla_landing.html#cla-landing) to Openstack_CLA@f5.com prior to their code submission being included in this project.

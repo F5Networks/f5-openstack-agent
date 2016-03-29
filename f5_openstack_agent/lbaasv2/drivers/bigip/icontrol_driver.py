@@ -42,7 +42,7 @@ LOG = logging.getLogger(__name__)
 NS_PREFIX = 'qlbaas-'
 __VERSION__ = '0.1.1'
 
-# configuration objects specific to iControl driver
+# configuration objects specific to iControl® driver
 OPTS = [
     cfg.StrOpt(
         'bigiq_hostname',
@@ -233,7 +233,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.__last_connect_attempt = None
         self.connected = False
 
-        # BIG-IP containers
+        # BIG-IP® containers
         self.__bigips = {}
         self.__traffic_groups = []
         self.agent_configurations = {}
@@ -375,7 +375,7 @@ class iControlDriver(LBaaSBaseDriver):
             )
 
     def _init_bigips(self):
-        # Connect to all BIG-IPs
+        # Connect to all BIG-IP®s
         if self.connected:
             return
         try:
@@ -729,7 +729,7 @@ class iControlDriver(LBaaSBaseDriver):
                     pool_stats['STATISTIC_SERVER_SIDE_TOTAL_CONNECTIONS']
                 # are there members to update status
                 if 'members' in service:
-                    # only query BIG-IP pool members if they
+                    # only query BIG-IP® pool members if they
                     # not in a state indicating provisioning or error
                     # provisioning the pool member
                     some_members_require_status_update = False
@@ -1189,7 +1189,7 @@ class iControlDriver(LBaaSBaseDriver):
                 greenthread.sleep(retry_delay)
 
     def _validate_bigip_version(self, bigip, hostname):
-        # Ensure the BIG-IP has sufficient version
+        # Ensure the BIG-IP® has sufficient version
         major_version = self.system_helper.get_major_version(bigip)
         if major_version < f5const.MIN_TMOS_MAJOR_VERSION:
             raise f5ex.MajorVersionValidateFailed(

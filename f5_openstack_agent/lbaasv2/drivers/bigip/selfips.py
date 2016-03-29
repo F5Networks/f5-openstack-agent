@@ -98,7 +98,7 @@ class BigipSelfIpManager(object):
                                          ip_address=selfip_address)
 
     def _get_bigip_selfip_address(self, bigip, subnet):
-        # Get ip address for selfip to use on BIG-IP.
+        # Get ip address for selfip to use on BIG-IP®.
         selfip_name = "local-" + bigip.device_name + "-" + subnet['id']
         ports = self.driver.plugin_rpc.get_port_by_name(port_name=selfip_name)
         if len(ports) > 0:

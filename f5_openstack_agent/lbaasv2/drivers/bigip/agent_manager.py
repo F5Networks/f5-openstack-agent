@@ -1,4 +1,4 @@
-"""F5 Networks LBaaSv2 agent manager implementation."""
+"""F5 Networks® LBaaSv2 agent manager implementation."""
 # Copyright 2016 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -218,7 +218,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.service_resync_interval)
 
-        # Load the iControl driver.
+        # Load the iControl® driver.
         self.agent_host = conf.host
         self._load_driver(conf)
 
@@ -248,7 +248,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
 
         self.admin_state_up = True
 
-        # Set iControl driver context for RPC.
+        # Set iControl® driver context for RPC.
         self.lbdriver.set_context(self.context)
 
         # Setup RPC:

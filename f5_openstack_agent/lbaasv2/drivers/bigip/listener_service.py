@@ -22,11 +22,11 @@ LOG = logging.getLogger(__name__)
 
 
 class ListenerServiceBuilder(object):
-    """Create LBaaS v2 Listener on BIG-IPs.
+    """Create LBaaS v2 Listener on BIG-IP®s.
 
     Handles requests to create, update, delete LBaaS v2 listener
-    objects on one or more BIG-IP systems. Maps LBaaS listener
-    defined in service object to a BIG-IP virtual server.
+    objects on one or more BIG-IP® systems. Maps LBaaS listener
+    defined in service object to a BIG-IP® virtual server.
     """
 
     def __init__(self, service_adapter):
@@ -35,9 +35,9 @@ class ListenerServiceBuilder(object):
         self.service_adapter = service_adapter
 
     def create_listener(self, service, bigips):
-        """Create listener on set of BIG-IPs.
+        """Create listener on set of BIG-IP®s.
 
-        Creates a BIG-IP virtual server to represent an LBaaS
+        Creates a BIG-IP® virtual server to represent an LBaaS
         Listener object.
 
         :param service: Dictionary which contains a both a listener
@@ -58,7 +58,7 @@ class ListenerServiceBuilder(object):
                                             err.message))
 
         # Traffic group is added after create in order to take adavantage
-        # of BIG-IP defaults.
+        # of BIG-IP® defaults.
         traffic_group = self.service_adapter.get_traffic_group(service)
         if traffic_group:
             for bigip in bigips:
@@ -74,7 +74,7 @@ class ListenerServiceBuilder(object):
                                           err.message))
 
     def get_listener(self, service, bigip):
-        """Retrieve BIG-IP virtual from a single BIG-IP system.
+        """Retrieve BIG-IP® virtual from a single BIG-IP® system.
 
         :param service: Dictionary which contains a both a listener
         and load balancer definition.
@@ -96,7 +96,7 @@ class ListenerServiceBuilder(object):
         return obj
 
     def delete_listener(self, service, bigips):
-        """Delete Listener from a set of BIG-IP systems.
+        """Delete Listener from a set of BIG-IP® systems.
 
         Deletes virtual server that represents a Listener object.
 
@@ -120,7 +120,7 @@ class ListenerServiceBuilder(object):
                                       err.message))
 
     def update_listener(self, service, bigips):
-        """Update Listener from a single BIG-IP system.
+        """Update Listener from a single BIG-IP® system.
 
         Updates virtual servers that represents a Listener object.
 

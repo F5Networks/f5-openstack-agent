@@ -68,7 +68,7 @@ class VcmpManager(object):
                 system.sys_vcmp.get_management_address(guest_names)
 
             for guest_name, guest_mgmt in zip(guest_names, guest_mgmts):
-                # Only add vCMP Guests with BIG-IP that has been registered
+                # Only add vCMP Guests with BIG-IP® that has been registered
                 if guest_mgmt.address in self.driver.get_bigip_hosts():
                     vcmp_guest = {}
                     vcmp_guest['name'] = guest_name

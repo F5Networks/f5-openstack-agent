@@ -1,4 +1,4 @@
-"""F5 Networks LBaaSv2 agent implementation."""
+"""F5 Networks® LBaaSv2 agent implementation."""
 # Copyright 2016 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
