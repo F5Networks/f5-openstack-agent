@@ -1,4 +1,4 @@
-"""Module for managing L3 to L2 port bindings on F5® BIG-IP® in Neutron."""
+# coding=utf-8
 # Copyright 2014 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
