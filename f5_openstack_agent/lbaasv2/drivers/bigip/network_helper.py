@@ -16,6 +16,7 @@ import os
 
 import constants_v2 as const
 import netaddr
+import os
 
 from oslo_log import log as logging
 
@@ -173,7 +174,7 @@ class NetworkHelper(object):
             name += '_aux_' + str(domain_id)
         return r.exists(name=name, partition=partition)
 
-    def get_route_domain(self, bigip, partition):
+    def get_route_domain(self, bigip, partition=const.DEFAULT_PARTITION):
         # this only works when the domain was created with is_aux=False,
         # same as the original code.
         if partition == 'Common':
@@ -301,8 +302,23 @@ class NetworkHelper(object):
                                               route_domain_id)
         return v
 
-    def add_vlan_to_domain(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        """ Add VLANs to Domain """
+    def delete_vlan(
+            self,
+            bigip,
+            name,
+            partition=const.DEFAULT_PARTITION):
+        """Delete VLAN from partition."""
+        v = bigip.net.vlans.vlan
+        if v.exists(name=name, partition=partition):
+            v.load(name=name, partition=partition)
+            v.delete()
+
+    def add_vlan_to_domain(
+            self,
+            bigip,
+            name,
+            partition=const.DEFAULT_PARTITION):
+        """Add VLANs to Domain."""
         rd = self.get_route_domain(bigip, partition)
         existing_vlans = getattr(rd, 'vlans', [])
         if name in existing_vlans:
@@ -316,7 +332,7 @@ class NetworkHelper(object):
     def add_vlan_to_domain_by_id(self, bigip, name,
                                  partition=const.DEFAULT_PARTITION,
                                  id=const.DEFAULT_ROUTE_DOMAIN_ID):
-        """ Add VLANs to Domain by ID """
+        """Add VLANs to Domain by ID."""
         rd = self.get_route_domain_by_id(bigip, partition, id)
         existing_vlans = getattr(rd, 'vlans', [])
         if name in existing_vlans:
@@ -338,6 +354,16 @@ class NetworkHelper(object):
             for vlan in rd.vlans:
                 vlans.append(vlan)
         return vlans
+
+    def arp_delete_by_mac(self,
+                          bigip,
+                          mac_address,
+                          partition=const.DEFAULT_PARTITION):
+        """Delete arp using the mac address."""
+        ac = bigip.net.arps.get_collection()
+        for arp in ac:
+            if arp.macAddress == mac_address:
+                arp.delete()
 
     def arp_delete_by_subnet(self, bigip, subnet=None, mask=None,
                              partition=const.DEFAULT_PARTITION):
@@ -398,3 +424,99 @@ class NetworkHelper(object):
                 if member_name == os.path.basename(member):
                     snat_count += 1
         return snat_count
+
+    def split_addr_port(self, dest):
+        if len(dest.split(':')) > 2:
+            # ipv6: bigip syntax is addr.port
+            parts = dest.split('.')
+        else:
+            # ipv4: bigip syntax is addr:port
+            parts = dest.split(':')
+        return (parts[0], parts[1])
+
+    def get_virtual_service_insertion(
+            self,
+            bigip,
+            partition=const.DEFAULT_PARTITION):
+        """Get a list of virtual servers."""
+        vs = bigip.ltm.virtuals
+        virtual_services = vs.get_collection()
+        services = []
+
+        for virtual_server in virtual_services:
+            service = {'name': {}}
+            dest = os.path.basename(virtual_server.destination)
+            (vip_addr, vip_port) = self.split_addr_port(dest)
+
+            name = self.strip_folder_and_prefix(virtual_server.name)
+            service[name]['address'] = vip_addr
+            service[name]['netmask'] = virtual_server.mask
+            service[name]['protocol'] = virtual_server.ipProtocol
+            service[name]['port'] = vip_port
+            services.append(service)
+
+        return services
+
+    def get_node_addresses(self, bigip, partition=const.DEFAULT_PARTION):
+        """Get the addresses of nodes within the partition."""
+        nodes = bigip.ltm.nodes.get_collection()
+
+        node_addrs = []
+        for node in nodes:
+            node_addrs.append(node.address)
+
+        return node_addrs
+
+    def add_fdb_entry(
+            self,
+            bigip,
+            tunnel_name,
+            partition=const.DEFAULT_PARTITION,
+            mac_address=None,
+            vtep_ip_address=None,
+            arp_ip_address=None):
+        pass
+
+    def delete_fdb_entry(
+            self,
+            bigip,
+            partition=const.DEFAULT_PARTITION,
+            mac_address=None,
+            tunnel_name=None,
+            arp_ip_address=None):
+        pass
+
+    def delete_all_fdb_entries(
+            self,
+            bigip,
+            tunnel_name,
+            partition=const.DEFAULT_PARTITION):
+        """Delete all fdb entries."""
+        t = bigip.net.fdb.tunnels.tunnel
+        t.load(name=tunnel_name, partition=partition)
+        LOG.debug(t.raw)
+        t.update(records=None)
+
+    def delete_tunnel(
+            self,
+            bigip,
+            tunnel_name,
+            partition=const.DEFAULT_PARTITION):
+        """Deletes a vxlan or gre tunnel."""
+        t = bigip.net.fdb.tunnels.tunnel
+        if t.exists(name=tunnel_name, partition=partition):
+            t.load(name=tunnel_name, partition=partition)
+
+            if const.FDB_POPULATE_STATIC_ARP:
+                for record in t.records:
+                    self.arp_delete_by_mac(
+                        bigip,
+                        record.name,
+                        partition=partition
+                    )
+
+                t.update(records=[])
+
+        ts = bigip.net.fdb.tunnels_s.tunnels.tunnel
+        ts.load(name=tunnel_name, partition=partition)
+        ts.delete()

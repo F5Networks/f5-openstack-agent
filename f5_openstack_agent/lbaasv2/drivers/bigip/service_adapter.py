@@ -401,6 +401,15 @@ class ServiceModelAdapter(object):
         member["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
 
         return member
+
+    def get_network_from_service(self, service, network_id):
+        if 'networks' in service:
+            return service['networks'][network_id]
+
+    def get_subnet_from_service(self, service, subnet_id):
+        if 'subnets' in service:
+            return service['subnets'][subnet_id]
+
 """
     def _map_session_persistence(self, listener):
 
