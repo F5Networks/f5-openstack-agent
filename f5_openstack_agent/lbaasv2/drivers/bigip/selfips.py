@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright 2014-2016 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

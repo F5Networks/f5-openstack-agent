@@ -1,3 +1,4 @@
+# coding=utf-8
 import datetime
 import hashlib
 import logging as std_logging
