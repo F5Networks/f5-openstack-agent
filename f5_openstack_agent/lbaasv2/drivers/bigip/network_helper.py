@@ -360,10 +360,24 @@ class NetworkHelper(object):
                           mac_address,
                           partition=const.DEFAULT_PARTITION):
         """Delete arp using the mac address."""
-        ac = bigip.net.arps.get_collection()
+        ac = bigip.net.arps.get_collection(partition=partition)
         for arp in ac:
             if arp.macAddress == mac_address:
                 arp.delete()
+
+    def arp_delete(self,
+                   bigip,
+                   ip_address,
+                   partition=const.DEFAULT_PARTITION):
+        if ip_address:
+            address = self._remove_route_domain_zero(ip_address)
+            arp = bigip.net.arps.arp
+            if arp.exists(name=address, partition=partition):
+                arp.load(name=address, partition=partition)
+                arp.delete()
+            return True
+
+        return False
 
     def arp_delete_by_subnet(self, bigip, subnet=None, mask=None,
                              partition=const.DEFAULT_PARTITION):
@@ -440,7 +454,7 @@ class NetworkHelper(object):
             partition=const.DEFAULT_PARTITION):
         """Get a list of virtual servers."""
         vs = bigip.ltm.virtuals
-        virtual_services = vs.get_collection()
+        virtual_services = vs.get_collection(partition=partition)
         services = []
 
         for virtual_server in virtual_services:
@@ -457,9 +471,9 @@ class NetworkHelper(object):
 
         return services
 
-    def get_node_addresses(self, bigip, partition=const.DEFAULT_PARTION):
+    def get_node_addresses(self, bigip, partition=const.DEFAULT_PARTITION):
         """Get the addresses of nodes within the partition."""
-        nodes = bigip.ltm.nodes.get_collection()
+        nodes = bigip.ltm.nodes.get_collection(partition)
 
         node_addrs = []
         for node in nodes:
@@ -471,20 +485,131 @@ class NetworkHelper(object):
             self,
             bigip,
             tunnel_name,
-            partition=const.DEFAULT_PARTITION,
             mac_address=None,
             vtep_ip_address=None,
-            arp_ip_address=None):
-        pass
+            arp_ip_address=None,
+            partition=const.DEFAULT_PARTITION):
+        records = self.get_fdb_entry(bigip,
+                                     tunnel_name=tunnel_name,
+                                     mac=None,
+                                     partition=partition)
+        fdb_entry = dict()
+        fdb_entry['name'] = mac_address
+        fdb_entry['endpoint'] = vtep_ip_address
+
+        for i in range(len(records)):
+            if records[i]['name'] == mac_address:
+                records[i] = fdb_entry
+                break
+        else:
+            records.append(fdb_entry)
+
+        tunnel = bigip.net.fdb.tunnnels.tunnel
+        if tunnel.exists(name=tunnel_name, partition=partition):
+            tunnel.load(name=tunnel_name, partition=partition)
+            tunnel.update(records=records)
+            if const.FDB_POPULATE_STATIC_ARP:
+                if arp_ip_address:
+                    try:
+                        arp = bigip.net.arps.arp
+                        arp.create(ip_address=arp_ip_address,
+                                   mac_address=mac_address,
+                                   partition=partition)
+                    except Exception as e:
+                        LOG.error('add_fdb_entry',
+                                  'could not create static arp: %s'
+                                  % e.message)
+                        return False
+            return True
+        return False
 
     def delete_fdb_entry(
             self,
             bigip,
-            partition=const.DEFAULT_PARTITION,
             mac_address=None,
             tunnel_name=None,
-            arp_ip_address=None):
-        pass
+            arp_ip_address=None,
+            partition=const.DEFAULT_PARTITION):
+
+        if const.FDB_POPULATE_STATIC_ARP:
+            if arp_ip_address:
+                self.arp_delete(bigip,
+                                ip_address=arp_ip_address,
+                                partition=partition)
+
+        records = self.get_fdb_entry(
+            bigip, tunnel_name, mac_address, partition=partition)
+        if not records:
+            return False
+
+        original_len = len(records)
+        records = [record for record in records
+                   if record.get('name') != mac_address]
+        if original_len != len(records):
+            if len(records) == 0:
+                records = None
+
+        tunnel = bigip.net.tunnels.tunnel
+        if tunnel.exists(name=tunnel_name, partition=partition):
+            tunnel.load(name=tunnel_name, partition=partition)
+            tunnel.update(record=records)
+
+    def add_fdb_entries(self, bigip, fdb_entries=None):
+        # Add vxlan fdb entries
+        for tunnel_name in fdb_entries:
+            folder = fdb_entries[tunnel_name]['folder']
+            existing_records = self.get_fdb_entry(bigip,
+                                                  tunnel_name=tunnel_name,
+                                                  mac=None,
+                                                  partition=folder)
+            new_records = []
+            new_mac_addresses = []
+            new_arp_addresses = {}
+
+            tunnel_records = fdb_entries[tunnel_name]['records']
+            for mac in tunnel_records:
+                fdb_entry = dict()
+                fdb_entry['name'] = mac
+                fdb_entry['endpoint'] = tunnel_records[mac]['endpoint']
+                new_records.append(fdb_entry)
+                new_mac_addresses.append(mac)
+                if tunnel_records[mac]['ip_address']:
+                    new_arp_addresses[mac] = tunnel_records[mac]['ip_address']
+
+            for record in existing_records:
+                if not record['name'] in new_mac_addresses:
+                    new_records.append(record)
+                else:
+                    # This fdb entry exists and is not being updated.
+                    # So, do not update the ARP record either.
+                    if record['name'] in new_arp_addresses:
+                        del new_arp_addresses[record['name']]
+
+            tunnel = bigip.net.fdb.tunnels.tunnel
+            # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
+            # default to 11.6.0, so we expect it to work in 12 and greater.
+            if tunnel.exists(name=tunnel_name, partition=folder):
+                tunnel.load(name=tunnel_name, partition=folder)
+                tunnel.update(records=new_records)
+
+    def get_fdb_entry(self,
+                      bigip,
+                      tunnel_name=None,
+                      mac=None,
+                      partition=const.DEFAULT_PARTITION):
+        tunnel = bigip.net.fdb.tunnels.tunnel
+        if tunnel.exists(name="tunnel_name", partition=partition):
+            tunnel.load(name="tunnel_name", partition=partition)
+            if hasattr(tunnel, "records"):
+                records = tunnel.records
+                if mac is None:
+                    return records
+
+                for record in records:
+                    if record.name == mac:
+                        return record
+
+        return []
 
     def delete_all_fdb_entries(
             self,
@@ -520,3 +645,18 @@ class NetworkHelper(object):
         ts = bigip.net.fdb.tunnels_s.tunnels.tunnel
         ts.load(name=tunnel_name, partition=partition)
         ts.delete()
+
+    def get_tunnel_folder(self, bigip, tunnel_name=None):
+        tunnels = bigip.net.tunnel_s.tunnels.get_collection()
+        for tunnel in tunnels:
+            if tunnel.name == tunnel_name:
+                return tunnel.partition
+
+        return None
+
+    def _remove_route_domain_zero(self, ip_address):
+        """Remove route domain zero from ip_address """
+        decorator_index = ip_address.find('%0')
+        if decorator_index > 0:
+            ip_address = ip_address[:decorator_index]
+        return ip_address

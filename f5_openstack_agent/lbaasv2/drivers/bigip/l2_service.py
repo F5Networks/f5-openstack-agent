@@ -518,7 +518,7 @@ class L2ServiceBuilder(object):
         self.network_helper.delete_vlan(
             bigip,
             vlan_name,
-            folder=network_folder
+            partition=network_folder
         )
 
         self._delete_vcmp_device_network(bigip, vlan_name)
@@ -713,11 +713,12 @@ class L2ServiceBuilder(object):
 
         for fdb_operation in \
             [{'network_type': 'vxlan',
-              'get_tunnel_folder': bigip.vxlan.get_tunnel_folder,
-              'fdb_method': bigip.vxlan.add_fdb_entries},
+              'get_tunnel_folder': self.network_helper.get_tunnel_folder,
+              'fdb_method': self.network_helper.add_fdb_entries},
+
              {'network_type': 'gre',
-              'get_tunnel_folder': bigip.l2gre.get_tunnel_folder,
-              'fdb_method': bigip.l2gre.add_fdb_entries}]:
+              'get_tunnel_folder': self.network_helper.get_tunnel_folder,
+              'fdb_method': self.network_helper.add_fdb_entries}]:
             self._operate_bigip_fdb(bigip, fdb, fdb_operation)
 
     def _operate_bigip_fdb(self, bigip, fdb, fdb_operation):
@@ -814,11 +815,11 @@ class L2ServiceBuilder(object):
         # Add L2 records for MAC addresses behind tunnel endpoints
         for fdb_operation in \
             [{'network_type': 'vxlan',
-              'get_tunnel_folder': bigip.vxlan.get_tunnel_folder,
-              'fdb_method': bigip.vxlan.delete_fdb_entries},
+              'get_tunnel_folder': self.network_helper.get_tunnel_folder,
+              'fdb_method': self.network_helper.delete_fdb_entries},
              {'network_type': 'gre',
-              'get_tunnel_folder': bigip.l2gre.get_tunnel_folder,
-              'fdb_method': bigip.l2gre.delete_fdb_entries}]:
+              'get_tunnel_folder': self.network_helper.get_tunnel_folder,
+              'fdb_method': self.network_helper.delete_fdb_entries}]:
             self._operate_bigip_fdb(bigip, fdb, fdb_operation)
 
     # Utilities
