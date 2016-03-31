@@ -352,7 +352,8 @@ class iControlDriver(LBaaSBaseDriver):
             self.network_builder = NetworkServiceBuilder(
                 self.conf,
                 self,
-                self.conf.f5_global_routed_mode)
+                self.conf.f5_global_routed_mode,
+                self.l3_binding)
 
     def _init_bigip_hostnames(self):
         # Validate and parse bigip credentials

@@ -34,10 +34,11 @@ LOG = logging.getLogger(__name__)
 
 class NetworkServiceBuilder(object):
 
-    def __init__(self, f5_global_routed_mode, conf, driver):
+    def __init__(self, f5_global_routed_mode, conf, driver, l3_binding=None):
         self.f5_global_routed_mode = f5_global_routed_mode
         self.conf = conf
         self.driver = driver
+        self.l3_binding = l3_binding
         self.l2_service = L2ServiceBuilder(conf, f5_global_routed_mode)
 
         self.bigip_selfip_manager = BigipSelfIpManager(
@@ -150,8 +151,8 @@ class NetworkServiceBuilder(object):
 
         if 'members' in service:
             for member in service['members']:
-                LOG.debug("processing member %s" % member['address'])
                 if 'address' in member:
+                    LOG.debug("processing member %s" % member['address'])
                     if 'network_id' in member and member['network_id']:
                         member_network = (
                             self.service_adapter.get_network_from_service(
@@ -167,7 +168,7 @@ class NetworkServiceBuilder(object):
                             self.assign_route_domain(
                                 tenant_id, member_network, member_subnet)
                             rd_id = (
-                                '%' + str(member['network']['route_domain_id'])
+                                '%' + str(member_network['route_domain_id'])
                             )
                             member['address'] += rd_id
                     else:
@@ -314,7 +315,9 @@ class NetworkServiceBuilder(object):
         # with information from bigip's vlan and tunnels
         LOG.debug("rds_cache: processing bigip %s" % bigip.device_name)
 
-        route_domain_ids = bigip.route.get_domain_ids(folder=tenant_id)
+        route_domain_ids = self.network_helper.get_route_domain_ids(
+            bigip,
+            partition=self.service_adapter.get_folder_name(tenant_id))
         # LOG.debug("rds_cache: got bigip route domains: %s" % route_domains)
         for route_domain_id in route_domain_ids:
             self.update_rds_cache_bigip_rd_vlans(
@@ -328,7 +331,6 @@ class NetworkServiceBuilder(object):
         LOG.debug("rds_cache: processing bigip %s rd %s"
                   % (bigip.device_name, route_domain_id))
         # this gets tunnels too
-        #        rd_vlans = bigip.route.get_vlans_in_domain_by_id(
         partition_id = self.service_adapter.get_folder_name(tenant_id)
         rd_vlans = self.network_helper.get_vlans_in_route_domain_by_id(
             bigip,
@@ -378,7 +380,6 @@ class NetworkServiceBuilder(object):
             LOG.debug("rds_cache: processing bigip %s rd %s vlan %s self %s" %
                       (bigip.device_name, route_domain_id, rd_vlan,
                        selfip['name']))
-            # FIXME: how do reference device name?
             if bigip.device_name not in selfip['name']:
                 LOG.error("rds_cache: Found unexpected selfip %s for tenant %s"
                           % (selfip['name'], tenant_id))
@@ -437,7 +438,9 @@ class NetworkServiceBuilder(object):
             )
             return 'vxlan-%s' % tunnel_key
         else:
-            vlan_id = bigip.vlan.get_id(name=network_name, folder=tenant_id)
+            vlan_id = self.network_helper.get_vlan_id(bigip,
+                                                      name=network_name,
+                                                      partition=partition_id)
             return 'vlan-%s' % vlan_id
 
     @staticmethod

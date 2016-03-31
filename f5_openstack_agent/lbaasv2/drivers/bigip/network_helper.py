@@ -592,6 +592,42 @@ class NetworkHelper(object):
                 tunnel.load(name=tunnel_name, partition=folder)
                 tunnel.update(records=new_records)
 
+    def delete_fdb_entries(self, bigip, tunnel_name=None, fdb_entries=None):
+        for tunnel_name in fdb_entries:
+            folder = fdb_entries[tunnel_name]['folder']
+            existing_records = self.get_fdb_entry(bigip,
+                                                  tunnel_name=tunnel_name,
+                                                  mac=None,
+                                                  partition=folder)
+            arps_to_delete = {}
+            new_records = []
+
+            for record in existing_records:
+                for mac in fdb_entries[tunnel_name]['records']:
+                    if record['name'] == mac and mac['ip_address']:
+                        arps_to_delete[mac] = mac['ip_address']
+                        break
+                else:
+                    new_records.append(record)
+
+            if len(new_records) == 0:
+                new_records = None
+
+            tunnel = bigip.net.fdb.tunnels.tunnel
+            # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
+            # default to 11.6.0, so we expect it to work in 12 and greater.
+            if tunnel.exists(name=tunnel_name, partition=folder):
+                tunnel.load(name=tunnel_name, partition=folder)
+                tunnel.update(records=new_records)
+
+            if const.FDB_POPULATE_STATIC_ARP:
+                for mac in arps_to_delete:
+                    self.arp_delete(bigip,
+                                    ip_address=arps_to_delete[mac],
+                                    partition='Common')
+            return True
+        return False
+
     def get_fdb_entry(self,
                       bigip,
                       tunnel_name=None,
