@@ -19,7 +19,7 @@
 f5-openstack-agent
 ==================
 
-|Build Status|
+|Build Status| |slack badge|
 
 Introduction
 ------------
@@ -121,3 +121,7 @@ in this project.
 
 .. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=master
    :target: https://travis-ci.org/F5Networks/f5-openstack-agent
+
+.. |slack badge| image:: https://f5-openstack-slack.herokuapp.com/badge.svg
+    :target: https://f5-openstack-slack.herokuapp.com/
+    :alt: Slack
