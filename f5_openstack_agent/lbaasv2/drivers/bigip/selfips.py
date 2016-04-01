@@ -74,6 +74,10 @@ class BigipSelfIpManager(object):
             return
 
         selfip_address = self._get_bigip_selfip_address(bigip, subnet)
+        # FIXME(Rich Browne): it is possible this is not set unless
+        # use namespaces is true.  I think this method is only called
+        # in the global_routed_mode == False case though.  Need to check
+        # that network['route_domain_id'] exists.
         selfip_address += '%' + str(network['route_domain_id'])
 
         if self.l2_service.is_common_network(network):
