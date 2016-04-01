@@ -811,10 +811,10 @@ class NetworkServiceBuilder(object):
                 LOG.debug("        _ips_exist_on_subnet: found")
                 return True
 
-            LOG.debug("            _ips_exist_on_subnet exit %s"
-                      % str(subnet['cidr']))
-            # nothing found
-            return False
+        LOG.debug("            _ips_exist_on_subnet exit %s"
+                  % str(subnet['cidr']))
+        # nothing found
+        return False
 
     def add_bigip_fdb(self, bigip, fdb):
         self.l2_service.add_bigip_fdb(bigip, fdb)
