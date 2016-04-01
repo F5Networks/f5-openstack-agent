@@ -23,6 +23,8 @@ from oslo_log import log as logging
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
     L2ServiceBuilder
+from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
+    NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.snats import BigipSnatManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
@@ -32,10 +34,11 @@ LOG = logging.getLogger(__name__)
 
 class NetworkServiceBuilder(object):
 
-    def __init__(self, f5_global_routed_mode, conf, driver):
+    def __init__(self, f5_global_routed_mode, conf, driver, l3_binding=None):
         self.f5_global_routed_mode = f5_global_routed_mode
         self.conf = conf
         self.driver = driver
+        self.l3_binding = l3_binding
         self.l2_service = L2ServiceBuilder(conf, f5_global_routed_mode)
 
         self.bigip_selfip_manager = BigipSelfIpManager(
@@ -45,6 +48,8 @@ class NetworkServiceBuilder(object):
 
         self.rds_cache = {}
         self.interface_mapping = self.l2_service.interface_mapping
+        self.network_helper = NetworkHelper()
+        self.service_adapter = self.driver.service_adapter
 
     def post_init(self):
         # Run and Post Initialization Tasks """
@@ -78,12 +83,24 @@ class NetworkServiceBuilder(object):
                not vtep_selfip_name.lower() == 'none':
 
                 # profiles may already exist
-                bigip.vxlan.create_multipoint_profile(
-                    name='vxlan_ovs', folder='Common')
-                bigip.l2gre.create_multipoint_profile(
-                    name='gre_ovs', folder='Common')
+                # create vxlan_multipoint_profile`
+                self.network_helper.create_vxlan_multipoint_profile(
+                    bigip,
+                    'vxlan_ovs',
+                    partition='Common')
+                # create l2gre_multipoint_profile
+                self.network_helper.create_l2gre_multipoint_profile(
+                    bigip,
+                    'gre_ovs',
+                    partition='Common')
+
                 # find the IP address for the selfip for each box
-                local_ip = bigip.selfip.get_addr(vtep_selfip_name, vtep_folder)
+                local_ip = self.network_helper.get_selfip_addr(
+                    bigip,
+                    vtep_selfip_name,
+                    partition=vtep_folder
+                )
+
                 if local_ip:
                     bigip.local_ip = local_ip
                     local_ips.append(local_ip)
@@ -104,7 +121,7 @@ class NetworkServiceBuilder(object):
             self._annotate_service_route_domains(service)
 
         # Per Device Network Connectivity (VLANs or Tunnels)
-        subnetsinfo = _get_subnets_to_assure(service)
+        subnetsinfo = self._get_subnets_to_assure(service)
         for (assure_bigip, subnetinfo) in \
                 itertools.product(self.driver.get_all_bigips(), subnetsinfo):
             self.l2_service.assure_bigip_network(
@@ -129,29 +146,47 @@ class NetworkServiceBuilder(object):
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
         LOG.debug("Service before route domains: %s" % service)
-        tenant_id = service['pool']['tenant_id']
+        tenant_id = service['loadbalancer']['tenant_id']
         self.update_rds_cache(tenant_id)
 
         if 'members' in service:
             for member in service['members']:
-                LOG.debug("processing member %s" % member['address'])
                 if 'address' in member:
-                    if 'network' in member and member['network']:
-                        self.assign_route_domain(
-                            tenant_id, member['network'], member['subnet'])
-                        rd_id = '%' + str(member['network']['route_domain_id'])
-                        member['address'] += rd_id
+                    LOG.debug("processing member %s" % member['address'])
+                    if 'network_id' in member and member['network_id']:
+                        member_network = (
+                            self.service_adapter.get_network_from_service(
+                                service,
+                                member['network_id']
+                            ))
+                        member_subnet = (
+                            self.service_adapter.get_subnet_from_service(
+                                service,
+                                member['subnet_id']
+                            ))
+                        if member_network:
+                            self.assign_route_domain(
+                                tenant_id, member_network, member_subnet)
+                            rd_id = (
+                                '%' + str(member_network['route_domain_id'])
+                            )
+                            member['address'] += rd_id
                     else:
                         member['address'] += '%0'
-        if 'vip' in service and 'address' in service['vip']:
-            vip = service['vip']
-            if 'network' in vip and vip['network']:
+
+        if 'vip_address' in service['loadbalancer']:
+            loadbalancer = service['loadbalancer']
+            if 'network_id' in loadbalancer:
+                lb_network = self.service_adapter.get_network_from_service(
+                    service, loadbalancer['network_id'])
+                vip_subnet = self.service_adapter.get_subnet_from_service(
+                    service, loadbalancer['vip_subnet_id'])
                 self.assign_route_domain(
-                    tenant_id, vip['network'], vip['subnet'])
-                rd_id = '%' + str(vip['network']['route_domain_id'])
-                service['vip']['address'] += rd_id
+                    tenant_id, lb_network, vip_subnet)
+                rd_id = '%' + str(lb_network['route_domain_id'])
+                service['loadbalancer']['vip_address'] += rd_id
             else:
-                service['vip']['address'] += '%0'
+                service['loadbalancer']['vip_address'] += '%0'
         LOG.debug("Service after route domains: %s" % service)
 
     def assign_route_domain(self, tenant_id, network, subnet):
@@ -173,7 +208,10 @@ class NetworkServiceBuilder(object):
         if self.conf.max_namespaces_per_tenant == 1:
             bigip = self.driver.get_bigip()
             LOG.debug("bigip before get_domain: %s" % bigip)
-            tenant_rd = bigip.route.get_domain(folder=tenant_id)
+            partition_id = self.service_adapter.get_folder_name(
+                tenant_id)
+            tenant_rd = self.network_helper.get_route_domain(
+                bigip, partition=partition_id)
             network['route_domain_id'] = tenant_rd
             return
 
@@ -229,14 +267,16 @@ class NetworkServiceBuilder(object):
         # Create a new route domain
         route_domain_id = None
         for bigip in self.driver.get_all_bigips():
-            # folder = bigip.decorate_folder(tenant_id)
-            bigip_id = bigip.route.create_domain(
-                folder=tenant_id,
-                strict_route_isolation=self.conf.f5_route_domain_strictness,
+            partition_id = self.service_adapter.get_folder_name(tenant_id)
+            bigip_id = self.network_helper.create_route_domain(
+                bigip,
+                partition=partition_id,
+                strictness=self.conf.f5_route_domain_strictness,
                 is_aux=True)
             if route_domain_id is None:
                 route_domain_id = bigip_id
             elif bigip_id != route_domain_id:
+                # FixME error
                 LOG.debug(
                     "Bigips allocated two different route domains!: %s %s"
                     % (bigip_id, route_domain_id))
@@ -275,7 +315,9 @@ class NetworkServiceBuilder(object):
         # with information from bigip's vlan and tunnels
         LOG.debug("rds_cache: processing bigip %s" % bigip.device_name)
 
-        route_domain_ids = bigip.route.get_domain_ids(folder=tenant_id)
+        route_domain_ids = self.network_helper.get_route_domain_ids(
+            bigip,
+            partition=self.service_adapter.get_folder_name(tenant_id))
         # LOG.debug("rds_cache: got bigip route domains: %s" % route_domains)
         for route_domain_id in route_domain_ids:
             self.update_rds_cache_bigip_rd_vlans(
@@ -289,8 +331,12 @@ class NetworkServiceBuilder(object):
         LOG.debug("rds_cache: processing bigip %s rd %s"
                   % (bigip.device_name, route_domain_id))
         # this gets tunnels too
-        rd_vlans = bigip.route.get_vlans_in_domain_by_id(
-            folder=tenant_id, route_domain_id=route_domain_id)
+        partition_id = self.service_adapter.get_folder_name(tenant_id)
+        rd_vlans = self.network_helper.get_vlans_in_route_domain_by_id(
+            bigip,
+            partition=partition_id,
+            id=route_domain_id
+        )
         LOG.debug("rds_cache: bigip %s rd %s vlans: %s"
                   % (bigip.device_name, route_domain_id, rd_vlans))
         if len(rd_vlans) == 0:
@@ -322,7 +368,13 @@ class NetworkServiceBuilder(object):
             rd_entry[net_short_name] = {'subnets': {}}
         net_subnets = rd_entry[net_short_name]['subnets']
 
-        selfips = bigip.selfip.get_selfips(folder=tenant_id, vlan=rd_vlan)
+        partition_id = self.service_adapter.get_folder_name(tenant_id)
+        selfips = self.network_helper.get_selfips(
+            bigip,
+            partition=partition_id,
+            vlan_name=rd_vlan
+        )
+
         LOG.debug("rds_cache: got selfips: %s" % selfips)
         for selfip in selfips:
             LOG.debug("rds_cache: processing bigip %s rd %s vlan %s self %s" %
@@ -347,6 +399,7 @@ class NetworkServiceBuilder(object):
             net_subnets[subnet_id] = {'cidr': netip.cidr}
             LOG.debug("rds_cache: now %s" % self.rds_cache)
 
+    # REVISIT: Should we do iteritems here?
     def get_route_domain_from_cache(self, network):
         # Get route domain from cache by network
         net_short_name = self.get_neutron_net_short_name(network)
@@ -367,19 +420,27 @@ class NetworkServiceBuilder(object):
                     if subnet['id'] in net_entry:
                         del net_entry[subnet['id']]
 
-    @staticmethod
-    def get_bigip_net_short_name(bigip, tenant_id, network_name):
+    def get_bigip_net_short_name(self, bigip, tenant_id, network_name):
         # Return <network_type>-<seg_id> for bigip network
+        partition_id = self.service_adapter.get_folder_name(tenant_id)
         if '_tunnel-gre-' in network_name:
-            tunnel_key = bigip.l2gre.get_tunnel_key(
-                name=network_name, folder=tenant_id)
+            tunnel_key = self.network_helper.get_tunnel_key(
+                bigip,
+                network_name,
+                partition=partition_id
+            )
             return 'gre-%s' % tunnel_key
         elif '_tunnel-vxlan-' in network_name:
-            tunnel_key = bigip.vxlan.get_tunnel_key(
-                name=network_name, folder=tenant_id)
+            tunnel_key = self.network_helper.get_tunnel_key(
+                bigip,
+                network_name,
+                partition=partition_id
+            )
             return 'vxlan-%s' % tunnel_key
         else:
-            vlan_id = bigip.vlan.get_id(name=network_name, folder=tenant_id)
+            vlan_id = self.network_helper.get_vlan_id(bigip,
+                                                      name=network_name,
+                                                      partition=partition_id)
             return 'vlan-%s' % vlan_id
 
     @staticmethod
@@ -391,7 +452,7 @@ class NetworkServiceBuilder(object):
 
     def _assure_subnet_snats(self, assure_bigips, service, subnetinfo):
         # Ensure snat for subnet exists on bigips
-        tenant_id = service['pool']['tenant_id']
+        tenant_id = service['loadbalancer']['tenant_id']
         subnet = subnetinfo['subnet']
         assure_bigips = \
             [bigip for bigip in assure_bigips
@@ -479,9 +540,10 @@ class NetworkServiceBuilder(object):
                 # hints are stored. So, just use those hints for every bigip.
                 device_name = self.driver.get_bigip().device_name
                 subnet_hints = all_subnet_hints[device_name]
-            deleted_names = deleted_names.union(
-                self._assure_delete_nets_nonshared(
-                    bigip, service, subnet_hints))
+                deleted_names = deleted_names.union(
+                    self._assure_delete_nets_nonshared(
+                        bigip, service, subnet_hints)
+                )
 
         for port_name in deleted_names:
             LOG.debug('    post_service_networking: calling '
@@ -492,36 +554,48 @@ class NetworkServiceBuilder(object):
 
     def update_bigip_l2(self, service):
         # Update fdb entries on bigip
-        vip = service['vip']
-        pool = service['pool']
+        loadbalancer = service['loadbalancer']
+        service_adapter = self.service_adapter
 
         for bigip in self.driver.get_all_bigips():
             for member in service['members']:
-                if member['status'] == plugin_const.PENDING_DELETE:
-                    self.delete_bigip_member_l2(bigip, pool, member)
+                member['network'] = service_adapter.get_network_from_service(
+                    service,
+                    member['network_id']
+                )
+                member_status = member['provisioning_status']
+                if member_status == plugin_const.PENDING_DELETE:
+                    self.delete_bigip_member_l2(bigip, loadbalancer, member)
                 else:
-                    self.update_bigip_member_l2(bigip, pool, member)
-            if 'id' in vip:
-                if vip['status'] == plugin_const.PENDING_DELETE:
-                    self.delete_bigip_vip_l2(bigip, vip)
-                else:
-                    self.update_bigip_vip_l2(bigip, vip)
+                    self.update_bigip_member_l2(bigip, loadbalancer, member)
 
-    def update_bigip_member_l2(self, bigip, pool, member):
+            loadbalancer['network'] = service_adapter.get_network_from_service(
+                service,
+                loadbalancer['network_id']
+            )
+            lb_status = loadbalancer['provisioning_status']
+            if lb_status == plugin_const.PENDING_DELETE:
+                self.delete_bigip_vip_l2(bigip, loadbalancer)
+            else:
+                self.update_bigip_vip_l2(bigip, loadbalancer)
+
+    def update_bigip_member_l2(self, bigip, loadbalancer, member):
         # update pool member l2 records
         network = member['network']
         if network:
             if self.l2_service.is_common_network(network):
                 net_folder = 'Common'
             else:
-                net_folder = pool['tenant_id']
+                net_folder = self.service_adapter.get_folder_name(
+                    loadbalancer['tenant_id']
+                )
             fdb_info = {'network': network,
                         'ip_address': member['address'],
                         'mac_address': member['port']['mac_address']}
             self.l2_service.add_bigip_fdbs(
                 bigip, net_folder, fdb_info, member)
 
-    def delete_bigip_member_l2(self, bigip, pool, member):
+    def delete_bigip_member_l2(self, bigip, loadbalancer, member):
         # Delete pool member l2 records
         network = member['network']
         if network:
@@ -529,7 +603,9 @@ class NetworkServiceBuilder(object):
                 if self.l2_service.is_common_network(network):
                     net_folder = 'Common'
                 else:
-                    net_folder = pool['tenant_id']
+                    net_folder = self.service_adapter.get_folder_name(
+                        loadbalancer['tenant_id']
+                    )
                 fdb_info = {'network': network,
                             'ip_address': member['address'],
                             'mac_address': member['port']['mac_address']}
@@ -542,40 +618,46 @@ class NetworkServiceBuilder(object):
                           'deleted before the pool member '
                           'was deleted?')
 
-    def update_bigip_vip_l2(self, bigip, vip):
+    def update_bigip_vip_l2(self, bigip, loadbalancer):
         # Update vip l2 records
-        network = vip['network']
+        network = loadbalancer['network']
         if network:
             if self.l2_service.is_common_network(network):
                 net_folder = 'Common'
             else:
-                net_folder = vip['tenant_id']
+                net_folder = self.service_adapter.get_folder_name(
+                    loadbalancer['tenant_id']
+                )
             fdb_info = {'network': network,
                         'ip_address': None,
                         'mac_address': None}
             self.l2_service.add_bigip_fdbs(
-                bigip, net_folder, fdb_info, vip)
+                bigip, net_folder, fdb_info, loadbalancer)
 
-    def delete_bigip_vip_l2(self, bigip, vip):
-        # Delete vip l2 records
-        network = vip['network']
+    def delete_bigip_vip_l2(self, bigip, loadbalancer):
+        # Delete loadbalancer l2 records
+        network = loadbalancer['network']
         if network:
             if self.l2_service.is_common_network(network):
                 net_folder = 'Common'
             else:
-                net_folder = vip['tenant_id']
+                net_folder = self.service_adapter.get_folder_name(
+                    loadbalancer['tenant_id']
+                )
             fdb_info = {'network': network,
                         'ip_address': None,
                         'mac_address': None}
             self.l2_service.delete_bigip_fdbs(
-                bigip, net_folder, fdb_info, vip)
+                bigip, net_folder, fdb_info, loadbalancer)
 
     def _assure_delete_nets_shared(self, bigip, service, subnet_hints):
         # Assure shared configuration (which syncs) is deleted
         deleted_names = set()
-        tenant_id = service['pool']['tenant_id']
+        tenant_id = service['loadbalancer']['tenant_id']
         delete_gateway = self.bigip_selfip_manager.delete_gateway_on_subnet
-        for subnetinfo in _get_subnets_to_delete(bigip, service, subnet_hints):
+        for subnetinfo in self._get_subnets_to_delete(bigip,
+                                                      service,
+                                                      subnet_hints):
             try:
                 if not self.conf.f5_snat_mode:
                     gw_name = delete_gateway(bigip, subnetinfo)
@@ -599,26 +681,41 @@ class NetworkServiceBuilder(object):
     def _assure_delete_nets_nonshared(self, bigip, service, subnet_hints):
         # Delete non shared base objects for networks
         deleted_names = set()
-        for subnetinfo in _get_subnets_to_delete(bigip, service, subnet_hints):
+        for subnetinfo in self._get_subnets_to_delete(bigip,
+                                                      service,
+                                                      subnet_hints):
             try:
                 network = subnetinfo['network']
                 if self.l2_service.is_common_network(network):
                     network_folder = 'Common'
                 else:
-                    network_folder = service['pool']['tenant_id']
+                    network_folder = self.service_adapter.get_folder_name(
+                        service['loadbalancer']['tenant_id'])
 
                 subnet = subnetinfo['subnet']
                 if self.conf.f5_populate_static_arp:
-                    bigip.arp.delete_by_subnet(subnet=subnet['cidr'],
-                                               mask=None,
-                                               folder=network_folder)
+                    self.network_helper.arp_delete_by_subnet(
+                        bigip,
+                        subnet=subnet['cidr'],
+                        mask=None,
+                        partition=network_folder
+                    )
+
                 local_selfip_name = "local-" + bigip.device_name + \
                                     "-" + subnet['id']
 
-                selfip_address = bigip.selfip.get_addr(name=local_selfip_name,
-                                                       folder=network_folder)
-                bigip.selfip.delete(name=local_selfip_name,
-                                    folder=network_folder)
+                selfip_address = self.network_helper.get_selfip_addr(
+                    bigip,
+                    local_selfip_name,
+                    partition=network_folder
+                )
+
+                self.network_helper.delete_selfip(
+                    bigip,
+                    local_selfip_name,
+                    partition=network_folder
+                )
+
                 if self.l3_binding:
                     self.l3_binding.unbind_address(subnet_id=subnet['id'],
                                                    ip_address=selfip_address)
@@ -631,7 +728,7 @@ class NetworkServiceBuilder(object):
                     subnet_hints['do_not_delete_subnets'].append(subnet['id'])
 
                 self.remove_from_rds_cache(network, subnet)
-                tenant_id = service['pool']['tenant_id']
+                tenant_id = service['loadbalancer']['tenant_id']
                 if tenant_id in bigip.assured_tenant_snat_subnets:
                     tenant_snat_subnets = \
                         bigip.assured_tenant_snat_subnets[tenant_id]
@@ -645,6 +742,79 @@ class NetworkServiceBuilder(object):
                           % str(exc.message))
 
         return deleted_names
+
+    def _get_subnets_to_delete(self, bigip, service, subnet_hints):
+        # Clean up any Self IP, SNATs, networks, and folder for
+        # services items that we deleted.
+        subnets_to_delete = []
+        for subnetinfo in subnet_hints['check_for_delete_subnets'].values():
+            subnet = subnetinfo['subnet']
+            route_domain = subnetinfo['network']['route_domain_id']
+            if not subnet:
+                continue
+            if not self._ips_exist_on_subnet(
+                    bigip,
+                    service,
+                    subnet,
+                    route_domain):
+                subnets_to_delete.append(subnetinfo)
+
+        return subnets_to_delete
+
+    def _ips_exist_on_subnet(self, bigip, service, subnet, route_domain):
+        # Does the big-ip have any IP addresses on this subnet?
+        LOG.debug("_ips_exist_on_subnet entry %s rd %s"
+                  % (str(subnet['cidr']), route_domain))
+        route_domain = str(route_domain)
+        ipsubnet = netaddr.IPNetwork(subnet['cidr'])
+
+        # Are there any virtual addresses on this subnet?
+        folder = self.service_adapter.get_folder_name(
+            service['loadbalancer']['tenant_id']
+        )
+        virtual_services = self.network_helper.get_virtual_service_insertion(
+            bigip,
+            partition=folder
+        )
+        for virt_serv in virtual_services:
+            (_, dest) = virt_serv.items()[0]
+            LOG.debug("            _ips_exist_on_subnet: checking vip %s"
+                      % str(dest['address']))
+            if len(dest['address'].split('%')) > 1:
+                vip_route_domain = dest['address'].split('%')[1]
+            else:
+                vip_route_domain = '0'
+            if vip_route_domain != route_domain:
+                continue
+            vip_addr = strip_domain_address(dest['address'])
+            if netaddr.IPAddress(vip_addr) in ipsubnet:
+                LOG.debug("            _ips_exist_on_subnet: found")
+                return True
+
+        # If there aren't any virtual addresses, are there
+        # node addresses on this subnet?
+        nodes = self.network_helper.get_node_addresses(
+            bigip,
+            partition=folder
+        )
+        for node in nodes:
+            LOG.debug("            _ips_exist_on_subnet: checking node %s"
+                      % str(node))
+            if len(node.split('%')) > 1:
+                node_route_domain = node.split('%')[1]
+            else:
+                node_route_domain = '0'
+            if node_route_domain != route_domain:
+                continue
+            node_addr = strip_domain_address(node)
+            if netaddr.IPAddress(node_addr) in ipsubnet:
+                LOG.debug("        _ips_exist_on_subnet: found")
+                return True
+
+        LOG.debug("            _ips_exist_on_subnet exit %s"
+                  % str(subnet['cidr']))
+        # nothing found
+        return False
 
     def add_bigip_fdb(self, bigip, fdb):
         self.l2_service.add_bigip_fdb(bigip, fdb)
@@ -661,88 +831,39 @@ class NetworkServiceBuilder(object):
     def vlan_exists(self, network, folder='Common'):
         return False
 
+    def _get_subnets_to_assure(self, service):
+        # Examine service and return active networks
+        networks = dict()
+        loadbalancer = service['loadbalancer']
+        service_adapter = self.service_adapter
 
-def _get_subnets_to_assure(service):
-    # Examine service and return active networks
-    networks = dict()
-    vip = service['vip']
-    if 'id' in vip and \
-            not vip['status'] == plugin_const.PENDING_DELETE:
-        if 'network' in vip and vip['network']:
-            network = vip['network']
-            subnet = vip['subnet']
-            networks[network['id']] = {'network': network,
-                                       'subnet': subnet,
-                                       'is_for_member': False}
-
-    for member in service['members']:
-        if not member['status'] == plugin_const.PENDING_DELETE:
-            if 'network' in member and member['network']:
-                network = member['network']
-                subnet = member['subnet']
+        lb_status = loadbalancer['provisioning_status']
+        if lb_status != plugin_const.PENDING_DELETE:
+            if 'network_id' in loadbalancer:
+                network = service_adapter.get_network_from_service(
+                    service,
+                    loadbalancer['network_id']
+                )
+                subnet = service_adapter.get_subnet_from_service(
+                    service,
+                    loadbalancer['subnet_id']
+                )
                 networks[network['id']] = {'network': network,
                                            'subnet': subnet,
-                                           'is_for_member': True}
-    return networks.values()
+                                           'is_for_member': False}
 
-
-def _get_subnets_to_delete(bigip, service, subnet_hints):
-    # Clean up any Self IP, SNATs, networks, and folder for
-    # services items that we deleted.
-    subnets_to_delete = []
-    for subnetinfo in subnet_hints['check_for_delete_subnets'].values():
-        subnet = subnetinfo['subnet']
-        route_domain = subnetinfo['network']['route_domain_id']
-        if not subnet:
-            continue
-        if not _ips_exist_on_subnet(bigip, service, subnet, route_domain):
-            subnets_to_delete.append(subnetinfo)
-    return subnets_to_delete
-
-
-def _ips_exist_on_subnet(bigip, service, subnet, route_domain):
-    # Does the big-ip have any IP addresses on this subnet?
-    LOG.debug("_ips_exist_on_subnet entry %s rd %s"
-              % (str(subnet['cidr']), route_domain))
-    route_domain = str(route_domain)
-    ipsubnet = netaddr.IPNetwork(subnet['cidr'])
-    # Are there any virtual addresses on this subnet?
-    get_vs = bigip.virtual_server.get_virtual_service_insertion
-    virtual_services = get_vs(folder=service['pool']['tenant_id'])
-    for virt_serv in virtual_services:
-        (_, dest) = virt_serv.items()[0]
-        LOG.debug("            _ips_exist_on_subnet: checking vip %s"
-                  % str(dest['address']))
-        if len(dest['address'].split('%')) > 1:
-            vip_route_domain = dest['address'].split('%')[1]
-        else:
-            vip_route_domain = '0'
-        if vip_route_domain != route_domain:
-            continue
-        vip_addr = strip_domain_address(dest['address'])
-        if netaddr.IPAddress(vip_addr) in ipsubnet:
-            LOG.debug("            _ips_exist_on_subnet: found")
-            return True
-
-    # If there aren't any virtual addresses, are there
-    # node addresses on this subnet?
-    get_node_addr = bigip.pool.get_node_addresses
-    nodes = get_node_addr(folder=service['pool']['tenant_id'])
-    for node in nodes:
-        LOG.debug("            _ips_exist_on_subnet: checking node %s"
-                  % str(node))
-        if len(node.split('%')) > 1:
-            node_route_domain = node.split('%')[1]
-        else:
-            node_route_domain = '0'
-        if node_route_domain != route_domain:
-            continue
-        node_addr = strip_domain_address(node)
-        if netaddr.IPAddress(node_addr) in ipsubnet:
-            LOG.debug("        _ips_exist_on_subnet: found")
-            return True
-
-    LOG.debug("            _ips_exist_on_subnet exit %s"
-              % str(subnet['cidr']))
-    # nothing found
-    return False
+        for member in service['members']:
+            if member['provisioning_status'] != plugin_const.PENDING_DELETE:
+                if 'network_id' in member:
+                    network = service_adapter.get_network_from_service(
+                        service,
+                        member['network_id']
+                    )
+                    subnet = service_adapter.get_subnet_from_service(
+                        service,
+                        member['subnet_id']
+                    )
+                    networks[network['id']] = {'network': network,
+                                               'subnet': subnet,
+                                               'is_for_member': True}
+        return networks.values()

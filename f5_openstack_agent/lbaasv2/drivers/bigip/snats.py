@@ -42,6 +42,7 @@ class BigipSnatManager(object):
         if self.driver.conf.f5_ha_type == 'standalone':
             return 'snat-traffic-group-local-only-' + subnet['id']
         elif self.driver.conf.f5_ha_type == 'pair':
+            # REVISIT(RJB): should this name have a hyphen before subnetid
             return 'snat-traffic-group-1' + subnet['id']
         elif self.driver.conf.f5_ha_type == 'scalen':
             traffic_group = self.driver.tenant_to_traffic_group(tenant_id)
@@ -74,7 +75,9 @@ class BigipSnatManager(object):
             ports = self.driver.plugin_rpc.get_port_by_name(
                 port_name=index_snat_name)
             if len(ports) > 0:
-                ip_address = ports[0]['fixed_ips'][0]['ip_address']
+                first_port = ports[0]
+                first_fixed_ip = first_port['fixed_ips'][0]
+                ip_address = first_fixed_ip['ip_address']
             else:
                 new_port = self.driver.plugin_rpc.create_port_on_subnet(
                     subnet_id=subnet['id'],
@@ -97,6 +100,7 @@ class BigipSnatManager(object):
         else:
             snat_info['network_folder'] = tenant_id
         snat_info['pool_name'] = tenant_id
+        # REVISIT(RJB): We need to change the folder to something env_tenant_id
         snat_info['pool_folder'] = tenant_id
         snat_info['addrs'] = snat_addrs
 
