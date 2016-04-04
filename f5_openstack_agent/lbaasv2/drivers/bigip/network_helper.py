@@ -114,8 +114,10 @@ class NetworkHelper(object):
 
     def get_selfip_addr(self, bigip, name, partition=const.DEFAULT_PARTITION):
         s = bigip.net.selfips.selfip
-        s.load(name=name, partition=partition)
-        return s.address
+        if s.exists(name=name, partition=partition):
+            s.load(name=name, partition=partition)
+            return s.address
+        return None
 
     # this method isn't present in the new f5-sdk
     def strip_folder_and_prefix(self, path):

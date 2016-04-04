@@ -42,9 +42,9 @@ class NetworkServiceBuilder(object):
         self.l2_service = L2ServiceBuilder(conf, f5_global_routed_mode)
 
         self.bigip_selfip_manager = BigipSelfIpManager(
-            self.conf, self.l2_service, self.driver.l3_binding)
+            self.driver, self.l2_service, self.driver.l3_binding)
         self.bigip_snat_manager = BigipSnatManager(
-            self.conf, self.l2_service, self.driver.l3_binding)
+            self.driver, self.l2_service, self.driver.l3_binding)
 
         self.rds_cache = {}
         self.interface_mapping = self.l2_service.interface_mapping
@@ -559,6 +559,7 @@ class NetworkServiceBuilder(object):
 
         for bigip in self.driver.get_all_bigips():
             for member in service['members']:
+                LOG.debug("update_bigip_l2 update service members")
                 member['network'] = service_adapter.get_network_from_service(
                     service,
                     member['network_id']
@@ -569,6 +570,13 @@ class NetworkServiceBuilder(object):
                 else:
                     self.update_bigip_member_l2(bigip, loadbalancer, member)
 
+            if "network_id" not in loadbalancer:
+                LOG.error("update_bigip_l2, expected network ID")
+                LOG.error(loadbalancer)
+                LOG.error(service)
+                return
+
+            LOG.debug("update_bigip_l2 get network for ID %s" % loadbalancer["network_id"])
             loadbalancer['network'] = service_adapter.get_network_from_service(
                 service,
                 loadbalancer['network_id']
@@ -577,7 +585,9 @@ class NetworkServiceBuilder(object):
             if lb_status == plugin_const.PENDING_DELETE:
                 self.delete_bigip_vip_l2(bigip, loadbalancer)
             else:
+                LOG.debug("update_bigip_l2 calling update_bigip_vip_l2")
                 self.update_bigip_vip_l2(bigip, loadbalancer)
+            LOG.debug("update_bigip_l2 complete")
 
     def update_bigip_member_l2(self, bigip, loadbalancer, member):
         # update pool member l2 records

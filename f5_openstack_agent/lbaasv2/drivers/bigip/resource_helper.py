@@ -29,6 +29,10 @@ class ResourceType(Enum):
     tcp_monitor = 9
     ping_monitor = 10
     node = 11
+    snat = 12
+    snatpool = 13
+    snat_translation = 14
+    selfip = 15
 
 
 class BigIPResourceHelper(object):
@@ -141,5 +145,7 @@ class BigIPResourceHelper(object):
             ResourceType.snatpool:
                 lambda bigip: bigip.ltm.snatpools.snatpool,
             ResourceType.snat_translation:
-                lambda bigip: bigip.ltm.snat_translations.snat_translation
+                lambda bigip: bigip.ltm.snat_translations.snat_translation,
+            ResourceType.selfip:
+                lambda bigip: bigip.ltm.net.selfips.selfip
         }[self.resource_type](bigip)

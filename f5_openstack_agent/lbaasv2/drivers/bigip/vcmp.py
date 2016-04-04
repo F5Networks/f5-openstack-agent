@@ -17,8 +17,6 @@
 from f5.bigip import BigIP
 from oslo_log import log as logging
 
-from f5agent.utils import prefixed
-
 LOG = logging.getLogger(__name__)
 
 
@@ -111,7 +109,7 @@ class VcmpManager(object):
         for vcmp_guest in vcmp_host['guests']:
             vlan_list = vcmp_host['bigip'].system.sys_vcmp.get_vlan(
                 [vcmp_guest['name']])
-            full_path_vlan_name = '/Common/' + prefixed(vlan_name)
+            full_path_vlan_name = '/Common/' + vlan_name
             if full_path_vlan_name in vlan_list[0]:
                 LOG.debug(('VLAN %s associated with guest %s' %
                           (full_path_vlan_name, vcmp_guest['mgmt_addr'])))

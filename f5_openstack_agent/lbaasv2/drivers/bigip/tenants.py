@@ -44,8 +44,8 @@ class BigipTenantManager(object):
         service["traffic_group"] = traffic_group
 
         # create tenant folder
+        folder_name = self.service_adapter.get_folder_name(tenant_id)
         for bigip in self.driver.get_config_bigips():
-            folder_name = self.service_adapter.get_folder_name(tenant_id)
             if not self.system_helper.folder_exists(bigip, folder_name):
                 folder = self.service_adapter.get_folder(service)
                 self.system_helper.create_folder(bigip, folder)
@@ -56,7 +56,6 @@ class BigipTenantManager(object):
         # create tenant route domain
         if self.conf.use_namespaces:
             for bigip in self.driver.get_all_bigips():
-                folder_name = self.conf.environment_prefix + tenant_id
                 if not self.network_helper.route_domain_exists(bigip,
                                                                folder_name):
                     self.network_helper.create_route_domain(
