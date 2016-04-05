@@ -154,7 +154,8 @@ class NetworkHelper(object):
         for selfip in selfips:
             LOG.debug("get_selfips: %s", selfip)
             if vlan_name and selfip.vlan != vlan_name:
-                LOG.debug("XXXXXXX vlan names don't match selfip.vlan %s and constructed vlan name %s",
+                LOG.debug("XXXXXXX vlan names don't match selfip.vlan %s "
+                          "and constructed vlan name %s",
                           selfip.vlan, vlan_name)
                 continue
             selfip.name = self.strip_folder_and_prefix(selfip.name)

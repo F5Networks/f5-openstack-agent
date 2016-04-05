@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+from requests.exceptions import HTTPError
+
 import os
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -31,7 +33,6 @@ class BigipSnatManager(object):
         self.driver = driver
         self.l2_service = l2_service
         self.l3_binding = l3_binding
-        self.snat_manager = BigIPResourceHelper(ResourceType.snat)
         self.snatpool_manager = BigIPResourceHelper(ResourceType.snatpool)
         self.snat_translation_manager = BigIPResourceHelper(
             ResourceType.snat_translation)
@@ -148,15 +149,36 @@ class BigipSnatManager(object):
                     bigip,
                     name=index_snat_name,
                     partition=snat_info['network_folder']):
-                snat = self.snat_translation_manager.create(bigip, model)
+                self.snat_translation_manager.create(bigip, model)
+            else:
+                self.snat_translation_manager.load(
+                    bigip,
+                    name=index_snat_name,
+                    partition=snat_info['network_folder'])
 
             model = {
                 "name": snat_info['pool_name'],
-                "partition": snat_info['pool_folder']
+                "partition": snat_info['pool_folder'],
             }
-            snatpool = self.snatpool_manager.create(bigip, model)
-            snatpool.members.append(snat.fullPath)
-            snatpool.update()
+            model["members"] = ['/' + model["partition"] + '/' + model["name"]]
+            try:
+                LOG.debug("Calling SNAT pool create: %s" % model)
+                self.snatpool_manager.create(bigip, model)
+                LOG.debug("SNAT pool created: %s" % model)
+
+            except HTTPError as err:
+                LOG.error("Create SNAT pool failed %s" % err.message)
+                if err.response.status_code == 409:
+                    try:
+                        snatpool = self.snatpool_manager.load(
+                            bigip,
+                            name=model["name"],
+                            partition=model["partition"]
+                        )
+                        snatpool.members.append(model["members"])
+                        snatpool.update()
+                    except HTTPError as err:
+                        LOG.error("Update SNAT pool failed %s" % err.message)
 
             if self.l3_binding:
                 self.l3_binding.bind_address(subnet_id=subnet['id'],
