@@ -95,6 +95,7 @@ class NetworkHelper(object):
         return t
 
     def get_tunnel_key(self, bigip, name, partition=const.DEFAULT_PARTITION):
+        LOG.debug("get_tunnel_key with partition: %s", partition)
         t = bigip.net.tunnels_s.tunnels.tunnel
         t.load(name=name, partition=partition)
         return t.key
@@ -151,14 +152,17 @@ class NetworkHelper(object):
         selfips = sc.get_collection(requests_params=params)
         selfips_list = []
         for selfip in selfips:
+            LOG.debug("get_selfips: %s", selfip)
             if vlan_name and selfip.vlan != vlan_name:
+                LOG.debug("XXXXXXX vlan names don't match selfip.vlan %s and constructed vlan name %s",
+                          selfip.vlan, vlan_name)
                 continue
             selfip.name = self.strip_folder_and_prefix(selfip.name)
             selfips_list.append(selfip)
         return selfips_list
 
     def delete_selfip(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        """Delete the selfip if it exists. """
+        """Delete the selfip if it exists."""
         s = bigip.net.selfips.selfip
         if s.exists(name=name, partition=partition):
             s.load(name=name, partition=partition)
@@ -333,11 +337,15 @@ class NetworkHelper(object):
                                  partition=const.DEFAULT_PARTITION,
                                  id=const.DEFAULT_ROUTE_DOMAIN_ID):
         """Add VLANs to Domain by ID."""
+        LOG.debug("ADD VLAN to domain %s" % id)
         rd = self.get_route_domain_by_id(bigip, partition, id)
-        existing_vlans = getattr(rd, 'vlans', [])
-        if name in existing_vlans:
+        LOG.debug("route domain %s" % rd)
+        if rd and 'vlans' in rd:
+            existing_vlans = getattr(rd, 'vlans', [])
+            if name in existing_vlans:
+                return False
+        else:
             return False
-
         existing_vlans.append(name)
         rd.vlans = existing_vlans
         rd.update()
@@ -663,7 +671,7 @@ class NetworkHelper(object):
             bigip,
             tunnel_name,
             partition=const.DEFAULT_PARTITION):
-        """Deletes a vxlan or gre tunnel."""
+        """Delete a vxlan or gre tunnel."""
         t = bigip.net.fdb.tunnels.tunnel
         if t.exists(name=tunnel_name, partition=partition):
             t.load(name=tunnel_name, partition=partition)
