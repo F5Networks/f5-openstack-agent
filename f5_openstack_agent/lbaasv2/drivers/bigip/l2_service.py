@@ -313,7 +313,10 @@ class L2ServiceBuilder(object):
                    'localAddress': bigip.local_ip,
                    'description': network['id'],
                    'route_domain_id': network['route_domain_id']}
+        LOG.debug("---Creating VXLAN network---")
+        LOG.debug(payload)
         self.network_helper.create_multipoint_tunnel(bigip, payload)
+        LOG.debug("---VXLAN network Created---")
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_added(network, bigip.local_ip)
 
@@ -709,8 +712,6 @@ class L2ServiceBuilder(object):
 
     def add_bigip_fdb(self, bigip, fdb):
         # Add entries from the fdb relevant to the bigip
-        # TODO(Rich Browne) -- This is where we left off.
-
         for fdb_operation in \
             [{'network_type': 'vxlan',
               'get_tunnel_folder': self.network_helper.get_tunnel_folder,
@@ -751,7 +752,7 @@ class L2ServiceBuilder(object):
                        'provider:network_type': net_fdb['network_type'],
                        'provider:segmentation_id': net_fdb['segment_id']}
                 tunnel_name = _get_tunnel_name(net)
-                folder = get_tunnel_folder(tunnel_name=tunnel_name)
+                folder = get_tunnel_folder(bigip, tunnel_name=tunnel_name)
                 net_info = {'network': network,
                             'folder': folder,
                             'tunnel_name': tunnel_name,

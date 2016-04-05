@@ -98,10 +98,16 @@ class BigipSnatManager(object):
         if self.l2_service.is_common_network(network):
             snat_info['network_folder'] = 'Common'
         else:
-            snat_info['network_folder'] = tenant_id
-        snat_info['pool_name'] = tenant_id
-        # REVISIT(RJB): We need to change the folder to something env_tenant_id
-        snat_info['pool_folder'] = tenant_id
+            snat_info['network_folder'] = (
+                self.driver.service_adapter.get_folder_name(tenant_id)
+            )
+
+        snat_info['pool_name'] = self.driver.service_adapter.get_folder_name(
+            tenant_id
+        )
+        snat_info['pool_folder'] = self.driver.service_adapter.get_folder_name(
+            tenant_id
+        )
         snat_info['addrs'] = snat_addrs
 
         self._assure_bigip_snats(bigip, subnetinfo, snat_info, tenant_id)
@@ -110,7 +116,7 @@ class BigipSnatManager(object):
         # Configure the ip addresses for snat
         network = subnetinfo['network']
         subnet = subnetinfo['subnet']
-
+        LOG.debug("_assure_bigip_snats")
         if tenant_id not in bigip.assured_tenant_snat_subnets:
             bigip.assured_tenant_snat_subnets[tenant_id] = []
         if subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
@@ -136,10 +142,13 @@ class BigipSnatManager(object):
                 "name": index_snat_name,
                 "partition": snat_info['network_folder'],
                 "address": ip_address,
-                "trafficGroup": snat_traffic_group,
-
+                "trafficGroup": snat_traffic_group
             }
-            snat = self.snat_manager.create(bigip, model)
+            if not self.snat_translation_manager.exists(
+                    bigip,
+                    name=index_snat_name,
+                    partition=snat_info['network_folder']):
+                snat = self.snat_translation_manager.create(bigip, model)
 
             model = {
                 "name": snat_info['pool_name'],

@@ -1,3 +1,4 @@
+"""Agent manager to handle plugin to agent RPC and periodic tasks."""
 # coding=utf-8
 # Copyright 2016 F5 Networks Inc.
 #
@@ -257,6 +258,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         # Allow driver to run post init process not that the RPC is all setup.
         self.lbdriver.post_init()
 
+        # Set the flag to resync tunnels/services
+        self.needs_resync = True
+
     def _load_driver(self, conf):
         self.lbdriver = None
 
@@ -386,6 +390,37 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
         endpoints = [started_by.manager]
         started_by.conn.create_consumer(
             node_topic, endpoints, fanout=False)
+
+    @periodic_task.periodic_task
+    def periodic_resync(self, context):
+        """Resync tunnels/service state."""
+        LOG.debug("tunnel_sync: periodic_resync called")
+        now = datetime.datetime.now()
+        # Only force resync if the agent thinks it is
+        # synchronized and the resync timer has exired
+        if (now - self.last_resync).seconds > self.service_resync_interval:
+            if not self.needs_resync:
+                self.needs_resync = True
+                LOG.debug(
+                    'Forcing resync of services on resync timer (%d seconds).'
+                    % self.service_resync_interval)
+                self.cache.services = {}
+                self.last_resync = now
+                self.lbdriver.flush_cache()
+            LOG.debug("tunnel_sync: periodic_resync need_resync: %s"
+                      % str(self.needs_resync))
+        # resync if we need to
+        if self.needs_resync:
+            self.needs_resync = False
+            if self.tunnel_sync():
+                self.needs_resync = True
+            # if self.sync_state():
+            # self.needs_resync = True
+
+    def tunnel_sync(self):
+        """Call into driver to advertise tunnels."""
+        LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")
+        return self.lbdriver.tunnel_sync()
 
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):

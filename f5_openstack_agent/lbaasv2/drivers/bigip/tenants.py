@@ -1,4 +1,4 @@
-""" Tenants Manager """
+"""Tenants Manager."""
 # Copyright 2014 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,8 +28,10 @@ LOG = logging.getLogger(__name__)
 
 
 class BigipTenantManager(object):
-    # Create network connectivity for a bigip
+    """Create network connectivity for a bigip."""
+
     def __init__(self, conf, driver):
+        """Create a BigipTenantManager."""
         self.conf = conf
         self.driver = driver
         self.system_helper = SystemHelper()
@@ -37,7 +39,7 @@ class BigipTenantManager(object):
         self.service_adapter = self.driver.service_adapter
 
     def assure_tenant_created(self, service):
-        # Create tenant partition.
+        """Create tenant partition."""
         tenant_id = service['loadbalancer']['tenant_id']
         traffic_group = self.driver.service_to_traffic_group(service)
         traffic_group = '/Common/' + traffic_group
@@ -45,6 +47,7 @@ class BigipTenantManager(object):
 
         # create tenant folder
         folder_name = self.service_adapter.get_folder_name(tenant_id)
+        LOG.debug("have folder name %s" % folder_name)
         for bigip in self.driver.get_config_bigips():
             if not self.system_helper.folder_exists(bigip, folder_name):
                 folder = self.service_adapter.get_folder(service)
@@ -64,7 +67,7 @@ class BigipTenantManager(object):
                         self.conf.f5_route_domain_strictness)
 
     def assure_tenant_cleanup(self, service, all_subnet_hints):
-        # Delete tenant partition.
+        """Delete tenant partition."""
         # Called for every bigip only in replication mode,
         # otherwise called once.
         for bigip in self.driver.get_config_bigips():
@@ -82,31 +85,33 @@ class BigipTenantManager(object):
 
     def _remove_tenant_replication_mode(self, bigip, tenant_id):
         # Remove tenant in replication sync-mode
+        partition = self.service_adapter.get_folder_name(tenant_id)
         domain_names = self.network_helper.get_route_domain_names(bigip,
-                                                                  tenant_id)
+                                                                  partition)
         if domain_names:
             for domain_name in domain_names:
                 self.network_helper.delete_route_domain(bigip,
-                                                        tenant_id,
+                                                        partition,
                                                         domain_name)
         # sudslog = std_logging.getLogger('suds.client')
         # sudslog.setLevel(std_logging.FATAL)
         self.system_helper.force_root_folder(bigip)
         # sudslog.setLevel(std_logging.ERROR)
 
-        folder_name = self.service_adapter.get_folder_name(tenant_id)
         try:
-            self.system_helper.delete_folder(bigip, folder_name)
+            self.system_helper.delete_folder(bigip, partition)
         except f5ex.SystemDeleteException:
-            self.system_helper.purge_folder_contents(bigip, folder_name)
-            self.system_helper.delete_folder(bigip, folder_name)
+            self.system_helper.purge_folder_contents(bigip, partition)
+            self.system_helper.delete_folder(bigip, partition)
 
     def _remove_tenant_autosync_mode(self, bigip, tenant_id):
+        partition = self.service_adapter.get_folder_name(tenant_id)
+
         # Remove tenant in autosync sync-mode
         # all domains must be gone before we attempt to delete
         # the folder or it won't delete due to not being empty
         for set_bigip in self.driver.get_all_bigips():
-            self.network_helper.delete_route_domain(set_bigip, tenant_id, None)
+            self.network_helper.delete_route_domain(set_bigip, partition, None)
             sudslog = std_logging.getLogger('suds.client')
             sudslog.setLevel(std_logging.FATAL)
             self.system_helper.force_root_folder(set_bigip)
@@ -116,12 +121,11 @@ class BigipTenantManager(object):
         # is clearly the last change that needs to be synced.
         self.driver.sync_if_clustered()
         greenthread.sleep(5)
-        folder_name = self.service_adapter.get_folder_name(tenant_id)
         try:
-            self.system_helper.delete_folder(bigip, folder_name)
+            self.system_helper.delete_folder(bigip, partition)
         except f5ex.SystemDeleteException:
-            self.system_helper.purge_folder_contents(bigip, folder_name)
-            self.system_helper.delete_folder(bigip, folder_name)
+            self.system_helper.purge_folder_contents(bigip, partition)
+            self.system_helper.delete_folder(bigip, partition)
 
         # Need to make sure this folder delete syncs before
         # something else runs and changes the current folder to
