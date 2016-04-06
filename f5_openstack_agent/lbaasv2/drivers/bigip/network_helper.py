@@ -17,7 +17,7 @@ import netaddr
 import os
 
 from oslo_log import log as logging
-
+from oslo_log import helpers as log_helpers
 
 LOG = logging.getLogger(__name__)
 
@@ -341,7 +341,7 @@ class NetworkHelper(object):
         LOG.debug("ADD VLAN to domain %s" % id)
         rd = self.get_route_domain_by_id(bigip, partition, id)
         LOG.debug("route domain %s" % rd)
-        if rd:  # and 'vlans' in rd:
+        if rd:
             existing_vlans = getattr(rd, 'vlans', [])
             if name in existing_vlans:
                 return False

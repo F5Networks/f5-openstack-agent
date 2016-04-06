@@ -19,6 +19,7 @@ import netaddr
 from neutron.common.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
+from oslo_log import helpers as log_helpers
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
@@ -218,7 +219,7 @@ class NetworkServiceBuilder(object):
                 tenant_id)
             tenant_rd = self.network_helper.get_route_domain(
                 bigip, partition=partition_id)
-            network['route_domain_id'] = tenant_rd
+            network['route_domain_id'] = tenant_rd.id
             return
 
         LOG.debug("assign route domain checking for available route domain")
@@ -346,6 +347,8 @@ class NetworkServiceBuilder(object):
         LOG.debug("rds_cache: bigip %s rd %s vlans: %s"
                   % (bigip.device_name, route_domain_id, rd_vlans))
         if len(rd_vlans) == 0:
+            LOG.debug("No vlans found for route domain: %d" %
+                      (route_domain_id))
             return
 
         # make sure this rd has a cache entry
@@ -519,6 +522,7 @@ class NetworkServiceBuilder(object):
                 LOG.error(ermsg)
         return True
 
+    @log_helpers.log_method_call
     def post_service_networking(self, service, all_subnet_hints):
         # Assure networks are deleted from big-ips
         if self.conf.f5_global_routed_mode:
@@ -527,7 +531,7 @@ class NetworkServiceBuilder(object):
         # L2toL3 networking layer
         # Non Shared Config -  Local Per BIG-IP
         self.update_bigip_l2(service)
-
+        LOG.debug("Called update_bigip_l2")
         # Delete shared config objects
         deleted_names = set()
         for bigip in self.driver.get_config_bigips():
@@ -569,6 +573,7 @@ class NetworkServiceBuilder(object):
             self.driver.plugin_rpc.delete_port_by_name(
                 port_name=port_name)
 
+    @log_helpers.log_method_call
     def update_bigip_l2(self, service):
         # Update fdb entries on bigip
         loadbalancer = service['loadbalancer']

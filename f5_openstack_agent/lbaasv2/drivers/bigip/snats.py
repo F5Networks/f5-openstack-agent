@@ -149,8 +149,10 @@ class BigipSnatManager(object):
                     bigip,
                     name=index_snat_name,
                     partition=snat_info['network_folder']):
+                LOG.debug("Calling SNAT translation manager CREATE.")
                 self.snat_translation_manager.create(bigip, model)
             else:
+                LOG.debug("SNAT translation_manager LOAD")
                 self.snat_translation_manager.load(
                     bigip,
                     name=index_snat_name,
