@@ -19,7 +19,6 @@ import netaddr
 from neutron.common.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
-from oslo_log import helpers as log_helpers
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \

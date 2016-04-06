@@ -16,8 +16,8 @@ import constants_v2 as const
 import netaddr
 import os
 
-from oslo_log import log as logging
 from oslo_log import helpers as log_helpers
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
