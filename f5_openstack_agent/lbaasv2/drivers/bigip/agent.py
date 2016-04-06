@@ -16,7 +16,6 @@
 
 import sys
 
-import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_service import service
@@ -28,8 +27,6 @@ from neutron.common import rpc as n_rpc
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as manager
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as f5constants
-
-eventlet.monkey_patch()
 
 LOG = logging.getLogger(__name__)
 

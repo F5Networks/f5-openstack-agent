@@ -19,6 +19,7 @@ import netaddr
 from neutron.common.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
+from oslo_log import helpers as log_helpers
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
@@ -218,7 +219,7 @@ class NetworkServiceBuilder(object):
                 tenant_id)
             tenant_rd = self.network_helper.get_route_domain(
                 bigip, partition=partition_id)
-            network['route_domain_id'] = tenant_rd
+            network['route_domain_id'] = tenant_rd.id
             return
 
         LOG.debug("assign route domain checking for available route domain")
@@ -346,6 +347,8 @@ class NetworkServiceBuilder(object):
         LOG.debug("rds_cache: bigip %s rd %s vlans: %s"
                   % (bigip.device_name, route_domain_id, rd_vlans))
         if len(rd_vlans) == 0:
+            LOG.debug("No vlans found for route domain: %d" %
+                      (route_domain_id))
             return
 
         # make sure this rd has a cache entry

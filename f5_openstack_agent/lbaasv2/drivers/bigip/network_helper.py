@@ -17,7 +17,7 @@ import netaddr
 import os
 
 from oslo_log import log as logging
-
+from oslo_log import helpers as log_helpers
 
 LOG = logging.getLogger(__name__)
 
@@ -341,7 +341,7 @@ class NetworkHelper(object):
         LOG.debug("ADD VLAN to domain %s" % id)
         rd = self.get_route_domain_by_id(bigip, partition, id)
         LOG.debug("route domain %s" % rd)
-        if rd:  # and 'vlans' in rd:
+        if rd:
             existing_vlans = getattr(rd, 'vlans', [])
             if name in existing_vlans:
                 return False
@@ -513,7 +513,7 @@ class NetworkHelper(object):
         else:
             records.append(fdb_entry)
 
-        tunnel = bigip.net.fdbs.tunnnels.tunnel
+        tunnel = bigip.net.fdbs.tunnels.tunnel
         if tunnel.exists(name=tunnel_name, partition=partition):
             tunnel.load(name=tunnel_name, partition=partition)
             tunnel.update(records=records)
@@ -558,7 +558,7 @@ class NetworkHelper(object):
             if len(records) == 0:
                 records = None
 
-        tunnel = bigip.net.tunnels.tunnel
+        tunnel = bigip.net.fdbs.tunnels.tunnel
         if tunnel.exists(name=tunnel_name, partition=partition):
             tunnel.load(name=tunnel_name, partition=partition)
             tunnel.update(record=records)
@@ -691,9 +691,12 @@ class NetworkHelper(object):
         ts.load(name=tunnel_name, partition=partition)
         ts.delete()
 
+    @log_helpers.log_method_call
     def get_tunnel_folder(self, bigip, tunnel_name=None):
-        tunnels = bigip.net.tunnel_s.tunnels.get_collection()
+        tunnels = bigip.net.fdbs.tunnels.get_collection()
+        LOG.debug("Have tunnel collection")
         for tunnel in tunnels:
+            LOG.debug("Checking tunnel: %s" % (tunnel))
             if tunnel.name == tunnel_name:
                 return tunnel.partition
 
