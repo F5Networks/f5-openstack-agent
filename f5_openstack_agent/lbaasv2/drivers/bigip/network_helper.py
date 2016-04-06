@@ -558,7 +558,7 @@ class NetworkHelper(object):
             if len(records) == 0:
                 records = None
 
-        tunnel = bigip.net.tunnels.tunnel
+        tunnel = bigip.net.fdbs.tunnels.tunnel
         if tunnel.exists(name=tunnel_name, partition=partition):
             tunnel.load(name=tunnel_name, partition=partition)
             tunnel.update(record=records)
@@ -691,9 +691,12 @@ class NetworkHelper(object):
         ts.load(name=tunnel_name, partition=partition)
         ts.delete()
 
+    @log_helpers.log_method_call
     def get_tunnel_folder(self, bigip, tunnel_name=None):
-        tunnels = bigip.net.tunnel_s.tunnels.get_collection()
+        tunnels = bigip.net.fdbs.tunnels.get_collection()
+        LOG.debug("Have tunnel collection")
         for tunnel in tunnels:
+            LOG.debug("Checking tunnel: %s" % (tunnel))
             if tunnel.name == tunnel_name:
                 return tunnel.partition
 
