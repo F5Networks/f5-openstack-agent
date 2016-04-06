@@ -513,7 +513,7 @@ class NetworkHelper(object):
         else:
             records.append(fdb_entry)
 
-        tunnel = bigip.net.fdbs.tunnnels.tunnel
+        tunnel = bigip.net.fdbs.tunnels.tunnel
         if tunnel.exists(name=tunnel_name, partition=partition):
             tunnel.load(name=tunnel_name, partition=partition)
             tunnel.update(records=records)

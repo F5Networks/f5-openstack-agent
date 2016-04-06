@@ -522,7 +522,6 @@ class NetworkServiceBuilder(object):
                 LOG.error(ermsg)
         return True
 
-    @log_helpers.log_method_call
     def post_service_networking(self, service, all_subnet_hints):
         # Assure networks are deleted from big-ips
         if self.conf.f5_global_routed_mode:
@@ -531,7 +530,7 @@ class NetworkServiceBuilder(object):
         # L2toL3 networking layer
         # Non Shared Config -  Local Per BIG-IP
         self.update_bigip_l2(service)
-        LOG.debug("Called update_bigip_l2")
+
         # Delete shared config objects
         deleted_names = set()
         for bigip in self.driver.get_config_bigips():
@@ -573,7 +572,6 @@ class NetworkServiceBuilder(object):
             self.driver.plugin_rpc.delete_port_by_name(
                 port_name=port_name)
 
-    @log_helpers.log_method_call
     def update_bigip_l2(self, service):
         # Update fdb entries on bigip
         loadbalancer = service['loadbalancer']

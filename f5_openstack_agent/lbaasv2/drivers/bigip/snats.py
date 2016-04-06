@@ -159,10 +159,10 @@ class BigipSnatManager(object):
                     partition=snat_info['network_folder'])
 
             model = {
-                "name": snat_info['pool_name'],
+                "name": index_snat_name,
                 "partition": snat_info['pool_folder'],
             }
-            model["members"] = ['/' + model["partition"] + '/' + model["name"]]
+            model["members"] = ['/' + model["partition"] + '/' + index_snat_name]
             try:
                 LOG.debug("Calling SNAT pool create: %s" % model)
                 self.snatpool_manager.create(bigip, model)
