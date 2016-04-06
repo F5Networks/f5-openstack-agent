@@ -17,7 +17,8 @@ from enum import Enum
 
 
 class ResourceType(Enum):
-    """Defines supported BIG-IP® resource types"""
+    u"""Defines supported BIG-IP® resource types."""
+
     nat = 1
     pool = 2
     sys = 3
@@ -29,10 +30,14 @@ class ResourceType(Enum):
     tcp_monitor = 9
     ping_monitor = 10
     node = 11
+    snat = 12
+    snatpool = 13
+    snat_translation = 14
+    selfip = 15
 
 
 class BigIPResourceHelper(object):
-    """Helper class for creating, updating and deleting BIG-IP® resources.
+    u"""Helper class for creating, updating and deleting BIG-IP® resources.
 
     Reduces some of the boilerplate that surrounds using the F5® SDK.
     Example usage:
@@ -44,11 +49,13 @@ class BigIPResourceHelper(object):
         pool_helper = BigIPResourceHelper(ResourceType.pool)
         p = pool_helper.create(bigip, pool)
     """
+
     def __init__(self, resource_type):
+        """Initialize a resource helper."""
         self.resource_type = resource_type
 
     def create(self, bigip, model):
-        """Create/update resource (e.g., pool) on a BIG-IP® system.
+        u"""Create/update resource (e.g., pool) on a BIG-IP® system.
 
         First checks to see if resource has been created and creates
         it if not. If the resource is already created, updates resource
@@ -59,7 +66,6 @@ class BigIPResourceHelper(object):
         include name and partition.
         :returns: created or updated resource object.
         """
-
         resource = self._resource(bigip)
         partition = None
         if "partition" in model:
@@ -71,8 +77,13 @@ class BigIPResourceHelper(object):
 
         return resource
 
+    def exists(self, bigip, name=None, partition=None):
+        """Test for the existence of a resource."""
+        resource = self._resource(bigip)
+        return resource.exists(name=name, partition=partition)
+
     def delete(self, bigip, name=None, partition=None):
-        """Delete a resource on a BIG-IP® system.
+        u"""Delete a resource on a BIG-IP® system.
 
         Checks if resource exists and deletes it. Returns without error
         if resource does not exist.
@@ -87,7 +98,7 @@ class BigIPResourceHelper(object):
             resource.delete()
 
     def load(self, bigip, name=None, partition=None):
-        """Retrieves a BIG-IP® resource from a BIG-IP®.
+        u"""Retrieve a BIG-IP® resource from a BIG-IP®.
 
         Populates a resource object with attributes for instance on a
         BIG-IP® system.
@@ -103,7 +114,7 @@ class BigIPResourceHelper(object):
         return resource
 
     def update(self, bigip, model):
-        """Updates a resource (e.g., pool) on a BIG-IP® system.
+        u"""Update a resource (e.g., pool) on a BIG-IP® system.
 
         Modifies a resource on a BIG-IP® system using attributes
         defined in the model object.
@@ -141,5 +152,7 @@ class BigIPResourceHelper(object):
             ResourceType.snatpool:
                 lambda bigip: bigip.ltm.snatpools.snatpool,
             ResourceType.snat_translation:
-                lambda bigip: bigip.ltm.snat_translations.snat_translation
+                lambda bigip: bigip.ltm.snat_translations.snat_translation,
+            ResourceType.selfip:
+                lambda bigip: bigip.net.selfips.selfip
         }[self.resource_type](bigip)

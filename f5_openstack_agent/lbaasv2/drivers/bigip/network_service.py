@@ -42,9 +42,9 @@ class NetworkServiceBuilder(object):
         self.l2_service = L2ServiceBuilder(conf, f5_global_routed_mode)
 
         self.bigip_selfip_manager = BigipSelfIpManager(
-            self.conf, self.l2_service, self.driver.l3_binding)
+            self.driver, self.l2_service, self.driver.l3_binding)
         self.bigip_snat_manager = BigipSnatManager(
-            self.conf, self.l2_service, self.driver.l3_binding)
+            self.driver, self.l2_service, self.driver.l3_binding)
 
         self.rds_cache = {}
         self.interface_mapping = self.l2_service.interface_mapping
@@ -100,7 +100,9 @@ class NetworkServiceBuilder(object):
                     vtep_selfip_name,
                     partition=vtep_folder
                 )
-
+                # FIXME(RJB) We need to make sure that the function is
+                # returning what we expect.
+                local_ip = local_ip.split("/")[0]
                 if local_ip:
                     bigip.local_ip = local_ip
                     local_ips.append(local_ip)
@@ -122,15 +124,19 @@ class NetworkServiceBuilder(object):
 
         # Per Device Network Connectivity (VLANs or Tunnels)
         subnetsinfo = self._get_subnets_to_assure(service)
-        for (assure_bigip, subnetinfo) in \
-                itertools.product(self.driver.get_all_bigips(), subnetsinfo):
+        for (assure_bigip, subnetinfo) in (
+                itertools.product(self.driver.get_all_bigips(), subnetsinfo)):
             self.l2_service.assure_bigip_network(
                 assure_bigip, subnetinfo['network'])
+            LOG.debug("L2 Networking Assured")
             self.bigip_selfip_manager.assure_bigip_selfip(
                 assure_bigip, service, subnetinfo)
+            LOG.debug("XXXXXXXXXXXXXXX SelfIP assured")
 
         # L3 Shared Config
         assure_bigips = self.driver.get_config_bigips()
+        LOG.debug("get subnetinfo for ...")
+        LOG.debug(assure_bigips)
         for subnetinfo in subnetsinfo:
             if self.conf.f5_snat_addresses_per_subnet > 0:
                 self._assure_subnet_snats(assure_bigips, service, subnetinfo)
@@ -212,7 +218,7 @@ class NetworkServiceBuilder(object):
                 tenant_id)
             tenant_rd = self.network_helper.get_route_domain(
                 bigip, partition=partition_id)
-            network['route_domain_id'] = tenant_rd
+            network['route_domain_id'] = tenant_rd.id
             return
 
         LOG.debug("assign route domain checking for available route domain")
@@ -340,6 +346,8 @@ class NetworkServiceBuilder(object):
         LOG.debug("rds_cache: bigip %s rd %s vlans: %s"
                   % (bigip.device_name, route_domain_id, rd_vlans))
         if len(rd_vlans) == 0:
+            LOG.debug("No vlans found for route domain: %d" %
+                      (route_domain_id))
             return
 
         # make sure this rd has a cache entry
@@ -369,31 +377,33 @@ class NetworkServiceBuilder(object):
         net_subnets = rd_entry[net_short_name]['subnets']
 
         partition_id = self.service_adapter.get_folder_name(tenant_id)
+        LOG.debug("Calling get_selfips with: partition %s and vlan_name %s",
+                  partition_id, rd_vlan)
         selfips = self.network_helper.get_selfips(
             bigip,
             partition=partition_id,
             vlan_name=rd_vlan
         )
 
-        LOG.debug("rds_cache: got selfips: %s" % selfips)
+        LOG.debug("rds_cache: got selfips")
         for selfip in selfips:
             LOG.debug("rds_cache: processing bigip %s rd %s vlan %s self %s" %
                       (bigip.device_name, route_domain_id, rd_vlan,
-                       selfip['name']))
-            if bigip.device_name not in selfip['name']:
+                       selfip.name))
+            if bigip.device_name not in selfip.name:
                 LOG.error("rds_cache: Found unexpected selfip %s for tenant %s"
-                          % (selfip['name'], tenant_id))
+                          % (selfip.name, tenant_id))
                 continue
-            subnet_id = selfip['name'].split(bigip.device_name + '-')[1]
+            subnet_id = selfip.name.split(bigip.device_name + '-')[1]
 
             # convert 10.1.1.1%1/24 to 10.1.1.1/24
-            addr = selfip['address'].split('/')[0]
+            addr = selfip.address.split('/')[0]
             addr = addr.split('%')[0]
-            netbits = selfip['address'].split('/')[1]
-            selfip['address'] = addr + '/' + netbits
+            netbits = selfip.address.split('/')[1]
+            selfip.address = addr + '/' + netbits
 
             # selfip addresses will have slash notation: 10.1.1.1/24
-            netip = netaddr.IPNetwork(selfip['address'])
+            netip = netaddr.IPNetwork(selfip.address)
             LOG.debug("rds_cache: updating subnet %s with %s"
                       % (subnet_id, str(netip.cidr)))
             net_subnets[subnet_id] = {'cidr': netip.cidr}
@@ -422,15 +432,20 @@ class NetworkServiceBuilder(object):
 
     def get_bigip_net_short_name(self, bigip, tenant_id, network_name):
         # Return <network_type>-<seg_id> for bigip network
+        LOG.debug("get_bigip_net_short_name: %s:%s" % (
+            tenant_id, network_name))
         partition_id = self.service_adapter.get_folder_name(tenant_id)
-        if '_tunnel-gre-' in network_name:
+        LOG.debug("network_name %s", network_name.split('/'))
+        network_name = network_name.split("/")[-1]
+        if 'tunnel-gre-' in network_name:
             tunnel_key = self.network_helper.get_tunnel_key(
                 bigip,
                 network_name,
                 partition=partition_id
             )
             return 'gre-%s' % tunnel_key
-        elif '_tunnel-vxlan-' in network_name:
+        elif 'tunnel-vxlan-' in network_name:
+            LOG.debug("Getting tunnel key for VXLAN: %s", network_name)
             tunnel_key = self.network_helper.get_tunnel_key(
                 bigip,
                 network_name,
@@ -438,6 +453,7 @@ class NetworkServiceBuilder(object):
             )
             return 'vxlan-%s' % tunnel_key
         else:
+            LOG.debug("Getting tunnel key for VLAN: %s", network_name)
             vlan_id = self.network_helper.get_vlan_id(bigip,
                                                       name=network_name,
                                                       partition=partition_id)
@@ -459,9 +475,12 @@ class NetworkServiceBuilder(object):
                 if tenant_id not in bigip.assured_tenant_snat_subnets or
                 subnet['id'] not in
                 bigip.assured_tenant_snat_subnets[tenant_id]]
+        LOG.debug("_assure_subnet_snats: getting snat addrs for: subnet")
         if len(assure_bigips):
+            LOG.debug("have bigip to assure")
             snat_addrs = self.bigip_snat_manager.get_snat_addrs(
                 subnetinfo, tenant_id)
+            LOG.debug("Got snat addrs")
             for assure_bigip in assure_bigips:
                 self.bigip_snat_manager.assure_bigip_snats(
                     assure_bigip, subnetinfo, snat_addrs, tenant_id)
@@ -559,6 +578,7 @@ class NetworkServiceBuilder(object):
 
         for bigip in self.driver.get_all_bigips():
             for member in service['members']:
+                LOG.debug("update_bigip_l2 update service members")
                 member['network'] = service_adapter.get_network_from_service(
                     service,
                     member['network_id']
@@ -569,6 +589,14 @@ class NetworkServiceBuilder(object):
                 else:
                     self.update_bigip_member_l2(bigip, loadbalancer, member)
 
+            if "network_id" not in loadbalancer:
+                LOG.error("update_bigip_l2, expected network ID")
+                LOG.error(loadbalancer)
+                LOG.error(service)
+                return
+
+            LOG.debug("update_bigip_l2 get network for ID %s" %
+                      loadbalancer["network_id"])
             loadbalancer['network'] = service_adapter.get_network_from_service(
                 service,
                 loadbalancer['network_id']
@@ -577,7 +605,9 @@ class NetworkServiceBuilder(object):
             if lb_status == plugin_const.PENDING_DELETE:
                 self.delete_bigip_vip_l2(bigip, loadbalancer)
             else:
+                LOG.debug("update_bigip_l2 calling update_bigip_vip_l2")
                 self.update_bigip_vip_l2(bigip, loadbalancer)
+            LOG.debug("update_bigip_l2 complete")
 
     def update_bigip_member_l2(self, bigip, loadbalancer, member):
         # update pool member l2 records
@@ -846,7 +876,7 @@ class NetworkServiceBuilder(object):
                 )
                 subnet = service_adapter.get_subnet_from_service(
                     service,
-                    loadbalancer['subnet_id']
+                    loadbalancer['vip_subnet_id']
                 )
                 networks[network['id']] = {'network': network,
                                            'subnet': subnet,

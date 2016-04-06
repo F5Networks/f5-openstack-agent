@@ -16,8 +16,8 @@ import constants_v2 as const
 import netaddr
 import os
 
+from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
-
 
 LOG = logging.getLogger(__name__)
 
@@ -95,6 +95,7 @@ class NetworkHelper(object):
         return t
 
     def get_tunnel_key(self, bigip, name, partition=const.DEFAULT_PARTITION):
+        LOG.debug("get_tunnel_key with partition: %s", partition)
         t = bigip.net.tunnels_s.tunnels.tunnel
         t.load(name=name, partition=partition)
         return t.key
@@ -114,8 +115,10 @@ class NetworkHelper(object):
 
     def get_selfip_addr(self, bigip, name, partition=const.DEFAULT_PARTITION):
         s = bigip.net.selfips.selfip
-        s.load(name=name, partition=partition)
-        return s.address
+        if s.exists(name=name, partition=partition):
+            s.load(name=name, partition=partition)
+            return s.address
+        return None
 
     # this method isn't present in the new f5-sdk
     def strip_folder_and_prefix(self, path):
@@ -149,14 +152,18 @@ class NetworkHelper(object):
         selfips = sc.get_collection(requests_params=params)
         selfips_list = []
         for selfip in selfips:
+            LOG.debug("get_selfips: %s", selfip)
             if vlan_name and selfip.vlan != vlan_name:
+                LOG.debug("XXXXXXX vlan names don't match selfip.vlan %s "
+                          "and constructed vlan name %s",
+                          selfip.vlan, vlan_name)
                 continue
             selfip.name = self.strip_folder_and_prefix(selfip.name)
             selfips_list.append(selfip)
         return selfips_list
 
     def delete_selfip(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        """Delete the selfip if it exists. """
+        """Delete the selfip if it exists."""
         s = bigip.net.selfips.selfip
         if s.exists(name=name, partition=partition):
             s.load(name=name, partition=partition)
@@ -331,11 +338,15 @@ class NetworkHelper(object):
                                  partition=const.DEFAULT_PARTITION,
                                  id=const.DEFAULT_ROUTE_DOMAIN_ID):
         """Add VLANs to Domain by ID."""
+        LOG.debug("ADD VLAN to domain %s" % id)
         rd = self.get_route_domain_by_id(bigip, partition, id)
-        existing_vlans = getattr(rd, 'vlans', [])
-        if name in existing_vlans:
+        LOG.debug("route domain %s" % rd)
+        if rd:
+            existing_vlans = getattr(rd, 'vlans', [])
+            if name in existing_vlans:
+                return False
+        else:
             return False
-
         existing_vlans.append(name)
         rd.vlans = existing_vlans
         rd.update()
@@ -502,7 +513,7 @@ class NetworkHelper(object):
         else:
             records.append(fdb_entry)
 
-        tunnel = bigip.net.fdb.tunnnels.tunnel
+        tunnel = bigip.net.fdbs.tunnels.tunnel
         if tunnel.exists(name=tunnel_name, partition=partition):
             tunnel.load(name=tunnel_name, partition=partition)
             tunnel.update(records=records)
@@ -547,7 +558,7 @@ class NetworkHelper(object):
             if len(records) == 0:
                 records = None
 
-        tunnel = bigip.net.tunnels.tunnel
+        tunnel = bigip.net.fdbs.tunnels.tunnel
         if tunnel.exists(name=tunnel_name, partition=partition):
             tunnel.load(name=tunnel_name, partition=partition)
             tunnel.update(record=records)
@@ -583,7 +594,7 @@ class NetworkHelper(object):
                     if record['name'] in new_arp_addresses:
                         del new_arp_addresses[record['name']]
 
-            tunnel = bigip.net.fdb.tunnels.tunnel
+            tunnel = bigip.net.fdbs.tunnels.tunnel
             # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
@@ -611,7 +622,7 @@ class NetworkHelper(object):
             if len(new_records) == 0:
                 new_records = None
 
-            tunnel = bigip.net.fdb.tunnels.tunnel
+            tunnel = bigip.net.fdbs.tunnels.tunnel
             # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
@@ -631,9 +642,9 @@ class NetworkHelper(object):
                       tunnel_name=None,
                       mac=None,
                       partition=const.DEFAULT_PARTITION):
-        tunnel = bigip.net.fdb.tunnels.tunnel
-        if tunnel.exists(name="tunnel_name", partition=partition):
-            tunnel.load(name="tunnel_name", partition=partition)
+        tunnel = bigip.net.fdbs.tunnels.tunnel
+        if tunnel.exists(name=tunnel_name, partition=partition):
+            tunnel.load(name=tunnel_name, partition=partition)
             if hasattr(tunnel, "records"):
                 records = tunnel.records
                 if mac is None:
@@ -651,7 +662,7 @@ class NetworkHelper(object):
             tunnel_name,
             partition=const.DEFAULT_PARTITION):
         """Delete all fdb entries."""
-        t = bigip.net.fdb.tunnels.tunnel
+        t = bigip.net.fdbs.tunnels.tunnel
         t.load(name=tunnel_name, partition=partition)
         LOG.debug(t.raw)
         t.update(records=None)
@@ -661,8 +672,8 @@ class NetworkHelper(object):
             bigip,
             tunnel_name,
             partition=const.DEFAULT_PARTITION):
-        """Deletes a vxlan or gre tunnel."""
-        t = bigip.net.fdb.tunnels.tunnel
+        """Delete a vxlan or gre tunnel."""
+        t = bigip.net.fdbs.tunnels.tunnel
         if t.exists(name=tunnel_name, partition=partition):
             t.load(name=tunnel_name, partition=partition)
 
@@ -676,13 +687,16 @@ class NetworkHelper(object):
 
                 t.update(records=[])
 
-        ts = bigip.net.fdb.tunnels_s.tunnels.tunnel
+        ts = bigip.net.tunnels_s.tunnels.tunnel
         ts.load(name=tunnel_name, partition=partition)
         ts.delete()
 
+    @log_helpers.log_method_call
     def get_tunnel_folder(self, bigip, tunnel_name=None):
-        tunnels = bigip.net.tunnel_s.tunnels.get_collection()
+        tunnels = bigip.net.fdbs.tunnels.get_collection()
+        LOG.debug("Have tunnel collection")
         for tunnel in tunnels:
+            LOG.debug("Checking tunnel: %s" % (tunnel))
             if tunnel.name == tunnel_name:
                 return tunnel.partition
 

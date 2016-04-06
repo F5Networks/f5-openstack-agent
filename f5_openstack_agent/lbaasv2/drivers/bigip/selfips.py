@@ -40,11 +40,16 @@ class BigipSelfIpManager(object):
     def create_bigip_selfip(self, bigip, model):
         if not model['name']:
             return False
+        LOG.debug("Getting selfip....")
         s = bigip.net.selfips.selfip
+
         if s.exists(name=model['name'], partition=model['partition']):
+            LOG.debug("It exists!!!!")
             return True
         try:
+            LOG.debug("Doesn't exist!!!!")
             self.selfip_manager.create(bigip, model)
+            LOG.debug("CREATED!!!!")
         except HTTPError as err:
             if err.response.status_code is not 400:
                 raise
@@ -52,7 +57,7 @@ class BigipSelfIpManager(object):
                                       "in the associated route domain") > 0:
                 self.network_helper.add_vlan_to_domain(
                     bigip,
-                    name=model['vlan_name'],
+                    name=model['vlan'],
                     partition=model['partition'])
                 self.selfip_manager.create(bigip, model)
 
@@ -65,7 +70,7 @@ class BigipSelfIpManager(object):
             return
         subnet = subnetinfo['subnet']
 
-        tenant_id = service['pool']['tenant_id']
+        tenant_id = service['loadbalancer']['tenant_id']
         # If we have already assured this subnet.. return.
         # Note this cache is periodically cleared in order to
         # force assurance that the configuration is present.
@@ -78,29 +83,40 @@ class BigipSelfIpManager(object):
         # use namespaces is true.  I think this method is only called
         # in the global_routed_mode == False case though.  Need to check
         # that network['route_domain_id'] exists.
+        if 'route_domain_id' not in network:
+            LOG.debug("NETWORK ROUTE DOMAIN NOT SET")
+            network['route_domain_id'] = "0"
+
+        LOG.debug("route domain id: %s" % network['route_domain_id'])
+
         selfip_address += '%' + str(network['route_domain_id'])
+        LOG.debug("have selfip address: %s" % selfip_address)
 
         if self.l2_service.is_common_network(network):
             network_folder = 'Common'
         else:
             network_folder = self.driver.service_adapter.\
-                get_folder_name(service['pool']['tenant_id'])
+                get_folder_name(service['loadbalancer']['tenant_id'])
 
+        LOG.debug("getting network name")
         (network_name, preserve_network_name) = \
             self.l2_service.get_network_name(bigip, network)
 
+        LOG.debug("CREATING THE SELFIP--------------------")
+        netmask = netaddr.IPNetwork(subnet['cidr']).prefixlen
+        address = selfip_address + ("/%d" % netmask)
         model = {
             "name": "local-" + bigip.device_name + "-" + subnet['id'],
-            "ip_address": selfip_address,
-            "netmask": netaddr.IPNetwork(subnet['cidr']).netmask,
-            "vlan_name": network_name,
-            "floating": "False",
-            "partition": network_folder,
-            "preserve_vlan_name": preserve_network_name
+            "address": address,
+            "vlan": network_name,
+            "floating": "disabled",
+            "partition": network_folder
         }
+        LOG.debug("Model: %s" % model)
         self.create_bigip_selfip(bigip, model)
         # TO DO: we need to only bind the local SelfIP to the
         # local device... not treat it as if it was floating
+        LOG.debug("self ip CREATED!!!!!!")
         if self.l3_binding:
             self.l3_binding.bind_address(subnet_id=subnet['id'],
                                          ip_address=selfip_address)

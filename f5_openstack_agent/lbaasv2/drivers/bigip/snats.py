@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+from requests.exceptions import HTTPError
+
 import os
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -31,7 +33,6 @@ class BigipSnatManager(object):
         self.driver = driver
         self.l2_service = l2_service
         self.l3_binding = l3_binding
-        self.snat_manager = BigIPResourceHelper(ResourceType.snat)
         self.snatpool_manager = BigIPResourceHelper(ResourceType.snatpool)
         self.snat_translation_manager = BigIPResourceHelper(
             ResourceType.snat_translation)
@@ -98,10 +99,16 @@ class BigipSnatManager(object):
         if self.l2_service.is_common_network(network):
             snat_info['network_folder'] = 'Common'
         else:
-            snat_info['network_folder'] = tenant_id
-        snat_info['pool_name'] = tenant_id
-        # REVISIT(RJB): We need to change the folder to something env_tenant_id
-        snat_info['pool_folder'] = tenant_id
+            snat_info['network_folder'] = (
+                self.driver.service_adapter.get_folder_name(tenant_id)
+            )
+
+        snat_info['pool_name'] = self.driver.service_adapter.get_folder_name(
+            tenant_id
+        )
+        snat_info['pool_folder'] = self.driver.service_adapter.get_folder_name(
+            tenant_id
+        )
         snat_info['addrs'] = snat_addrs
 
         self._assure_bigip_snats(bigip, subnetinfo, snat_info, tenant_id)
@@ -110,7 +117,7 @@ class BigipSnatManager(object):
         # Configure the ip addresses for snat
         network = subnetinfo['network']
         subnet = subnetinfo['subnet']
-
+        LOG.debug("_assure_bigip_snats")
         if tenant_id not in bigip.assured_tenant_snat_subnets:
             bigip.assured_tenant_snat_subnets[tenant_id] = []
         if subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
@@ -136,18 +143,45 @@ class BigipSnatManager(object):
                 "name": index_snat_name,
                 "partition": snat_info['network_folder'],
                 "address": ip_address,
-                "trafficGroup": snat_traffic_group,
-
+                "trafficGroup": snat_traffic_group
             }
-            snat = self.snat_manager.create(bigip, model)
+            if not self.snat_translation_manager.exists(
+                    bigip,
+                    name=index_snat_name,
+                    partition=snat_info['network_folder']):
+                LOG.debug("Calling SNAT translation manager CREATE.")
+                self.snat_translation_manager.create(bigip, model)
+            else:
+                LOG.debug("SNAT translation_manager LOAD")
+                self.snat_translation_manager.load(
+                    bigip,
+                    name=index_snat_name,
+                    partition=snat_info['network_folder'])
 
             model = {
-                "name": snat_info['pool_name'],
-                "partition": snat_info['pool_folder']
+                "name": index_snat_name,
+                "partition": snat_info['pool_folder'],
             }
-            snatpool = self.snatpool_manager.create(bigip, model)
-            snatpool.members.append(snat.fullPath)
-            snatpool.update()
+            model["members"] = ['/' + model["partition"] + '/' +
+                                index_snat_name]
+            try:
+                LOG.debug("Calling SNAT pool create: %s" % model)
+                self.snatpool_manager.create(bigip, model)
+                LOG.debug("SNAT pool created: %s" % model)
+
+            except HTTPError as err:
+                LOG.error("Create SNAT pool failed %s" % err.message)
+                if err.response.status_code == 409:
+                    try:
+                        snatpool = self.snatpool_manager.load(
+                            bigip,
+                            name=model["name"],
+                            partition=model["partition"]
+                        )
+                        snatpool.members.append(model["members"])
+                        snatpool.update()
+                    except HTTPError as err:
+                        LOG.error("Update SNAT pool failed %s" % err.message)
 
             if self.l3_binding:
                 self.l3_binding.bind_address(subnet_id=subnet['id'],

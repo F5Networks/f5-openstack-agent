@@ -350,9 +350,9 @@ class iControlDriver(LBaaSBaseDriver):
             self.network_builder = None
         else:
             self.network_builder = NetworkServiceBuilder(
+                self.conf.f5_global_routed_mode,
                 self.conf,
                 self,
-                self.conf.f5_global_routed_mode,
                 self.l3_binding)
 
     def _init_bigip_hostnames(self):
@@ -495,7 +495,6 @@ class iControlDriver(LBaaSBaseDriver):
                         'Common network %s on %s does not exist'
                         % (network, bigip.hostname))
 
-        bigip.hostname = hostname
         bigip.device_name = self.cluster_manager.get_device_name(bigip)
         bigip.mac_addresses = self.system_helper.get_mac_addresses(bigip)
         LOG.debug("Initialized BIG-IP %s with MAC addresses %s" %
