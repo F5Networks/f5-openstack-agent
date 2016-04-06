@@ -513,7 +513,7 @@ class NetworkHelper(object):
         else:
             records.append(fdb_entry)
 
-        tunnel = bigip.net.fdb.tunnnels.tunnel
+        tunnel = bigip.net.fdbs.tunnnels.tunnel
         if tunnel.exists(name=tunnel_name, partition=partition):
             tunnel.load(name=tunnel_name, partition=partition)
             tunnel.update(records=records)
@@ -594,7 +594,7 @@ class NetworkHelper(object):
                     if record['name'] in new_arp_addresses:
                         del new_arp_addresses[record['name']]
 
-            tunnel = bigip.net.fdb.tunnels.tunnel
+            tunnel = bigip.net.fdbs.tunnels.tunnel
             # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
@@ -622,7 +622,7 @@ class NetworkHelper(object):
             if len(new_records) == 0:
                 new_records = None
 
-            tunnel = bigip.net.fdb.tunnels.tunnel
+            tunnel = bigip.net.fdbs.tunnels.tunnel
             # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
@@ -642,9 +642,9 @@ class NetworkHelper(object):
                       tunnel_name=None,
                       mac=None,
                       partition=const.DEFAULT_PARTITION):
-        tunnel = bigip.net.fdb.tunnels.tunnel
-        if tunnel.exists(name="tunnel_name", partition=partition):
-            tunnel.load(name="tunnel_name", partition=partition)
+        tunnel = bigip.net.fdbs.tunnels.tunnel
+        if tunnel.exists(name=tunnel_name, partition=partition):
+            tunnel.load(name=tunnel_name, partition=partition)
             if hasattr(tunnel, "records"):
                 records = tunnel.records
                 if mac is None:
@@ -662,7 +662,7 @@ class NetworkHelper(object):
             tunnel_name,
             partition=const.DEFAULT_PARTITION):
         """Delete all fdb entries."""
-        t = bigip.net.fdb.tunnels.tunnel
+        t = bigip.net.fdbs.tunnels.tunnel
         t.load(name=tunnel_name, partition=partition)
         LOG.debug(t.raw)
         t.update(records=None)
@@ -673,7 +673,7 @@ class NetworkHelper(object):
             tunnel_name,
             partition=const.DEFAULT_PARTITION):
         """Delete a vxlan or gre tunnel."""
-        t = bigip.net.fdb.tunnels.tunnel
+        t = bigip.net.fdbs.tunnels.tunnel
         if t.exists(name=tunnel_name, partition=partition):
             t.load(name=tunnel_name, partition=partition)
 
@@ -687,7 +687,7 @@ class NetworkHelper(object):
 
                 t.update(records=[])
 
-        ts = bigip.net.fdb.tunnels_s.tunnels.tunnel
+        ts = bigip.net.tunnels_s.tunnels.tunnel
         ts.load(name=tunnel_name, partition=partition)
         ts.delete()
 
