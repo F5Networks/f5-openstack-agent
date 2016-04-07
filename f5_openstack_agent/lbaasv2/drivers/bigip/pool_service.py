@@ -16,6 +16,7 @@
 
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
+import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
     BigIPResourceHelper
@@ -91,7 +92,7 @@ class PoolServiceBuilder(object):
 
         :param service: Dictionary which contains a both a pool
         and load balancer definition.
-        :param bigip: Array of BigIP class instances to create Listener.
+        :param bigips: Array of BigIP class instances to create Listener.
         """
         pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
@@ -163,9 +164,7 @@ class PoolServiceBuilder(object):
         hm_helper = self._get_monitor_helper(service)
         for bigip in bigips:
             try:
-                hm_helper.delete(bigip,
-                                 name=hm["name"],
-                                 partition=hm["partition"])
+                hm_helper.update(bigip, hm)
             except HTTPError as err:
                 LOG.error("Error updating health monitor %s on BIG-IP %s. "
                           "Repsponse status code: %s. Response "
@@ -197,7 +196,8 @@ class PoolServiceBuilder(object):
 
             m = p.members_s.members
             try:
-                member_exists = m.exists(name=member["name"], partition=part)
+                member_exists = m.exists(name=urllib.quote(member["name"]),
+                                         partition=part)
             except HTTPError as err:
                 LOG.error("Error checking if member %s exists on BIG-IP %s. "
                           "Repsponse status code: %s. Response "
@@ -238,7 +238,8 @@ class PoolServiceBuilder(object):
 
             m = p.members_s.members
             try:
-                member_exists = m.exists(name=member["name"], partition=part)
+                member_exists = m.exists(name=urllib.quote(member["name"]),
+                                         partition=part)
             except HTTPError as err:
                 LOG.error("Error checking if member %s exists on BIG-IP %s. "
                           "Repsponse status code: %s. Response "
@@ -250,7 +251,8 @@ class PoolServiceBuilder(object):
 
             if member_exists:
                 try:
-                    m = m.load(name=member["name"], partition=part)
+                    m = m.load(name=urllib.quote(member["name"]),
+                               partition=part)
                 except HTTPError as err:
                     LOG.error("Error loading member %s on BIG-IP %s. "
                               "Repsponse status code: %s. Response "
@@ -263,7 +265,7 @@ class PoolServiceBuilder(object):
                     m.delete()
                     node = self.service_adapter.get_member_node(service)
                     self.node_helper.delete(bigip,
-                                            name=node["name"],
+                                            name=urllib.quote(node["name"]),
                                             partition=node["partition"])
                 except HTTPError as err:
                     LOG.error("Error deleting member %s on BIG-IP %s. "
@@ -295,7 +297,8 @@ class PoolServiceBuilder(object):
 
             m = p.members_s.members
             try:
-                member_exists = m.exists(name=member["name"], partition=part)
+                member_exists = m.exists(name=urllib.quote(member["name"]),
+                                         partition=part)
             except HTTPError as err:
                 LOG.error("Error checking if member %s exists on BIG-IP %s. "
                           "Repsponse status code: %s. Response "
@@ -307,7 +310,8 @@ class PoolServiceBuilder(object):
 
             if member_exists:
                 try:
-                    m = m.load(name=member["name"], partition=part)
+                    m = m.load(name=urllib.quote(member["name"]),
+                               partition=part)
                 except HTTPError as err:
                     LOG.error("Error loading member %s on BIG-IP %s. "
                               "Repsponse status code: %s. Response "
