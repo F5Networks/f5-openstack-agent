@@ -15,6 +15,7 @@
 import constants_v2 as const
 import netaddr
 import os
+import urllib
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -379,7 +380,7 @@ class NetworkHelper(object):
                    ip_address,
                    partition=const.DEFAULT_PARTITION):
         if ip_address:
-            address = self._remove_route_domain_zero(ip_address)
+            address = urllib.quote(self._remove_route_domain_zero(ip_address))
             arp = bigip.net.arps.arp
             if arp.exists(name=address, partition=partition):
                 arp.load(name=address, partition=partition)
