@@ -47,7 +47,7 @@ class LBaaSBuilder(object):
         start_time = time()
         LOG.debug("Starting assure_service")
 
-        self._assure_loadbalancer_created(service)
+        self._assure_loadbalancer_created(service, all_subnet_hints)
 
         self._assure_listeners_created(service)
 
@@ -67,15 +67,22 @@ class LBaaSBuilder(object):
                   (time() - start_time))
         return all_subnet_hints
 
-    def _assure_loadbalancer_created(self, service):
+    def _assure_loadbalancer_created(self, service, all_subnet_hints):
         if 'loadbalancer' not in service:
             return
 
+        loadbalancer = service["loadbalancer"]
+
         if self.driver.l3_binding:
-            loadbalancer = service["loadbalancer"]
             self.driver.l3_binding.bind_address(
                 subnet_id=loadbalancer["vip_subnet_id"],
                 ip_address=loadbalancer["vip_address"])
+
+        self._update_subnet_hints(loadbalancer["provisioning_status"],
+                                  loadbalancer["vip_subnet_id"],
+                                  loadbalancer["network_id"],
+                                  all_subnet_hints,
+                                  False)
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
@@ -83,7 +90,7 @@ class LBaaSBuilder(object):
 
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_all_bigips()
+        bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
             svc = {"loadbalancer": loadbalancer,
@@ -104,7 +111,7 @@ class LBaaSBuilder(object):
         pools = service["pools"]
         loadbalancer = service["loadbalancer"]
 
-        bigips = self.driver.get_all_bigips()
+        bigips = self.driver.get_config_bigips()
 
         for pool in pools:
             svc = {"loadbalancer": loadbalancer,
@@ -142,7 +149,7 @@ class LBaaSBuilder(object):
 
         monitors = service["healthmonitors"]
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_all_bigips()
+        bigips = self.driver.get_config_bigips()
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
@@ -170,7 +177,7 @@ class LBaaSBuilder(object):
 
         members = service["members"]
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_all_bigips()
+        bigips = self.driver.get_config_bigips()
 
         for member in members:
             svc = {"loadbalancer": loadbalancer,
@@ -192,6 +199,12 @@ class LBaaSBuilder(object):
                               "LBaaSBuilder._assure_members (create)."
                               "Message: %s" % err.message)
 
+            self._update_subnet_hints(member["provisioning_status"],
+                                      member["subnet_id"],
+                                      member["network_id"],
+                                      all_subnet_hints,
+                                      True)
+
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
                 plugin_const.PENDING_DELETE):
@@ -209,7 +222,7 @@ class LBaaSBuilder(object):
 
         pools = service["pools"]
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_all_bigips()
+        bigips = self.driver.get_config_bigips()
 
         for pool in pools:
             # Is the pool being deleted?
@@ -237,7 +250,7 @@ class LBaaSBuilder(object):
 
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_all_bigips()
+        bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
             svc = {"loadbalancer": loadbalancer,
@@ -276,3 +289,24 @@ class LBaaSBuilder(object):
                 if listener["id"] == id:
                     return listener
         return None
+
+    def _update_subnet_hints(self, status, subnet_id,
+                             network_id, all_subnet_hints, is_member):
+        bigips = self.driver.get_config_bigips()
+        for bigip in bigips:
+            subnet_hints = all_subnet_hints[bigip.device_name]
+
+            if status == plugin_const.PENDING_CREATE or \
+                    status == plugin_const.PENDING_UPDATE:
+                if subnet_id in subnet_hints['check_for_delete_subnets']:
+                    del subnet_hints['check_for_delete_subnets'][subnet_id]
+                if subnet_id not in subnet_hints['do_not_delete_subnets']:
+                    subnet_hints['do_not_delete_subnets'].append(subnet_id)
+
+            elif status == plugin_const.PENDING_DELETE:
+                if subnet_id not in subnet_hints['do_not_delete_subnets']:
+                    subnet_hints['check_for_delete_subnets'][subnet_id] = \
+                        {'network_id': network_id,
+                         'subnet_id': subnet_id,
+                         'is_for_member': is_member}
+                    LOG.debug("_update_subnet_hints delete, adding subnet_id %s" % subnet_id)

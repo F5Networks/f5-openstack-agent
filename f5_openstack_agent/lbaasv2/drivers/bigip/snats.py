@@ -224,7 +224,7 @@ class BigipSnatManager(object):
         # Assure snats deleted in standalone mode """
         network = subnetinfo['network']
         subnet = subnetinfo['subnet']
-
+        partition = self.driver.service_adapter.get_folder_name(tenant_id)
         deleted_names = set()
         in_use_subnets = set()
         # Delete SNATs on traffic-group-local-only
@@ -238,7 +238,7 @@ class BigipSnatManager(object):
 
             if self.l3_binding:
                 snat_xlate = self.snat_translation_manager.load(
-                    bigip, name=index_snat_name, partition=tenant_id)
+                    bigip, name=index_snat_name, partition=partition)
                 self.l3_binding.unbind_address(
                     subnet_id=subnet['id'], ip_address=snat_xlate.address)
 
@@ -247,13 +247,17 @@ class BigipSnatManager(object):
             # but that is what the v1 code was doing.
             # The v1 code was also comparing basename in some cases
             # which seems dangerous because the folder may be in play?
+            #
+            # Revised (jl): It appears that v2 SNATs are created with a
+            # name, not tenant_id, so we need to load SNAT by name.
             LOG.debug('Remove translation address from tenant SNAT pool')
-            snatpool = self.snatpool_manager.load(bigip, tenant_id, tenant_id)
+            snatpool = self.snatpool_manager.load(bigip,
+                                                  index_snat_name,
+                                                  partition)
             snatpool.members = [
                 member for member in snatpool.members
                 if os.path.basename(member) != tmos_snat_name
             ]
-            snatpool.update()
 
             # Delete snat pool if empty (no members)
             # In LBaaSv1 the snat.remove_from_pool() method did this if
@@ -266,6 +270,8 @@ class BigipSnatManager(object):
             if not snatpool.members:
                 LOG.debug('Snat pool is empty - delete snatpool')
                 snatpool.delete()
+            else:
+                snatpool.update()
 
             # Check if subnet in use by any tenants/snatpools. If in use,
             # add subnet to hints list of subnets in use.

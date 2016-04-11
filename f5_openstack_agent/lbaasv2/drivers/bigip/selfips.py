@@ -59,7 +59,14 @@ class BigipSelfIpManager(object):
                     bigip,
                     name=model['vlan'],
                     partition=model['partition'])
-                self.selfip_manager.create(bigip, model)
+                try:
+                    self.selfip_manager.create(bigip, model)
+                except HTTPError as err:
+                    LOG.error("Error creating selfip %s. "
+                              "Repsponse status code: %s. Response "
+                              "message: %s." % (model["name"],
+                                                err.response.status_code,
+                                                err.message))
 
     def assure_bigip_selfip(self, bigip, service, subnetinfo):
 
