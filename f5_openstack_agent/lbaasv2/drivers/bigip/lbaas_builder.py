@@ -309,4 +309,3 @@ class LBaaSBuilder(object):
                         {'network_id': network_id,
                          'subnet_id': subnet_id,
                          'is_for_member': is_member}
-                    LOG.debug("_update_subnet_hints delete, adding subnet_id %s" % subnet_id)

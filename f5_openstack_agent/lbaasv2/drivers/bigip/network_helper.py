@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from requests.exceptions import HTTPError
+
 import constants_v2 as const
 import netaddr
 import os
@@ -20,6 +20,7 @@ import urllib
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
+from requests.exceptions import HTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -750,6 +751,7 @@ class NetworkHelper(object):
                       "message: %s." % (tunnel_name,
                                         err.response.status_code,
                                         err.message))
+
     @log_helpers.log_method_call
     def delete_tunnel(
             self,
