@@ -441,11 +441,11 @@ class NetworkHelper(object):
                 LOG.error('ARP', exc.message)
                 return []
 
-        return self._delete_by_network(bigip, partition, network)
+        return self._arp_delete_by_network(bigip, partition, network)
 
     @log_helpers.log_method_call
-    def _delete_by_network(self, bigip, partition, network):
-        """Delete for network """
+    def _arp_delete_by_network(self, bigip, partition, network):
+        """Delete ARP entry if address in network"""
         if not network:
             return []
         mac_addresses = []
@@ -461,9 +461,9 @@ class NetworkHelper(object):
             return mac_addresses
 
         for arp in arps:
-            ad_rd_div = arp.ipAddress.find('%')
-            if ad_rd_div > -1:
-                address = netaddr.IPAddress(arp.ipAddress[0:ad_rd_div])
+            address_index = arp.ipAddress.find('%')
+            if address_index > -1:
+                address = netaddr.IPAddress(arp.ipAddress[0:address_index])
             else:
                 address = netaddr.IPAddress(arp.ipAddress)
 
@@ -504,24 +504,24 @@ class NetworkHelper(object):
             self,
             bigip,
             partition=const.DEFAULT_PARTITION):
-        """Get a list of virtual servers."""
+        """Returns list of virtual server addresses"""
         vs = bigip.ltm.virtuals
-        virtual_services = vs.get_collection(partition=partition)
-        services = []
+        virtual_servers = vs.get_collection(partition=partition)
+        virtual_services = []
 
-        for virtual_server in virtual_services:
+        for virtual_server in virtual_servers:
             name = virtual_server.name
-            service = {name: {}}
+            virtual_address = {name: {}}
             dest = os.path.basename(virtual_server.destination)
             (vip_addr, vip_port) = self.split_addr_port(dest)
 
-            service[name]['address'] = vip_addr
-            service[name]['netmask'] = virtual_server.mask
-            service[name]['protocol'] = virtual_server.ipProtocol
-            service[name]['port'] = vip_port
-            services.append(service)
+            virtual_address[name]['address'] = vip_addr
+            virtual_address[name]['netmask'] = virtual_server.mask
+            virtual_address[name]['protocol'] = virtual_server.ipProtocol
+            virtual_address[name]['port'] = vip_port
+            virtual_services.append(virtual_address)
 
-        return services
+        return virtual_services
 
     @log_helpers.log_method_call
     def get_node_addresses(self, bigip, partition=const.DEFAULT_PARTITION):
@@ -565,6 +565,7 @@ class NetworkHelper(object):
                 tunnel.load(name=tunnel_name, partition=partition)
                 tunnel.update(records=records)
                 if const.FDB_POPULATE_STATIC_ARP:
+                    # arp_ip_address is typcially member address.
                     if arp_ip_address:
                         try:
                             LOG.debug("Creating ARP with IP address %s and"
@@ -743,7 +744,6 @@ class NetworkHelper(object):
         try:
             t = bigip.net.fdbs.tunnels.tunnel
             t.load(name=tunnel_name, partition=partition)
-            LOG.debug(t.raw)
             t.update(records=None)
         except HTTPError as err:
             LOG.error("Error deleting all fdb entries %s. "

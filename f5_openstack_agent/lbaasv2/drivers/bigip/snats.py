@@ -237,10 +237,13 @@ class BigipSnatManager(object):
                 tmos_snat_name = index_snat_name
 
             if self.l3_binding:
-                snat_xlate = self.snat_translation_manager.load(
-                    bigip, name=index_snat_name, partition=partition)
-                self.l3_binding.unbind_address(
-                    subnet_id=subnet['id'], ip_address=snat_xlate.address)
+                try:
+                    snat_xlate = self.snat_translation_manager.load(
+                        bigip, name=index_snat_name, partition=partition)
+                    self.l3_binding.unbind_address(
+                        subnet_id=subnet['id'], ip_address=snat_xlate.address)
+                except HTTPError as err:
+                    LOG.error("Load SNAT xlate failed %s" % err.message)
 
             # Remove translation address from tenant snat pool
             # This seems strange that name and partition are tenant_id
@@ -251,27 +254,38 @@ class BigipSnatManager(object):
             # Revised (jl): It appears that v2 SNATs are created with a
             # name, not tenant_id, so we need to load SNAT by name.
             LOG.debug('Remove translation address from tenant SNAT pool')
-            snatpool = self.snatpool_manager.load(bigip,
-                                                  index_snat_name,
-                                                  partition)
-            snatpool.members = [
-                member for member in snatpool.members
-                if os.path.basename(member) != tmos_snat_name
-            ]
+            try:
+                snatpool = self.snatpool_manager.load(bigip,
+                                                      index_snat_name,
+                                                      partition)
 
-            # Delete snat pool if empty (no members)
-            # In LBaaSv1 the snat.remove_from_pool() method did this if
-            # there was only one member and it matched the one we were
-            # deleting making this call basically useless, but the simplified
-            # code above makes this still necessary and probably what the
-            # original authors intended anyway since there is logging here
-            # but not in the snat.py module from LBaaSv1
-            LOG.debug('Check if snat pool is empty')
-            if not snatpool.members:
-                LOG.debug('Snat pool is empty - delete snatpool')
-                snatpool.delete()
-            else:
-                snatpool.update()
+                snatpool.members = [
+                    member for member in snatpool.members
+                    if os.path.basename(member) != tmos_snat_name
+                ]
+
+                # Delete snat pool if empty (no members)
+                # In LBaaSv1 the snat.remove_from_pool() method did this if
+                # there was only one member and it matched the one we were
+                # deleting making this call basically useless, but the
+                # code above makes this still necessary and probably what the
+                # original authors intended anyway since there is logging here
+                # but not in the snat.py module from LBaaSv1
+                LOG.debug('Check if snat pool is empty')
+                if not snatpool.members:
+                    LOG.debug('Snat pool is empty - delete snatpool')
+                    try:
+                        snatpool.delete()
+                    except HTTPError as err:
+                        LOG.error("Delete SNAT pool failed %s" % err.message)
+                else:
+                    LOG.debug('Snat pool is not empty - update snatpool')
+                    try:
+                        snatpool.update()
+                    except HTTPError as err:
+                        LOG.error("Update SNAT pool failed %s" % err.message)
+            except HTTPError as err:
+                LOG.error("Failed to load SNAT pool %s" % err.message)
 
             # Check if subnet in use by any tenants/snatpools. If in use,
             # add subnet to hints list of subnets in use.
