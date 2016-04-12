@@ -697,7 +697,7 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('update_health_monitor')
     @is_connected
     def update_health_monitor(self, old_health_monitor,
-                              health_monitor, pool, service):
+                              health_monitor, service):
         """Update pool health monitor"""
         self._common_service_handler(service)
         return True
