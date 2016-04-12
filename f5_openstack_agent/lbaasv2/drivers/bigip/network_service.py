@@ -559,10 +559,10 @@ class NetworkServiceBuilder(object):
                 # hints are stored. So, just use those hints for every bigip.
                 device_name = self.driver.get_bigip().device_name
                 subnet_hints = all_subnet_hints[device_name]
-                deleted_names = deleted_names.union(
-                    self._assure_delete_nets_nonshared(
-                        bigip, service, subnet_hints)
-                )
+            deleted_names = deleted_names.union(
+                self._assure_delete_nets_nonshared(
+                    bigip, service, subnet_hints)
+            )
 
         for port_name in deleted_names:
             LOG.debug('    post_service_networking: calling '
@@ -684,6 +684,7 @@ class NetworkServiceBuilder(object):
         # Assure shared configuration (which syncs) is deleted
         deleted_names = set()
         tenant_id = service['loadbalancer']['tenant_id']
+
         delete_gateway = self.bigip_selfip_manager.delete_gateway_on_subnet
         for subnetinfo in self._get_subnets_to_delete(bigip,
                                                       service,
@@ -778,8 +779,13 @@ class NetworkServiceBuilder(object):
         # services items that we deleted.
         subnets_to_delete = []
         for subnetinfo in subnet_hints['check_for_delete_subnets'].values():
-            subnet = subnetinfo['subnet']
-            route_domain = subnetinfo['network']['route_domain_id']
+            subnet = self.service_adapter.get_subnet_from_service(
+                service, subnetinfo['subnet_id'])
+            subnetinfo['subnet'] = subnet
+            network = self.service_adapter.get_network_from_service(
+                service, subnetinfo['network_id'])
+            subnetinfo['network'] = network
+            route_domain = network['route_domain_id']
             if not subnet:
                 continue
             if not self._ips_exist_on_subnet(
