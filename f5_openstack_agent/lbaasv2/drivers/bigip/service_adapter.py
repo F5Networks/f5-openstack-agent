@@ -67,6 +67,12 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         listener["use_snat"] = self.snat_mode()
         loadbalancer = service["loadbalancer"]
+
+        # transfer session_persistence from pool to listener
+        if "pool" in service and "session_persistence" in service["pool"]:
+            listener["session_persistence"] = \
+                service["pool"]["session_persistence"]
+
         vip = self._map_virtual(loadbalancer, listener)
         self._add_bigip_items(listener, vip)
         return vip
@@ -260,7 +266,8 @@ class ServiceModelAdapter(object):
                 lbaas_pool["lb_algorithm"])
 
         if lbaas_hm is not None:
-            pool["monitor"] = self.prefix + lbaas_hm["id"]
+            hm = self.init_monitor_name(loadbalancer, lbaas_hm)
+            pool["monitor"] = hm["name"]
 
         return pool
 
@@ -410,49 +417,27 @@ class ServiceModelAdapter(object):
         if 'subnets' in service:
             return service['subnets'][subnet_id]
 
-"""
-    def _map_session_persistence(self, listener):
+    def get_session_persistence(self, service):
+        pool = service['pool']
+        vip = self.get_virtual_name(service)
+        vip['fallbackPersistence'] = ''
+        vip['persist'] = []
+        if 'session_persistence' in pool:
+            persistence = pool['session_persistence']
+            persistence_type = persistence['type']
+            if persistence_type == 'APP_COOKIE':
+                vip['persist'] = [{'name': '/Common/cookie'}]
+                if 'loadBalancingMode' in pool and \
+                        pool['loadBalancingMode'] == 'SOURCE_IP':
+                    vip['fallbackPersistence'] = '/Common/source_addr'
 
-        if 'session_persistence' in listener and \
-                listener['session_persistence']:
-            # branch on persistence type
-            persistence_type = listener['session_persistence']['type']
-            set_persist = bigip_vs.set_persist_profile
-            set_fallback_persist = bigip_vs.set_fallback_persist_profile
+            elif persistence_type == 'SOURCE_IP':
+                vip['persist'] = [{'name': '/Common/source_addr'}]
 
-            if persistence_type == 'SOURCE_IP':
-                # add source_addr persistence profile
-                LOG.debug('adding source_addr primary persistence')
-                set_persist(name=vip['id'],
-                            profile_name='/Common/source_addr',
-                            folder=vip['tenant_id'])
             elif persistence_type == 'HTTP_COOKIE':
-                # HTTP cookie persistence requires an HTTP profile
-                LOG.debug('adding http profile and' +
-                          ' primary cookie persistence')
-                bigip_vs.add_profile(name=vip['id'],
-                                     profile_name='/Common/http',
-                                     folder=vip['tenant_id'])
-                # add standard cookie persistence profile
-                set_persist(name=vip['id'],
-                            profile_name='/Common/cookie',
-                            folder=vip['tenant_id'])
-                if pool['lb_method'] == 'SOURCE_IP':
-                    set_fallback_persist(name=vip['id'],
-                                         profile_name='/Common/source_addr',
-                                         folder=vip['tenant_id'])
-            elif persistence_type == 'APP_COOKIE':
-                self._set_bigip_vip_cookie_persist(bigip, service)
-        else:
-            bigip_vs.remove_all_persist_profiles(name=vip['id'],
-                                                 folder=vip['tenant_id'])
+                vip['persist'] = [{'name': '/Common/cookie'}]
+                if 'loadBalancingMode' in pool and \
+                        pool['loadBalancingMode'] == 'SOURCE_IP':
+                    vip['fallbackPersistence'] = '/Common/source_addr'
 
-
-
-            found_profile = self._which_persistence_profile(profile_name,
-                                                            folder)
-            if found_profile:
-                profile_name = found_profile
-            payload = dict()
-            payload['persist'] = [{'name': profile_name}]
-"""
+        return vip
