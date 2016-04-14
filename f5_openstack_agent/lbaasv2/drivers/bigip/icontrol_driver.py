@@ -813,15 +813,16 @@ class iControlDriver(LBaaSBaseDriver):
         return stats
 
     @serialized('remove_orphans')
-    def remove_orphans(self, all_pools):
+    def remove_orphans(self, all_loadbalancers):
         """Remove out-of-date configuration on big-ips """
         existing_tenants = []
-        existing_pools = []
-        for pool in all_pools:
-            existing_tenants.append(pool['tenant_id'])
-            existing_pools.append(pool['pool_id'])
+        existing_lbs = []
+        for loadbalancer in all_loadbalancers:
+            existing_tenants.append(loadbalancer['tenant_id'])
+            existing_lbs.append(loadbalancer['lb_id'])
+
         for bigip in self.get_all_bigips():
-            bigip.pool.purge_orphaned_pools(existing_pools)
+            bigip.pool.purge_orphaned_pools(existing_lbs)
         for bigip in self.get_all_bigips():
             bigip.system.purge_orphaned_folders_contents(existing_tenants)
 
@@ -888,9 +889,8 @@ class iControlDriver(LBaaSBaseDriver):
         # plugin_rpc may not be set when unit testing
         if self.plugin_rpc:
             # Get the latest service. It may have changed.
-            service = self.plugin_rpc.get_service_by_pool_id(
-                service['pool']['id'],
-                self.conf.f5_global_routed_mode
+            service = self.plugin_rpc.get_service_by_loadbalancer_id(
+                service['loadbalancer']['id']
             )
         if service['pool']:
             self._common_service_handler(service)

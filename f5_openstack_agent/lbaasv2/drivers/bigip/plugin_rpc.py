@@ -54,11 +54,16 @@ class LBaaSv2PluginRPC(object):
                 'args': kwargs}
 
     def _call(self, context, msg, **kwargs):
-        return self.__call_rpc_method(
-            context, msg, rpc_method='call', **kwargs)
+        return self.__call_rpc_method(context,
+                                      msg,
+                                      rpc_method='call',
+                                      **kwargs)
 
     def _cast(self, context, msg, **kwargs):
-        self.__call_rpc_method(context, msg, rpc_method='cast', **kwargs)
+        self.__call_rpc_method(context,
+                               msg,
+                               rpc_method='cast',
+                               **kwargs)
 
     def _fanout_cast(self, context, msg, **kwargs):
         kwargs['fanout'] = True
@@ -233,12 +238,19 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def get_ports_for_mac_addresses(self, mac_addresses=None):
         """Get a list of ports that correspond to the mac addrs."""
-        return self._call(
-            self.context,
-            self._make_msg('get_ports_for_mac_addresses',
-                           mac_addresses=mac_addresses),
-            topic=self.topic
-        )
+        ports = []
+        try:
+            ports = self._call(
+                self.context,
+                self._make_msg('get_ports_for_mac_addresses',
+                               mac_addresses=mac_addresses),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_ports_for_mac_addresses")
+
+        return ports
 
     @log_helpers.log_method_call
     def get_ports_on_network(self, network_id=None):
@@ -263,47 +275,63 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def create_port_on_subnet(self, subnet_id=None,
                               mac_address=None, name=None,
-                              fixed_address_count=1,
-                              host=None):
+                              fixed_address_count=1):
         """Add a neutron port to the subnet."""
-        return self._call(
-            self.context,
-            self._make_msg('create_port_on_subnet',
-                           subnet_id=subnet_id,
-                           mac_address=mac_address,
-                           name=name,
-                           fixed_address_count=fixed_address_count,
-                           host=host),
-            topic=self.topic
-        )
+        port = None
+        try:
+            port = self._call(
+                self.context,
+                self._make_msg('create_port_on_subnet',
+                               subnet_id=subnet_id,
+                               mac_address=mac_address,
+                               name=name,
+                               fixed_address_count=fixed_address_count,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "create_port_on_subnet")
+
+        return port
 
     @log_helpers.log_method_call
     def create_port_on_subnet_with_specific_ip(self, subnet_id=None,
                                                mac_address=None,
                                                name=None,
-                                               ip_address=None,
-                                               host=None):
+                                               ip_address=None):
         """Add a neutron port to the subnet with given IP."""
-        return self._call(
-            self.context,
-            self._make_msg('create_port_on_subnet',
-                           subnet_id=subnet_id,
-                           mac_address=mac_address,
-                           name=name,
-                           ip_address=ip_address,
-                           host=host),
-            topic=self.topic
-        )
+        port = None
+        try:
+            port = self._call(
+                self.context,
+                self._make_msg('create_port_on_subnet',
+                               subnet_id=subnet_id,
+                               mac_address=mac_address,
+                               name=name,
+                               ip_address=ip_address,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "create_port_on_subnet_with_specific_ip")
+
+        return port
 
     @log_helpers.log_method_call
     def delete_port_by_name(self, port_name=None):
         """Delete ports with the given name."""
-        return self._cast(
-            self.context,
-            self._make_msg('delete_port_by_name',
-                           port_name=port_name),
-            topic=self.topic
-        )
+        try:
+            return self._cast(
+                self.context,
+                self._make_msg('delete_port_by_name',
+                               port_name=port_name),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "delet_port_by_name")
 
     @log_helpers.log_method_call
     def delete_port(self, port_id=None, mac_address=None):
@@ -318,21 +346,76 @@ class LBaaSv2PluginRPC(object):
 
     @log_helpers.log_method_call
     def get_service_by_loadbalancer_id(self,
-                                       context,
                                        loadbalancer_id=None):
         """Retrieve the service definition for this loadbalancer."""
-        return self._call(
-            self.context,
-            self._make_msg('get_service_by_loadbalancer_id',
-                           loadbalancer_id=loadbalancer_id),
-            topic=self.topic
-        )
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('get_service_by_loadbalancer_id',
+                               loadbalancer_id=loadbalancer_id,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_service_by_loadbalancer_id")
+
+        return service
 
     @log_helpers.log_method_call
     def get_all_loadbalancers(self):
         """Retrieve a list of loadbalancers in Neutron."""
-        return self._call(
-            self.context,
-            self._make_msg('get_all_loadbalancers'),
-            topic=self.topic
-        )
+        loadbalancers = []
+        try:
+            loadbalancers = self._call(
+                self.context,
+                self._make_msg('get_all_loadbalancers',
+                               env=self.env,
+                               group=self.group,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_all_loadbalancers")
+
+        return loadbalancers
+
+    @log_helpers.log_method_call
+    def get_active_loadbalancers(self):
+        """Retrieve a list of active loadbalancers for this agent."""
+        loadbalancers = []
+        try:
+            loadbalancers = self._call(
+                self.context,
+                self._make_msg('get_active_loadbalancers',
+                               env=self.env,
+                               group=self.group,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_all_loadbalancers")
+
+        return loadbalancers
+
+    @log_helpers.log_method_call
+    def get_pending_loadbalancers(self):
+        """Retrieve a list of pending loadbalancers for this agent."""
+        loadbalancers = []
+        try:
+            loadbalancers = self._call(
+                self.context,
+                self._make_msg('get_pending_loadbalancers',
+                               env=self.env,
+                               group=self.group,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_all_loadbalancers")
+
+        return loadbalancers

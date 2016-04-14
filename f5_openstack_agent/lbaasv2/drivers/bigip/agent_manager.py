@@ -26,6 +26,7 @@ from oslo_service import periodic_task
 from oslo_utils import importutils
 
 from neutron.agent import rpc as agent_rpc
+from neutron.common import constants as plugin_const
 from neutron.common import exceptions as q_exception
 from neutron.common import topics
 from neutron import context as ncontext
@@ -99,6 +100,12 @@ OPTS = [
         'capacity_policy',
         default={},
         help=('Metrics to measure capacity and their limits')
+    ),
+    # FIXME(RJB): This is a test option REMOVE
+    cfg.BoolOpt(
+        'service_sync',
+        default=True,
+        help=('perform the operations associated with service validation')
     )
 ]
 
@@ -414,13 +421,158 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):
             self.needs_resync = False
             if self.tunnel_sync():
                 self.needs_resync = True
-            # if self.sync_state():
-            # self.needs_resync = True
+            if self.sync_state():
+                self.needs_resync = True
 
     def tunnel_sync(self):
         """Call into driver to advertise tunnels."""
         LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")
         return self.lbdriver.tunnel_sync()
+
+    @log_helpers.log_method_call
+    def sync_state(self):
+        if not self.plugin_rpc:
+            return
+        resync = False
+        known_services = set()
+        for lb_id, service in self.cache.services.iteritems():
+            if self.agent_host == service.agent_host:
+                known_services.add(lb_id)
+
+        try:
+            active_loadbalancers = (
+                self.plugin_rpc.get_active_loadbalancers()
+            )
+            active_loadbalancer_ids = set()
+            for loadbalancer in active_loadbalancers:
+                if self.agent_host == loadbalancer['agent_host']:
+                    active_loadbalancer_ids.add(loadbalancer['lb_id'])
+
+            LOG.debug("plugin produced the list of active loadbalancer ids: %s"
+                      % list(active_loadbalancer_ids))
+            LOG.debug("currently known loadbalancer ids before sync are: %s"
+                      % list(known_services))
+
+            # Remove services that are in Neutron, but no longer managed
+            # by this agent.
+            # TODO(RJB): IMPLEMENT DESTROY when we have a fully testable HA
+            # solution.
+            # for deleted_lb in known_services - active_loadbalancer_ids:
+            #    self.destroy_service(deleted_lb)
+
+            # Validate each service we are supposed to know about.
+            for lb_id in active_loadbalancer_ids:
+                if not self.cache.get_by_loadbalancer_id(lb_id):
+                    self.validate_service(lb_id)
+
+            # This produces a list of loadbalancers with pending tasks to
+            # be performed.
+            pending_loadbalancers = (
+                self.plugin_rpc.get_pending_loadbalancers()
+            )
+            pending_lb_ids = set()
+            for loadbalancer in pending_loadbalancers:
+                if self.agent_host == loadbalancer['agent_host']:
+                    pending_lb_ids.add(loadbalancer['lb_id'])
+            LOG.debug(
+                "plugin produced the list of pending loadbalancer ids: %s"
+                % list(pending_lb_ids))
+            for lb_id in pending_lb_ids:
+                self.refresh_service(lb_id)
+
+            # Get a list of any cached service we now know after
+            # refreshing services
+            known_services = set()
+            for (lb_id, service) in self.cache.services.iteritems():
+                if self.agent_host == service.agent_host:
+                    known_services.add(lb_id)
+            LOG.debug("currently known loadbalancer ids after sync: %s"
+                      % list(known_services))
+
+            # TODO(RJB): IMPLEMENT PURGE when we have a fully testable HA
+            # solution.
+            # all_loadbalancers = self.plugin_rpc.get_all_loadbalancers()
+            # LOG.debug("loadbalancer ids after calling into plugin: %s"
+            #          % all_loadbalancers)
+            # self.remove_orphans(all_loadbalancers)
+
+        except Exception as e:
+            LOG.error("Unable to retrieve ready service: %s" % e.message)
+            resync = True
+
+        return resync
+
+    @log_helpers.log_method_call
+    def validate_service(self, lb_id):
+        if not self.conf.service_sync:
+            LOG.debug("Validating service")
+            return
+
+        if not self.plugin_rpc:
+            return
+        try:
+            service = self.plugin_rpc.get_service_by_loadbalancer_id(
+                lb_id
+            )
+            self.cache.put(service, self.agent_host)
+            if not self.lbdriver.exists(service):
+                LOG.error('active loadbalancer %s is not on BIG-IP...syncing'
+                          % lb_id)
+                self.lbdriver.sync(service)
+        except q_exception.NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception:
+            LOG.error("Exception caught: validate_service, unable to validate",
+                      " service for loadbalancer: %s" % lb_id)
+
+    @log_helpers.log_method_call
+    def refresh_service(self, lb_id):
+        if not self.conf.service_sync:
+            LOG.debug("Refreshing service")
+            return
+        try:
+            service = self.plugin_rpc.get_service_by_loadbalancer_id(
+                lb_id
+            )
+            self.cache.put(service, self.agent_host)
+            self.lbdriver.sync(service)
+        except q_exception.NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception as e:
+            LOG.error("Exception: %s" % e.message)
+            self.needs_resync = True
+
+    @log_helpers.log_method_call
+    def destroy_service(self, lb_id):
+        if not self.conf.service_sync:
+            LOG.debug("destroying_service")
+            return
+        service = self.plugin_rpc.get_service_by_loadbalancer_id(
+            lb_id
+        )
+        if not service:
+            return
+        service['loadbalancer']['provisioning_status'] = (
+            plugin_const.PENDING_DELETE
+        )
+        try:
+            self.lbdriver.delete_loadbalancer(lb_id, service)
+        except q_exception.NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("Exception: %s" % exc.message)
+            self.needs_resync = True
+        self.cache.remove_by_loadbalancer_id(lb_id)
+
+    @log_helpers.log_method_call
+    def remove_orphans(self, all_loadbalancers):
+        if not self.conf.service_sync:
+            LOG.debug("removing_ophans")
+            return
+        try:
+            self.lbdriver.remove_orphans(all_loadbalancers)
+        except Exception as exc:
+            LOG.error("Exception: removing orphans: %s" % exc.message)
 
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):
