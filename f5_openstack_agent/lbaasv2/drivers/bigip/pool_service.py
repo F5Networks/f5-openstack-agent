@@ -49,7 +49,7 @@ class PoolServiceBuilder(object):
 
         :param service: Dictionary which contains a both a pool
         and load balancer definition.
-        :param bigips: Array of BigIP class instances to create Listener.
+        :param bigips: Array of BigIP class instances to create pool.
         """
         pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
@@ -92,7 +92,7 @@ class PoolServiceBuilder(object):
 
         :param service: Dictionary which contains a both a pool
         and load balancer definition.
-        :param bigips: Array of BigIP class instances to create Listener.
+        :param bigips: Array of BigIP class instances to create pool.
         """
         pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
@@ -110,10 +110,15 @@ class PoolServiceBuilder(object):
         # create member
         hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
+        pool = self.service_adapter.get_pool(service)
 
         for bigip in bigips:
             try:
                 hm_helper.create(bigip, hm)
+
+                # update pool with new health monitor
+                self.pool_helper.update(bigip, pool)
+
             except HTTPError as err:
                 LOG.error("Error creating health monitor %s on BIG-IP %s. "
                           "Repsponse status code: %s. Response "
@@ -121,11 +126,6 @@ class PoolServiceBuilder(object):
                                             bigip.device_name,
                                             err.response.status_code,
                                             err.message))
-
-        # update pool with new health monitor
-        pool = self.service_adapter.get_pool(service)
-        for bigip in bigips:
-            self.pool_helper.update(bigip, pool)
 
     def delete_healthmonitor(self, service, bigips):
         # delete health monitor
