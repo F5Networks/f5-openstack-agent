@@ -74,6 +74,7 @@ class LBaaSBuilder(object):
         loadbalancer = service["loadbalancer"]
 
         if self.driver.l3_binding:
+            loadbalancer = service["loadbalancer"]
             self.driver.l3_binding.bind_address(
                 subnet_id=loadbalancer["vip_subnet_id"],
                 ip_address=loadbalancer["vip_address"])
@@ -114,20 +115,24 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
 
         for pool in pools:
-            svc = {"loadbalancer": loadbalancer,
-                   "pool": pool}
-
             if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
+                svc = {"loadbalancer": loadbalancer,
+                       "pool": pool}
+
+                # get associated listener for pool
+                self.add_listener_pool(service, svc)
+
                 try:
+                    # create pool
                     self.pool_builder.create_pool(svc, bigips)
 
-                    if "listeners" in pool:
-                        pool_name = self.service_adapter.init_pool_name(
-                            loadbalancer, pool)["name"]
-                        listeners = pool["listeners"]
-                        for listener in listeners:
-                            self._update_listener_pool(
-                                service, listener["id"], pool_name, bigips)
+                    # assign pool name to virtual
+                    self.listener_builder.update_listener_pool(
+                        svc, pool["name"], bigips)
+
+                    # update virtual sever pool name, session persistence
+                    self.listener_builder.update_session_persistence(
+                        svc, bigips)
 
                 except Exception as err:
                     LOG.error("Error in "
@@ -136,7 +141,7 @@ class LBaaSBuilder(object):
                     continue
 
     def _update_listener_pool(self, service, listener_id, pool_name, bigips):
-        listener = self._get_listener_by_id(service, listener_id)
+        listener = self.get_listener_by_id(service, listener_id)
         if listener is not None:
             listener["pool"] = pool_name
             svc = {"loadbalancer": service["loadbalancer"],
@@ -154,7 +159,7 @@ class LBaaSBuilder(object):
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
                    "healthmonitor": monitor,
-                   "pool": self._get_pool_by_id(service, monitor["pool_id"])}
+                   "pool": self.get_pool_by_id(service, monitor["pool_id"])}
             if monitor['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.delete_healthmonitor(svc, bigips)
@@ -182,7 +187,7 @@ class LBaaSBuilder(object):
         for member in members:
             svc = {"loadbalancer": loadbalancer,
                    "member": member,
-                   "pool": self._get_pool_by_id(service, member["pool_id"])}
+                   "pool": self.get_pool_by_id(service, member["pool_id"])}
             if member['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.delete_member(svc, bigips)
@@ -229,16 +234,21 @@ class LBaaSBuilder(object):
             if pool['provisioning_status'] == plugin_const.PENDING_DELETE:
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
-                try:
-                    # remove default pool from virtual
-                    if "listeners" in pool:
-                        pool_name = ""
-                        listeners = pool["listeners"]
-                        for listener in listeners:
-                            self._update_listener_pool(
-                                service, listener["id"], pool_name, bigips)
 
+                # get associated listener for pool
+                self.add_listener_pool(service, svc)
+
+                try:
+                    # remove pool name from virtual before deleting pool
+                    self.listener_builder.update_listener_pool(
+                        svc, "", bigips)
+
+                    # delete pool
                     self.pool_builder.delete_pool(svc, bigips)
+
+                    self.listener_builder.remove_session_persistence(
+                        svc, bigips)
+
                 except Exception as err:
                     LOG.error("Error in "
                               "LBaaSBuilder._assure_pools_deleted."
@@ -253,9 +263,9 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
-            svc = {"loadbalancer": loadbalancer,
-                   "listener": listener}
             if listener['provisioning_status'] == plugin_const.PENDING_DELETE:
+                svc = {"loadbalancer": loadbalancer,
+                       "listener": listener}
                 try:
                     self.listener_builder.delete_listener(svc, bigips)
                 except Exception as err:
@@ -274,21 +284,41 @@ class LBaaSBuilder(object):
             for monitor in service['pool']['health_monitors_status']:
                 monitor['status'] = plugin_const.PENDING_DELETE
 
-    def _get_pool_by_id(self, service, id):
+    @staticmethod
+    def get_pool_by_id(service, pool_id):
         if "pools" in service:
             pools = service["pools"]
             for pool in pools:
-                if pool["id"] == id:
+                if pool["id"] == pool_id:
                     return pool
         return None
 
-    def _get_listener_by_id(self, service, id):
+    @staticmethod
+    def get_listener_by_id(service, listener_id):
         if "listeners" in service:
             listeners = service["listeners"]
             for listener in listeners:
-                if listener["id"] == id:
+                if listener["id"] == listener_id:
                     return listener
         return None
+
+    @staticmethod
+    def add_listener_pool(service, svc):
+        pool = svc["pool"]
+        if "listeners" in pool and len(pool["listeners"]) > 0:
+            l = pool["listeners"][0]
+            listener = LBaaSBuilder.get_listener_by_id(service, l["id"])
+            if listener is not None:
+                svc["listener"] = listener
+
+    @staticmethod
+    def get_listener(service, pool):
+        listener = None
+        if "listeners" in pool and len(pool["listeners"]) > 0:
+            l = pool["listeners"][0]
+            listener = LBaaSBuilder.get_listener_by_id(service, l["id"])
+
+        return listener
 
     def _update_subnet_hints(self, status, subnet_id,
                              network_id, all_subnet_hints, is_member):
