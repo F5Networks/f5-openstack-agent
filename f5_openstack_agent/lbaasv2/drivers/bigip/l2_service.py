@@ -213,16 +213,16 @@ class L2ServiceBuilder(object):
 
         # Do we have host specific mappings?
         net_key = network['provider:physical_network']
-        if net_key + ':' + bigip.ihostname in \
+        if net_key + ':' + bigip.hostname in \
                 self.interface_mapping:
             interface = self.interface_mapping[
-                net_key + ':' + bigip.ihostname]
+                net_key + ':' + bigip.hostname]
         # Do we have a mapping for this network
         elif net_key in self.interface_mapping:
             interface = self.interface_mapping[net_key]
 
         vlan_name = self.get_vlan_name(network,
-                                       bigip.ihostname)
+                                       bigip.hostname)
 
         # TODO(Rich Browne): Implementation with VCMP
         self._assure_vcmp_device_network(bigip,
@@ -251,12 +251,12 @@ class L2ServiceBuilder(object):
 
         # Do we have host specific mappings?
         net_key = network['provider:physical_network']
-        if net_key + ':' + bigip.ihostname in \
+        if net_key + ':' + bigip.hostname in \
                 self.interface_mapping:
             interface = self.interface_mapping[
-                net_key + ':' + bigip.ihostname]
+                net_key + ':' + bigip.hostname]
             tagged = self.tagging_mapping[
-                net_key + ':' + bigip.ihostname]
+                net_key + ':' + bigip.hostname]
         # Do we have a mapping for this network
         elif net_key in self.interface_mapping:
             interface = self.interface_mapping[net_key]
@@ -268,7 +268,7 @@ class L2ServiceBuilder(object):
             vlanid = 0
 
         vlan_name = self.get_vlan_name(network,
-                                       bigip.ihostname)
+                                       bigip.hostname)
 
         self._assure_vcmp_device_network(bigip,
                                          vlan={'name': vlan_name,
@@ -299,7 +299,7 @@ class L2ServiceBuilder(object):
         # Ensure bigip has configured vxlan
         if not bigip.local_ip:
             error_message = 'Cannot create tunnel %s on %s' \
-                % (network['id'], bigip.ihostname)
+                % (network['id'], bigip.hostname)
             error_message += ' no VTEP SelfIP defined.'
             LOG.error('VXLAN:' + error_message)
             raise f5ex.MissingVTEPAddress('VXLAN:' + error_message)
@@ -324,7 +324,7 @@ class L2ServiceBuilder(object):
         # Ensure bigip has configured gre tunnel
         if not bigip.local_ip:
             error_message = 'Cannot create tunnel %s on %s' \
-                % (network['id'], bigip.ihostname)
+                % (network['id'], bigip.hostname)
             error_message += ' no VTEP SelfIP defined.'
             LOG.error('L2GRE:' + error_message)
             raise f5ex.MissingVTEPAddress('L2GRE:' + error_message)
@@ -478,7 +478,7 @@ class L2ServiceBuilder(object):
     def _delete_device_vlan(self, bigip, network, network_folder):
         # Delete tagged vlan on specific bigip
         vlan_name = self.get_vlan_name(network,
-                                       bigip.ihostname)
+                                       bigip.hostname)
         self.network_helper.delete_vlan(
             bigip,
             vlan_name,
@@ -490,12 +490,12 @@ class L2ServiceBuilder(object):
             vlanid = 0
             # Do we have host specific mappings?
             net_key = network['provider:physical_network']
-            if net_key + ':' + bigip.ihostname in \
+            if net_key + ':' + bigip.hostname in \
                     self.interface_mapping:
                 interface = self.interface_mapping[
-                    net_key + ':' + bigip.ihostname]
+                    net_key + ':' + bigip.hostname]
                 tagged = self.tagging_mapping[
-                    net_key + ':' + bigip.ihostname]
+                    net_key + ':' + bigip.hostname]
             # Do we have a mapping for this network
             elif net_key in self.interface_mapping:
                 interface = self.interface_mapping[net_key]
@@ -516,7 +516,7 @@ class L2ServiceBuilder(object):
     def _delete_device_flat(self, bigip, network, network_folder):
         # Delete untagged vlan on specific bigip
         vlan_name = self.get_vlan_name(network,
-                                       bigip.ihostname)
+                                       bigip.hostname)
 
         self.network_helper.delete_vlan(
             bigip,
@@ -832,10 +832,10 @@ class L2ServiceBuilder(object):
             preserve_network_name = True
         elif network['provider:network_type'] == 'vlan':
             network_name = self.get_vlan_name(network,
-                                              bigip.ihostname)
+                                              bigip.hostname)
         elif network['provider:network_type'] == 'flat':
             network_name = self.get_vlan_name(network,
-                                              bigip.ihostname)
+                                              bigip.hostname)
         elif network['provider:network_type'] == 'vxlan':
             network_name = _get_tunnel_name(network)
         elif network['provider:network_type'] == 'gre':
