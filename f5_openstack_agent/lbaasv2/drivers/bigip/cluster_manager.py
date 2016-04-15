@@ -14,6 +14,8 @@
 #
 
 from oslo_log import log as logging
+from requests.exceptions import HTTPError
+
 import time
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as const
@@ -58,8 +60,14 @@ class ClusterManager(object):
         return traffic_groups
 
     def save_config(self, bigip):
-        # not used?
-        pass
+        try:
+            c = bigip.sys.config
+            c.save()
+        except HTTPError as err:
+            LOG.error("Error saving config."
+                      "Repsponse status code: %s. Response "
+                      "message: %s." % (err.response.status_code,
+                                        err.message))
 
     def get_device_group(self, bigip):
         dgs = bigip.cm.device_groups.get_collection()
