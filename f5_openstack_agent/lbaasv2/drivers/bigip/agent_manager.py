@@ -83,7 +83,7 @@ OPTS = [
     ),
     cfg.StrOpt(
         'environment_prefix',
-        default='Test',
+        default='Project',
         help=('The object name prefix for this environment')
     ),
     cfg.BoolOpt(
