@@ -892,7 +892,7 @@ class iControlDriver(LBaaSBaseDriver):
             service = self.plugin_rpc.get_service_by_loadbalancer_id(
                 service['loadbalancer']['id']
             )
-        if service['pool']:
+        if service['loadbalancer']:
             self._common_service_handler(service)
         else:
             LOG.debug("Attempted sync of deleted pool")
