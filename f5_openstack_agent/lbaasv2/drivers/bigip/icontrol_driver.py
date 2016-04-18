@@ -937,8 +937,16 @@ class iControlDriver(LBaaSBaseDriver):
         LOG.debug("XXXXXXXXXX: traffic group created ")
         if self.network_builder:
             start_time = time()
-            self.network_builder.prep_service_networking(
-                service, traffic_group)
+            try:
+                self.network_builder.prep_service_networking(
+                    service, traffic_group)
+            except Exception as exc:
+                LOG.error("Exception: icontrol_driver: %s", exc.message)
+                service['loadbalancer']['provisioning_status'] = (
+                    plugin_const.ERROR
+                )
+                return self._update_service_status(service)
+
             if time() - start_time > .001:
                 LOG.debug("    _prep_service_networking "
                           "took %.5f secs" % (time() - start_time))
@@ -1094,6 +1102,9 @@ class iControlDriver(LBaaSBaseDriver):
                 lb_const.ONLINE)
         elif provisioning_status == plugin_const.PENDING_DELETE:
             self.plugin_rpc.loadbalancer_destroyed(
+                loadbalancer['id'])
+        elif provisioning_status == plugin_const.ERROR:
+            self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'])
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
