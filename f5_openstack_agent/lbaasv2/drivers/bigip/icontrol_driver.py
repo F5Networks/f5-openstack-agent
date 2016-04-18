@@ -284,6 +284,8 @@ class iControlDriver(LBaaSBaseDriver):
                 self.conf.common_network_ids
             LOG.debug('Setting static ARP population to %s'
                       % self.conf.f5_populate_static_arp)
+            self.agent_configurations['f5_common_external_networks'] = \
+                self.conf.f5_common_external_networks
             f5const.FDB_POPULATE_STATIC_ARP = self.conf.f5_populate_static_arp
 
         self._init_bigip_hostnames()
@@ -892,7 +894,7 @@ class iControlDriver(LBaaSBaseDriver):
             service = self.plugin_rpc.get_service_by_loadbalancer_id(
                 service['loadbalancer']['id']
             )
-        if service['pool']:
+        if service['loadbalancer']:
             self._common_service_handler(service)
         else:
             LOG.debug("Attempted sync of deleted pool")
@@ -935,8 +937,16 @@ class iControlDriver(LBaaSBaseDriver):
         LOG.debug("XXXXXXXXXX: traffic group created ")
         if self.network_builder:
             start_time = time()
-            self.network_builder.prep_service_networking(
-                service, traffic_group)
+            try:
+                self.network_builder.prep_service_networking(
+                    service, traffic_group)
+            except Exception as exc:
+                LOG.error("Exception: icontrol_driver: %s", exc.message)
+                service['loadbalancer']['provisioning_status'] = (
+                    plugin_const.ERROR
+                )
+                return self._update_service_status(service)
+
             if time() - start_time > .001:
                 LOG.debug("    _prep_service_networking "
                           "took %.5f secs" % (time() - start_time))
@@ -1092,6 +1102,9 @@ class iControlDriver(LBaaSBaseDriver):
                 lb_const.ONLINE)
         elif provisioning_status == plugin_const.PENDING_DELETE:
             self.plugin_rpc.loadbalancer_destroyed(
+                loadbalancer['id'])
+        elif provisioning_status == plugin_const.ERROR:
+            self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'])
         else:
             LOG.error('Loadbalancer provisioning status is invalid')

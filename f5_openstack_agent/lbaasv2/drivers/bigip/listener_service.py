@@ -177,7 +177,7 @@ class ListenerServiceBuilder(object):
         :param bigips: Array of BigIP class instances to update.
         """
         pool = service["pool"]
-        if "session_persistence" in pool:
+        if "session_persistence" in pool and pool['session_persistence']:
             vip = self.service_adapter.get_virtual_name(service)
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
