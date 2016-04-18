@@ -284,6 +284,8 @@ class iControlDriver(LBaaSBaseDriver):
                 self.conf.common_network_ids
             LOG.debug('Setting static ARP population to %s'
                       % self.conf.f5_populate_static_arp)
+            self.agent_configurations['f5_common_external_networks'] = \
+                self.conf.f5_common_external_networks
             f5const.FDB_POPULATE_STATIC_ARP = self.conf.f5_populate_static_arp
 
         self._init_bigip_hostnames()
