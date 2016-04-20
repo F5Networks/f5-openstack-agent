@@ -249,6 +249,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.plugin_rpc = None
         self.__last_connect_attempt = None
         self.connected = False
+        self.driver_name = 'f5-lbaasv2-icontrol'
 
         # BIG-IP® containers
         self.__bigips = {}
@@ -288,6 +289,7 @@ class iControlDriver(LBaaSBaseDriver):
                 self.conf.f5_common_external_networks
             f5const.FDB_POPULATE_STATIC_ARP = self.conf.f5_populate_static_arp
 
+        self.agent_configurations['device_drivers'] = [self.driver_name]
         self._init_bigip_hostnames()
         self._init_bigip_managers()
         self.connect_bigips()
