@@ -155,7 +155,6 @@ class BigipSelfIpManager(object):
 
         if self.l2_service.is_common_network(network):
             network_folder = 'Common'
-            network_name = '/Common/' + network_name
         else:
             network_folder = self.driver.service_adapter.\
                 get_folder_name(subnet['tenant_id'])
