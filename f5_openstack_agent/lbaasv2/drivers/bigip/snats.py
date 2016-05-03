@@ -220,7 +220,7 @@ class BigipSnatManager(object):
 
     def _delete_bigip_snats(self, bigip, subnetinfo, tenant_id):
         # Assure snats deleted in standalone mode """
-        network = subnetinfo['network']
+        # Assure snats deleted in standalone mode """
         subnet = subnetinfo['subnet']
         partition = self.driver.service_adapter.get_folder_name(tenant_id)
         deleted_names = set()
