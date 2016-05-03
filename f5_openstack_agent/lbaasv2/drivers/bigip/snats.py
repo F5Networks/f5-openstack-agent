@@ -128,8 +128,6 @@ class BigipSnatManager(object):
             ip_address = snat_info['addrs'][i] + \
                 '%' + str(network['route_domain_id'])
             index_snat_name = snat_name + "_" + str(i)
-            if self.l2_service.is_common_network(network):
-                index_snat_name = '/Common/' + index_snat_name
 
             snat_traffic_group = self._get_snat_traffic_group(tenant_id)
             # snat.create() did  the following in LBaaSv1
@@ -231,10 +229,7 @@ class BigipSnatManager(object):
         snat_name = self._get_snat_name(subnet, tenant_id)
         for i in range(self.driver.conf.f5_snat_addresses_per_subnet):
             index_snat_name = snat_name + "_" + str(i)
-            if self.l2_service.is_common_network(network):
-                tmos_snat_name = '/Common/' + index_snat_name
-            else:
-                tmos_snat_name = index_snat_name
+            tmos_snat_name = index_snat_name
 
             if self.l3_binding:
                 try:
