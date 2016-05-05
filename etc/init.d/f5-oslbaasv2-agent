@@ -16,16 +16,17 @@ NAME=f5-oslbaasv2-agent
 SERVICE=f5-oslbaasv2-agent
 DAEMON="/usr/local/bin/${NAME}"
 SCRIPTNAME="/etc/init.d/${NAME}"
-NEUTRON_CONF="/usr/neutron/neutron.conf"
-F5_AGENT_CONF="/usr/neutron/services/f5/f5-openstack-agent.ini"
+NEUTRON_CONF="/etc/neutron/neutron.conf"
+F5_AGENT_CONF="/etc/neutron/services/f5/f5-openstack-agent.ini"
 STARTDAEMON_ARGS=""
-[ -r "${F5_AGENT_CONF}" ] && DAEMON_ARGS="${DEAMON_ARGS} --config-file ${F5_AGENT_CONF}"
-[ -r "${NEUTRON_CONF}" ] && DAEMON_ARGS="${DEAMON_ARGS} --config-file ${NEUTRON_CONF}"
+
+[ -r "${F5_AGENT_CONF}" ] && DAEMON_ARGS="${DAEMON_ARGS} --config-file ${F5_AGENT_CONF}"
+[ -r "${NEUTRON_CONF}" ] && DAEMON_ARGS="${DAEMON_ARGS} --config-file ${NEUTRON_CONF}"
 
 PATH=/sbin:/user/sbin:/bin:/usr/bin
 
 if [ -z "${SYSTEM_USER}" ]; then
-    id ${PROJECT_NAME}
+    id ${PROJECT_NAME} >/dev/null 2>&1
     if [[ $? == 0 ]]; then
 	SYSTEM_USER=${PROJECT_NAME}
 	STARTDAEMON_ARGS=" --USER ${SYSTEM_USER}"
@@ -48,10 +49,10 @@ for i in lock run log lib ; do
     chown ${SYSTEM_USER} /var/$i/${PROJECT_NAME}
 done
 
-STARTDAEMON_ARGS=" --chdir /var/lib/${PROJECT_NAME}"
+STARTDAEMON_ARGS=${STARTDAEMON_ARGS}" --chdir /var/lib/${PROJECT_NAME}"
 . /lib/lsb/init-functions
 
-LOCKFILE=/var/lock/subsys/${NAME}
+LOCKFILE=/var/lock/neutron/${NAME}
 
 # Manage log options: logfile and/or syslog, depending on user's choosing
 LOGFILE="/var/log/${PROJECT_NAME}/${NAME}.log"
@@ -61,8 +62,9 @@ LOGFILE="/var/log/${PROJECT_NAME}/${NAME}.log"
 [ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
 
 start() {
-    echo -n $"Starting $prog: "
-    start-stop-daemon "${STARTDAEMON_ARGS}" --startas "${DAEMON} " -- "${DAEMON_ARGS}"
+    echo -n $"Starting ${SERVICE}: "
+    start_cmd="start-stop-daemon ${STARTDAEMON_ARGS} --exec ${DAEMON}  -- ${DAEMON_ARGS}"
+    eval $start_cmd
     retval=$?
     echo
     [ $retval -eq 0 ] && touch $LOCKFILE
@@ -70,7 +72,7 @@ start() {
 }
 
 stop() {
-    echo -n $"Stopping $prog: "
+    echo -n $"Stopping ${SERVICE}: "
     start-stop-daemon --stop --quiet -p $PIDFILE --retry=TERM/30/KILL/5
     retval=$?
     echo
@@ -92,7 +94,7 @@ force_reload() {
 }
 
 rh_status() {
-    status $NAME
+    status $SERVICE
 }
 
 rh_status_q() {
