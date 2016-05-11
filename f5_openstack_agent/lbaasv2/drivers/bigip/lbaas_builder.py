@@ -127,8 +127,10 @@ class LBaaSBuilder(object):
                     self.pool_builder.create_pool(svc, bigips)
 
                     # assign pool name to virtual
+                    pool_name = self.service_adapter.init_pool_name(
+                        loadbalancer, pool)
                     self.listener_builder.update_listener_pool(
-                        svc, pool["name"], bigips)
+                        svc, pool_name["name"], bigips)
 
                     # update virtual sever pool name, session persistence
                     self.listener_builder.update_session_persistence(
