@@ -20,6 +20,8 @@ import json
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+
 LOG = logging.getLogger(__name__)
 
 
@@ -36,10 +38,15 @@ class L3BindingBase(object):
         if self.conf.l3_binding_static_mappings:
             LOG.debug('bindings: %s '
                       % self.conf.l3_binding_static_mappings)
-            # FIXME(RB): need to do some error handling here if the user
-            # specifies the static mappings incorrectly.
-            l3_binding_static_mappings = \
-                json.loads(self.conf.l3_binding_static_mappings)
+            l3_binding_static_mappings = {}
+            try:
+                l3_binding_static_mappings = \
+                    json.loads(self.conf.l3_binding_static_mappings)
+            except ValueError:
+                LOG.error("l3_binding_static_mappings parsing error")
+                raise f5_ex.L3BindingInitializationException(
+                    "Failed to initialize the L3 binding static mappings")
+
             for subnet_id in l3_binding_static_mappings:
                 binding_list = l3_binding_static_mappings[subnet_id]
                 if isinstance(binding_list, list):
@@ -115,17 +122,10 @@ class AllowedAddressPairs(L3BindingBase):
                     LOG.debug('adding allowed address pair '
                               'address: %s port: %s device: %s'
                               % (ip_address, port_id, device_id))
-                    if self.driver.plugin_rpc:
-                        self.driver.plugin_rpc.add_allowed_address(
-                            port_id=port_id,
-                            ip_address=ip_address
-                        )
-                    else:
-                        LOG.error(
-                            'No RPC to plugin available to add '
-                            'allowed address %s to port: %s.'
-                            % (ip_address, port_id)
-                        )
+                    self.driver.plugin_rpc.add_allowed_address(
+                        port_id=port_id,
+                        ip_address=ip_address
+                    )
 
     def unbind_address(self, subnet_id=None, ip_address=None):
         LOG.debug('checking for removal of port bindings '
@@ -138,14 +138,7 @@ class AllowedAddressPairs(L3BindingBase):
                     LOG.debug('removing allowed address pair '
                               'address: %s port: %s device: %s'
                               % (ip_address, port_id, device_id))
-                    if self.driver.plugin_rpc:
-                        self.driver.plugin_rpc.remove_allowed_address(
-                            port_id=port_id,
-                            ip_address=ip_address
-                        )
-                    else:
-                        LOG.error(
-                            'No RPC to plugin available to remove '
-                            'allowed address %s to port: %s.'
-                            % (ip_address, port_id)
-                        )
+                    self.driver.plugin_rpc.remove_allowed_address(
+                        port_id=port_id,
+                        ip_address=ip_address
+                    )

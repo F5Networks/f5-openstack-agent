@@ -74,6 +74,10 @@ class StaticARPDeleteException(Exception):
     pass
 
 
+class L3BindingInitializationException(Exception):
+    pass
+
+
 class ClusterCreationException(Exception):
     pass
 

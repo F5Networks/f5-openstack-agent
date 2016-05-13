@@ -94,7 +94,16 @@ force_reload() {
 }
 
 rh_status() {
-    status $SERVICE
+    if [ ! -f $PIDFILE ]; then
+	return 3
+    fi
+
+    pid=$(cat $PIDFILE)
+    if ! ps --no-headers p "$pid" | grep ${NAME} > /dev/null; then
+	return 1
+    fi
+
+    return 0
 }
 
 rh_status_q() {
