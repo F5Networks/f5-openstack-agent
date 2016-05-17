@@ -45,7 +45,7 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
                     password=conf.keystone_password,
                     tenant_name=conf.keystone_tenant_name,
                     auth_url=conf.keystone_auth_url)
-            elif conf.barbican_auth_version == "keystone_v3":
+            elif conf.auth_version == "keystone_v3":
                 auth = identity.v3.Password(
                     username=conf.keystone_username,
                     user_domain_name=conf.keystone_user_domain_name,
@@ -77,7 +77,7 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
 
             self.barbican = client.Client(endpoint=endpoint,
                                           project_id=project_id)
-            LOG.debug("BarbicanCertManager: using no-auth mode with endpooint "
+            LOG.debug("BarbicanCertManager: using no-auth mode with endpoint "
                       "%s and project-id %s." % (endpoint, project_id))
 
     def get_certificate(self, container_ref):

@@ -212,9 +212,55 @@ OPTS = [
         'max_namespaces_per_tenant', default=1,
         help='How many routing tables the BIG-IP will allocate per tenant'
              ' in order to accommodate overlapping IP subnets'
+    ),
+    cfg.StrOpt(
+        'cert_manager',
+        default='f5_openstack_agent.lbaasv2.drivers.bigip.barbican_cert.'
+                'BarbicanCertManager',
+        help='Class name of the certificate mangager used for retrieving '
+             'certificates and keys.'
+    ),
+    cfg.StrOpt(
+        'auth_version',
+        default=None,
+        help='Keystone authentication version for Barbican client.'
+    ),
+    cfg.StrOpt(
+        'barbican_endpoint',
+        default='http://10.190.4.169:9311',
+        help='Barbican endpoint to use when no authentication is specified.'
+    ),
+    cfg.StrOpt(
+        'barbican_project_id',
+        default='service',
+        help='Barbican project ID.'
+    ),
+    cfg.StrOpt(
+        'keystone_auth_url',
+        default=None,
+        help='Keytstone authentication URL.'
+    ),
+    cfg.StrOpt(
+        'keystone_username',
+        default=None,
+        help='Keystone user name.'
+    ),
+    cfg.StrOpt(
+        'keystone_user_domain_name',
+        default=None,
+        help='User domain name used for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'keystone_project_name',
+        default=None,
+        help='Project name used for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'keystone_project_domain_name',
+        default=None,
+        help='Project domain name used for Keystone v3 authentication.'
     )
 ]
-
 
 def is_connected(method):
     # Decorator to check we are connected before provisioning.
@@ -463,7 +509,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         return ManagementRoot(hostname,
                               self.conf.icontrol_username,
-                              self.conf.icontrol_password)
+                            self.conf.icontrol_password)
 
     def _init_bigip(self, bigip, hostname, check_group_name=None):
         # Prepare a bigip for usage
