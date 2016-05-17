@@ -31,20 +31,20 @@ class ClusterManager(object):
     """Set of functions to help manage BIG-IP clusters."""
 
     def devices(self, bigip):
-        return bigip.cm.devices.get_collection()
+        return bigip.tm.cm.devices.get_collection()
 
     def disable_auto_sync(self, device_group_name, bigip, partition='Common'):
-        dg = bigip.cm.device_groups.device_group.load(name=device_group_name,
-                                                      partition=partition)
+        dg = bigip.tm.cm.device_groups.device_group.load(
+            name=device_group_name, partition=partition)
         dg.update(autoSync='disabled')
 
     def enable_auto_sync(self, device_group_name, bigip, partition='Common'):
-        dg = bigip.cm.device_groups.device_group.load(name=device_group_name,
-                                                      partition=partition)
+        dg = bigip.tm.cm.device_groups.device_group.load(
+            name=device_group_name, partition=partition)
         dg.update(autoSync='enabled')
 
     def get_sync_status(self, bigip):
-        sync_status = bigip.cm.sync_status
+        sync_status = bigip.tm.cm.sync_status
         sync_status.refresh()
 
         status = sync_status.entries[
@@ -53,7 +53,7 @@ class ClusterManager(object):
 
     def get_traffic_groups(self, bigip):
         traffic_groups = []
-        groups = bigip.cm.traffic_groups.get_collection()
+        groups = bigip.tm.cm.traffic_groups.get_collection()
         for group in groups:
             traffic_groups.append(group.name)
 
@@ -61,7 +61,7 @@ class ClusterManager(object):
 
     def save_config(self, bigip):
         try:
-            c = bigip.sys.config
+            c = bigip.tm.sys.config
             c.save()
         except HTTPError as err:
             LOG.error("Error saving config."
@@ -70,7 +70,7 @@ class ClusterManager(object):
                                         err.message))
 
     def get_device_group(self, bigip):
-        dgs = bigip.cm.device_groups.get_collection()
+        dgs = bigip.tm.cm.device_groups.get_collection()
         for dg in dgs:
             if dg.type == 'sync-failover':
                 return dg.name
@@ -101,7 +101,7 @@ class ClusterManager(object):
 
         attempts = 0
         if force_now:
-            bigip.cm.sync(name)
+            bigip.tm.cm.sync(name)
             time.sleep(sleep_delay)
             attempts += 1
 
@@ -116,7 +116,7 @@ class ClusterManager(object):
                     'Cluster',
                     "Device %s - Synchronizing initial config to group %s"
                     % (dev_name, name))
-                bigip.cm.sync(name)
+                bigip.tm.cm.sync(name)
                 time.sleep(sleep_delay)
 
             elif state in ['Disconnected',
@@ -147,7 +147,7 @@ class ClusterManager(object):
                 else:
                     # if we didn't break out due to the group being in sync
                     # then attempt to force a sync.
-                    bigip.cm.sync(name)
+                    bigip.tm.cm.sync(name)
                     sleep_delay += const.SYNC_DELAY
                     # no need to sleep here because we already spent the sleep
                     # interval checking status.
@@ -178,7 +178,7 @@ class ClusterManager(object):
                          "Device %s " % dev_name +
                          "Synchronizing config attempt %s to group %s:"
                          % (attempts, name) + " current state: %s" % state)
-                bigip.cm.sync(name)
+                bigip.tm.cm.sync(name)
                 time.sleep(sleep_delay)
                 sleep_delay += const.SYNC_DELAY
         else:

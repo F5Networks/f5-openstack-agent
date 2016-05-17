@@ -41,7 +41,7 @@ class BigipSelfIpManager(object):
         if not model['name']:
             return False
         LOG.debug("Getting selfip....")
-        s = bigip.net.selfips.selfip
+        s = bigip.tm.net.selfips.selfip
 
         if s.exists(name=model['name'], partition=model['partition']):
             LOG.debug("It exists!!!!")
@@ -181,7 +181,7 @@ class BigipSelfIpManager(object):
 
         # Setup a wild card ip forwarding virtual service for this subnet
         gw_name = "gw-" + subnet['id']
-        vs = bigip.ltm.virtuals.virtual
+        vs = bigip.tm.ltm.virtuals.virtual
         if not vs.exists(name=gw_name, partition=network_folder):
             vs.create(
                 name=gw_name,
@@ -195,7 +195,7 @@ class BigipSelfIpManager(object):
             )
         else:
             vs.load(name=gw_name, partition=network_folder)
-        virtual_address = bigip.ltm.virtual_address_s.virtual_address
+        virtual_address = bigip.tm.ltm.virtual_address_s.virtual_address
         virtual_address.load(name='0.0.0.0:0', partition=network_folder)
         virtual_address.update(trafficGroup=traffic_group)
         bigip.assured_gateway_subnets.append(subnet['id'])
@@ -233,7 +233,7 @@ class BigipSelfIpManager(object):
 
         gw_name = "gw-" + subnet['id']
 
-        vs = bigip.ltm.virtuals.virtual
+        vs = bigip.tm.ltm.virtuals.virtual
         if vs.exists(name=gw_name, partition=network_folder):
             vs.load(name=gw_name, partition=network_folder)
             vs.delete()
