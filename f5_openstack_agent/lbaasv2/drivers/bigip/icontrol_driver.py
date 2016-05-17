@@ -262,6 +262,7 @@ OPTS = [
     )
 ]
 
+
 def is_connected(method):
     # Decorator to check we are connected before provisioning.
     def wrapper(*args, **kwargs):
@@ -509,7 +510,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         return ManagementRoot(hostname,
                               self.conf.icontrol_username,
-                            self.conf.icontrol_password)
+                              self.conf.icontrol_password)
 
     def _init_bigip(self, bigip, hostname, check_group_name=None):
         # Prepare a bigip for usage
