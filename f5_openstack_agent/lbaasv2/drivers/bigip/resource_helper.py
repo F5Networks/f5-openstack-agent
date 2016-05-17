@@ -133,26 +133,26 @@ class BigIPResourceHelper(object):
 
     def _resource(self, bigip):
         return {
-            ResourceType.nat: lambda bigip: bigip.ltm.nats.nat,
-            ResourceType.pool: lambda bigip: bigip.ltm.pools.pool,
-            ResourceType.sys: lambda bigip: bigip.sys,
-            ResourceType.virtual: lambda bigip: bigip.ltm.virtuals.virtual,
-            ResourceType.member: lambda bigip: bigip.ltm.pools.pool.member,
-            ResourceType.folder: lambda bigip: bigip.sys.folders.folder,
+            ResourceType.nat: lambda bigip: bigip.tm.ltm.nats.nat,
+            ResourceType.pool: lambda bigip: bigip.tm.ltm.pools.pool,
+            ResourceType.sys: lambda bigip: bigip.tm.sys,
+            ResourceType.virtual: lambda bigip: bigip.tm.ltm.virtuals.virtual,
+            ResourceType.member: lambda bigip: bigip.tm.ltm.pools.pool.member,
+            ResourceType.folder: lambda bigip: bigip.tm.sys.folders.folder,
             ResourceType.http_monitor:
-                lambda bigip: bigip.ltm.monitor.https.http,
+                lambda bigip: bigip.tm.ltm.monitor.https.http,
             ResourceType.https_monitor:
-                lambda bigip: bigip.ltm.monitor.https_s.https,
+                lambda bigip: bigip.tm.ltm.monitor.https_s.https,
             ResourceType.tcp_monitor:
-                lambda bigip: bigip.ltm.monitor.tcps.tcp,
+                lambda bigip: bigip.tm.ltm.monitor.tcps.tcp,
             ResourceType.ping_monitor:
-                lambda bigip: bigip.ltm.monitor.gateway_icmps.gateway_icmp,
-            ResourceType.node: lambda bigip: bigip.ltm.nodes.node,
-            ResourceType.snat: lambda bigip: bigip.ltm.snats.snat,
+                lambda bigip: bigip.tm.ltm.monitor.gateway_icmps.gateway_icmp,
+            ResourceType.node: lambda bigip: bigip.tm.ltm.nodes.node,
+            ResourceType.snat: lambda bigip: bigip.tm.ltm.snats.snat,
             ResourceType.snatpool:
-                lambda bigip: bigip.ltm.snatpools.snatpool,
+                lambda bigip: bigip.tm.ltm.snatpools.snatpool,
             ResourceType.snat_translation:
-                lambda bigip: bigip.ltm.snat_translations.snat_translation,
+                lambda bigip: bigip.tm.ltm.snat_translations.snat_translation,
             ResourceType.selfip:
-                lambda bigip: bigip.net.selfips.selfip
+                lambda bigip: bigip.tm.net.selfips.selfip
         }[self.resource_type](bigip)

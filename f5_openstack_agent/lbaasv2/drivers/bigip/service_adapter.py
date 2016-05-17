@@ -292,8 +292,6 @@ class ServiceModelAdapter(object):
     def _map_virtual(self, loadbalancer, listener):
         vip = self._init_virtual_name(loadbalancer, listener)
 
-        # TODO(jl) future work to handle TERMINATED_HTTPS, SNI containers
-
         if "description" in listener:
             vip["description"] = listener["description"]
 
@@ -329,12 +327,6 @@ class ServiceModelAdapter(object):
                 vip["enabled"] = True
             else:
                 vip["disabled"] = True
-
-        if "sni_container_refs" in listener:
-            pass
-
-        if "default_tls_container_ref" in listener:
-            pass
 
         if "pool" in listener:
             vip["pool"] = listener["pool"]
@@ -422,7 +414,7 @@ class ServiceModelAdapter(object):
         vip = self.get_virtual_name(service)
         vip['fallbackPersistence'] = ''
         vip['persist'] = []
-        if 'session_persistence' in pool:
+        if 'session_persistence' in pool and pool['session_persistence']:
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
             if persistence_type == 'APP_COOKIE':
@@ -441,3 +433,16 @@ class ServiceModelAdapter(object):
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
         return vip
+
+    def get_tls(self, service):
+        tls = {}
+        listener = service['listener']
+        if 'default_tls_container_ref' in listener and \
+                listener['default_tls_container_ref']:
+            tls['default_tls_container_ref'] = \
+                listener['default_tls_container_ref']
+
+        if 'sni_container_refs' in listener and listener['sni_container_refs']:
+            tls['sni_container_refs'] = listener['sni_container_refs']
+
+        return tls

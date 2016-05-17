@@ -21,11 +21,11 @@ LOG = logging.getLogger(__name__)
 class SystemHelper(object):
 
     def create_folder(self, bigip, folder):
-        f = bigip.sys.folders.folder
+        f = bigip.tm.sys.folders.folder
         f.create(**folder)
 
     def delete_folder(self, bigip, folder_name):
-        f = bigip.sys.folders.folder
+        f = bigip.tm.sys.folders.folder
         if f.exists(name=folder_name):
             f.load(name=folder_name)
             f.delete()
@@ -34,11 +34,11 @@ class SystemHelper(object):
         if folder == 'Common':
             return True
 
-        return bigip.sys.folders.folder.exists(name=folder)
+        return bigip.tm.sys.folders.folder.exists(name=folder)
 
     def get_folders(self, bigip):
         f_collection = []
-        folders = bigip.sys.folders.get_collection()
+        folders = bigip.tm.sys.folders.get_collection()
         for folder in folders:
             f_collection.append(folder.name)
 
@@ -59,7 +59,7 @@ class SystemHelper(object):
         return version
 
     def get_version(self, bigip):
-        devices = bigip.cm.devices.get_collection()
+        devices = bigip.tm.cm.devices.get_collection()
         for device in devices:
             if device.selfDevice == 'true':
                 return device.version
@@ -67,7 +67,7 @@ class SystemHelper(object):
         return ""
 
     def get_serial_number(self, bigip):
-        devices = bigip.cm.devices.get_collection()
+        devices = bigip.tm.cm.devices.get_collection()
         for device in devices:
             if device.selfDevice == 'true':
                 return device.chassisId
@@ -78,7 +78,7 @@ class SystemHelper(object):
         return ''
 
     def get_tunnel_sync(self, bigip):
-        db = bigip.sys.dbs.db.load(name='iptunnel.configsync')
+        db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
         if hasattr(db, 'value'):
             return db.value
 
@@ -90,12 +90,12 @@ class SystemHelper(object):
         #    val = 'enable'
         # else:
         #    val = 'disable'
-        # db = bigip.sys.dbs.db.load(name='iptunnel.configsync')
+        # db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
         # db.update(value=val)
         pass
 
     def get_provision_extramb(self, bigip):
-        db = bigip.sys.dbs.db.load(name='provision.extramb')
+        db = bigip.tm.sys.dbs.db.load(name='provision.extramb')
         if hasattr(db, 'value'):
             return db.value
 
@@ -103,7 +103,7 @@ class SystemHelper(object):
 
     def get_mac_addresses(self, bigip):
         macs = []
-        interfaces = bigip.net.interfaces.get_collection()
+        interfaces = bigip.tm.net.interfaces.get_collection()
         for interface in interfaces:
             macs.append(interface.macAddress)
         return macs
@@ -111,7 +111,7 @@ class SystemHelper(object):
     def get_interface_macaddresses_dict(self, bigip):
         # Get dictionary of mac addresses keyed by their interface name
         mac_dict = {}
-        interfaces = bigip.net.interfaces.get_collection()
+        interfaces = bigip.tm.net.interfaces.get_collection()
         for interface in interfaces:
             mac_dict[interface.name] = interface.macAddress
         return mac_dict
