@@ -39,19 +39,20 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
 
         auth = ""
         if hasattr(conf, "auth_version"):
-            if conf.auth_version == "keystone_v2":
+            if conf.auth_version == "v2" or conf.auth_version == "v2.0":
                 auth = identity.v2.Password(
-                    username=conf.keystone_username,
-                    password=conf.keystone_password,
-                    tenant_name=conf.keystone_tenant_name,
-                    auth_url=conf.keystone_auth_url)
-            elif conf.auth_version == "keystone_v3":
+                    username=conf.os_username,
+                    password=conf.os_password,
+                    tenant_name=conf.os_tenant_name,
+                    auth_url=conf.os_auth_url)
+            elif conf.auth_version == "v3":
                 auth = identity.v3.Password(
-                    username=conf.keystone_username,
-                    user_domain_name=conf.keystone_user_domain_name,
-                    password=conf.keystone_password,
-                    project_name=conf.keystone_project_name,
-                    auth_url=conf.keystone_auth_url)
+                    username=conf.os_username,
+                    user_domain_name=conf.os_user_domain_name,
+                    password=conf.os_password,
+                    project_domain_name=conf.os_project_domain_name,
+                    project_name=conf.os_project_name,
+                    auth_url=conf.os_auth_url)
 
         if auth:
             sess = session.Session(auth=auth)

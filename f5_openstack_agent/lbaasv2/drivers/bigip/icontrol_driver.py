@@ -56,6 +56,9 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
 LOG = logging.getLogger(__name__)
+hdlr = logging.FileHandler('/var/tmp/myapp.log')
+
+
 NS_PREFIX = 'qlbaas-'
 __VERSION__ = '0.1.1'
 
@@ -223,7 +226,7 @@ OPTS = [
     cfg.StrOpt(
         'auth_version',
         default=None,
-        help='Keystone authentication version for Barbican client.'
+        help='Keystone authentication version (v2 or v3) for Barbican client.'
     ),
     cfg.StrOpt(
         'barbican_endpoint',
@@ -231,34 +234,39 @@ OPTS = [
         help='Barbican endpoint to use when no authentication is specified.'
     ),
     cfg.StrOpt(
-        'barbican_project_id',
+        'os_project_id',
         default='service',
-        help='Barbican project ID.'
+        help='OpenStack project ID.'
     ),
     cfg.StrOpt(
-        'keystone_auth_url',
+        'os_auth_url',
         default=None,
-        help='Keytstone authentication URL.'
+        help='OpenStack authentication URL.'
     ),
     cfg.StrOpt(
-        'keystone_username',
+        'os_username',
         default=None,
-        help='Keystone user name.'
+        help='OpenStack user name for Keystone authentication..'
     ),
     cfg.StrOpt(
-        'keystone_user_domain_name',
+        'os_user_domain_name',
         default=None,
-        help='User domain name used for Keystone authentication.'
+        help='OpenStack user domain name for Keystone authentication.'
     ),
     cfg.StrOpt(
-        'keystone_project_name',
+        'os_project_name',
         default=None,
-        help='Project name used for Keystone authentication.'
+        help='OpenStack project name for Keystone authentication.'
     ),
     cfg.StrOpt(
-        'keystone_project_domain_name',
+        'os_project_domain_name',
         default=None,
-        help='Project domain name used for Keystone v3 authentication.'
+        help='OpenStack domain name for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'os_password',
+        default=None,
+        help='OpenStack user password for Keystone authentication.'
     )
 ]
 
