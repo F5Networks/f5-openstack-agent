@@ -56,7 +56,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
 LOG = logging.getLogger(__name__)
-hdlr = logging.FileHandler('/var/tmp/myapp.log')
 
 
 NS_PREFIX = 'qlbaas-'
