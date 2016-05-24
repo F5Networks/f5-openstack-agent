@@ -139,10 +139,10 @@ class ListenerServiceBuilder(object):
                                       err.message))
 
     def add_ssl_profile(self, tls, bigip):
-        if "default_tls_container_ref" in tls:
-            container_ref = tls["default_tls_container_ref"]
+        if "default_tls_container_id" in tls:
+            container_ref = tls["default_tls_container_id"]
             cert = self.cert_manager.get_certificate(container_ref)
-            key = self.cert_manager.get_key(container_ref)
+            key = self.cert_manager.get_private_key(container_ref)
             name = self.cert_manager.get_name(container_ref)
 
             # upload cert/key and create SSL profile
