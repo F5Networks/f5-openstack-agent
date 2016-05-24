@@ -95,7 +95,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'includes']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -310,12 +310,12 @@ texinfo_documents = [
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'heat': (
     'http://f5-openstack-heat.readthedocs.io/en/liberty', None),
-    'heat-plugins': (
+    'heatplugins': (
     'http://f5-openstack-heat-plugins.readthedocs.io/en/liberty', None),
     'lbaasv1': (
     'http://f5-openstack-lbaasv1.readthedocs.io/en/liberty/', None),
-    'lbaasv2-driver': (
+    'lbaasv2driver': (
     'http://f5-openstack-lbaasv2-driver.readthedocs.io/en/liberty/', None),
-    'f5-sdk': (
+    'f5sdk': (
     'http://f5-sdk.readthedocs.io/en/latest/', None),
     }

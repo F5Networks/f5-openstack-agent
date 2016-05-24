@@ -24,7 +24,7 @@ f5-openstack-agent
 Introduction
 ------------
 
-The F5® OpenStack agent translates from 'OpenStack' to 'F5®'. It uses the `f5-sdk <f5-sdk:home>` to translate OpenStack messaging calls -- such as those from the Neutron RPC messaging queue -- into iControl® REST calls to F5® products, such as BIG-IP®.
+The F5® OpenStack agent translates from 'OpenStack' to 'F5®'. It uses the `f5-sdk <f5sdk:home>` to translate OpenStack messaging calls -- such as those from the Neutron RPC messaging queue -- into iControl® REST calls to F5® products, such as BIG-IP®.
 
 Documentation
 -------------
