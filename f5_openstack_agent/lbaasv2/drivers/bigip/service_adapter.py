@@ -336,11 +336,10 @@ class ServiceModelAdapter(object):
     def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
 
-        virtual_type = 'fastl4'
+        virtual_type = 'standard'
         if 'protocol' in listener:
-            if (listener['protocol'] == 'HTTP' or
-               listener['protocol'] == 'HTTPS'):
-                virtual_type = 'standard'
+            if listener['protocol'] == 'TCP':
+                virtual_type = 'fastl4'
 
         if 'session_persistence' in listener:
             persistence_type = listener['session_persistence']
@@ -437,10 +436,10 @@ class ServiceModelAdapter(object):
     def get_tls(self, service):
         tls = {}
         listener = service['listener']
-        if 'default_tls_container_ref' in listener and \
-                listener['default_tls_container_ref']:
-            tls['default_tls_container_ref'] = \
-                listener['default_tls_container_ref']
+        if 'default_tls_container_id' in listener and \
+                listener['default_tls_container_id']:
+            tls['default_tls_container_id'] = \
+                listener['default_tls_container_id']
 
         if 'sni_container_refs' in listener and listener['sni_container_refs']:
             tls['sni_container_refs'] = listener['sni_container_refs']

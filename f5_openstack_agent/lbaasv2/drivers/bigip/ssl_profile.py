@@ -59,9 +59,10 @@ class SSLProfileHelper(object):
             key_registrar.install_key(certfilename, keyfilename)
 
             # create ssl-client profile
-            ssl_client_profile.create(
-                certname='/Common/' + certfilename,
-                keyname='/Common/' + keyfilename)
+            chain = [{'name': name,
+                      'cert': '/Common/' + certfilename,
+                      'key': '/Common/' + keyfilename}]
+            ssl_client_profile.create(name=name, certKeyChain=chain)
         except HTTPError as err:
             LOG.error("Error uploading cert/key %s"
                       "Repsponse status code: %s. Response "
