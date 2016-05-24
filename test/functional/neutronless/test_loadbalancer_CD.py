@@ -37,7 +37,7 @@ from pycallgraph.output import GraphvizOutput
 
 from urlparse import urlsplit
 osd = os.path.dirname
-DISTRIBUTIONROOT = osd(osd(osd(__file__)))
+DISTRIBUTIONROOT = osd(osd(osd(osd(__file__))))
 del osd
 SERVICELIBDIR = os.path.join(DISTRIBUTIONROOT,
                              'devtools',

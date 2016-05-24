@@ -103,8 +103,7 @@ class BigIPResourceHelper(object):
         """
         resource = self._resource(bigip)
         if resource.exists(name=name, partition=partition):
-            obj = resource.load(name=name, partition=partition)
-            obj.delete()
+            resource.load(name=name, partition=partition).delete()
 
     def load(self, bigip, name=None, partition=None):
         u"""Retrieve a BIG-IP® resource from a BIG-IP®.
@@ -117,8 +116,7 @@ class BigIPResourceHelper(object):
         :param partition: Partition name for resource.
         :returns: created or updated resource object.
         """
-        resource = self._resource(bigip)
-        return resource.load(name=name, partition=partition)
+        return self._resource(bigip).load(name=name, partition=partition)
 
     def update(self, bigip, model):
         u"""Update a resource (e.g., pool) on a BIG-IP® system.
@@ -197,7 +195,7 @@ class BigIPResourceHelper(object):
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains.route_domain,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels_s.tunnels.tunnel
+                lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -233,7 +231,7 @@ class BigIPResourceHelper(object):
             ResourceType.arp:
                 lambda bigip: bigip.tm.net.arps,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels_s.tunnels,
+                lambda bigip: bigip.tm.net.tunnels.tunnels,
         }
 
         if self.resource_type in collection_map:

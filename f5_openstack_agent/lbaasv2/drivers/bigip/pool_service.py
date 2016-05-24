@@ -86,7 +86,6 @@ class PoolServiceBuilder(object):
         hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
         pool = self.service_adapter.get_pool(service)
-
         for bigip in bigips:
             hm_helper.create(bigip, hm)
 
