@@ -74,6 +74,10 @@ class BigipTenantManager(object):
                     raise f5ex.SystemCreationException(
                         "Folder creation error for tenant %s" %
                         (tenant_id))
+            if not self.driver.disconnected_service.network_exists(
+                    bigip, folder_name):
+                self.driver.disconnected_service.create_network(
+                    bigip, folder_name)
 
         # create tenant route domain
         if self.conf.use_namespaces:
@@ -112,8 +116,10 @@ class BigipTenantManager(object):
         partition = self.service_adapter.get_folder_name(tenant_id)
         domain_names = self.network_helper.get_route_domain_names(bigip,
                                                                   partition)
-        for domain_name in domain_names:
-            try:
+        self.driver.disconnected_service.delete_network(bigip, partition)
+
+        if domain_names:
+            for domain_name in domain_names:
                 self.network_helper.delete_route_domain(bigip,
                                                         partition,
                                                         domain_name)

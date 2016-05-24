@@ -40,6 +40,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
+from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
+    DisconnectedService
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import \
@@ -265,6 +267,9 @@ OPTS = [  # XXX maybe we should make this a dictionary
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '
         'for listeners with TERMINATED_HTTPS protocols.'
+    cfg.IntOpt(
+        'disconnected_network_polling_interval', default=10,
+        help='Seconds between periodic scans for disconnected virtual servers'
     )
 ]
 
@@ -317,6 +322,8 @@ class iControlDriver(LBaaSBaseDriver):
         self.vlan_binding = None
         self.l3_binding = None
         self.cert_manager = None # overrides register_OPTS
+        # The following must not be None if/when assure_tenant_created called
+        self.disconnected_service = None
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -421,6 +428,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
         self.lbaas_builder = LBaaSBuilder(self.conf, self)
+        self.disconnected_service = DisconnectedService(self)
 
         if self.conf.f5_global_routed_mode:
             self.network_builder = None
