@@ -42,6 +42,13 @@ class NetworkHelper(object):
         'port': const.VXLAN_UDP_PORT
     }
 
+    ppp_profile_defaults = {
+        'name': None,
+        'partition': const.DEFAULT_PARTITION,
+        'defaultsFrom': 'ppp',
+        'floodingType': 'none',
+    }
+
     route_domain_defaults = {
         'name': None,
         'partition': '/' + const.DEFAULT_PARTITION,
@@ -74,6 +81,35 @@ class NetworkHelper(object):
             payload['partition'] = partition
             p.create(**payload)
         return p
+
+    @log_helpers.log_method_call
+    def create_ppp_profile(self, bigip, name,
+                           partition=const.DEFAULT_PARTITION):
+        p = bigip.net.tunnels_s.ppps.ppp
+        if p.exists(name=name, partition=partition):
+            p.load(name=name, partition=partition)
+        else:
+            payload = NetworkHelper.ppp_profile_defaults
+            payload['name'] = name
+            payload['partition'] = partition
+            p.create(**payload)
+        return p
+
+    @log_helpers.log_method_call
+    def create_tunnel(self, bigip, model):
+        payload = {'name': model.get('name', None),
+                   'partition': model.get('partition',
+                                          const.DEFAULT_PARTITION),
+                   'profile': model.get('profile', None)}
+        description = model.get('description', None)
+        if description:
+            payload['description'] = description
+        t = bigip.net.tunnels_s.tunnels.tunnel
+        if t.exists(name=payload['name'], partition=payload['partition']):
+            t.load(name=payload['name'], partition=payload['partition'])
+        else:
+            t.create(**payload)
+        return t
 
     @log_helpers.log_method_call
     def create_multipoint_tunnel(self, bigip, model):
