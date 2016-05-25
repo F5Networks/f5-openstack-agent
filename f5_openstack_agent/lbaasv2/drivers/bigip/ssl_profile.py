@@ -70,7 +70,6 @@ class SSLProfileHelper(object):
                                       certKeyChain=chain,
                                       sniDefault=sni_default)
         except HTTPError as err:
-            print "ERROR " + err.message
             LOG.error("Error uploading cert/key %s"
                       "Repsponse status code: %s. Response "
                       "message: %s." % (certpath,
