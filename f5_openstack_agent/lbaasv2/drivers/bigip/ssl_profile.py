@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 class SSLProfileHelper(object):
 
     @staticmethod
-    def create_client_ssl_profile(bigip, name, cert, key):
+    def create_client_ssl_profile(bigip, name, cert, key, sni_default=False):
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
@@ -66,7 +66,9 @@ class SSLProfileHelper(object):
             chain = [{'name': name,
                       'cert': '/Common/' + certfilename,
                       'key': '/Common/' + keyfilename}]
-            ssl_client_profile.create(name=name, certKeyChain=chain)
+            ssl_client_profile.create(name=name,
+                                      certKeyChain=chain,
+                                      sniDefault=sni_default)
         except HTTPError as err:
             LOG.error("Error uploading cert/key %s"
                       "Repsponse status code: %s. Response "

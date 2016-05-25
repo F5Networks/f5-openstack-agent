@@ -436,12 +436,13 @@ class ServiceModelAdapter(object):
     def get_tls(self, service):
         tls = {}
         listener = service['listener']
-        if 'default_tls_container_id' in listener and \
-                listener['default_tls_container_id']:
-            tls['default_tls_container_id'] = \
-                listener['default_tls_container_id']
+        if listener['protocol'] == 'TERMINATED_HTTPS':
+            if 'default_tls_container_id' in listener and \
+                    listener['default_tls_container_id']:
+                tls['default_tls_container_id'] = \
+                    listener['default_tls_container_id']
 
-        if 'sni_container_refs' in listener and listener['sni_container_refs']:
-            tls['sni_container_refs'] = listener['sni_container_refs']
+            if 'sni_containers' in listener and listener['sni_containers']:
+                tls['sni_containers'] = listener['sni_containers']
 
         return tls
