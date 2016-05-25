@@ -411,8 +411,7 @@ class ListenerServiceBuilder(object):
             # by another virtual server.
             LOG.debug(
                 "Unable to delete profile %s. "
-                "Response message: %s." % (profile_name,
-                err.message))
+                "Response message: %s." % (profile_name, err.message))
 
     def _remove_cookie_persist_rule(self, vip, bigip):
         """Deletes cookie persist rule.
