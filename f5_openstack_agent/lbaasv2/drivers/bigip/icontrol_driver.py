@@ -34,7 +34,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from f5.bigip import BigIP
+from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
@@ -56,6 +56,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
 LOG = logging.getLogger(__name__)
+
+
 NS_PREFIX = 'qlbaas-'
 __VERSION__ = '0.1.1'
 
@@ -212,6 +214,58 @@ OPTS = [
         'max_namespaces_per_tenant', default=1,
         help='How many routing tables the BIG-IP will allocate per tenant'
              ' in order to accommodate overlapping IP subnets'
+    ),
+    cfg.StrOpt(
+        'cert_manager',
+        default='f5_openstack_agent.lbaasv2.drivers.bigip.barbican_cert.'
+                'BarbicanCertManager',
+        help='Class name of the certificate mangager used for retrieving '
+             'certificates and keys.'
+    ),
+    cfg.StrOpt(
+        'auth_version',
+        default=None,
+        help='Keystone authentication version (v2 or v3) for Barbican client.'
+    ),
+    cfg.StrOpt(
+        'barbican_endpoint',
+        default='http://10.190.4.169:9311',
+        help='Barbican endpoint to use when no authentication is specified.'
+    ),
+    cfg.StrOpt(
+        'os_project_id',
+        default='service',
+        help='OpenStack project ID.'
+    ),
+    cfg.StrOpt(
+        'os_auth_url',
+        default=None,
+        help='OpenStack authentication URL.'
+    ),
+    cfg.StrOpt(
+        'os_username',
+        default=None,
+        help='OpenStack user name for Keystone authentication..'
+    ),
+    cfg.StrOpt(
+        'os_user_domain_name',
+        default=None,
+        help='OpenStack user domain name for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'os_project_name',
+        default=None,
+        help='OpenStack project name for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'os_project_domain_name',
+        default=None,
+        help='OpenStack domain name for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'os_password',
+        default=None,
+        help='OpenStack user password for Keystone authentication.'
     )
 ]
 
@@ -262,6 +316,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.service_adapter = None
         self.vlan_binding = None
         self.l3_binding = None
+        self.cert_manager = None
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -343,6 +398,18 @@ class iControlDriver(LBaaSBaseDriver):
         else:
             LOG.debug('No L3 binding driver configured.'
                       ' No L3 binding will be done.')
+
+        if self.conf.cert_manager:
+            try:
+                self.cert_manager = importutils.import_object(
+                    self.conf.cert_manager, self.conf)
+            except ImportError:
+                self.cert_manager = None
+                LOG.error('Failed to import CertManager: %s'
+                          % self.conf.cert_manager)
+
+        if not self.cert_manager:
+            LOG.debug('No CertManager is configured.')
 
         self.service_adapter = ServiceModelAdapter(self.conf)
         self.tenant_manager = BigipTenantManager(self.conf, self)
@@ -448,9 +515,9 @@ class iControlDriver(LBaaSBaseDriver):
         LOG.info('Opening iControl connection to %s @ %s' %
                  (self.conf.icontrol_username, hostname))
 
-        return BigIP(hostname,
-                     self.conf.icontrol_username,
-                     self.conf.icontrol_password)
+        return ManagementRoot(hostname,
+                              self.conf.icontrol_username,
+                              self.conf.icontrol_password)
 
     def _init_bigip(self, bigip, hostname, check_group_name=None):
         # Prepare a bigip for usage

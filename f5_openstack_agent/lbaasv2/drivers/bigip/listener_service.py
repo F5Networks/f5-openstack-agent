@@ -18,6 +18,8 @@ from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip.ssl_profile import \
+    SSLProfileHelper
 
 LOG = logging.getLogger(__name__)
 
@@ -30,7 +32,9 @@ class ListenerServiceBuilder(object):
     defined in service object to a BIG-IP® virtual server.
     """
 
-    def __init__(self, service_adapter):
+    def __init__(self, service_adapter, cert_manager):
+        self.cert_manager = cert_manager
+
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
         self.service_adapter = service_adapter
@@ -46,10 +50,22 @@ class ListenerServiceBuilder(object):
         :param bigips: Array of BigIP class instances to create Listener.
         """
         vip = self.service_adapter.get_virtual(service)
+        tls = self.service_adapter.get_tls(service)
+        if tls:
+            tls['name'] = vip['name']
+            tls['partition'] = vip['partition']
 
         for bigip in bigips:
             try:
                 self.vs_helper.create(bigip, vip)
+
+                if tls:
+                    try:
+                        self.add_ssl_profile(tls, bigip)
+                    except Exception as err:
+                        LOG.error("Error creating SSL profiles: %s" %
+                                  err.message)
+
             except HTTPError as err:
                 LOG.error("Error creating virtual server for listener %s "
                           "on BIG-IP %s. Repsponse status code: %s. Response "
@@ -106,11 +122,20 @@ class ListenerServiceBuilder(object):
         :param bigips: Array of BigIP class instances to delete Listener.
         """
         vip = self.service_adapter.get_virtual_name(service)
+        tls = self.service_adapter.get_tls(service)
+        if tls:
+            tls['name'] = vip['name']
+            tls['partition'] = vip['partition']
+
         for bigip in bigips:
             try:
                 self.vs_helper.delete(bigip,
                                       name=vip["name"],
                                       partition=vip["partition"])
+
+                # delete ssl profiles
+                if tls:
+                    self.remove_ssl_profiles(tls, bigip)
             except HTTPError as err:
                 LOG.error(
                     "Error deleting virtual server for listener %s "
@@ -119,6 +144,35 @@ class ListenerServiceBuilder(object):
                                       bigip.device_name,
                                       err.response.status_code,
                                       err.message))
+
+    def add_ssl_profile(self, tls, bigip):
+        # add profile to virtual server
+        vip = {'name': tls['name'],
+               'partition': tls['partition']}
+
+        if "default_tls_container_id" in tls:
+            container_ref = tls["default_tls_container_id"]
+            self.create_ssl_profile(container_ref, bigip, vip, True)
+
+        if "sni_containers" in tls and tls["sni_containers"]:
+            for container in tls["sni_containers"]:
+                container_ref = container["tls_container_id"]
+                self.create_ssl_profile(container_ref, bigip, vip, False)
+
+    def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False):
+        cert = self.cert_manager.get_certificate(container_ref)
+        key = self.cert_manager.get_private_key(container_ref)
+
+        # to prevent name collisions, create name from container UUID
+        i = container_ref.rindex("/") + 1
+        name = self.service_adapter.prefix + container_ref[i:]
+
+        # upload cert/key and create SSL profile
+        SSLProfileHelper.create_client_ssl_profile(
+            bigip, name, cert, key, sni_default=sni_default)
+
+        # add ssl profile to virtual server
+        self._add_profile(vip, name, bigip, context='clientside')
 
     def update_listener(self, service, bigips):
         """Update Listener from a single BIG-IP® system.
@@ -159,7 +213,7 @@ class ListenerServiceBuilder(object):
         vip = self.service_adapter.get_virtual_name(service)
         vip["pool"] = name
         for bigip in bigips:
-            v = bigip.ltm.virtuals.virtual
+            v = bigip.tm.ltm.virtuals.virtual
             if v.exists(name=vip["name"], partition=vip["partition"]):
                 v.load(name=vip["name"], partition=vip["partition"])
                 v.update(**vip)
@@ -194,7 +248,7 @@ class ListenerServiceBuilder(object):
                 self.vs_helper.update(bigip, vip_persist)
                 LOG.debug("Set persist %s" % vip["name"])
 
-    def _add_profile(self, vip, profile_name, bigip):
+    def _add_profile(self, vip, profile_name, bigip, context='all'):
         """Adds profile to virtual server instance. Assumes Common.
 
         :param vip: Dictionary which contains name and partition of
@@ -202,7 +256,7 @@ class ListenerServiceBuilder(object):
         :param profile_name: Name of profile to add.
         :param bigip: Single BigIP instances to update.
         """
-        v = bigip.ltm.virtuals.virtual
+        v = bigip.tm.ltm.virtuals.virtual
         v.load(name=vip["name"], partition=vip["partition"])
         p = v.profiles_s
         profiles = p.get_collection()
@@ -213,7 +267,7 @@ class ListenerServiceBuilder(object):
                 return
 
         # not found -- add profile (assumes Common partition)
-        p.profiles.create(name=profile_name, context='all')
+        p.profiles.create(name=profile_name, context=context)
         LOG.debug("Created profile %s" % profile_name)
 
     def _add_cookie_persist_rule(self, vip, persistence, bigip):
@@ -228,14 +282,14 @@ class ListenerServiceBuilder(object):
         rule_def = self._create_app_cookie_persist_rule(cookie_name)
         rule_name = 'app_cookie_' + vip['name']
 
-        r = bigip.ltm.rules.rule
+        r = bigip.tm.ltm.rules.rule
         if not r.exists(name=rule_name, partition=vip["partition"]):
             r.create(name=rule_name,
                      apiAnonymous=rule_def,
                      partition=vip["partition"])
             LOG.debug("Created rule %s" % rule_name)
 
-        u = bigip.ltm.persistences.universals.universal
+        u = bigip.tm.ltm.persistences.universals.universal
         if not u.exists(name=rule_name, partition=vip["partition"]):
             u.create(name=rule_name,
                      rule=rule_name,
@@ -294,6 +348,43 @@ class ListenerServiceBuilder(object):
                         self._remove_cookie_persist_rule(
                             vip, bigip)
 
+    def remove_ssl_profiles(self, tls, bigip):
+
+        if "default_tls_container_id" in tls and \
+                tls["default_tls_container_id"]:
+            container_ref = tls["default_tls_container_id"]
+            i = container_ref.rindex("/") + 1
+            name = self.service_adapter.prefix + container_ref[i:]
+            self._remove_ssl_profile(name, bigip)
+
+        if "sni_containers" in tls and tls["sni_containers"]:
+            for container in tls["sni_containers"]:
+                container_ref = container["tls_container_id"]
+                i = container_ref.rindex("/") + 1
+                name = self.service_adapter.prefix + container_ref[i:]
+                self._remove_ssl_profile(name, bigip)
+
+    def _remove_ssl_profile(self,  name, bigip):
+        """Deletes profile.
+
+        :param vip: Dictionary which contains name and partition of
+        virtual server.
+        :param profile_name: Name of profile to delete.
+        :param bigip: Single BigIP instances to update.
+        """
+        try:
+            ssl_client_profile = bigip.tm.ltm.profile.client_ssls.client_ssl
+            if ssl_client_profile.exists(name=name, partition='Common'):
+                ssl_client_profile.load(name=name, partition='Common')
+                ssl_client_profile.delete()
+
+        except HTTPError as err:
+            # Not necessarily an error -- profile might be referenced
+            # by another virtual server.
+            LOG.debug(
+                "Unable to delete profile %s. "
+                "Response message: %s." % (name, err.message))
+
     def _remove_profile(self, vip, profile_name, bigip):
         """Deletes profile.
 
@@ -302,35 +393,42 @@ class ListenerServiceBuilder(object):
         :param profile_name: Name of profile to delete.
         :param bigip: Single BigIP instances to update.
         """
-        v = bigip.ltm.virtuals.virtual
-        v.load(name=vip["name"], partition=vip["partition"])
-        p = v.profiles_s
-        profiles = p.get_collection()
+        try:
+            v = bigip.tm.ltm.virtuals.virtual
+            v.load(name=vip["name"], partition=vip["partition"])
+            p = v.profiles_s
+            profiles = p.get_collection()
 
-        # see if profile exists
-        for profile in profiles:
-            if profile.name == profile_name:
-                pr = p.profiles.load(name=profile_name)
-                pr.delete()
-                LOG.debug("Deleted profile %s" % profile)
-                return
+            # see if profile exists
+            for profile in profiles:
+                if profile.name == profile_name:
+                    pr = p.profiles.load(name=profile_name)
+                    pr.delete()
+                    LOG.debug("Deleted profile %s" % profile.name)
+                    return
+        except HTTPError as err:
+            # Not necessarily an error -- profile might be referenced
+            # by another virtual server.
+            LOG.debug(
+                "Unable to delete profile %s. "
+                "Response message: %s." % (profile_name, err.message))
 
     def _remove_cookie_persist_rule(self, vip, bigip):
         """Deletes cookie persist rule.
 
         :param vip: Dictionary which contains name and partition of
         virtual server.
-        :param bigips: Single BigIP instances to update.
+        :param bigip: Single BigIP instances to update.
         """
         rule_name = 'app_cookie_' + vip['name']
 
-        u = bigip.ltm.persistences.universals.universal
+        u = bigip.tm.ltm.persistences.universals.universal
         if u.exists(name=rule_name, partition=vip["partition"]):
             u.load(name=rule_name, partition=vip["partition"])
             u.delete()
             LOG.debug("Deleted persistence universal %s" % rule_name)
 
-        r = bigip.ltm.rules.rule
+        r = bigip.tm.ltm.rules.rule
         if r.exists(name=rule_name, partition=vip["partition"]):
             r.load(name=rule_name, partition=vip["partition"])
             r.delete()

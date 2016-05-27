@@ -417,7 +417,7 @@ class L2ServiceBuilder(object):
         # Wait for the VLAN to propagate to /Common on vCMP Guest
         full_path_vlan_name = '/Common/' + prefixed(vlan['name'])
         vlan_created = False
-        v = bigip.net.vlans.vlan
+        v = bigip.tm.net.vlans.vlan
         try:
             for _ in range(0, 30):
                 if v.exists(name=vlan['name'], partition='/Common'):
