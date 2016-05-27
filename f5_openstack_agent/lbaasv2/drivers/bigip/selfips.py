@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 
+import constants_v2 as const
 import netaddr
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
@@ -37,67 +39,78 @@ class BigipSelfIpManager(object):
         self.selfip_manager = BigIPResourceHelper(ResourceType.selfip)
         self.network_helper = NetworkHelper()
 
-    def create_bigip_selfip(self, bigip, model):
-        if not model['name']:
-            return False
-        LOG.debug("Getting selfip....")
-        s = bigip.tm.net.selfips.selfip
+    def _create_bigip_selfip(self, bigip, model):
+        created = False
+        if self.selfip_manager.exists(bigip, name=model['name'],
+                                      partition=model['partition']):
+            created = True
+        else:
+            try:
+                self.selfip_manager.create(bigip, model)
+                created = True
+            except HTTPError as err:
 
-        if s.exists(name=model['name'], partition=model['partition']):
-            LOG.debug("It exists!!!!")
-            return True
-        try:
-            LOG.debug("Doesn't exist!!!!")
-            self.selfip_manager.create(bigip, model)
-            LOG.debug("CREATED!!!!")
-        except HTTPError as err:
-            if err.response.status_code is not 400:
-                raise
-            if err.response.text.find("must be one of the vlans "
-                                      "in the associated route domain") > 0:
-                self.network_helper.add_vlan_to_domain(
-                    bigip,
-                    name=model['vlan'],
-                    partition=model['partition'])
-                try:
-                    self.selfip_manager.create(bigip, model)
-                except HTTPError as err:
-                    LOG.error("Error creating selfip %s. "
-                              "Repsponse status code: %s. Response "
-                              "message: %s." % (model["name"],
-                                                err.response.status_code,
-                                                err.message))
+                if (err.response.status_code == 400 and
+                    err.response.text.find(
+                        "must be one of the vlans "
+                        "in the associated route domain") > 0):
+                    try:
+                        self.network_helper.add_vlan_to_domain(
+                            bigip,
+                            name=model['vlan'],
+                            partition=model['partition'])
+                        self.selfip_manager.create(bigip, model)
+                        created = True
+                    except HTTPError as err:
+                        LOG.exception("Error creating selfip %s. "
+                                      "Repsponse status code: %s. "
+                                      "Response message: %s." % (
+                                          model["name"],
+                                          err.response.status_code,
+                                          err.message))
+                        raise f5_ex.SelfIPCreationException("selfip")
+                else:
+                    LOG.exception("selfip creation error: %s($s)",
+                                  err.message, err.response.status_code)
+                    raise
+            except Exception as err:
+                LOG.error("Failed to create selfip")
+                LOG.exception(err.message)
+                raise f5_ex.SelfIPCreationException("selfip creation")
+
+        return created
 
     def assure_bigip_selfip(self, bigip, service, subnetinfo):
+        u"""Ensure the BigIP has a selfip address on the tenant subnet."""
 
-        network = subnetinfo['network']
-        if not network:
+        network = None
+        subnet = None
+
+        if 'network' in subnetinfo:
+            network = subnetinfo['network']
+        if 'subnet' in subnetinfo:
+            subnet = subnetinfo['subnet']
+
+        if not network or not subnet:
             LOG.error('Attempted to create selfip and snats '
-                      'for network with no id... skipping.')
-            return
-        subnet = subnetinfo['subnet']
+                      'for network with not id...')
+            raise KeyError("network and subnet need to be specified")
 
         tenant_id = service['loadbalancer']['tenant_id']
+
         # If we have already assured this subnet.. return.
         # Note this cache is periodically cleared in order to
         # force assurance that the configuration is present.
         if tenant_id in bigip.assured_tenant_snat_subnets and \
                 subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
-            return
+            return True
 
         selfip_address = self._get_bigip_selfip_address(bigip, subnet)
-        # FIXME(Rich Browne): it is possible this is not set unless
-        # use namespaces is true.  I think this method is only called
-        # in the global_routed_mode == False case though.  Need to check
-        # that network['route_domain_id'] exists.
         if 'route_domain_id' not in network:
-            LOG.debug("NETWORK ROUTE DOMAIN NOT SET")
-            network['route_domain_id'] = "0"
-
-        LOG.debug("route domain id: %s" % network['route_domain_id'])
+            LOG.error("network route domain is not set")
+            raise KeyError()
 
         selfip_address += '%' + str(network['route_domain_id'])
-        LOG.debug("have selfip address: %s" % selfip_address)
 
         if self.l2_service.is_common_network(network):
             network_folder = 'Common'
@@ -105,11 +118,10 @@ class BigipSelfIpManager(object):
             network_folder = self.driver.service_adapter.\
                 get_folder_name(service['loadbalancer']['tenant_id'])
 
-        LOG.debug("getting network name")
+        # Get the name of the vlan.
         (network_name, preserve_network_name) = \
             self.l2_service.get_network_name(bigip, network)
 
-        LOG.debug("CREATING THE SELFIP--------------------")
         netmask = netaddr.IPNetwork(subnet['cidr']).prefixlen
         address = selfip_address + ("/%d" % netmask)
         model = {
@@ -119,17 +131,16 @@ class BigipSelfIpManager(object):
             "floating": "disabled",
             "partition": network_folder
         }
-        LOG.debug("Model: %s" % model)
-        self.create_bigip_selfip(bigip, model)
-        # TO DO: we need to only bind the local SelfIP to the
-        # local device... not treat it as if it was floating
-        LOG.debug("self ip CREATED!!!!!!")
+        self._create_bigip_selfip(bigip, model)
+
         if self.l3_binding:
             self.l3_binding.bind_address(subnet_id=subnet['id'],
                                          ip_address=selfip_address)
 
     def _get_bigip_selfip_address(self, bigip, subnet):
+        u"""Ensure a selfip address is allocated on Neutron network."""
         # Get ip address for selfip to use on BIG-IP®.
+        selfip_address = ""
         selfip_name = "local-" + bigip.device_name + "-" + subnet['id']
         ports = self.driver.plugin_rpc.get_port_by_name(port_name=selfip_name)
         if len(ports) > 0:
@@ -140,16 +151,34 @@ class BigipSelfIpManager(object):
                 mac_address=None,
                 name=selfip_name,
                 fixed_address_count=1)
-        return port['fixed_ips'][0]['ip_address']
+
+        if port and 'fixed_ips' in port:
+            fixed_ip = port['fixed_ips'][0]
+            selfip_address = fixed_ip['ip_address']
+
+        return selfip_address
 
     def assure_gateway_on_subnet(self, bigip, subnetinfo, traffic_group):
-        # Called for every bigip only in replication mode.
-        # Otherwise called once.
-        subnet = subnetinfo['subnet']
-        if subnet['id'] in bigip.assured_gateway_subnets:
-            return
+        """Ensure """
+        network = None
+        subnet = None
 
-        network = subnetinfo['network']
+        if 'network' in subnetinfo:
+            network = subnetinfo['network']
+        if 'subnet' in subnetinfo:
+            subnet = subnetinfo['subnet']
+
+        if not network or not subnet:
+            raise KeyError("network and subnet must be specified to create "
+                           "gateway on subnet.")
+
+        if not subnet['gateway_ip']:
+            raise KeyError("attempting to create gateway on subnet without "
+                           "gateway ip address specified.")
+
+        if subnet['id'] in bigip.assured_gateway_subnets:
+            return True
+
         (network_name, preserve_network_name) = \
             self.l2_service.get_network_name(bigip, network)
 
@@ -159,21 +188,22 @@ class BigipSelfIpManager(object):
             network_folder = self.driver.service_adapter.\
                 get_folder_name(subnet['tenant_id'])
 
-        # Select a traffic group for the floating SelfIP
+        # Create a floating SelfIP for the given traffic-group.
         floating_selfip_name = "gw-" + subnet['id']
-        netmask = netaddr.IPNetwork(subnet['cidr']).netmask
-
+        netmask = netaddr.IPNetwork(subnet['cidr']).prefixlen
+        address = subnet['gateway_ip'] + "%" + str(network['route_domain_id'])
+        address += ("/%d" % (netmask))
         model = {
             'name': floating_selfip_name,
-            'ip_address': subnet['gateway_ip'],
-            'netmask': netmask,
-            'vlan_name': network_name,
+            'address': address,
+            'vlan': network_name,
             'floating': True,
-            'traffic_group': traffic_group,
-            'partition': network_folder,
-            'preserve_vlan_name': preserve_network_name
+            'traffic-group': traffic_group,
+            'partition': network_folder
         }
-        self.create_bigip_selfip(bigip, model)
+
+        if not self._create_bigip_selfip(bigip, model):
+            LOG.error("failed to create gateway selfip")
 
         if self.l3_binding:
             self.l3_binding.bind_address(subnet_id=subnet['id'],
@@ -183,39 +213,59 @@ class BigipSelfIpManager(object):
         gw_name = "gw-" + subnet['id']
         vs = bigip.tm.ltm.virtuals.virtual
         if not vs.exists(name=gw_name, partition=network_folder):
-            vs.create(
-                name=gw_name,
-                partition=network_folder,
-                destination='0.0.0.0:0',
-                mask='0.0.0.0',
-                vlansEnabled=True,
-                vlans=[network_name],
-                sourceAddressTranslation={'type': 'automap'},
-                ipForward=True
-            )
-        else:
-            vs.load(name=gw_name, partition=network_folder)
+            try:
+                vs.create(
+                    name=gw_name,
+                    partition=network_folder,
+                    destination='0.0.0.0',
+                    mask='0.0.0.0',
+                    vlansEnabled=True,
+                    vlans=[network_name],
+                    sourceAddressTranslation={'type': 'automap'},
+                    ipForward=True
+                )
+            except Exception:
+                raise f5_ex.VirtualServerCreationException(
+                    "Failed to create gateway virtual service on subnet %s",
+                    subnet['id']
+                )
+
+        # Put the virtual server address in the specified traffic group
         virtual_address = bigip.tm.ltm.virtual_address_s.virtual_address
-        virtual_address.load(name='0.0.0.0:0', partition=network_folder)
-        virtual_address.update(trafficGroup=traffic_group)
+        try:
+            virtual_address.load(name='0.0.0.0', partition=network_folder)
+            virtual_address.update(trafficGroup=traffic_group)
+        except Exception:
+            raise f5_ex.VirtualServerCreationException(
+                "Failed to add virtual address to traffic group %s",
+                traffic_group)
+
         bigip.assured_gateway_subnets.append(subnet['id'])
 
     def delete_gateway_on_subnet(self, bigip, subnetinfo):
-        # Called for every bigip only in replication mode.
-        # Otherwise called once.
-        network = subnetinfo['network']
-        if not network:
-            LOG.error('Attempted to delete default gateway '
-                      'for network with no id... skipping.')
-            return
-        subnet = subnetinfo['subnet']
+        network = None
+        subnet = None
+
+        if 'network' in subnetinfo:
+            network = subnetinfo['network']
+        if 'subnet' in subnetinfo:
+            subnet = subnetinfo['subnet']
+
+        if not network or not subnet:
+            LOG.error('Attempted to create selfip and snats '
+                      'for network with no id...')
+            raise KeyError("network and subnet must be specified")
+
+        if not subnet['gateway_ip']:
+            raise KeyError("attempting to create gateway on subnet without "
+                           "gateway ip address specified.")
+
         if self.l2_service.is_common_network(network):
             network_folder = 'Common'
         else:
             network_folder = self.driver.service_adapter.\
                 get_folder_name(subnet['tenant_id'])
 
-        floating_selfip_name = "gw-" + subnet['id']
         if self.driver.conf.f5_populate_static_arp:
             self.network_helper.arp_delete_by_subnet(
                 bigip,
@@ -224,7 +274,8 @@ class BigipSelfIpManager(object):
                 mask=None
             )
 
-        self.network_helper.delete_selfip(
+        floating_selfip_name = "gw-" + subnet['id']
+        self.delete_selfip(
             bigip, floating_selfip_name, network_folder)
 
         if self.l3_binding:
@@ -232,12 +283,87 @@ class BigipSelfIpManager(object):
                                            ip_address=subnet['gateway_ip'])
 
         gw_name = "gw-" + subnet['id']
-
         vs = bigip.tm.ltm.virtuals.virtual
-        if vs.exists(name=gw_name, partition=network_folder):
-            vs.load(name=gw_name, partition=network_folder)
-            vs.delete()
+        try:
+            if vs.exists(name=gw_name, partition=network_folder):
+                vs.load(name=gw_name, partition=network_folder)
+                vs.delete()
+        except Exception:
+            raise f5_ex.VirtualServerDeleteException(
+                "Failed to delete gateway service on subnet %s", subnet['id'])
 
         if subnet['id'] in bigip.assured_gateway_subnets:
             bigip.assured_gateway_subnets.remove(subnet['id'])
+
         return gw_name
+
+    def get_selfip_addr(self, bigip, name, partition=const.DEFAULT_PARTITION):
+        selfip_addr = ""
+        try:
+            s = bigip.tm.net.selfips.selfip
+            if s.exists(name=name, partition=partition):
+                s.load(name=name, partition=partition)
+
+                # The selfip address on BigIP is actually a network,
+                # parse out the address portion.
+                if s.address:
+                    (selfip_addr, netbits) = s.address.split("/")
+
+        except HTTPError as err:
+            LOG.exception("Error getting selfip address for %s. "
+                          "Repsponse status code: %s. Response "
+                          "message: %s." % (name,
+                                            err.response.status_code,
+                                            err.message))
+        except Exception as err:
+            LOG.exception("Error getting selfip address for %s.",
+                          name)
+
+        return selfip_addr
+
+    def get_selfips(self, bigip, partition=const.DEFAULT_PARTITION,
+                    vlan_name=None):
+        selfips_list = []
+
+        if vlan_name:
+            if not vlan_name.startswith('/'):
+                vlan_name = "/%s/%s" % (partition, vlan_name)
+
+        params = {'params': {'$filter': 'partition eq %s' % partition}}
+        try:
+            selfips_list = [selfip for selfip in
+                            bigip.tm.net.selfips.get_collection(
+                                requests_params=params
+                            )
+                            if vlan_name == selfip.vlan or not vlan_name]
+        except HTTPError as err:
+            LOG.exception("Error getting selfips for vlan(%s). "
+                          "Response status code: %s. "
+                          "Response message: %s." % (
+                              vlan_name,
+                              err.response.status_code,
+                              err.message))
+            raise f5_ex.SelfIPQueryException(
+                "Failed to get selfips assigned to vlan")
+
+        return selfips_list
+
+    def delete_selfip(self, bigip, name, partition=const.DEFAULT_PARTITION):
+        """Delete the selfip if it exists."""
+        try:
+            s = bigip.tm.net.selfips.selfip
+            if s.exists(name=name, partition=partition):
+                s.load(name=name, partition=partition)
+                s.delete()
+        except HTTPError as err:
+            LOG.exception("Error deleting selfip %s. "
+                          "Response status code: %s. Response "
+                          "message: %s." % (name,
+                                            err.response.status_code,
+                                            err.message))
+            raise f5_ex.SelfIPDeleteException(
+                "Failed to delete selfip %s." % name)
+
+        except Exception as err:
+            raise f5_ex.SelfIPDeleteException(
+                "Failed to delete selfip %s." % name)

@@ -307,7 +307,7 @@ class LBaaSv2PluginRPC(object):
         try:
             port = self._call(
                 self.context,
-                self._make_msg('create_port_on_subnet',
+                self._make_msg('create_port_on_subnet_with_specific_ip',
                                subnet_id=subnet_id,
                                mac_address=mac_address,
                                name=name,
