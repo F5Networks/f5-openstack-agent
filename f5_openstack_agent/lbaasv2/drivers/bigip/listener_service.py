@@ -17,9 +17,9 @@
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
     DisconnectedService
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.ssl_profile import \
     SSLProfileHelper
 
@@ -60,7 +60,6 @@ class ListenerServiceBuilder(object):
         # start the virtual server on a disconnected network if the neutron
         # network does not yet exist
         if not self.disconnected_service.is_service_connected(service):
-            tenant_id = service['listener']["tenant_id"]
             network_name = DisconnectedService.network_name
             vip['vlansEnabled'] = True
             vip['vlans'] = [

@@ -52,8 +52,10 @@ class BigipTenantManager(object):
             if not self.system_helper.folder_exists(bigip, folder_name):
                 folder = self.service_adapter.get_folder(service)
                 self.system_helper.create_folder(bigip, folder)
-            if not self.driver.disconnected_service.network_exists(bigip, folder_name):
-                self.driver.disconnected_service.create_network(bigip, folder_name)
+            if not self.driver.disconnected_service.network_exists(
+                    bigip, folder_name):
+                self.driver.disconnected_service.create_network(
+                    bigip, folder_name)
 
         # folder must sync before route domains are created.
         self.driver.sync_if_clustered()
@@ -90,7 +92,8 @@ class BigipTenantManager(object):
         partition = self.service_adapter.get_folder_name(tenant_id)
         domain_names = self.network_helper.get_route_domain_names(bigip,
                                                                   partition)
-        self.driver.disconnected_service.delete_network(bigip, partition)
+        if self.driver.disconnected_service.network_exists(bigip, partition):
+            self.driver.disconnected_service.delete_network(bigip, partition)
 
         if domain_names:
             for domain_name in domain_names:
