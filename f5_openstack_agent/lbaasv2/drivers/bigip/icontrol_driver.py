@@ -541,7 +541,7 @@ class iControlDriver(LBaaSBaseDriver):
         if self.conf.f5_ha_type == 'scalen' and \
                 self.cluster_manager.get_sync_status(bigip) == 'Standalone':
             raise f5ex.BigIPClusterInvalidHA(
-                'HA mode is pair and bigip %s in standalone mode'
+                'HA mode is scalen and bigip %s in standalone mode'
                 % hostname)
 
         if self.conf.f5_ha_type != 'standalone':
@@ -578,10 +578,10 @@ class iControlDriver(LBaaSBaseDriver):
 
         if self.conf.f5_ha_type != 'standalone':
             if self.conf.f5_sync_mode == 'autosync':
-                self.cluster_manager.enable_auto_sync(bigip, device_group_name)
+                self.cluster_manager.enable_auto_sync(device_group_name, bigip)
             else:
-                self.cluster_manager.disable_auto_sync(bigip,
-                                                       device_group_name)
+                self.cluster_manager.disable_auto_sync(device_group_name,
+                                                       bigip)
 
         # Turn off tunnel syncing... our VTEPs are local SelfIPs
         if self.system_helper.get_tunnel_sync(bigip) == 'enable':
