@@ -28,10 +28,13 @@ LOG = logging.getLogger(__name__)
 class DisconnectedServicePolling(object):
     def __init__(self, driver):
         self.driver = driver
-        self.enabled = driver.conf.f5_network_segment_physical_network
+        self.enabled = (True if self.get_physical_network() else False)
         if self.enabled:
             greenthread.spawn(self.polling_thread)
         self.start_time = {}
+
+    def get_physical_network(self):
+        return self.driver.conf.f5_network_segment_physical_network
 
     def scan(self):
         """Periodically scan for disconnected virtual servers.
@@ -58,8 +61,10 @@ class DisconnectedServicePolling(object):
                         if timeutils.is_older_than(
                                 self.start_time[id],
                                 d.conf.f5_network_segment_gross_timeout):
-                            LOG.error("failed to connect loadbalancer %s to "
-                                      "a real network" % id)
+                            LOG.error(
+                                "TIMEOUT: failed to connect loadbalancer %s "
+                                "to a real network after %d seconds" %
+                                (id, d.conf.f5_network_segment_gross_timeout))
                             if (provisioning_status !=
                                     plugin_const.PENDING_DELETE):
                                 d.plugin_rpc.update_loadbalancer_status(id)
@@ -88,9 +93,11 @@ class DisconnectedServicePolling(object):
         while True:
             # Split out the actual scanning tech to accommodate migration
             # greeenthread to oslo periodic_task.
-            self.scan()
-            greenthread.sleep(
-                self.driver.conf.f5_network_segment_polling_interval)
+            try:
+                self.scan()
+            finally:
+                greenthread.sleep(
+                    self.driver.conf.f5_network_segment_polling_interval)
 
 
 class DisconnectedService(object):

@@ -367,6 +367,9 @@ class iControlDriver(LBaaSBaseDriver):
         self._init_bigip_managers()
         self.connect_bigips()
 
+        self.agent_configurations['network_segment_physical_network'] = \
+            self.disconnected_service_polling.get_physical_network()
+
         LOG.info('iControlDriver initialized to %d bigips with username:%s'
                  % (len(self.__bigips), self.conf.icontrol_username))
         LOG.info('iControlDriver dynamic agent configurations:%s'
