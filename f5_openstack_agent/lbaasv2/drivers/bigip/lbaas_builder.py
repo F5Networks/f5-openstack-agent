@@ -91,11 +91,13 @@ class LBaaSBuilder(object):
 
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
+        networks = service["networks"]
         bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
             svc = {"loadbalancer": loadbalancer,
-                   "listener": listener}
+                   "listener": listener,
+                   "networks": networks}
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
                     self.listener_builder.create_listener(svc, bigips)

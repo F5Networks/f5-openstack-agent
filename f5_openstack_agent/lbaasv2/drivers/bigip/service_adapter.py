@@ -381,6 +381,10 @@ class ServiceModelAdapter(object):
             else:
                 vip['sourceAddressTranslation']['type'] = 'automap'
 
+        # default values for pinning the VS to a specific VLAN set
+        vip['vlansEnabled'] = False
+        vip['vlans'] = []
+
     def _map_member(self, loadbalancer, lbaas_member):
         member = {}
         port = lbaas_member["protocol_port"]
