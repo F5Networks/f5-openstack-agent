@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import os
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -48,14 +49,14 @@ class SSLProfileHelper(object):
             # import certificate
             param_set = {}
             param_set['name'] = certfilename
-            param_set['from-local-file'] = \
-                '/var/config/rest/downloads/' + certfilename
+            param_set['from-local-file'] = os.path.join(
+                '/var/config/rest/downloads/', certfilename)
             cert_registrar.exec_cmd('install', **param_set)
 
             # import key
             param_set['name'] = keyfilename
-            param_set['from-local-file'] = \
-                '/var/config/rest/downloads/' + keyfilename
+            param_set['from-local-file'] = os.path.join(
+                '/var/config/rest/downloads/', keyfilename)
             key_registrar.exec_cmd('install', **param_set)
 
             # create ssl-client profile from cert/key pair
