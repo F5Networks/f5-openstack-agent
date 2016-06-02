@@ -897,12 +897,6 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in self.get_all_bigips():
             bigip.system.purge_orphaned_folders_contents(existing_tenants)
 
-        sudslog = std_logging.getLogger('suds.client')
-        sudslog.setLevel(std_logging.FATAL)
-        for bigip in self.get_all_bigips():
-            bigip.system.force_root_folder()
-        sudslog.setLevel(std_logging.ERROR)
-
         for bigip in self.get_all_bigips():
             bigip.system.purge_orphaned_folders(existing_tenants)
 
@@ -997,7 +991,16 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.error("_common_service_handler: Service loadbalancer is None")
             return
 
-        self.tenant_manager.assure_tenant_created(service)
+        try:
+            self.tenant_manager.assure_tenant_created(service)
+        except Exception as err:
+            LOG.error("Error deleting tenant partition. Message: %s"
+                      % err.message)
+            service['loadbalancer']['provisioning_status'] = (
+                plugin_const.ERROR
+            )
+            return self._update_service_status(service)
+
         LOG.debug("    _assure_tenant_created took %.5f secs" %
                   (time() - start_time))
 
