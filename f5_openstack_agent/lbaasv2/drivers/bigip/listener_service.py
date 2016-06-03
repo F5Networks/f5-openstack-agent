@@ -18,8 +18,7 @@ from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
-from f5_openstack_agent.lbaasv2.drivers.bigip.ssl_profile import \
-    SSLProfileHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 
 LOG = logging.getLogger(__name__)
 
@@ -162,14 +161,16 @@ class ListenerServiceBuilder(object):
     def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False):
         cert = self.cert_manager.get_certificate(container_ref)
         key = self.cert_manager.get_private_key(container_ref)
+        name = self.cert_manager.get_name(container_ref,
+                                          self.service_adapter.prefix)
 
-        # to prevent name collisions, create name from container UUID
-        i = container_ref.rindex("/") + 1
-        name = self.service_adapter.prefix + container_ref[i:]
-
-        # upload cert/key and create SSL profile
-        SSLProfileHelper.create_client_ssl_profile(
-            bigip, name, cert, key, sni_default=sni_default)
+        try:
+            # upload cert/key and create SSL profile
+            ssl_profile.SSLProfileHelper.create_client_ssl_profile(
+                bigip, name, cert, key, sni_default=sni_default)
+        finally:
+            del cert
+            del key
 
         # add ssl profile to virtual server
         self._add_profile(vip, name, bigip, context='clientside')
