@@ -215,14 +215,13 @@ class NetworkHelper(object):
 
         lowest_available_index = 1
         for i in range(len(rd_ids)):
-            if rd_ids[i] < lowest_available_index:
-                if len(rd_ids) > (i + 1):
-                    if rd_ids[i + 1] > lowest_available_index:
-                        return lowest_available_index
-                    else:
-                        lowest_available_index = lowest_available_index + 1
+            if lowest_available_index < rd_ids[i]:
+                break
             elif rd_ids[i] == lowest_available_index:
                 lowest_available_index = lowest_available_index + 1
+            else:
+                raise LookupError(
+                    "The list of route domain ids is out of order")
         else:
             return lowest_available_index
 

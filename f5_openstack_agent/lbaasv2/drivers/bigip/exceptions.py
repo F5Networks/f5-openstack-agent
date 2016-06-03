@@ -206,6 +206,22 @@ class RouteDeleteException(Exception):
     pass
 
 
+class RouteDomainCreationException(Exception):
+    pass
+
+
+class RouteDomainQueryException(Exception):
+    pass
+
+
+class RouteDomainUpdateException(Exception):
+    pass
+
+
+class RouteDomainDeleteException(Exception):
+    pass
+
+
 class RuleCreationException(Exception):
     pass
 
