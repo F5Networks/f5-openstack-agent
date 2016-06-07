@@ -20,7 +20,7 @@ from neutron.common.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
     L2ServiceBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -95,19 +95,17 @@ class NetworkServiceBuilder(object):
                     partition='Common')
 
                 # find the IP address for the selfip for each box
-                local_ip = self.network_helper.get_selfip_addr(
+                local_ip = self.bigip_selfip_manager.get_selfip_addr(
                     bigip,
                     vtep_selfip_name,
                     partition=vtep_folder
                 )
-                # FIXME(RJB) We need to make sure that the function is
-                # returning what we expect.
-                local_ip = local_ip.split("/")[0]
+
                 if local_ip:
                     bigip.local_ip = local_ip
                     local_ips.append(local_ip)
                 else:
-                    raise f5ex.MissingVTEPAddress(
+                    raise f5_ex.MissingVTEPAddress(
                         'device %s missing vtep selfip %s'
                         % (bigip.device_name,
                            '/' + vtep_folder + '/' +
@@ -142,9 +140,13 @@ class NetworkServiceBuilder(object):
                 self._assure_subnet_snats(assure_bigips, service, subnetinfo)
 
             if subnetinfo['is_for_member'] and not self.conf.f5_snat_mode:
-                self._allocate_gw_addr(subnetinfo)
+                try:
+                    self._allocate_gw_addr(subnetinfo)
+                except KeyError as err:
+                    raise f5_ex.VirtualServerCreationException(err.message)
+
                 for assure_bigip in assure_bigips:
-                    # if we are not using SNATS, attempt to become
+                    # If we are not using SNATS, attempt to become
                     # the subnet's default gateway.
                     self.bigip_selfip_manager.assure_gateway_on_subnet(
                         assure_bigip, subnetinfo, traffic_group)
@@ -379,7 +381,7 @@ class NetworkServiceBuilder(object):
         partition_id = self.service_adapter.get_folder_name(tenant_id)
         LOG.debug("Calling get_selfips with: partition %s and vlan_name %s",
                   partition_id, rd_vlan)
-        selfips = self.network_helper.get_selfips(
+        selfips = self.bigip_selfip_manager.get_selfips(
             bigip,
             partition=partition_id,
             vlan_name=rd_vlan
@@ -397,9 +399,8 @@ class NetworkServiceBuilder(object):
             subnet_id = selfip.name.split(bigip.device_name + '-')[1]
 
             # convert 10.1.1.1%1/24 to 10.1.1.1/24
-            addr = selfip.address.split('/')[0]
+            (addr, netbits) = selfip.address.split('/')
             addr = addr.split('%')[0]
-            netbits = selfip.address.split('/')[1]
             selfip.address = addr + '/' + netbits
 
             # selfip addresses will have slash notation: 10.1.1.1/24
@@ -491,12 +492,16 @@ class NetworkServiceBuilder(object):
         # will answer ARP for the members
         need_port_for_gateway = False
         network = subnetinfo['network']
-        if not network:
+        subnet = subnetinfo['subnet']
+        if not network or not subnet:
             LOG.error('Attempted to create default gateway'
-                      ' for network with no id.. skipping.')
+                      ' for network with no id...skipping.')
             return
 
-        subnet = subnetinfo['subnet']
+        if not subnet['gateway_ip']:
+            raise KeyError("attempting to create gateway on subnet without "
+                           "gateway ip address specified.")
+
         gw_name = "gw-" + subnet['id']
         ports = self.driver.plugin_rpc.get_port_by_name(port_name=gw_name)
         if len(ports) < 1:
@@ -518,7 +523,7 @@ class NetworkServiceBuilder(object):
                        exc.message)
                 ermsg += " SNAT will not function and load balancing"
                 ermsg += " support will likely fail. Enable f5_snat_mode."
-                LOG.error(ermsg)
+                LOG.exception(ermsg)
         return True
 
     def post_service_networking(self, service, all_subnet_hints):
@@ -591,8 +596,6 @@ class NetworkServiceBuilder(object):
 
             if "network_id" not in loadbalancer:
                 LOG.error("update_bigip_l2, expected network ID")
-                LOG.error(loadbalancer)
-                LOG.error(service)
                 return
 
             LOG.debug("update_bigip_l2 get network for ID %s" %
@@ -735,19 +738,23 @@ class NetworkServiceBuilder(object):
                 local_selfip_name = "local-" + bigip.device_name + \
                                     "-" + subnet['id']
 
-                selfip_address = self.network_helper.get_selfip_addr(
+                selfip_address = self.bigip_selfip_manager.get_selfip_addr(
                     bigip,
                     local_selfip_name,
                     partition=network_folder
                 )
 
-                self.network_helper.delete_selfip(
+                if not selfip_address:
+                    LOG.error("Failed to get self IP address %s in cleanup.",
+                              local_selfip_name)
+
+                self.bigip_selfip_manager.delete_selfip(
                     bigip,
                     local_selfip_name,
                     partition=network_folder
                 )
 
-                if self.l3_binding:
+                if self.l3_binding and selfip_address:
                     self.l3_binding.unbind_address(subnet_id=subnet['id'],
                                                    ip_address=selfip_address)
 

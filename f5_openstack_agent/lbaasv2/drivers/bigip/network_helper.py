@@ -135,41 +135,6 @@ class NetworkHelper(object):
                                         err.message))
         return None
 
-    @log_helpers.log_method_call
-    def get_selfips(self, bigip, partition=const.DEFAULT_PARTITION,
-                    vlan_name=None):
-        if not vlan_name.startswith('/'):
-            vlan_name = "/%s/%s" % (partition, vlan_name)
-        sc = bigip.tm.net.selfips
-        params = {'params': {'$filter': 'partition eq %s' % partition}}
-        selfips = sc.get_collection(requests_params=params)
-        selfips_list = []
-        for selfip in selfips:
-            if vlan_name and selfip.vlan != vlan_name:
-                LOG.debug("XXXXXXX vlan names don't match selfip.vlan %s "
-                          "and constructed vlan name %s",
-                          selfip.vlan, vlan_name)
-                continue
-            selfip.name = selfip.name
-            selfips_list.append(selfip)
-        return selfips_list
-
-    @log_helpers.log_method_call
-    def delete_selfip(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        """Delete the selfip if it exists."""
-        try:
-            s = bigip.tm.net.selfips.selfip
-            if s.exists(name=name, partition=partition):
-                s.load(name=name, partition=partition)
-                s.delete()
-        except HTTPError as err:
-            LOG.error("Error deleting selfip %s. "
-                      "Repsponse status code: %s. Response "
-                      "message: %s." % (name,
-                                        err.response.status_code,
-                                        err.message))
-
-    @log_helpers.log_method_call
     def route_domain_exists(self, bigip, partition=const.DEFAULT_PARTITION,
                             domain_id=None):
         if partition == 'Common':
