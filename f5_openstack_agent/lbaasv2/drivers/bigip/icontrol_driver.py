@@ -1102,6 +1102,8 @@ class iControlDriver(LBaaSBaseDriver):
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.member_destroyed(
                         member['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_member_status(member['id'])
 
     def _update_health_monitor_status(self, health_monitors):
         """Update pool monitor status in OpenStack """
@@ -1117,6 +1119,9 @@ class iControlDriver(LBaaSBaseDriver):
                         )
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.health_monitor_destroyed(
+                        health_monitor['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_health_monitor_status(
                         health_monitor['id'])
 
     @log_helpers.log_method_call
@@ -1135,6 +1140,8 @@ class iControlDriver(LBaaSBaseDriver):
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.pool_destroyed(
                         pool['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_pool_status(pool['id'])
 
     @log_helpers.log_method_call
     def _update_listener_status(self, listeners):
@@ -1152,6 +1159,8 @@ class iControlDriver(LBaaSBaseDriver):
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.listener_destroyed(
                         listener['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_listener_status(listener['id'])
 
     @log_helpers.log_method_call
     def _update_loadbalancer_status(self, loadbalancer):
