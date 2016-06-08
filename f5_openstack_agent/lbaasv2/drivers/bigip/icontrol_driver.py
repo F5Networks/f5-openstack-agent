@@ -703,7 +703,7 @@ class iControlDriver(LBaaSBaseDriver):
     def delete_loadbalancer(self, loadbalancer, service):
         """Delete loadbalancer"""
         LOG.debug("Deleting loadbalancer")
-        self._common_service_handler(service)
+        self._common_service_handler(service, True)
 
     @serialized('create_listener')
     @is_connected
