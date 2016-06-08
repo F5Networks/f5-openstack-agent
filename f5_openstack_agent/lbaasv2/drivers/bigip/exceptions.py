@@ -146,6 +146,26 @@ class L2GRETunnelDeleteException(F5AgentException):
     pass
 
 
+class MemberCreationException(Exception):
+    pass
+
+
+class MemberQueryException(Exception):
+    pass
+
+
+class MemberUpdateException(Exception):
+    pass
+
+
+class MemberDeleteException(Exception):
+    pass
+
+
+class MonitorCreationException(Exception):
+    pass
+
+
 class MonitorCreationException(F5AgentException):
     pass
 

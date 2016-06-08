@@ -695,13 +695,15 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def update_loadbalancer(self, old_loadbalancer, loadbalancer, service):
         """Update virtual server"""
+        LOG.debug("Updating loadbalancer")
         self._common_service_handler(service)
 
     @serialized('delete_loadbalancer')
     @is_connected
     def delete_loadbalancer(self, loadbalancer, service):
         """Delete loadbalancer"""
-        self._common_service_handler(service, True)
+        LOG.debug("Deleting loadbalancer")
+        self._common_service_handler(service)
 
     @serialized('create_listener')
     @is_connected
@@ -714,72 +716,79 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def update_listener(self, old_listener, listener, service):
         """Update virtual server"""
+        LOG.debug("Updating listener")
         self._common_service_handler(service)
 
     @serialized('delete_listener')
     @is_connected
     def delete_listener(self, listener, service):
         """Delete virtual server"""
+        LOG.debug("Deleting listener")
         self._common_service_handler(service)
 
     @serialized('create_pool')
     @is_connected
     def create_pool(self, pool, service):
         """Create lb pool"""
+        LOG.debug("Creating pool")
         self._common_service_handler(service)
 
     @serialized('update_pool')
     @is_connected
     def update_pool(self, old_pool, pool, service):
         """Update lb pool"""
+        LOG.debug("Updating pool")
         self._common_service_handler(service)
 
     @serialized('delete_pool')
     @is_connected
     def delete_pool(self, pool, service):
         """Delete lb pool"""
+        LOG.debug("Deleting pool")
         self._common_service_handler(service)
 
     @serialized('create_member')
     @is_connected
     def create_member(self, member, service):
         """Create pool member"""
+        LOG.debug("Creating member")
         self._common_service_handler(service)
 
     @serialized('update_member')
     @is_connected
     def update_member(self, old_member, member, service):
         """Update pool member"""
+        LOG.debug("Updating member")
         self._common_service_handler(service)
 
     @serialized('delete_member')
     @is_connected
     def delete_member(self, member, service):
         """Delete pool member"""
+        LOG.debug("Deleting member")
         self._common_service_handler(service)
 
     @serialized('create_health_monitor')
     @is_connected
     def create_health_monitor(self, health_monitor, service):
         """Create pool health monitor"""
+        LOG.debug("Creating health monitor")
         self._common_service_handler(service)
-        return True
 
     @serialized('update_health_monitor')
     @is_connected
     def update_health_monitor(self, old_health_monitor,
                               health_monitor, service):
         """Update pool health monitor"""
+        LOG.debug("Updating health monitor")
         self._common_service_handler(service)
-        return True
 
     @serialized('delete_health_monitor')
     @is_connected
     def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor"""
+        LOG.debug("Deleting health monitor")
         self._common_service_handler(service)
-        return True
-    # pylint: enable=unused-argument
 
     @is_connected
     def get_stats(self, service):
@@ -993,78 +1002,61 @@ class iControlDriver(LBaaSBaseDriver):
 
         try:
             self.tenant_manager.assure_tenant_created(service)
-        except Exception as err:
-            LOG.error("Error deleting tenant partition. Message: %s"
-                      % err.message)
-            service['loadbalancer']['provisioning_status'] = (
-                plugin_const.ERROR
-            )
-            return self._update_service_status(service)
-
-        LOG.debug("    _assure_tenant_created took %.5f secs" %
-                  (time() - start_time))
-
-        traffic_group = self.service_to_traffic_group(service)
-
-        LOG.debug("XXXXXXXXXX: traffic group created ")
-        if self.network_builder:
-            start_time = time()
-            try:
-                self.network_builder.prep_service_networking(
-                    service, traffic_group)
-            except Exception as exc:
-                LOG.error("Exception: icontrol_driver: %s", exc.message)
-                service['loadbalancer']['provisioning_status'] = (
-                    plugin_const.ERROR
-                )
-                return self._update_service_status(service)
-
-            if time() - start_time > .001:
-                LOG.debug("    _prep_service_networking "
-                          "took %.5f secs" % (time() - start_time))
-
-        all_subnet_hints = {}
-        LOG.debug("XXXXXXXXXX: getting bigip configs")
-        for bigip in self.get_config_bigips():
-            # check_for_delete_subnets:
-            #     keep track of which subnets we should check to delete
-            #     for a deleted vip or member
-            # do_not_delete_subnets:
-            #     If we add an IP to a subnet we must not delete the subnet
-            all_subnet_hints[bigip.device_name] = \
-                {'check_for_delete_subnets': {},
-                 'do_not_delete_subnets': []}
-
-        LOG.debug("XXXXXXXXX: Pre assure service")
-        self.lbaas_builder.assure_service(service,
-                                          traffic_group,
-                                          all_subnet_hints)
-        LOG.debug("XXXXXXXXX: Post assure service")
-
-        if self.network_builder:
-            start_time = time()
-            try:
-                self.network_builder.post_service_networking(
-                    service, all_subnet_hints)
-            except NeutronException as exc:
-                LOG.error("post_service_networking exception: %s"
-                          % str(exc.msg))
-            except Exception as exc:
-                LOG.error("post_service_networking exception: %s"
-                          % str(exc.message))
-            LOG.debug("    _post_service_networking took %.5f secs" %
+            LOG.debug("    _assure_tenant_created took %.5f secs" %
                       (time() - start_time))
 
-        # only delete partition if loadbalancer is being deleted
-        if delete_partition:
-            try:
+            traffic_group = self.service_to_traffic_group(service)
+
+            LOG.debug("XXXXXXXXXX: traffic group created ")
+            if self.network_builder:
+                start_time = time()
+                try:
+                    self.network_builder.prep_service_networking(
+                        service, traffic_group)
+                except Exception as exc:
+                    LOG.error("Exception: icontrol_driver: %s", exc.message)
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
+                    raise
+
+                if time() - start_time > .001:
+                    LOG.debug("    _prep_service_networking "
+                              "took %.5f secs" % (time() - start_time))
+
+            all_subnet_hints = {}
+            LOG.debug("XXXXXXXXXX: getting bigip configs")
+            for bigip in self.get_config_bigips():
+                # check_for_delete_subnets:
+                #     keep track of which subnets we should check to delete
+                #     for a deleted vip or member
+                # do_not_delete_subnets:
+                #     If we add an IP to a subnet we must not delete the subnet
+                all_subnet_hints[bigip.device_name] = \
+                    {'check_for_delete_subnets': {},
+                     'do_not_delete_subnets': []}
+
+            LOG.debug("XXXXXXXXX: Pre assure service")
+            self.lbaas_builder.assure_service(service,
+                                              traffic_group,
+                                              all_subnet_hints)
+            LOG.debug("XXXXXXXXX: Post assure service")
+
+            if self.network_builder:
+                start_time = time()
+                self.network_builder.post_service_networking(
+                    service, all_subnet_hints)
+                LOG.debug("    _post_service_networking took %.5f secs" %
+                          (time() - start_time))
+
+            # only delete partition if loadbalancer is being deleted
+            if delete_partition:
                 self.tenant_manager.assure_tenant_cleanup(service,
                                                           all_subnet_hints)
-            except Exception as err:
-                LOG.error("Error deleting tenant partition. Message: %s"
-                          % err.message)
+        except Exception as err:
+            LOG.exception(err)
 
-        self._update_service_status(service)
+        finally:
+            self._update_service_status(service)
 
     def _update_service_status(self, service):
         """Update status of objects in OpenStack """
