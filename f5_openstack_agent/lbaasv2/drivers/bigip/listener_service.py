@@ -15,7 +15,6 @@
 #
 
 from oslo_log import log as logging
-from requests.exceptions import HTTPError
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
@@ -55,39 +54,17 @@ class ListenerServiceBuilder(object):
             tls['partition'] = vip['partition']
 
         for bigip in bigips:
-            try:
-                self.vs_helper.create(bigip, vip)
+            self.vs_helper.create(bigip, vip)
 
-                if tls:
-                    try:
-                        self.add_ssl_profile(tls, bigip)
-                    except Exception as err:
-                        LOG.error("Error creating SSL profiles: %s" %
-                                  err.message)
-
-            except HTTPError as err:
-                LOG.error("Error creating virtual server for listener %s "
-                          "on BIG-IP %s. Repsponse status code: %s. Response "
-                          "message: %s." % (vip["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
+            if tls:
+                self.add_ssl_profile(tls, bigip)
 
         # Traffic group is added after create in order to take adavantage
         # of BIG-IP® defaults.
         traffic_group = self.service_adapter.get_traffic_group(service)
         if traffic_group:
             for bigip in bigips:
-                try:
-                    self.vs_helper.update(bigip, traffic_group)
-                except HTTPError as err:
-                    LOG.error(
-                        "Error updating virtual server for listener %s "
-                        "on BIG-IP %s. Repsponse status code: %s. Response "
-                        "message: %s." % (vip["name"],
-                                          bigip.device_name,
-                                          err.response.status_code,
-                                          err.message))
+                self.vs_helper.update(bigip, traffic_group)
 
     def get_listener(self, service, bigip):
         """Retrieve BIG-IP® virtual from a single BIG-IP® system.
@@ -96,19 +73,10 @@ class ListenerServiceBuilder(object):
         and load balancer definition.
         :param bigip: Array of BigIP class instances to create Listener.
         """
-        obj = None
         vip = self.service_adapter.get_virtual_name(service)
-        try:
-            obj = self.vs_helper.load(bigip=bigip,
-                                      name=vip["name"],
-                                      partition=vip["partition"])
-        except HTTPError as err:
-            LOG.error("Error loading virtual server for listener %s "
-                      "on BIG-IP %s. Repsponse status code: %s. Response "
-                      "message: %s." % (vip["name"],
-                                        bigip.device_name,
-                                        err.response.status_code,
-                                        err.message))
+        obj = self.vs_helper.load(bigip=bigip,
+                                  name=vip["name"],
+                                  partition=vip["partition"])
         return obj
 
     def delete_listener(self, service, bigips):
@@ -127,22 +95,12 @@ class ListenerServiceBuilder(object):
             tls['partition'] = vip['partition']
 
         for bigip in bigips:
-            try:
-                self.vs_helper.delete(bigip,
-                                      name=vip["name"],
-                                      partition=vip["partition"])
+            self.vs_helper.delete(bigip,
+                                  name=vip["name"],
+                                  partition=vip["partition"])
 
-                # delete ssl profiles
-                if tls:
-                    self.remove_ssl_profiles(tls, bigip)
-            except HTTPError as err:
-                LOG.error(
-                    "Error deleting virtual server for listener %s "
-                    "on BIG-IP %s. Repsponse status code: %s. Response "
-                    "message: %s." % (vip["name"],
-                                      bigip.device_name,
-                                      err.response.status_code,
-                                      err.message))
+            # delete ssl profiles
+            self.remove_ssl_profiles(tls, bigip)
 
     def add_ssl_profile(self, tls, bigip):
         # add profile to virtual server
@@ -187,17 +145,7 @@ class ListenerServiceBuilder(object):
         vip = self.service_adapter.get_virtual(service)
 
         for bigip in bigips:
-            try:
-                self.vs_helper.update(bigip, vip)
-
-            except HTTPError as err:
-                LOG.error(
-                    "Error updating virtual server for listener %s "
-                    "on BIG-IP %s. Repsponse status code: %s. Response "
-                    "message: %s." % (vip["name"],
-                                      bigip.device_name,
-                                      err.response.status_code,
-                                      err.message))
+            self.vs_helper.update(bigip, vip)
 
     def update_listener_pool(self, service, name, bigips):
         """Update virtual server's default pool attribute.
@@ -365,12 +313,10 @@ class ListenerServiceBuilder(object):
                 name = self.service_adapter.prefix + container_ref[i:]
                 self._remove_ssl_profile(name, bigip)
 
-    def _remove_ssl_profile(self,  name, bigip):
+    def _remove_ssl_profile(self, name, bigip):
         """Deletes profile.
 
-        :param vip: Dictionary which contains name and partition of
-        virtual server.
-        :param profile_name: Name of profile to delete.
+        :param name: Name of profile to delete.
         :param bigip: Single BigIP instances to update.
         """
         try:
@@ -379,10 +325,10 @@ class ListenerServiceBuilder(object):
                 ssl_client_profile.load(name=name, partition='Common')
                 ssl_client_profile.delete()
 
-        except HTTPError as err:
+        except Exception as err:
             # Not necessarily an error -- profile might be referenced
             # by another virtual server.
-            LOG.debug(
+            LOG.warn(
                 "Unable to delete profile %s. "
                 "Response message: %s." % (name, err.message))
 
@@ -407,10 +353,10 @@ class ListenerServiceBuilder(object):
                     pr.delete()
                     LOG.debug("Deleted profile %s" % profile.name)
                     return
-        except HTTPError as err:
+        except Exception as err:
             # Not necessarily an error -- profile might be referenced
             # by another virtual server.
-            LOG.debug(
+            LOG.warn(
                 "Unable to delete profile %s. "
                 "Response message: %s." % (profile_name, err.message))
 

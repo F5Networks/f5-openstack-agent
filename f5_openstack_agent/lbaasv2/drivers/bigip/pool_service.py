@@ -15,7 +15,6 @@
 #
 
 from oslo_log import log as logging
-from requests.exceptions import HTTPError
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
@@ -53,15 +52,7 @@ class PoolServiceBuilder(object):
         """
         pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
-            try:
-                self.pool_helper.create(bigip, pool)
-            except HTTPError as err:
-                LOG.error("Error creating pool %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (pool["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
+            self.pool_helper.create(bigip, pool)
 
     def delete_pool(self, service, bigips):
         """Delete a pool on set of BIG-IP®s.
@@ -75,17 +66,9 @@ class PoolServiceBuilder(object):
         pool = self.service_adapter.get_pool(service)
 
         for bigip in bigips:
-            try:
-                self.pool_helper.delete(bigip,
-                                        name=pool["name"],
-                                        partition=pool["partition"])
-            except HTTPError as err:
-                LOG.error("Error deleting pool %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (pool["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
+            self.pool_helper.delete(bigip,
+                                    name=pool["name"],
+                                    partition=pool["partition"])
 
     def update_pool(self, service, bigips):
         """Update BIG-IP® pool.
@@ -96,15 +79,7 @@ class PoolServiceBuilder(object):
         """
         pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
-            try:
-                self.pool_helper.update(bigip, pool)
-            except HTTPError as err:
-                LOG.error("Error updating pool %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (pool["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
+            self.pool_helper.update(bigip, pool)
 
     def create_healthmonitor(self, service, bigips):
         # create member
@@ -113,19 +88,10 @@ class PoolServiceBuilder(object):
         pool = self.service_adapter.get_pool(service)
 
         for bigip in bigips:
-            try:
-                hm_helper.create(bigip, hm)
+            hm_helper.create(bigip, hm)
 
-                # update pool with new health monitor
-                self.pool_helper.update(bigip, pool)
-
-            except HTTPError as err:
-                LOG.error("Error creating health monitor %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (hm["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
+            # update pool with new health monitor
+            self.pool_helper.update(bigip, pool)
 
     def delete_healthmonitor(self, service, bigips):
         # delete health monitor
@@ -138,40 +104,18 @@ class PoolServiceBuilder(object):
 
         for bigip in bigips:
             # need to first remove monitor reference from pool
-            try:
-                self.pool_helper.update(bigip, pool)
-            except HTTPError as err:
-                LOG.error("Error updating pool %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (pool["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
-            try:
-                hm_helper.delete(bigip,
-                                 name=hm["name"],
-                                 partition=hm["partition"])
-            except HTTPError as err:
-                LOG.error("Error deleting health monitor %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (hm["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
+            self.pool_helper.update(bigip, pool)
+
+            # after updating pool, delete monitor
+            hm_helper.delete(bigip,
+                             name=hm["name"],
+                             partition=hm["partition"])
 
     def update_healthmonitor(self, service, bigips):
         hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
         for bigip in bigips:
-            try:
-                hm_helper.update(bigip, hm)
-            except HTTPError as err:
-                LOG.error("Error updating health monitor %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (hm["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
+            hm_helper.update(bigip, hm)
 
     # Note: can't use BigIPResourceHelper class because members
     # are created within pool objects. Following member methods
@@ -181,99 +125,37 @@ class PoolServiceBuilder(object):
         member = self.service_adapter.get_member(service)
         for bigip in bigips:
             part = pool["partition"]
-            try:
-                p = self.pool_helper.load(bigip,
-                                          name=pool["name"],
-                                          partition=part)
-            except HTTPError as err:
-                LOG.error("Error loading pool %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (pool["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
-                continue
-
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
             m = p.members_s.members
-            try:
-                member_exists = m.exists(name=urllib.quote(member["name"]),
-                                         partition=part)
-            except HTTPError as err:
-                LOG.error("Error checking if member %s exists on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (member["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
-                continue
+            member_exists = m.exists(name=urllib.quote(member["name"]),
+                                     partition=part)
 
             if not member_exists:
-                try:
-                    m.create(**member)
-                except HTTPError as err:
-                    LOG.error("Error creating member %s on BIG-IP %s. "
-                              "Repsponse status code: %s. Response "
-                              "message: %s." % (member["name"],
-                                                bigip.device_name,
-                                                err.response.status_code,
-                                                err.message))
+                m.create(**member)
 
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
         part = pool["partition"]
         for bigip in bigips:
-            try:
-                p = self.pool_helper.load(bigip,
-                                          name=pool["name"],
-                                          partition=part)
-            except HTTPError as err:
-                LOG.error("Error loading pool %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (pool["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
-                continue
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
 
             m = p.members_s.members
-            try:
-                member_exists = m.exists(name=urllib.quote(member["name"]),
-                                         partition=part)
-            except HTTPError as err:
-                LOG.error("Error checking if member %s exists on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (member["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
-                continue
-
+            member_exists = m.exists(name=urllib.quote(member["name"]),
+                                     partition=part)
             if member_exists:
-                try:
-                    m = m.load(name=urllib.quote(member["name"]),
-                               partition=part)
-                except HTTPError as err:
-                    LOG.error("Error loading member %s on BIG-IP %s. "
-                              "Repsponse status code: %s. Response "
-                              "message: %s." % (member["name"],
-                                                bigip.device_name,
-                                                err.response.status_code,
-                                                err.message))
-                    continue
-                try:
-                    m.delete()
-                    node = self.service_adapter.get_member_node(service)
-                    self.node_helper.delete(bigip,
-                                            name=urllib.quote(node["name"]),
-                                            partition=node["partition"])
-                except HTTPError as err:
-                    LOG.error("Error deleting member %s on BIG-IP %s. "
-                              "Repsponse status code: %s. Response "
-                              "message: %s." % (member["name"],
-                                                bigip.device_name,
-                                                err.response.status_code,
-                                                err.message))
+                m = m.load(name=urllib.quote(member["name"]),
+                           partition=part)
+
+                m.delete()
+                node = self.service_adapter.get_member_node(service)
+                self.node_helper.delete(bigip,
+                                        name=urllib.quote(node["name"]),
+                                        partition=node["partition"])
 
     def update_member(self, service, bigips):
         # TODO(jl) handle state -- SDK enforces at least state=None
@@ -282,53 +164,15 @@ class PoolServiceBuilder(object):
         member = self.service_adapter.get_member(service)
         part = pool["partition"]
         for bigip in bigips:
-            try:
-                p = self.pool_helper.load(bigip,
-                                          name=pool["name"],
-                                          partition=part)
-            except HTTPError as err:
-                LOG.error("Error loading pool %s on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (pool["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
-                continue
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
 
             m = p.members_s.members
-            try:
-                member_exists = m.exists(name=urllib.quote(member["name"]),
-                                         partition=part)
-            except HTTPError as err:
-                LOG.error("Error checking if member %s exists on BIG-IP %s. "
-                          "Repsponse status code: %s. Response "
-                          "message: %s." % (member["name"],
-                                            bigip.device_name,
-                                            err.response.status_code,
-                                            err.message))
-                continue
-
-            if member_exists:
-                try:
-                    m = m.load(name=urllib.quote(member["name"]),
-                               partition=part)
-                except HTTPError as err:
-                    LOG.error("Error loading member %s on BIG-IP %s. "
-                              "Repsponse status code: %s. Response "
-                              "message: %s." % (member["name"],
-                                                bigip.device_name,
-                                                err.response.status_code,
-                                                err.message))
-                    continue
-                try:
-                    m.update(**member)
-                except HTTPError as err:
-                    LOG.error("Error updating member %s on BIG-IP %s. "
-                              "Repsponse status code: %s. Response "
-                              "message: %s." % (member["name"],
-                                                bigip.device_name,
-                                                err.response.status_code,
-                                                err.message))
+            if m.exists(name=urllib.quote(member["name"]), partition=part):
+                m = m.load(name=urllib.quote(member["name"]),
+                           partition=part)
+                m.update(**member)
 
     def _get_monitor_helper(self, service):
         monitor_type = self.service_adapter.get_monitor_type(service)
