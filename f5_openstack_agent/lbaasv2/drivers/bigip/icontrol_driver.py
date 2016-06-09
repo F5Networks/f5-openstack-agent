@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+from pprint import pprint as pp
 import datetime
 import hashlib
 import logging as std_logging
@@ -57,12 +58,12 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
 LOG = logging.getLogger(__name__)
 
-
 NS_PREFIX = 'qlbaas-'
 __VERSION__ = '0.1.1'
 
 # configuration objects specific to iControl® driver
-OPTS = [
+# XXX see /etc/neutron/services/f5/f5-openstack-agent.ini
+OPTS = [  # XXX maybe we should make this a dictionary
     cfg.StrOpt(
         'bigiq_hostname',
         help='The hostname (name or IP address) to use for the BIG-IQ host'
@@ -277,7 +278,7 @@ def is_connected(method):
                 return method(*args, **kwargs)
             except IOError as ioe:
                 LOG.error('IO Error detected: %s' % method.__name__)
-                instance.connect_bigips()
+                instance.connect_bigips() #what's this do?
                 raise ioe
         else:
             LOG.error('Cannot execute %s. Not connected. Connecting.'
@@ -287,6 +288,7 @@ def is_connected(method):
 
 
 class iControlDriver(LBaaSBaseDriver):
+    '''gets rpc plugin from manager (which instantiates, via importutils'''
 
     def __init__(self, conf, registerOpts=True):
         # The registerOpts parameter allows a test to
@@ -298,15 +300,15 @@ class iControlDriver(LBaaSBaseDriver):
             self.conf.register_opts(OPTS)
         self.hostnames = None
         self.device_type = conf.f5_device_type
-        self.plugin_rpc = None
+        self.plugin_rpc = None # overrides base, same value
         self.__last_connect_attempt = None
-        self.connected = False
+        self.connected = False # overrides base, same value
         self.driver_name = 'f5-lbaasv2-icontrol'
 
         # BIG-IP® containers
         self.__bigips = {}
         self.__traffic_groups = []
-        self.agent_configurations = {}
+        self.agent_configurations = {} # overrides base, same value
         self.tenant_manager = None
         self.cluster_manager = None
         self.system_helper = None
@@ -314,7 +316,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.service_adapter = None
         self.vlan_binding = None
         self.l3_binding = None
-        self.cert_manager = None
+        self.cert_manager = None # overrides register_OPTS
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -391,6 +393,7 @@ class iControlDriver(LBaaSBaseDriver):
                           % self.conf.vlan_binding_driver)
 
         if self.conf.l3_binding_driver:
+            print('self.conf.l3_binding_driver')
             try:
                 self.l3_binding = importutils.import_object(
                     self.conf.l3_binding_driver, self.conf, self)
@@ -504,12 +507,12 @@ class iControlDriver(LBaaSBaseDriver):
         except NeutronException as exc:
             LOG.error('Could not communicate with all ' +
                       'iControl devices: %s' % exc.msg)
-            greenthread.sleep(5)
+            greenthread.sleep(5) # this should probably go away
             raise
         except Exception as exc:
             LOG.error('Could not communicate with all ' +
                       'iControl devices: %s' % exc.message)
-            greenthread.sleep(5)
+            greenthread.sleep(5) # this should probably go away
             raise
 
     def _open_bigip(self, hostname):
@@ -693,7 +696,7 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def update_loadbalancer(self, old_loadbalancer, loadbalancer, service):
         """Update virtual server"""
-        LOG.debug("Updating loadbalancer")
+        # anti-pattern three args unused.
         self._common_service_handler(service)
 
     @serialized('delete_loadbalancer')
@@ -989,7 +992,7 @@ class iControlDriver(LBaaSBaseDriver):
         #        folder=service['pool']['tenant_id'],
         #        config_mode=self.conf.icontrol_config_mode)
         return True
-
+    
     def _common_service_handler(self, service, delete_partition=False):
         # Assure that the service is configured on bigip(s)
         start_time = time()
@@ -998,6 +1001,7 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.error("_common_service_handler: Service loadbalancer is None")
             return
 
+        pp('about to attempt assure_tenant_created')
         try:
             self.tenant_manager.assure_tenant_created(service)
             LOG.debug("    _assure_tenant_created took %.5f secs" %
@@ -1182,21 +1186,25 @@ class iControlDriver(LBaaSBaseDriver):
 
     def service_to_traffic_group(self, service):
         # Hash service tenant id to index of traffic group
+        # return which iControlDriver.__traffic_group that tenant is "in?"
         return self.tenant_to_traffic_group(
             service['loadbalancer']['tenant_id'])
 
     def tenant_to_traffic_group(self, tenant_id):
         # Hash tenant id to index of traffic group
+        print('tenant_to_traffic_group called')
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
 
     def get_bigip(self):
         # Get one consistent big-ip
+        # As implemented I think this always returns the "first" bigip
+        # without any HTTP traffic? CONFIRMED: __bigips are mgmt_rts
         hostnames = sorted(self.__bigips)
-        for i in range(len(hostnames)):
+        for i in range(len(hostnames)): # C-style make Pythonic.
             try:
-                bigip = self.__bigips[hostnames[i]]
+                bigip = self.__bigips[hostnames[i]] # Calling devices?!
                 return bigip
             except urllib2.URLError:
                 pass

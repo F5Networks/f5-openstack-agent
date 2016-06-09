@@ -17,12 +17,16 @@
 class LBaaSBaseDriver(object):
     """Abstract base LBaaS Driver class for interfacing with Agent Manager """
 
-    def __init__(self, conf):
+    def __init__(self, conf):  # XXX 'conf' appears to be unused
+        '''Maybe we can remove this method altogether? Or maybe it's for future
+
+        subclassing...
+        '''
         self.agent_id = None
-        self.plugin_rpc = None
-        self.connected = False
+        self.plugin_rpc = None # XXX This is overridden in the only known subclass
+        self.connected = False # XXX This is overridden in the only known subclass
         self.service_queue = []
-        self.agent_configurations = {}
+        self.agent_configurations = {} # XXX overridden in subclass
 
     def set_context(self, context):
         """Set the global context object for the lbaas driver """
@@ -32,7 +36,7 @@ class LBaaSBaseDriver(object):
         """Run after agent is fully connected """
         raise NotImplementedError()
 
-    def set_tunnel_rpc(self, tunnel_rpc):
+    def set_tunnel_rpc(self, tunnel_rpc): # XXX into this class?
         """Provide FDB Connector RPC access """
         raise NotImplementedError()
 
