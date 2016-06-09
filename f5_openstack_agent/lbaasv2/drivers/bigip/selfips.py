@@ -217,7 +217,7 @@ class BigipSelfIpManager(object):
                 vs.create(
                     name=gw_name,
                     partition=network_folder,
-                    destination='0.0.0.0',
+                    destination='0.0.0.0:0',
                     mask='0.0.0.0',
                     vlansEnabled=True,
                     vlans=[network_name],
