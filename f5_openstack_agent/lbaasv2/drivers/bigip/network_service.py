@@ -478,10 +478,8 @@ class NetworkServiceBuilder(object):
                 bigip.assured_tenant_snat_subnets[tenant_id]]
         LOG.debug("_assure_subnet_snats: getting snat addrs for: subnet")
         if len(assure_bigips):
-            LOG.debug("have bigip to assure")
             snat_addrs = self.bigip_snat_manager.get_snat_addrs(
-                subnetinfo, tenant_id)
-            LOG.debug("Got snat addrs")
+                subnetinfo, tenant_id, self.conf.f5_snat_addresses_per_subnet)
             for assure_bigip in assure_bigips:
                 self.bigip_snat_manager.assure_bigip_snats(
                     assure_bigip, subnetinfo, snat_addrs, tenant_id)

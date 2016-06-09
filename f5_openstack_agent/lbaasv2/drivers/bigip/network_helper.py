@@ -444,16 +444,6 @@ class NetworkHelper(object):
         return mac_addresses
 
     @log_helpers.log_method_call
-    def get_snatpool_member_use_count(self, bigip, member_name):
-        snat_count = 0
-        snatpools = bigip.tm.ltm.snatpools.get_collection()
-        for snatpool in snatpools:
-            for member in snatpool.members:
-                if member_name == os.path.basename(member):
-                    snat_count += 1
-        return snat_count
-
-    @log_helpers.log_method_call
     def split_addr_port(self, dest):
         if len(dest.split(':')) > 2:
             # ipv6: bigip syntax is addr.port
