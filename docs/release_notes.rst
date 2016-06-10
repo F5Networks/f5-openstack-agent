@@ -19,7 +19,7 @@ Caveats
 
 The following features are unsupported in v8.0.3:
 
-* [BIG-IP® vCMP®](https://f5.com/resources/white-papers/virtual-clustered-multiprocessing-vcmp)
+* `BIG-IP® vCMP® <https://f5.com/resources/white-papers/virtual-clustered-multiprocessing-vcmp>`_
 * Agent High Availability (HA)
 * Auto-sync mode for clustered devices
 * Differentiated environments
@@ -28,9 +28,9 @@ The following features are unsupported in v8.0.3:
 Open Issues
 -----------
 
-See the [project issues page](https://github.com/F5Networks/f5-openstack-agent/issues) for a full list of open issues in this release.
+See the `project issues page <https://github.com/F5Networks/f5-openstack-agent/issues>`_ for a full list of open issues in this release.
 
-Documentation can be found on [Read the Docs](http://f5-openstack-lbaasv2-driver.readthedocs.io/en/latest/release_notes.html).
+Documentation can be found on `Read the Docs <http://f5-openstack-lbaasv2-driver.readthedocs.io/en/latest/release_notes.html>`_.
 
 
 
