@@ -750,7 +750,6 @@ class NetworkHelper(object):
     def get_tunnel_folder(self, bigip, tunnel_name=None):
         tunnels = bigip.tm.net.fdbs.tunnels.get_collection()
         for tunnel in tunnels:
-            LOG.debug("Checking tunnel: %s" % (tunnel))
             if tunnel.name == tunnel_name:
                 return tunnel.partition
 

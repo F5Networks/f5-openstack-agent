@@ -359,7 +359,11 @@ class iControlDriver(LBaaSBaseDriver):
         if self.conf.f5_global_routed_mode:
             local_ips = []
         else:
-            local_ips = self.network_builder.initialize_tunneling()
+            try:
+                local_ips = self.network_builder.initialize_tunneling()
+            except Exception:
+                LOG.error("Error creating BigIP VTEPs in connect_bigips")
+                raise
 
         self._init_agent_config(local_ips)
 

@@ -158,9 +158,11 @@ class BigipSnatManager(object):
                         name=index_snat_name,
                         partition=snat_info['network_folder']):
                     self.snat_translation_manager.create(bigip, model)
-            except Exception:
-                LOG.exception(
-                    "Error creating snat translation %s", index_snat_name)
+            except Exception as err:
+                LOG.exception(err)
+                raise f5_ex.SNATCreationException(
+                    "Error creating snat translation manager %s" %
+                    index_snat_name)
 
             model = {
                 "name": snat_info['pool_name'],
