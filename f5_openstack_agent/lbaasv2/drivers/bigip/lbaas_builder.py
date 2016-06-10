@@ -37,7 +37,9 @@ class LBaaSBuilder(object):
         self.l2_service = l2_service
         self.service_adapter = driver.service_adapter
         self.listener_builder = listener_service.ListenerServiceBuilder(
-            self.service_adapter, driver.cert_manager)
+            self.service_adapter,
+            driver.cert_manager,
+            conf.f5_parent_ssl_profile)
         self.pool_builder = pool_service.PoolServiceBuilder(
             self.service_adapter
         )

@@ -30,12 +30,15 @@ class ListenerServiceBuilder(object):
     defined in service object to a BIG-IP® virtual server.
     """
 
-    def __init__(self, service_adapter, cert_manager):
+    def __init__(self, service_adapter, cert_manager, parent_ssl_profile=None):
         self.cert_manager = cert_manager
+        self.parent_ssl_profile = parent_ssl_profile
 
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
         self.service_adapter = service_adapter
+        LOG.debug("ListenerServiceBuilder: using parent_ssl_profile %s ",
+                  parent_ssl_profile)
 
     def create_listener(self, service, bigips):
         """Create listener on set of BIG-IP®s.
@@ -109,7 +112,8 @@ class ListenerServiceBuilder(object):
 
         if "default_tls_container_id" in tls:
             container_ref = tls["default_tls_container_id"]
-            self.create_ssl_profile(container_ref, bigip, vip, True)
+            self.create_ssl_profile(
+                container_ref, bigip, vip, True)
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
@@ -125,7 +129,12 @@ class ListenerServiceBuilder(object):
         try:
             # upload cert/key and create SSL profile
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
-                bigip, name, cert, key, sni_default=sni_default)
+                bigip,
+                name,
+                cert,
+                key,
+                sni_default=sni_default,
+                parent_profile=self.parent_ssl_profile)
         finally:
             del cert
             del key

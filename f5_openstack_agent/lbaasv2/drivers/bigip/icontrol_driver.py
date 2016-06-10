@@ -266,6 +266,12 @@ OPTS = [
         'os_password',
         default=None,
         help='OpenStack user password for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'f5_parent_ssl_profile',
+        default='clientssl',
+        help='Parent profile used when creating client SSL profiles '
+        'for listeners with TERMINATED_HTTPS protocols.'
     )
 ]
 

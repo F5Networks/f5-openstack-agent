@@ -27,7 +27,8 @@ class SSLProfileError(Exception):
 class SSLProfileHelper(object):
 
     @staticmethod
-    def create_client_ssl_profile(bigip, name, cert, key, sni_default=False):
+    def create_client_ssl_profile(
+            bigip, name, cert, key, sni_default=False, parent_profile=None):
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
@@ -36,6 +37,11 @@ class SSLProfileHelper(object):
         # No need to create if it exists
         if ssl_client_profile.exists(name=name, partition='Common'):
             return
+
+        # Check that parent profile exists; use default if not.
+        if parent_profile and not ssl_client_profile.exists(
+                name=parent_profile, partition='Common'):
+            parent_profile = None
 
         certfilename = name + '.crt'
         keyfilename = name + '.key'
@@ -65,7 +71,8 @@ class SSLProfileHelper(object):
                       'key': '/Common/' + keyfilename}]
             ssl_client_profile.create(name=name,
                                       certKeyChain=chain,
-                                      sniDefault=sni_default)
+                                      sniDefault=sni_default,
+                                      defaultsFrom=parent_profile)
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
             raise SSLProfileError(err.message)
