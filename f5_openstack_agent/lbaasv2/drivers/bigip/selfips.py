@@ -224,7 +224,8 @@ class BigipSelfIpManager(object):
                     sourceAddressTranslation={'type': 'automap'},
                     ipForward=True
                 )
-            except Exception:
+            except Exception as err:
+                LOG.exception(err)
                 raise f5_ex.VirtualServerCreationException(
                     "Failed to create gateway virtual service on subnet %s",
                     subnet['id']
@@ -235,7 +236,8 @@ class BigipSelfIpManager(object):
         try:
             virtual_address.load(name='0.0.0.0', partition=network_folder)
             virtual_address.update(trafficGroup=traffic_group)
-        except Exception:
+        except Exception as err:
+            LOG.exception(err)
             raise f5_ex.VirtualServerCreationException(
                 "Failed to add virtual address to traffic group %s",
                 traffic_group)
@@ -288,7 +290,8 @@ class BigipSelfIpManager(object):
             if vs.exists(name=gw_name, partition=network_folder):
                 vs.load(name=gw_name, partition=network_folder)
                 vs.delete()
-        except Exception:
+        except Exception as err:
+            LOG.exception(err)
             raise f5_ex.VirtualServerDeleteException(
                 "Failed to delete gateway service on subnet %s", subnet['id'])
 
