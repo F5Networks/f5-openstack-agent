@@ -14,305 +14,341 @@
 #
 
 
-class MinorVersionValidateFailed(Exception):
+class F5AgentException(Exception):
     pass
 
 
-class MajorVersionValidateFailed(Exception):
+class MinorVersionValidateFailed(F5AgentException):
     pass
 
 
-class ProvisioningExtraMBValidateFailed(Exception):
+class MajorVersionValidateFailed(F5AgentException):
     pass
 
 
-class BigIPDeviceLockAcquireFailed(Exception):
+class ProvisioningExtraMBValidateFailed(F5AgentException):
     pass
 
 
-class BigIPClusterInvalidHA(Exception):
+class BigIPDeviceLockAcquireFailed(F5AgentException):
     pass
 
 
-class BigIPClusterSyncFailure(Exception):
+class BigIPClusterInvalidHA(F5AgentException):
     pass
 
 
-class BigIPClusterPeerAddFailure(Exception):
+class BigIPClusterSyncFailure(F5AgentException):
     pass
 
 
-class BigIPClusterConfigSaveFailure(Exception):
+class BigIPClusterPeerAddFailure(F5AgentException):
     pass
 
 
-class UnknownMonitorType(Exception):
+class BigIPClusterConfigSaveFailure(F5AgentException):
     pass
 
 
-class MissingVTEPAddress(Exception):
+class UnknownMonitorType(F5AgentException):
     pass
 
 
-class MissingNetwork(Exception):
+class MissingVTEPAddress(F5AgentException):
     pass
 
 
-class InvalidNetworkType(Exception):
+class MissingNetwork(F5AgentException):
     pass
 
 
-class StaticARPCreationException(Exception):
+class InvalidNetworkType(F5AgentException):
     pass
 
 
-class StaticARPQueryException(Exception):
+class StaticARPCreationException(F5AgentException):
     pass
 
 
-class StaticARPDeleteException(Exception):
+class StaticARPQueryException(F5AgentException):
     pass
 
 
-class ClusterCreationException(Exception):
+class StaticARPDeleteException(F5AgentException):
     pass
 
 
-class ClusterUpdateException(Exception):
+class ClusterCreationException(F5AgentException):
     pass
 
 
-class ClusterQueryException(Exception):
+class ClusterUpdateException(F5AgentException):
     pass
 
 
-class ClusterDeleteException(Exception):
+class ClusterQueryException(F5AgentException):
     pass
 
 
-class DeviceCreationException(Exception):
+class ClusterDeleteException(F5AgentException):
     pass
 
 
-class DeviceUpdateException(Exception):
+class DeviceCreationException(F5AgentException):
     pass
 
 
-class DeviceQueryException(Exception):
+class DeviceUpdateException(F5AgentException):
     pass
 
 
-class DeviceDeleteException(Exception):
+class DeviceQueryException(F5AgentException):
     pass
 
 
-class InterfaceQueryException(Exception):
+class DeviceDeleteException(F5AgentException):
     pass
 
 
-class IAppCreationException(Exception):
+class InterfaceQueryException(F5AgentException):
     pass
 
 
-class IAppQueryException(Exception):
+class IAppCreationException(F5AgentException):
     pass
 
 
-class IAppUpdateException(Exception):
+class IAppQueryException(F5AgentException):
     pass
 
 
-class IAppDeleteException(Exception):
+class IAppUpdateException(F5AgentException):
     pass
 
 
-class L2GRETunnelCreationException(Exception):
+class IAppDeleteException(F5AgentException):
     pass
 
 
-class L2GRETunnelQueryException(Exception):
+class L2GRETunnelCreationException(F5AgentException):
     pass
 
 
-class L2GRETunnelUpdateException(Exception):
+class L2GRETunnelQueryException(F5AgentException):
     pass
 
 
-class L2GRETunnelDeleteException(Exception):
+class L2GRETunnelUpdateException(F5AgentException):
     pass
 
 
-class MonitorCreationException(Exception):
+class L2GRETunnelDeleteException(F5AgentException):
     pass
 
 
-class MonitorQueryException(Exception):
+class MemberCreationException(F5AgentException):
     pass
 
 
-class MonitorUpdateException(Exception):
+class MemberQueryException(F5AgentException):
     pass
 
 
-class MonitorDeleteException(Exception):
+class MemberUpdateException(F5AgentException):
     pass
 
 
-class NATCreationException(Exception):
+class MemberDeleteException(F5AgentException):
     pass
 
 
-class NATQueryException(Exception):
+class MonitorCreationException(F5AgentException):
     pass
 
 
-class NATUpdateException(Exception):
+class MonitorQueryException(F5AgentException):
     pass
 
 
-class NATDeleteException(Exception):
+class MonitorUpdateException(F5AgentException):
     pass
 
 
-class PoolCreationException(Exception):
+class MonitorDeleteException(F5AgentException):
     pass
 
 
-class PoolQueryException(Exception):
+class NATCreationException(F5AgentException):
     pass
 
 
-class PoolUpdateException(Exception):
+class NATQueryException(F5AgentException):
     pass
 
 
-class PoolDeleteException(Exception):
+class NATUpdateException(F5AgentException):
     pass
 
 
-class RouteCreationException(Exception):
+class NATDeleteException(F5AgentException):
     pass
 
 
-class RouteQueryException(Exception):
+class PoolCreationException(F5AgentException):
     pass
 
 
-class RouteUpdateException(Exception):
+class PoolQueryException(F5AgentException):
     pass
 
 
-class RouteDeleteException(Exception):
+class PoolUpdateException(F5AgentException):
     pass
 
 
-class RuleCreationException(Exception):
+class PoolDeleteException(F5AgentException):
     pass
 
 
-class RuleQueryException(Exception):
+class RouteCreationException(F5AgentException):
     pass
 
 
-class RuleUpdateException(Exception):
+class RouteQueryException(F5AgentException):
     pass
 
 
-class RuleDeleteException(Exception):
+class RouteUpdateException(F5AgentException):
     pass
 
 
-class SelfIPCreationException(Exception):
+class RouteDeleteException(F5AgentException):
     pass
 
 
-class SelfIPQueryException(Exception):
+class RouteDomainCreationException(F5AgentException):
     pass
 
 
-class SelfIPUpdateException(Exception):
+class RouteDomainQueryException(F5AgentException):
     pass
 
 
-class SelfIPDeleteException(Exception):
+class RouteDomainUpdateException(F5AgentException):
     pass
 
 
-class SNATCreationException(Exception):
+class RouteDomainDeleteException(F5AgentException):
     pass
 
 
-class SNATQueryException(Exception):
+class RuleCreationException(F5AgentException):
     pass
 
 
-class SNATUpdateException(Exception):
+class RuleQueryException(F5AgentException):
     pass
 
 
-class SNATDeleteException(Exception):
+class RuleUpdateException(F5AgentException):
     pass
 
 
-class SystemCreationException(Exception):
+class RuleDeleteException(F5AgentException):
     pass
 
 
-class SystemQueryException(Exception):
+class SelfIPCreationException(F5AgentException):
     pass
 
 
-class SystemUpdateException(Exception):
+class SelfIPQueryException(F5AgentException):
     pass
 
 
-class SystemDeleteException(Exception):
+class SelfIPUpdateException(F5AgentException):
     pass
 
 
-class VirtualServerCreationException(Exception):
+class SelfIPDeleteException(F5AgentException):
     pass
 
 
-class VirtualServerQueryException(Exception):
+class SNATCreationException(F5AgentException):
     pass
 
 
-class VirtualServerUpdateException(Exception):
+class SNATQueryException(F5AgentException):
     pass
 
 
-class VirtualServerDeleteException(Exception):
+class SNATUpdateException(F5AgentException):
     pass
 
 
-class VLANCreationException(Exception):
+class SNATDeleteException(F5AgentException):
     pass
 
 
-class VLANQueryException(Exception):
+class SystemCreationException(F5AgentException):
     pass
 
 
-class VLANUpdateException(Exception):
+class SystemQueryException(F5AgentException):
     pass
 
 
-class VLANDeleteException(Exception):
+class SystemUpdateException(F5AgentException):
     pass
 
 
-class VXLANCreationException(Exception):
+class SystemDeleteException(F5AgentException):
     pass
 
 
-class VXLANQueryException(Exception):
+class VirtualServerCreationException(F5AgentException):
     pass
 
 
-class VXLANUpdateException(Exception):
+class VirtualServerQueryException(F5AgentException):
     pass
 
 
-class VXLANDeleteException(Exception):
+class VirtualServerUpdateException(F5AgentException):
+    pass
+
+
+class VirtualServerDeleteException(F5AgentException):
+    pass
+
+
+class VLANCreationException(F5AgentException):
+    pass
+
+
+class VLANQueryException(F5AgentException):
+    pass
+
+
+class VLANUpdateException(F5AgentException):
+    pass
+
+
+class VLANDeleteException(F5AgentException):
+    pass
+
+
+class VXLANCreationException(F5AgentException):
+    pass
+
+
+class VXLANQueryException(F5AgentException):
+    pass
+
+
+class VXLANUpdateException(F5AgentException):
+    pass
+
+
+class VXLANDeleteException(F5AgentException):
     pass

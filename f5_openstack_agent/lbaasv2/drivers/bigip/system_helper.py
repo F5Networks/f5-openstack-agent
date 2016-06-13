@@ -15,17 +15,27 @@
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
+    NetworkHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
+    import BigIPResourceHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
+    import ResourceType
+
 LOG = logging.getLogger(__name__)
 
 
 class SystemHelper(object):
 
+    def __init__(self):
+        self.exempt_folders = ['/', 'Common']
+
     def create_folder(self, bigip, folder):
-        f = bigip.sys.folders.folder
+        f = bigip.tm.sys.folders.folder
         f.create(**folder)
 
     def delete_folder(self, bigip, folder_name):
-        f = bigip.sys.folders.folder
+        f = bigip.tm.sys.folders.folder
         if f.exists(name=folder_name):
             f.load(name=folder_name)
             f.delete()
@@ -34,11 +44,11 @@ class SystemHelper(object):
         if folder == 'Common':
             return True
 
-        return bigip.sys.folders.folder.exists(name=folder)
+        return bigip.tm.sys.folders.folder.exists(name=folder)
 
     def get_folders(self, bigip):
         f_collection = []
-        folders = bigip.sys.folders.get_collection()
+        folders = bigip.tm.sys.folders.get_collection()
         for folder in folders:
             f_collection.append(folder.name)
 
@@ -59,7 +69,7 @@ class SystemHelper(object):
         return version
 
     def get_version(self, bigip):
-        devices = bigip.cm.devices.get_collection()
+        devices = bigip.tm.cm.devices.get_collection()
         for device in devices:
             if device.selfDevice == 'true':
                 return device.version
@@ -67,7 +77,7 @@ class SystemHelper(object):
         return ""
 
     def get_serial_number(self, bigip):
-        devices = bigip.cm.devices.get_collection()
+        devices = bigip.tm.cm.devices.get_collection()
         for device in devices:
             if device.selfDevice == 'true':
                 return device.chassisId
@@ -78,7 +88,7 @@ class SystemHelper(object):
         return ''
 
     def get_tunnel_sync(self, bigip):
-        db = bigip.sys.dbs.db.load(name='iptunnel.configsync')
+        db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
         if hasattr(db, 'value'):
             return db.value
 
@@ -86,16 +96,15 @@ class SystemHelper(object):
 
     def set_tunnel_sync(self, bigip, enabled=False):
 
-        # if enabled:
-        #    val = 'enable'
-        # else:
-        #    val = 'disable'
-        # db = bigip.sys.dbs.db.load(name='iptunnel.configsync')
-        # db.update(value=val)
-        pass
+        if enabled:
+            val = 'enable'
+        else:
+            val = 'disable'
+        db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
+        db.update(value=val)
 
     def get_provision_extramb(self, bigip):
-        db = bigip.sys.dbs.db.load(name='provision.extramb')
+        db = bigip.tm.sys.dbs.db.load(name='provision.extramb')
         if hasattr(db, 'value'):
             return db.value
 
@@ -103,7 +112,7 @@ class SystemHelper(object):
 
     def get_mac_addresses(self, bigip):
         macs = []
-        interfaces = bigip.net.interfaces.get_collection()
+        interfaces = bigip.tm.net.interfaces.get_collection()
         for interface in interfaces:
             macs.append(interface.macAddress)
         return macs
@@ -111,20 +120,64 @@ class SystemHelper(object):
     def get_interface_macaddresses_dict(self, bigip):
         # Get dictionary of mac addresses keyed by their interface name
         mac_dict = {}
-        interfaces = bigip.net.interfaces.get_collection()
+        interfaces = bigip.tm.net.interfaces.get_collection()
         for interface in interfaces:
             mac_dict[interface.name] = interface.macAddress
         return mac_dict
 
-    # TODO(jl)
     def purge_orphaned_folders(self, bigip):
-        pass
-
-    def force_root_folder(self, bigip):
-        pass
+        LOG.error("method not implemented")
 
     def purge_orphaned_folders_contents(self, bigip, folders):
-        pass
+        LOG.error("method not implemented")
 
     def purge_folder_contents(self, bigip, folder):
-        pass
+        network_helper = NetworkHelper()
+
+        if folder not in self.exempt_folders:
+
+            # First remove all LTM resources.
+            ltm_types = [
+                ResourceType.virtual,
+                ResourceType.pool,
+                ResourceType.http_monitor,
+                ResourceType.https_monitor,
+                ResourceType.tcp_monitor,
+                ResourceType.ping_monitor,
+                ResourceType.node,
+                ResourceType.snat,
+                ResourceType.snatpool,
+                ResourceType.snat_translation,
+                ResourceType.rule
+            ]
+            for ltm_type in ltm_types:
+                resource = BigIPResourceHelper(ltm_type)
+                [r.delete() for r in resource.get_resources(bigip, folder)]
+
+            # Remove all net resources
+            net_types = [
+                ResourceType.arp,
+                ResourceType.selfip,
+                ResourceType.vlan,
+                ResourceType.route_domain
+            ]
+            for net_type in net_types:
+                resource = BigIPResourceHelper(net_type)
+                [r.delete() for r in resource.get_resources(bigip, folder)]
+
+            # Tunnels and fdb's require some special attention.
+            resource = BigIPResourceHelper(ResourceType.tunnel)
+            tunnels = resource.get_resources(bigip, folder)
+            for tunnel in tunnels:
+                network_helper.delete_all_fdb_entries(
+                    bigip, tunnel.name, folder)
+                network_helper.delete_tunnel(
+                    bigip, tunnel.name, folder)
+
+    def purge_folder(self, bigip, folder):
+        if folder not in self.exempt_folders:
+            self.delete_folder(bigip, folder)
+        else:
+            LOG.error(
+                ('Request to purge exempt folder %s ignored.' %
+                 folder))

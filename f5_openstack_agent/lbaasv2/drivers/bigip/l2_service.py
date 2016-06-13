@@ -20,7 +20,7 @@ from time import time
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.fdb_connector_ml2 \
     import FDBConnectorML2
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -90,8 +90,9 @@ class L2ServiceBuilder(object):
             except ImportError:
                 LOG.error('Failed to import VLAN binding driver: %s'
                           % self.conf.vlan_binding_driver)
+                raise
 
-        # map format is   phynet:interface:tagged
+        # map format is  phynet:interface:tagged
         for maps in self.conf.f5_external_physical_mappings:
             intmap = maps.split(':')
             net_key = str(intmap[0]).strip()
@@ -165,7 +166,7 @@ class L2ServiceBuilder(object):
     def assure_bigip_network(self, bigip, network):
         # Ensure bigip has configured network object
         if not network:
-            LOG.error('    assure_bigip_network: '
+            LOG.error('assure_bigip_network: '
                       'Attempted to assure a network with no id..skipping.')
             return
 
@@ -173,11 +174,11 @@ class L2ServiceBuilder(object):
             return
 
         if network['id'] in self.conf.common_network_ids:
-            LOG.debug('    assure_bigip_network: '
+            LOG.debug('assure_bigip_network: '
                       'Network is a common global network... skipping.')
             return
 
-        LOG.debug("        assure_bigip_network network: %s" % str(network))
+        LOG.debug("assure_bigip_network network: %s" % str(network))
         start_time = time()
         if self.is_common_network(network):
             network_folder = 'Common'
@@ -200,7 +201,7 @@ class L2ServiceBuilder(object):
                             % network['provider:network_type'] + \
                             ' Cannot setup network.'
             LOG.error(error_message)
-            raise f5ex.InvalidNetworkType(error_message)
+            raise f5_ex.InvalidNetworkType(error_message)
         bigip.assured_networks.append(network['id'])
         if time() - start_time > .001:
             LOG.debug("        assure bigip network took %.5f secs" %
@@ -234,13 +235,16 @@ class L2ServiceBuilder(object):
 
         if self.vcmp_manager and self.vcmp_manager.get_vcmp_host(bigip):
             interface = None
-
-        model = {'name': vlan_name,
-                 'interface': interface,
-                 'partition': network_folder,
-                 'description': network['id'],
-                 'route_domain_id': network['route_domain_id']}
-        self.network_helper.create_vlan(bigip, model)
+        try:
+            model = {'name': vlan_name,
+                     'interface': interface,
+                     'partition': network_folder,
+                     'description': network['id'],
+                     'route_domain_id': network['route_domain_id']}
+            self.network_helper.create_vlan(bigip, model)
+        except Exception as err:
+            LOG.exception("%s", err.message)
+            raise f5_ex.VLANCreationException("Failed to create flat network")
 
     def _assure_device_network_vlan(self, network, bigip, network_folder):
         # Ensure bigip has configured tagged vlan
@@ -279,14 +283,19 @@ class L2ServiceBuilder(object):
 
         if self.vcmp_manager and self.vcmp_manager.get_vcmp_host(bigip):
             interface = None
-
-        model = {'name': vlan_name,
-                 'interface': interface,
-                 'tag': vlanid,
-                 'partition': network_folder,
-                 'description': network['id'],
-                 'route_domain_id': network['route_domain_id']}
-        self.network_helper.create_vlan(bigip, model)
+        try:
+            model = {'name': vlan_name,
+                     'interface': interface,
+                     'tag': vlanid,
+                     'partition': network_folder,
+                     'description': network['id'],
+                     'route_domain_id': network['route_domain_id']}
+            self.network_helper.create_vlan(bigip, model)
+        except Exception as err:
+            LOG.exception("%s", err.message)
+            raise f5_ex.VLANCreationException(
+                "Failed to create vlan: %s" % vlan_name
+            )
 
         if self.vlan_binding:
             self.vlan_binding.allow_vlan(
@@ -302,7 +311,7 @@ class L2ServiceBuilder(object):
                 % (network['id'], bigip.hostname)
             error_message += ' no VTEP SelfIP defined.'
             LOG.error('VXLAN:' + error_message)
-            raise f5ex.MissingVTEPAddress('VXLAN:' + error_message)
+            raise f5_ex.MissingVTEPAddress('VXLAN:' + error_message)
 
         tunnel_name = _get_tunnel_name(network)
         # create the main tunnel entry for the fdb records
@@ -313,10 +322,14 @@ class L2ServiceBuilder(object):
                    'localAddress': bigip.local_ip,
                    'description': network['id'],
                    'route_domain_id': network['route_domain_id']}
-        LOG.debug("---Creating VXLAN network---")
-        LOG.debug(payload)
-        self.network_helper.create_multipoint_tunnel(bigip, payload)
-        LOG.debug("---VXLAN network Created---")
+        try:
+            self.network_helper.create_multipoint_tunnel(bigip, payload)
+        except Exception as err:
+            LOG.exception("%s", err.message)
+            raise f5_ex.VXLANCreationException(
+                "Failed to create vxlan tunnel: %s" % tunnel_name
+            )
+
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_added(network, bigip.local_ip)
 
@@ -327,7 +340,7 @@ class L2ServiceBuilder(object):
                 % (network['id'], bigip.hostname)
             error_message += ' no VTEP SelfIP defined.'
             LOG.error('L2GRE:' + error_message)
-            raise f5ex.MissingVTEPAddress('L2GRE:' + error_message)
+            raise f5_ex.MissingVTEPAddress('L2GRE:' + error_message)
 
         tunnel_name = _get_tunnel_name(network)
         payload = {'name': tunnel_name,
@@ -337,7 +350,14 @@ class L2ServiceBuilder(object):
                    'localAddress': bigip.local_ip,
                    'description': network['id'],
                    'route_domain_id': network['route_domain_id']}
-        self.network_helper.create_multipoint_tunnel(bigip, payload)
+        try:
+            self.network_helper.create_multipoint_tunnel(bigip, payload)
+        except Exception as err:
+            LOG.exception("%s", err.message)
+            raise f5_ex.VXLANCreationException(
+                "Failed to create gre tunnel: %s" % tunnel_name
+            )
+
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_added(network, bigip.local_ip)
 
@@ -417,7 +437,7 @@ class L2ServiceBuilder(object):
         # Wait for the VLAN to propagate to /Common on vCMP Guest
         full_path_vlan_name = '/Common/' + prefixed(vlan['name'])
         vlan_created = False
-        v = bigip.net.vlans.vlan
+        v = bigip.tm.net.vlans.vlan
         try:
             for _ in range(0, 30):
                 if v.exists(name=vlan['name'], partition='/Common'):
@@ -479,11 +499,17 @@ class L2ServiceBuilder(object):
         # Delete tagged vlan on specific bigip
         vlan_name = self.get_vlan_name(network,
                                        bigip.hostname)
-        self.network_helper.delete_vlan(
-            bigip,
-            vlan_name,
-            partition=network_folder
-        )
+        try:
+            self.network_helper.delete_vlan(
+                bigip,
+                vlan_name,
+                partition=network_folder
+            )
+        except Exception as err:
+            LOG.exception(err)
+            LOG.error(
+                "Failed to delete vlan: %s" % vlan_name)
+
         if self.vlan_binding:
             interface = self.interface_mapping['default']
             tagged = self.tagging_mapping['default']
@@ -517,12 +543,16 @@ class L2ServiceBuilder(object):
         # Delete untagged vlan on specific bigip
         vlan_name = self.get_vlan_name(network,
                                        bigip.hostname)
-
-        self.network_helper.delete_vlan(
-            bigip,
-            vlan_name,
-            partition=network_folder
-        )
+        try:
+            self.network_helper.delete_vlan(
+                bigip,
+                vlan_name,
+                partition=network_folder
+            )
+        except Exception as err:
+            LOG.exception(err)
+            LOG.error(
+                "Failed to delete vlan: %s" % vlan_name)
 
         self._delete_vcmp_device_network(bigip, vlan_name)
 
@@ -530,15 +560,21 @@ class L2ServiceBuilder(object):
         # Delete vxlan tunnel on specific bigip
         tunnel_name = _get_tunnel_name(network)
 
-        self.network_helper.delete_all_fdb_entries(
-            bigip,
-            tunnel_name,
-            partition=network_folder)
+        try:
+            self.network_helper.delete_all_fdb_entries(
+                bigip,
+                tunnel_name,
+                partition=network_folder)
 
-        self.network_helper.delete_tunnel(
-            bigip,
-            tunnel_name,
-            partition=network_folder)
+            self.network_helper.delete_tunnel(
+                bigip,
+                tunnel_name,
+                partition=network_folder)
+        except Exception as err:
+            # Just log the exception, we want to continue cleanup
+            LOG.exception(err)
+            LOG.error(
+                "Failed to delete vxlan tunnel: %s" % tunnel_name)
 
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_removed(network, bigip.local_ip)
@@ -547,15 +583,22 @@ class L2ServiceBuilder(object):
         # Delete gre tunnel on specific bigip
         tunnel_name = _get_tunnel_name(network)
 
-        self.network_helper.delete_all_fdb_entries(
-            bigip,
-            tunnel_name,
-            partition=network_folder)
+        try:
+            self.network_helper.delete_all_fdb_entries(
+                bigip,
+                tunnel_name,
+                partition=network_folder)
 
-        self.network_helper.delete_tunnel(
-            bigip,
-            tunnel_name,
-            partition=network_folder)
+            self.network_helper.delete_tunnel(
+                bigip,
+                tunnel_name,
+                partition=network_folder)
+
+        except Exception as err:
+            # Just log the exception, we want to continue cleanup
+            LOG.exception(err)
+            LOG.error(
+                "Failed to delete gre tunnel: %s" % tunnel_name)
 
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_removed(network, bigip.local_ip)
@@ -632,7 +675,6 @@ class L2ServiceBuilder(object):
                 mac_addr = mac_address
             else:
                 mac_addr = _get_tunnel_fake_mac(network, vtep)
-            # REVISIT(Rich Browne) caller must provide folder and not tenant_id
             self.network_helper.add_fdb_entry(
                 bigip,
                 tunnel_name=tunnel_name,
@@ -652,7 +694,7 @@ class L2ServiceBuilder(object):
                 mac_addr = mac_address
             else:
                 mac_addr = _get_tunnel_fake_mac(network, vtep)
-            # REVISIT caller must provide folder and not tenant_id
+
             self.network_helper.add_fdb_entry(
                 bigip,
                 tunnel_name=tunnel_name,
@@ -845,5 +887,5 @@ class L2ServiceBuilder(object):
                             % network['provider:network_type'] + \
                             ' Cannot setup selfip or snat.'
             LOG.error(error_message)
-            raise f5ex.InvalidNetworkType(error_message)
+            raise f5_ex.InvalidNetworkType(error_message)
         return network_name, preserve_network_name

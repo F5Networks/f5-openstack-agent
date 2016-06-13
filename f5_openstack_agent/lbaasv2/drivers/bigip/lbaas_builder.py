@@ -20,6 +20,7 @@ from oslo_log import log as logging
 
 from neutron.plugins.common import constants as plugin_const
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import listener_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
 
@@ -36,7 +37,9 @@ class LBaaSBuilder(object):
         self.l2_service = l2_service
         self.service_adapter = driver.service_adapter
         self.listener_builder = listener_service.ListenerServiceBuilder(
-            self.service_adapter)
+            self.service_adapter,
+            driver.cert_manager,
+            conf.f5_parent_ssl_profile)
         self.pool_builder = pool_service.PoolServiceBuilder(
             self.service_adapter
         )
@@ -100,10 +103,8 @@ class LBaaSBuilder(object):
                 try:
                     self.listener_builder.create_listener(svc, bigips)
                 except Exception as err:
-                    LOG.error("Error in "
-                              "LBaaSBuilder._assure_listeners_created."
-                              "Message: %s" % err.message)
-                    continue
+                    listener['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.VirtualServerCreationException(err.message)
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -137,18 +138,21 @@ class LBaaSBuilder(object):
                         svc, bigips)
 
                 except Exception as err:
-                    LOG.error("Error in "
-                              "LBaaSBuilder._assure_pools_created."
-                              "Message: %s" % err.message)
-                    continue
+                    pool['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.PoolCreationException(err.message)
 
     def _update_listener_pool(self, service, listener_id, pool_name, bigips):
         listener = self.get_listener_by_id(service, listener_id)
         if listener is not None:
-            listener["pool"] = pool_name
-            svc = {"loadbalancer": service["loadbalancer"],
-                   "listener": listener}
-            self.listener_builder.update_listener(svc, bigips)
+            try:
+                listener["pool"] = pool_name
+                svc = {"loadbalancer": service["loadbalancer"],
+                       "listener": listener}
+                self.listener_builder.update_listener(svc, bigips)
+
+            except Exception as err:
+                listener['provisioning_status'] = plugin_const.ERROR
+                raise f5_ex.VirtualServerUpdateException(err.message)
 
     def _assure_monitors(self, service):
         if not (("pools" in service) and ("healthmonitors" in service)):
@@ -166,17 +170,14 @@ class LBaaSBuilder(object):
                 try:
                     self.pool_builder.delete_healthmonitor(svc, bigips)
                 except Exception as err:
-                    LOG.error("Error in "
-                              "LBaaSBuilder._assure_monitors (delete)."
-                              "Message: %s" % err.message)
-                    continue
+                    monitor['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.MonitorDeleteException(err.message)
             else:
                 try:
                     self.pool_builder.create_healthmonitor(svc, bigips)
                 except Exception as err:
-                    LOG.error("Error in "
-                              "LBaaSBuilder._assure_monitors (create)."
-                              "Message: %s" % err.message)
+                    monitor['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.MonitorCreationException(err.message)
 
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
@@ -194,17 +195,14 @@ class LBaaSBuilder(object):
                 try:
                     self.pool_builder.delete_member(svc, bigips)
                 except Exception as err:
-                    LOG.error("Error in "
-                              "LBaaSBuilder._assure_members (delete)."
-                              "Message: %s" % err.message)
-                    continue
+                    member['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.MemberDeleteException(err.message)
             else:
                 try:
                     self.pool_builder.create_member(svc, bigips)
                 except Exception as err:
-                    LOG.error("Error in "
-                              "LBaaSBuilder._assure_members (create)."
-                              "Message: %s" % err.message)
+                    member['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.MemberDeleteException(err.message)
 
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
@@ -252,9 +250,8 @@ class LBaaSBuilder(object):
                         svc, bigips)
 
                 except Exception as err:
-                    LOG.error("Error in "
-                              "LBaaSBuilder._assure_pools_deleted."
-                              "Message: %s" % err.message)
+                    pool['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.PoolDeleteException(err.message)
 
     def _assure_listeners_deleted(self, service):
         if 'listeners' not in service:
@@ -271,9 +268,8 @@ class LBaaSBuilder(object):
                 try:
                     self.listener_builder.delete_listener(svc, bigips)
                 except Exception as err:
-                    LOG.error("Error in "
-                              "LBaaSBuilder._assure_listeners_deleted."
-                              "Message: %s" % err.message)
+                    listener['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.VirtualServerDeleteException(err.message)
 
     def _check_monitor_delete(self, service):
         # If the pool is being deleted, then delete related objects

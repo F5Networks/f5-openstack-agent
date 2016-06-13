@@ -54,6 +54,9 @@ class ServiceModelAdapter(object):
     def snat_mode(self):
         return self.conf.f5_snat_mode
 
+    def snat_count(self):
+        return self.conf.f5_snat_addresses_per_subnet
+
     def init_pool_name(self, loadbalancer, pool):
         if "name" not in pool or not pool["name"]:
             name = self.prefix + pool["id"]
@@ -65,8 +68,12 @@ class ServiceModelAdapter(object):
 
     def get_virtual(self, service):
         listener = service["listener"]
-        listener["use_snat"] = self.snat_mode()
         loadbalancer = service["loadbalancer"]
+
+        listener["use_snat"] = self.snat_mode()
+        if listener["use_snat"] and self.snat_count() > 0:
+            listener["snat_pool_name"] = self.get_folder_name(
+                loadbalancer["tenant_id"])
 
         # transfer session_persistence from pool to listener
         if "pool" in service and "session_persistence" in service["pool"]:
@@ -292,8 +299,6 @@ class ServiceModelAdapter(object):
     def _map_virtual(self, loadbalancer, listener):
         vip = self._init_virtual_name(loadbalancer, listener)
 
-        # TODO(jl) future work to handle TERMINATED_HTTPS, SNI containers
-
         if "description" in listener:
             vip["description"] = listener["description"]
 
@@ -330,12 +335,6 @@ class ServiceModelAdapter(object):
             else:
                 vip["disabled"] = True
 
-        if "sni_container_refs" in listener:
-            pass
-
-        if "default_tls_container_ref" in listener:
-            pass
-
         if "pool" in listener:
             vip["pool"] = listener["pool"]
 
@@ -344,11 +343,10 @@ class ServiceModelAdapter(object):
     def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
 
-        virtual_type = 'fastl4'
+        virtual_type = 'standard'
         if 'protocol' in listener:
-            if (listener['protocol'] == 'HTTP' or
-               listener['protocol'] == 'HTTPS'):
-                virtual_type = 'standard'
+            if listener['protocol'] == 'TCP':
+                virtual_type = 'fastl4'
 
         if 'session_persistence' in listener:
             persistence_type = listener['session_persistence']
@@ -378,15 +376,14 @@ class ServiceModelAdapter(object):
         # vlan_name
         if "network_name" in listener:
             vip["vlan_name"] = listener["network_name"]
-            if "snat_pool_name" in listener:
-                vip["snat_pool_name"] = listener["snat_pool_name"]
 
         # snat
         if "use_snat" in listener and listener["use_snat"]:
             vip['sourceAddressTranslation'] = {}
-            if "snat_pool_name" in vip:
+            if "snat_pool_name" in listener:
                 vip['sourceAddressTranslation']['type'] = 'snat'
-                vip['sourceAddressTranslation']['pool'] = vip["snat_pool_name"]
+                vip['sourceAddressTranslation']['pool'] = \
+                    listener["snat_pool_name"]
             else:
                 vip['sourceAddressTranslation']['type'] = 'automap'
 
@@ -422,7 +419,7 @@ class ServiceModelAdapter(object):
         vip = self.get_virtual_name(service)
         vip['fallbackPersistence'] = ''
         vip['persist'] = []
-        if 'session_persistence' in pool:
+        if 'session_persistence' in pool and pool['session_persistence']:
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
             if persistence_type == 'APP_COOKIE':
@@ -441,3 +438,17 @@ class ServiceModelAdapter(object):
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
         return vip
+
+    def get_tls(self, service):
+        tls = {}
+        listener = service['listener']
+        if listener['protocol'] == 'TERMINATED_HTTPS':
+            if 'default_tls_container_id' in listener and \
+                    listener['default_tls_container_id']:
+                tls['default_tls_container_id'] = \
+                    listener['default_tls_container_id']
+
+            if 'sni_containers' in listener and listener['sni_containers']:
+                tls['sni_containers'] = listener['sni_containers']
+
+        return tls

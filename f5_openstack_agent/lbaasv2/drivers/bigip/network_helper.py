@@ -52,7 +52,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_l2gre_multipoint_profile(self, bigip, name,
                                         partition=const.DEFAULT_PARTITION):
-        p = bigip.net.tunnels_s.gres.gre
+        p = bigip.tm.net.tunnels_s.gres.gre
         if p.exists(name=name, partition=partition):
             p.load(name=name, partition=partition)
         else:
@@ -65,7 +65,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_vxlan_multipoint_profile(self, bigip, name,
                                         partition=const.DEFAULT_PARTITION):
-        p = bigip.net.tunnels_s.vxlans.vxlan
+        p = bigip.tm.net.tunnels_s.vxlans.vxlan
         if p.exists(name=name, partition=partition):
             p.load(name=name, partition=partition)
         else:
@@ -89,7 +89,7 @@ class NetworkHelper(object):
             payload['description'] = description
         route_domain_id = model.pop('route_domain_id',
                                     const.DEFAULT_ROUTE_DOMAIN_ID)
-        t = bigip.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels_s.tunnels.tunnel
         if t.exists(name=payload['name'], partition=payload['partition']):
             t.load(name=payload['name'], partition=payload['partition'])
         else:
@@ -102,7 +102,7 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_tunnel_key(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        t = bigip.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels_s.tunnels.tunnel
         t.load(name=name, partition=partition)
         return t.key
 
@@ -116,14 +116,14 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_vlan_id(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        v = bigip.net.vlans.vlan
+        v = bigip.tm.net.vlans.vlan
         v.load(name=name, partition=partition)
         return v.tag
 
     @log_helpers.log_method_call
     def get_selfip_addr(self, bigip, name, partition=const.DEFAULT_PARTITION):
         try:
-            s = bigip.net.selfips.selfip
+            s = bigip.tm.net.selfips.selfip
             if s.exists(name=name, partition=partition):
                 s.load(name=name, partition=partition)
                 return s.address
@@ -135,46 +135,11 @@ class NetworkHelper(object):
                                         err.message))
         return None
 
-    @log_helpers.log_method_call
-    def get_selfips(self, bigip, partition=const.DEFAULT_PARTITION,
-                    vlan_name=None):
-        if not vlan_name.startswith('/'):
-            vlan_name = "/%s/%s" % (partition, vlan_name)
-        sc = bigip.net.selfips
-        params = {'params': {'$filter': 'partition eq %s' % partition}}
-        selfips = sc.get_collection(requests_params=params)
-        selfips_list = []
-        for selfip in selfips:
-            if vlan_name and selfip.vlan != vlan_name:
-                LOG.debug("XXXXXXX vlan names don't match selfip.vlan %s "
-                          "and constructed vlan name %s",
-                          selfip.vlan, vlan_name)
-                continue
-            selfip.name = selfip.name
-            selfips_list.append(selfip)
-        return selfips_list
-
-    @log_helpers.log_method_call
-    def delete_selfip(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        """Delete the selfip if it exists."""
-        try:
-            s = bigip.net.selfips.selfip
-            if s.exists(name=name, partition=partition):
-                s.load(name=name, partition=partition)
-                s.delete()
-        except HTTPError as err:
-            LOG.error("Error deleting selfip %s. "
-                      "Repsponse status code: %s. Response "
-                      "message: %s." % (name,
-                                        err.response.status_code,
-                                        err.message))
-
-    @log_helpers.log_method_call
     def route_domain_exists(self, bigip, partition=const.DEFAULT_PARTITION,
                             domain_id=None):
         if partition == 'Common':
             return True
-        r = bigip.net.route_domains.route_domain
+        r = bigip.tm.net.route_domains.route_domain
         name = partition
         if domain_id:
             name += '_aux_' + str(domain_id)
@@ -188,7 +153,7 @@ class NetworkHelper(object):
             name = '0'
         else:
             name = partition
-        r = bigip.net.route_domains.route_domain
+        r = bigip.tm.net.route_domains.route_domain
         r.load(name=name, partition=partition)
         return r
 
@@ -196,7 +161,7 @@ class NetworkHelper(object):
     def get_route_domain_by_id(self, bigip, partition=const.DEFAULT_PARTITION,
                                id=const.DEFAULT_ROUTE_DOMAIN_ID):
         ret_rd = None
-        rdc = bigip.net.route_domains
+        rdc = bigip.tm.net.route_domains
         params = {}
         if partition:
             params = {'params': {'$filter': 'partition eq %s' % partition}}
@@ -215,21 +180,20 @@ class NetworkHelper(object):
 
         lowest_available_index = 1
         for i in range(len(rd_ids)):
-            if rd_ids[i] < lowest_available_index:
-                if len(rd_ids) > (i + 1):
-                    if rd_ids[i + 1] > lowest_available_index:
-                        return lowest_available_index
-                    else:
-                        lowest_available_index = lowest_available_index + 1
+            if lowest_available_index < rd_ids[i]:
+                break
             elif rd_ids[i] == lowest_available_index:
                 lowest_available_index = lowest_available_index + 1
+            else:
+                raise LookupError(
+                    "The list of route domain ids is out of order")
         else:
             return lowest_available_index
 
     @log_helpers.log_method_call
     def create_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
                             strictness=False, is_aux=False):
-        rd = bigip.net.route_domains.route_domain
+        rd = bigip.tm.net.route_domains.route_domain
         name = partition
         id = self._get_next_domain_id(bigip)
         if is_aux:
@@ -248,7 +212,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def delete_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
                             name=None):
-        r = bigip.net.route_domains.route_domain
+        r = bigip.tm.net.route_domains.route_domain
         if not name:
             name = partition
         r.load(name=name, partition=partition)
@@ -256,7 +220,7 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_route_domain_ids(self, bigip, partition=const.DEFAULT_PARTITION):
-        rdc = bigip.net.route_domains
+        rdc = bigip.tm.net.route_domains
         params = {}
         if partition:
             params = {'params': {'$filter': 'partition eq %s' % partition}}
@@ -268,7 +232,7 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_route_domain_names(self, bigip, partition=const.DEFAULT_PARTITION):
-        rdc = bigip.net.route_domains
+        rdc = bigip.tm.net.route_domains
         params = {}
         if partition:
             params = {'params': {'$filter': 'partition eq %s' % partition}}
@@ -296,7 +260,7 @@ class NetworkHelper(object):
                                     const.DEFAULT_ROUTE_DOMAIN_ID)
         if not name:
             return None
-        v = bigip.net.vlans.vlan
+        v = bigip.tm.net.vlans.vlan
         if v.exists(name=name, partition=partition):
             v.load(name=name, partition=partition)
         else:
@@ -324,7 +288,7 @@ class NetworkHelper(object):
             name,
             partition=const.DEFAULT_PARTITION):
         """Delete VLAN from partition."""
-        v = bigip.net.vlans.vlan
+        v = bigip.tm.net.vlans.vlan
         if v.exists(name=name, partition=partition):
             v.load(name=name, partition=partition)
             v.delete()
@@ -382,7 +346,7 @@ class NetworkHelper(object):
                           mac_address,
                           partition=const.DEFAULT_PARTITION):
         """Delete arp using the mac address."""
-        ac = bigip.net.arps.get_collection(partition=partition)
+        ac = bigip.tm.net.arps.get_collection(partition=partition)
         for arp in ac:
             if arp.macAddress == mac_address:
                 arp.delete()
@@ -394,7 +358,7 @@ class NetworkHelper(object):
                    partition=const.DEFAULT_PARTITION):
         if ip_address:
             address = urllib.quote(self._remove_route_domain_zero(ip_address))
-            arp = bigip.net.arps.arp
+            arp = bigip.tm.net.arps.arp
             try:
                 if arp.exists(name=address, partition=partition):
 
@@ -449,7 +413,7 @@ class NetworkHelper(object):
         if not network:
             return []
         mac_addresses = []
-        ac = bigip.net.arps
+        ac = bigip.tm.net.arps
         params = {'params': {'$filter': 'partition eq %s' % partition}}
         try:
             arps = ac.get_collection(requests_params=params)
@@ -480,16 +444,6 @@ class NetworkHelper(object):
         return mac_addresses
 
     @log_helpers.log_method_call
-    def get_snatpool_member_use_count(self, bigip, member_name):
-        snat_count = 0
-        snatpools = bigip.ltm.snatpools.get_collection()
-        for snatpool in snatpools:
-            for member in snatpool.members:
-                if member_name == os.path.basename(member):
-                    snat_count += 1
-        return snat_count
-
-    @log_helpers.log_method_call
     def split_addr_port(self, dest):
         if len(dest.split(':')) > 2:
             # ipv6: bigip syntax is addr.port
@@ -505,7 +459,7 @@ class NetworkHelper(object):
             bigip,
             partition=const.DEFAULT_PARTITION):
         """Returns list of virtual server addresses"""
-        vs = bigip.ltm.virtuals
+        vs = bigip.tm.ltm.virtuals
         virtual_servers = vs.get_collection(partition=partition)
         virtual_services = []
 
@@ -526,7 +480,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def get_node_addresses(self, bigip, partition=const.DEFAULT_PARTITION):
         """Get the addresses of nodes within the partition."""
-        nodes = bigip.ltm.nodes.get_collection(partition=partition)
+        nodes = bigip.tm.ltm.nodes.get_collection(partition=partition)
 
         node_addrs = []
         for node in nodes:
@@ -560,7 +514,7 @@ class NetworkHelper(object):
             records.append(fdb_entry)
 
         try:
-            tunnel = bigip.net.fdbs.tunnels.tunnel
+            tunnel = bigip.tm.net.fdbs.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 tunnel.load(name=tunnel_name, partition=partition)
                 tunnel.update(records=records)
@@ -571,7 +525,7 @@ class NetworkHelper(object):
                             LOG.debug("Creating ARP with IP address %s and"
                                       "MAC addess %s" % (arp_ip_address,
                                                          mac_address))
-                            arp = bigip.net.arps.arp
+                            arp = bigip.tm.net.arps.arp
                             arp.create(ip_address=arp_ip_address,
                                        mac_address=mac_address,
                                        partition=partition)
@@ -619,7 +573,7 @@ class NetworkHelper(object):
                 records = None
 
         try:
-            tunnel = bigip.net.fdbs.tunnels.tunnel
+            tunnel = bigip.tm.net.fdbs.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 tunnel.load(name=tunnel_name, partition=partition)
                 tunnel.update(records=records)
@@ -662,7 +616,7 @@ class NetworkHelper(object):
                     if record['name'] in new_arp_addresses:
                         del new_arp_addresses[record['name']]
 
-            tunnel = bigip.net.fdbs.tunnels.tunnel
+            tunnel = bigip.tm.net.fdbs.tunnels.tunnel
             # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
@@ -691,7 +645,7 @@ class NetworkHelper(object):
             if len(new_records) == 0:
                 new_records = None
 
-            tunnel = bigip.net.fdbs.tunnels.tunnel
+            tunnel = bigip.tm.net.fdbs.tunnels.tunnel
             # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
@@ -713,7 +667,7 @@ class NetworkHelper(object):
                       mac=None,
                       partition=const.DEFAULT_PARTITION):
         try:
-            tunnel = bigip.net.fdbs.tunnels.tunnel
+            tunnel = bigip.tm.net.fdbs.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 tunnel.load(name=tunnel_name, partition=partition)
                 if hasattr(tunnel, "records"):
@@ -742,7 +696,7 @@ class NetworkHelper(object):
             partition=const.DEFAULT_PARTITION):
         """Delete all fdb entries."""
         try:
-            t = bigip.net.fdbs.tunnels.tunnel
+            t = bigip.tm.net.fdbs.tunnels.tunnel
             t.load(name=tunnel_name, partition=partition)
             t.update(records=None)
         except HTTPError as err:
@@ -759,7 +713,7 @@ class NetworkHelper(object):
             tunnel_name,
             partition=const.DEFAULT_PARTITION):
         """Delete a vxlan or gre tunnel."""
-        t = bigip.net.fdbs.tunnels.tunnel
+        t = bigip.tm.net.fdbs.tunnels.tunnel
         try:
             if t.exists(name=tunnel_name, partition=partition):
                 t.load(name=tunnel_name, partition=partition)
@@ -781,7 +735,7 @@ class NetworkHelper(object):
                                         err.message))
 
         try:
-            ts = bigip.net.tunnels_s.tunnels.tunnel
+            ts = bigip.tm.net.tunnels_s.tunnels.tunnel
             if ts.exists(name=tunnel_name, partition=partition):
                 ts.load(name=tunnel_name, partition=partition)
                 ts.delete()
@@ -794,9 +748,8 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_tunnel_folder(self, bigip, tunnel_name=None):
-        tunnels = bigip.net.fdbs.tunnels.get_collection()
+        tunnels = bigip.tm.net.fdbs.tunnels.get_collection()
         for tunnel in tunnels:
-            LOG.debug("Checking tunnel: %s" % (tunnel))
             if tunnel.name == tunnel_name:
                 return tunnel.partition
 

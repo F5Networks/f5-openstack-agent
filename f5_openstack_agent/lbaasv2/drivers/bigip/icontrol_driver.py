@@ -34,7 +34,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from f5.bigip import BigIP
+from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
@@ -56,6 +56,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
 LOG = logging.getLogger(__name__)
+
+
 NS_PREFIX = 'qlbaas-'
 __VERSION__ = '0.1.1'
 
@@ -212,6 +214,64 @@ OPTS = [
         'max_namespaces_per_tenant', default=1,
         help='How many routing tables the BIG-IP will allocate per tenant'
              ' in order to accommodate overlapping IP subnets'
+    ),
+    cfg.StrOpt(
+        'cert_manager',
+        default='f5_openstack_agent.lbaasv2.drivers.bigip.barbican_cert.'
+                'BarbicanCertManager',
+        help='Class name of the certificate mangager used for retrieving '
+             'certificates and keys.'
+    ),
+    cfg.StrOpt(
+        'auth_version',
+        default=None,
+        help='Keystone authentication version (v2 or v3) for Barbican client.'
+    ),
+    cfg.StrOpt(
+        'barbican_endpoint',
+        default='http://10.190.4.169:9311',
+        help='Barbican endpoint to use when no authentication is specified.'
+    ),
+    cfg.StrOpt(
+        'os_project_id',
+        default='service',
+        help='OpenStack project ID.'
+    ),
+    cfg.StrOpt(
+        'os_auth_url',
+        default=None,
+        help='OpenStack authentication URL.'
+    ),
+    cfg.StrOpt(
+        'os_username',
+        default=None,
+        help='OpenStack user name for Keystone authentication..'
+    ),
+    cfg.StrOpt(
+        'os_user_domain_name',
+        default=None,
+        help='OpenStack user domain name for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'os_project_name',
+        default=None,
+        help='OpenStack project name for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'os_project_domain_name',
+        default=None,
+        help='OpenStack domain name for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'os_password',
+        default=None,
+        help='OpenStack user password for Keystone authentication.'
+    ),
+    cfg.StrOpt(
+        'f5_parent_ssl_profile',
+        default='clientssl',
+        help='Parent profile used when creating client SSL profiles '
+        'for listeners with TERMINATED_HTTPS protocols.'
     )
 ]
 
@@ -262,6 +322,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.service_adapter = None
         self.vlan_binding = None
         self.l3_binding = None
+        self.cert_manager = None
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -304,7 +365,11 @@ class iControlDriver(LBaaSBaseDriver):
         if self.conf.f5_global_routed_mode:
             local_ips = []
         else:
-            local_ips = self.network_builder.initialize_tunneling()
+            try:
+                local_ips = self.network_builder.initialize_tunneling()
+            except Exception:
+                LOG.error("Error creating BigIP VTEPs in connect_bigips")
+                raise
 
         self._init_agent_config(local_ips)
 
@@ -343,6 +408,18 @@ class iControlDriver(LBaaSBaseDriver):
         else:
             LOG.debug('No L3 binding driver configured.'
                       ' No L3 binding will be done.')
+
+        if self.conf.cert_manager:
+            try:
+                self.cert_manager = importutils.import_object(
+                    self.conf.cert_manager, self.conf)
+            except ImportError:
+                self.cert_manager = None
+                LOG.error('Failed to import CertManager: %s'
+                          % self.conf.cert_manager)
+
+        if not self.cert_manager:
+            LOG.debug('No CertManager is configured.')
 
         self.service_adapter = ServiceModelAdapter(self.conf)
         self.tenant_manager = BigipTenantManager(self.conf, self)
@@ -448,9 +525,9 @@ class iControlDriver(LBaaSBaseDriver):
         LOG.info('Opening iControl connection to %s @ %s' %
                  (self.conf.icontrol_username, hostname))
 
-        return BigIP(hostname,
-                     self.conf.icontrol_username,
-                     self.conf.icontrol_password)
+        return ManagementRoot(hostname,
+                              self.conf.icontrol_username,
+                              self.conf.icontrol_password)
 
     def _init_bigip(self, bigip, hostname, check_group_name=None):
         # Prepare a bigip for usage
@@ -474,7 +551,7 @@ class iControlDriver(LBaaSBaseDriver):
         if self.conf.f5_ha_type == 'scalen' and \
                 self.cluster_manager.get_sync_status(bigip) == 'Standalone':
             raise f5ex.BigIPClusterInvalidHA(
-                'HA mode is pair and bigip %s in standalone mode'
+                'HA mode is scalen and bigip %s in standalone mode'
                 % hostname)
 
         if self.conf.f5_ha_type != 'standalone':
@@ -511,10 +588,10 @@ class iControlDriver(LBaaSBaseDriver):
 
         if self.conf.f5_ha_type != 'standalone':
             if self.conf.f5_sync_mode == 'autosync':
-                self.cluster_manager.enable_auto_sync(bigip, device_group_name)
+                self.cluster_manager.enable_auto_sync(device_group_name, bigip)
             else:
-                self.cluster_manager.disable_auto_sync(bigip,
-                                                       device_group_name)
+                self.cluster_manager.disable_auto_sync(device_group_name,
+                                                       bigip)
 
         # Turn off tunnel syncing... our VTEPs are local SelfIPs
         if self.system_helper.get_tunnel_sync(bigip) == 'enable':
@@ -628,12 +705,14 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def update_loadbalancer(self, old_loadbalancer, loadbalancer, service):
         """Update virtual server"""
+        LOG.debug("Updating loadbalancer")
         self._common_service_handler(service)
 
     @serialized('delete_loadbalancer')
     @is_connected
     def delete_loadbalancer(self, loadbalancer, service):
         """Delete loadbalancer"""
+        LOG.debug("Deleting loadbalancer")
         self._common_service_handler(service, True)
 
     @serialized('create_listener')
@@ -647,72 +726,79 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def update_listener(self, old_listener, listener, service):
         """Update virtual server"""
+        LOG.debug("Updating listener")
         self._common_service_handler(service)
 
     @serialized('delete_listener')
     @is_connected
     def delete_listener(self, listener, service):
         """Delete virtual server"""
+        LOG.debug("Deleting listener")
         self._common_service_handler(service)
 
     @serialized('create_pool')
     @is_connected
     def create_pool(self, pool, service):
         """Create lb pool"""
+        LOG.debug("Creating pool")
         self._common_service_handler(service)
 
     @serialized('update_pool')
     @is_connected
     def update_pool(self, old_pool, pool, service):
         """Update lb pool"""
+        LOG.debug("Updating pool")
         self._common_service_handler(service)
 
     @serialized('delete_pool')
     @is_connected
     def delete_pool(self, pool, service):
         """Delete lb pool"""
+        LOG.debug("Deleting pool")
         self._common_service_handler(service)
 
     @serialized('create_member')
     @is_connected
     def create_member(self, member, service):
         """Create pool member"""
+        LOG.debug("Creating member")
         self._common_service_handler(service)
 
     @serialized('update_member')
     @is_connected
     def update_member(self, old_member, member, service):
         """Update pool member"""
+        LOG.debug("Updating member")
         self._common_service_handler(service)
 
     @serialized('delete_member')
     @is_connected
     def delete_member(self, member, service):
         """Delete pool member"""
+        LOG.debug("Deleting member")
         self._common_service_handler(service)
 
     @serialized('create_health_monitor')
     @is_connected
     def create_health_monitor(self, health_monitor, service):
         """Create pool health monitor"""
+        LOG.debug("Creating health monitor")
         self._common_service_handler(service)
-        return True
 
     @serialized('update_health_monitor')
     @is_connected
     def update_health_monitor(self, old_health_monitor,
                               health_monitor, service):
         """Update pool health monitor"""
+        LOG.debug("Updating health monitor")
         self._common_service_handler(service)
-        return True
 
     @serialized('delete_health_monitor')
     @is_connected
     def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor"""
+        LOG.debug("Deleting health monitor")
         self._common_service_handler(service)
-        return True
-    # pylint: enable=unused-argument
 
     @is_connected
     def get_stats(self, service):
@@ -830,12 +916,6 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in self.get_all_bigips():
             bigip.system.purge_orphaned_folders_contents(existing_tenants)
 
-        sudslog = std_logging.getLogger('suds.client')
-        sudslog.setLevel(std_logging.FATAL)
-        for bigip in self.get_all_bigips():
-            bigip.system.force_root_folder()
-        sudslog.setLevel(std_logging.ERROR)
-
         for bigip in self.get_all_bigips():
             bigip.system.purge_orphaned_folders(existing_tenants)
 
@@ -930,71 +1010,63 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.error("_common_service_handler: Service loadbalancer is None")
             return
 
-        self.tenant_manager.assure_tenant_created(service)
-        LOG.debug("    _assure_tenant_created took %.5f secs" %
-                  (time() - start_time))
-
-        traffic_group = self.service_to_traffic_group(service)
-
-        LOG.debug("XXXXXXXXXX: traffic group created ")
-        if self.network_builder:
-            start_time = time()
-            try:
-                self.network_builder.prep_service_networking(
-                    service, traffic_group)
-            except Exception as exc:
-                LOG.error("Exception: icontrol_driver: %s", exc.message)
-                service['loadbalancer']['provisioning_status'] = (
-                    plugin_const.ERROR
-                )
-                return self._update_service_status(service)
-
-            if time() - start_time > .001:
-                LOG.debug("    _prep_service_networking "
-                          "took %.5f secs" % (time() - start_time))
-
-        all_subnet_hints = {}
-        LOG.debug("XXXXXXXXXX: getting bigip configs")
-        for bigip in self.get_config_bigips():
-            # check_for_delete_subnets:
-            #     keep track of which subnets we should check to delete
-            #     for a deleted vip or member
-            # do_not_delete_subnets:
-            #     If we add an IP to a subnet we must not delete the subnet
-            all_subnet_hints[bigip.device_name] = \
-                {'check_for_delete_subnets': {},
-                 'do_not_delete_subnets': []}
-
-        LOG.debug("XXXXXXXXX: Pre assure service")
-        self.lbaas_builder.assure_service(service,
-                                          traffic_group,
-                                          all_subnet_hints)
-        LOG.debug("XXXXXXXXX: Post assure service")
-
-        if self.network_builder:
-            start_time = time()
-            try:
-                self.network_builder.post_service_networking(
-                    service, all_subnet_hints)
-            except NeutronException as exc:
-                LOG.error("post_service_networking exception: %s"
-                          % str(exc.msg))
-            except Exception as exc:
-                LOG.error("post_service_networking exception: %s"
-                          % str(exc.message))
-            LOG.debug("    _post_service_networking took %.5f secs" %
+        try:
+            self.tenant_manager.assure_tenant_created(service)
+            LOG.debug("    _assure_tenant_created took %.5f secs" %
                       (time() - start_time))
 
-        # only delete partition if loadbalancer is being deleted
-        if delete_partition:
-            try:
+            traffic_group = self.service_to_traffic_group(service)
+
+            LOG.debug("XXXXXXXXXX: traffic group created ")
+            if self.network_builder:
+                start_time = time()
+                try:
+                    self.network_builder.prep_service_networking(
+                        service, traffic_group)
+                except Exception as exc:
+                    LOG.error("Exception: icontrol_driver: %s", exc.message)
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
+                    raise
+
+                if time() - start_time > .001:
+                    LOG.debug("    _prep_service_networking "
+                              "took %.5f secs" % (time() - start_time))
+
+            all_subnet_hints = {}
+            LOG.debug("XXXXXXXXXX: getting bigip configs")
+            for bigip in self.get_config_bigips():
+                # check_for_delete_subnets:
+                #     keep track of which subnets we should check to delete
+                #     for a deleted vip or member
+                # do_not_delete_subnets:
+                #     If we add an IP to a subnet we must not delete the subnet
+                all_subnet_hints[bigip.device_name] = \
+                    {'check_for_delete_subnets': {},
+                     'do_not_delete_subnets': []}
+
+            LOG.debug("XXXXXXXXX: Pre assure service")
+            self.lbaas_builder.assure_service(service,
+                                              traffic_group,
+                                              all_subnet_hints)
+            LOG.debug("XXXXXXXXX: Post assure service")
+
+            if self.network_builder:
+                start_time = time()
+                self.network_builder.post_service_networking(
+                    service, all_subnet_hints)
+                LOG.debug("    _post_service_networking took %.5f secs" %
+                          (time() - start_time))
+
+            # only delete partition if loadbalancer is being deleted
+            if delete_partition:
                 self.tenant_manager.assure_tenant_cleanup(service,
                                                           all_subnet_hints)
-            except Exception as err:
-                LOG.error("Error deleting tenant partition. Message: %s"
-                          % err.message)
+        except Exception as err:
+            LOG.exception(err)
 
-        self._update_service_status(service)
+        finally:
+            self._update_service_status(service)
 
     def _update_service_status(self, service):
         """Update status of objects in OpenStack """
@@ -1040,6 +1112,8 @@ class iControlDriver(LBaaSBaseDriver):
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.member_destroyed(
                         member['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_member_status(member['id'])
 
     def _update_health_monitor_status(self, health_monitors):
         """Update pool monitor status in OpenStack """
@@ -1055,6 +1129,9 @@ class iControlDriver(LBaaSBaseDriver):
                         )
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.health_monitor_destroyed(
+                        health_monitor['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_health_monitor_status(
                         health_monitor['id'])
 
     @log_helpers.log_method_call
@@ -1073,6 +1150,8 @@ class iControlDriver(LBaaSBaseDriver):
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.pool_destroyed(
                         pool['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_pool_status(pool['id'])
 
     @log_helpers.log_method_call
     def _update_listener_status(self, listeners):
@@ -1090,6 +1169,8 @@ class iControlDriver(LBaaSBaseDriver):
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.listener_destroyed(
                         listener['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_listener_status(listener['id'])
 
     @log_helpers.log_method_call
     def _update_loadbalancer_status(self, loadbalancer):
