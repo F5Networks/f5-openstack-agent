@@ -267,12 +267,19 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def get_port_by_name(self, port_name=None):
         """Get a list of ports that have the name port_name."""
-        return self._call(
-            self.context,
-            self._make_msg('get_port_by_name',
-                           port_name=port_name),
-            topic=self.topic
-        )
+        ports = []
+        try:
+            ports = self._call(
+                self.context,
+                self._make_msg('get_port_by_name',
+                               port_name=port_name),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_port_by_name")
+
+        return ports
 
     @log_helpers.log_method_call
     def create_port_on_subnet(self, subnet_id=None,
@@ -307,7 +314,7 @@ class LBaaSv2PluginRPC(object):
         try:
             port = self._call(
                 self.context,
-                self._make_msg('create_port_on_subnet',
+                self._make_msg('create_port_on_subnet_with_specific_ip',
                                subnet_id=subnet_id,
                                mac_address=mac_address,
                                name=name,

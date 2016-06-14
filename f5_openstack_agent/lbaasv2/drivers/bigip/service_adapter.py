@@ -54,6 +54,9 @@ class ServiceModelAdapter(object):
     def snat_mode(self):
         return self.conf.f5_snat_mode
 
+    def snat_count(self):
+        return self.conf.f5_snat_addresses_per_subnet
+
     def init_pool_name(self, loadbalancer, pool):
         if "name" not in pool or not pool["name"]:
             name = self.prefix + pool["id"]
@@ -65,8 +68,12 @@ class ServiceModelAdapter(object):
 
     def get_virtual(self, service):
         listener = service["listener"]
-        listener["use_snat"] = self.snat_mode()
         loadbalancer = service["loadbalancer"]
+
+        listener["use_snat"] = self.snat_mode()
+        if listener["use_snat"] and self.snat_count() > 0:
+            listener["snat_pool_name"] = self.get_folder_name(
+                loadbalancer["tenant_id"])
 
         # transfer session_persistence from pool to listener
         if "pool" in service and "session_persistence" in service["pool"]:
@@ -369,15 +376,14 @@ class ServiceModelAdapter(object):
         # vlan_name
         if "network_name" in listener:
             vip["vlan_name"] = listener["network_name"]
-            if "snat_pool_name" in listener:
-                vip["snat_pool_name"] = listener["snat_pool_name"]
 
         # snat
         if "use_snat" in listener and listener["use_snat"]:
             vip['sourceAddressTranslation'] = {}
-            if "snat_pool_name" in vip:
+            if "snat_pool_name" in listener:
                 vip['sourceAddressTranslation']['type'] = 'snat'
-                vip['sourceAddressTranslation']['pool'] = vip["snat_pool_name"]
+                vip['sourceAddressTranslation']['pool'] = \
+                    listener["snat_pool_name"]
             else:
                 vip['sourceAddressTranslation']['type'] = 'automap'
 

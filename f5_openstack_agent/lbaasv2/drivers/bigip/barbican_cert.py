@@ -30,6 +30,7 @@ class InvalidBarbicanConfig(Exception):
 
 
 class BarbicanCertManager(cert_manager.CertManagerBase):
+    """Concrete class for retrieving certs/keys from Barbican service."""
 
     def __init__(self, conf):
         super(BarbicanCertManager, self).__init__()
@@ -82,13 +83,38 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
                       "%s and project-id %s." % (endpoint, project_id))
 
     def get_certificate(self, container_ref):
+        """Retrieves certificate from certificate manager.
+
+        :param string ref: Reference to certificate stored in a certificate
+        manager.
+        :returns string: Certificate data.
+        """
         container = self.barbican.containers.get(container_ref)
         return container.certificate.payload
 
     def get_private_key(self, container_ref):
+        """Retrieves key from certificate manager.
+
+        :param string ref: Reference to key stored in a certificate manager.
+        :returns string: Key data.
+        """
         container = self.barbican.containers.get(container_ref)
         return container.private_key.payload
 
-    def get_name(self, container_ref):
-        container = self.barbican.containers.get(container_ref)
-        return container.name
+    def get_name(self, container_ref, prefix):
+        """Returns a name that uniquely identifies cert/key pair.
+
+        Barbican conatainers have a name attribute, but there is
+        no guarantee that the name is unique. Instead of using the
+        container name, create a unique name by parsing UUID from
+        container_ref and prepending prefix.
+
+        :param string ref: Reference to certificate/key container stored in a
+        certificate manager.
+        :param string prefix: The environment prefix. Can be optionally
+        used to
+        :returns string: Name. Unique name with prefix.
+        """
+
+        i = container_ref.rindex("/") + 1
+        return prefix + container_ref[i:]

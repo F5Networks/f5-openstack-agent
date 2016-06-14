@@ -20,5 +20,10 @@ Install the F5® OpenStack Agent
 
     .. code-block:: text
 
-        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v8.0.2
+        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v8.0.3
 
+
+Need to Upgrade?
+````````````````
+
+Please see the :ref:`upgrade instructions <lbaasv2driver:Upgrading the F5® LBaaSv2 Plugin>`.

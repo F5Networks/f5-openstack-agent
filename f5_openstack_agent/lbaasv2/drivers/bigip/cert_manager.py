@@ -15,13 +15,32 @@
 
 
 class CertManagerBase(object):
-    """Base class for certificate/key manager"""
+    """Base class for custom implementations to get certs/keys."""
 
     def get_certificate(self, ref):
-        pass
+        """Retrieves certificate from certificate manager.
+
+        :param string ref: Reference to certificate stored in a certificate
+        manager.
+        :returns string: Certificate data.
+        """
+        raise NotImplementedError()
 
     def get_private_key(self, ref):
-        pass
+        """Retrieves key from certificate manager.
 
-    def get_name(self, ref):
-        pass
+        :param string ref: Reference to key stored in a certificate manager.
+        :returns string: Key data.
+        """
+        raise NotImplementedError()
+
+    def get_name(self, ref, prefix):
+        """Returns a name that uniquely identifies cert/key pair.
+
+        :param string ref: Reference to certificate/key container stored in a
+        certificate manager.
+        :param string prefix: The environment prefix. Can be optionally
+        used to add name.
+        :returns string: Unique name for cert/key pair.
+        """
+        raise NotImplementedError()
