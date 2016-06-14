@@ -58,16 +58,16 @@ class BigipTenantManager(object):
                         (tenant_id))
 
             if not self.driver.disconnected_service.network_exists(
-                            bigip, folder_name):
+                    bigip, folder_name):
                 try:
                     self.driver.disconnected_service.create_network(
                         bigip, folder_name)
                 except Exception as err:
-                    LOG.exception("Error creating disconnected network %s."  %
+                    LOG.exception("Error creating disconnected network %s." %
                                   (folder_name))
                     raise f5ex.SystemCreationException(
-                            "Disconnected network create error for tenant %s" %
-                            (tenant_id))
+                        "Disconnected network create error for tenant %s" %
+                        (tenant_id))
 
         # create tenant route domain
         if self.conf.use_namespaces:
