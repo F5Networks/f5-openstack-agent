@@ -166,7 +166,7 @@ class BigipSnatManager(object):
 
             model = {
                 "name": snat_info['pool_name'],
-                "partition": snat_info['pool_folder'],
+                "partition": snat_info['network_folder'],
             }
             model["members"] = ['/' + model["partition"] + '/' +
                                 index_snat_name]
