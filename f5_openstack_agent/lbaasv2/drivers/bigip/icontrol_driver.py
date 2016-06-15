@@ -582,7 +582,7 @@ class iControlDriver(LBaaSBaseDriver):
                   (bigip.device_name, ', '.join(bigip.mac_addresses)))
         bigip.device_interfaces = \
             self.system_helper.get_interface_macaddresses_dict(bigip)
-        bigip.assured_networks = []
+        bigip.assured_networks = {}
         bigip.assured_tenant_snat_subnets = {}
         bigip.assured_gateway_subnets = []
 
@@ -691,7 +691,7 @@ class iControlDriver(LBaaSBaseDriver):
     def flush_cache(self):
         # Remove cached objects so they can be created if necessary
         for bigip in self.get_all_bigips():
-            bigip.assured_networks = []
+            bigip.assured_networks = {}
             bigip.assured_tenant_snat_subnets = {}
             bigip.assured_gateway_subnets = []
 

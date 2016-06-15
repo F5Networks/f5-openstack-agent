@@ -56,7 +56,9 @@ class ListenerServiceBuilder(object):
             tls['name'] = vip['name']
             tls['partition'] = vip['partition']
 
+        network_id = service['loadbalancer']['network_id']
         for bigip in bigips:
+            self.service_adapter.get_vlan(vip, bigip, network_id)
             self.vs_helper.create(bigip, vip)
 
             if tls:
