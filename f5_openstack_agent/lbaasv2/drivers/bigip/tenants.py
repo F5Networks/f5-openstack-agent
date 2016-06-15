@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-from eventlet import greenthread
 from oslo_log import log as logging
-
-import logging as std_logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -47,28 +44,46 @@ class BigipTenantManager(object):
 
         # create tenant folder
         folder_name = self.service_adapter.get_folder_name(tenant_id)
-        LOG.debug("have folder name %s" % folder_name)
+        LOG.debug("Creating tenant folder %s" % folder_name)
         for bigip in self.driver.get_config_bigips():
             if not self.system_helper.folder_exists(bigip, folder_name):
                 folder = self.service_adapter.get_folder(service)
-                self.system_helper.create_folder(bigip, folder)
+                try:
+                    self.system_helper.create_folder(bigip, folder)
+                except Exception as err:
+                    LOG.exception("Error creating folder %s" %
+                                  (folder))
+                    raise f5ex.SystemCreationException(
+                        "Folder creation error for tenant %s" %
+                        (tenant_id))
+
             if not self.driver.disconnected_service.network_exists(
                     bigip, folder_name):
-                self.driver.disconnected_service.create_network(
-                    bigip, folder_name)
-
-        # folder must sync before route domains are created.
-        self.driver.sync_if_clustered()
+                try:
+                    self.driver.disconnected_service.create_network(
+                        bigip, folder_name)
+                except Exception as err:
+                    LOG.exception("Error creating disconnected network %s." %
+                                  (folder_name))
+                    raise f5ex.SystemCreationException(
+                        "Disconnected network create error for tenant %s" %
+                        (tenant_id))
 
         # create tenant route domain
         if self.conf.use_namespaces:
             for bigip in self.driver.get_all_bigips():
                 if not self.network_helper.route_domain_exists(bigip,
                                                                folder_name):
-                    self.network_helper.create_route_domain(
-                        bigip,
-                        folder_name,
-                        self.conf.f5_route_domain_strictness)
+                    try:
+                        self.network_helper.create_route_domain(
+                            bigip,
+                            folder_name,
+                            self.conf.f5_route_domain_strictness)
+                    except Exception as err:
+                        LOG.exception(err.message)
+                        raise f5ex.RouteDomainCreationException(
+                            "Failed to create route domain for "
+                            "tenant in %s" % (folder_name))
 
     def assure_tenant_cleanup(self, service, all_subnet_hints):
         """Delete tenant partition."""
@@ -82,59 +97,44 @@ class BigipTenantManager(object):
     # otherwise called once
     def _assure_bigip_tenant_cleanup(self, bigip, service, subnet_hints):
         tenant_id = service['loadbalancer']['tenant_id']
-        if self.conf.f5_sync_mode == 'replication':
-            self._remove_tenant_replication_mode(bigip, tenant_id)
-        else:
-            self._remove_tenant_autosync_mode(bigip, tenant_id)
+
+        self._remove_tenant_replication_mode(bigip, tenant_id)
 
     def _remove_tenant_replication_mode(self, bigip, tenant_id):
         # Remove tenant in replication sync-mode
         partition = self.service_adapter.get_folder_name(tenant_id)
         domain_names = self.network_helper.get_route_domain_names(bigip,
                                                                   partition)
-        if self.driver.disconnected_service.network_exists(bigip, partition):
-            self.driver.disconnected_service.delete_network(bigip, partition)
-
-        if domain_names:
-            for domain_name in domain_names:
+        for domain_name in domain_names:
+            try:
                 self.network_helper.delete_route_domain(bigip,
                                                         partition,
                                                         domain_name)
-        # sudslog = std_logging.getLogger('suds.client')
-        # sudslog.setLevel(std_logging.FATAL)
-        self.system_helper.force_root_folder(bigip)
-        # sudslog.setLevel(std_logging.ERROR)
+            except Exception as err:
+                LOG.error("Failed to delete route domain %s. "
+                          "%s. Manual intervention might be required."
+                          % (domain_name, err.message))
+            if self.driver.disconnected_service.network_exists(
+                    bigip, partition):
+                try:
+                    self.driver.disconnected_service.delete_network(bigip,
+                                                                    partition)
+                except Exception as err:
+                    LOG.error("Failed to delete disconnected network %s. "
+                              "%s. Manual intervention might be required."
+                              % (partition, err.message))
 
         try:
             self.system_helper.delete_folder(bigip, partition)
-        except f5ex.SystemDeleteException:
-            self.system_helper.purge_folder_contents(bigip, partition)
-            self.system_helper.delete_folder(bigip, partition)
-
-    def _remove_tenant_autosync_mode(self, bigip, tenant_id):
-        partition = self.service_adapter.get_folder_name(tenant_id)
-
-        # Remove tenant in autosync sync-mode
-        # all domains must be gone before we attempt to delete
-        # the folder or it won't delete due to not being empty
-        for set_bigip in self.driver.get_all_bigips():
-            self.network_helper.delete_route_domain(set_bigip, partition, None)
-            sudslog = std_logging.getLogger('suds.client')
-            sudslog.setLevel(std_logging.FATAL)
-            self.system_helper.force_root_folder(set_bigip)
-            sudslog.setLevel(std_logging.ERROR)
-
-        # we need to ensure that the following folder deletion
-        # is clearly the last change that needs to be synced.
-        self.driver.sync_if_clustered()
-        greenthread.sleep(5)
-        try:
-            self.system_helper.delete_folder(bigip, partition)
-        except f5ex.SystemDeleteException:
-            self.system_helper.purge_folder_contents(bigip, partition)
-            self.system_helper.delete_folder(bigip, partition)
-
-        # Need to make sure this folder delete syncs before
-        # something else runs and changes the current folder to
-        # the folder being deleted which will cause big problems.
-        self.driver.sync_if_clustered()
+        except Exception:
+            LOG.error(
+                "Folder deletion exception for tenant partition %s occurred."
+                % tenant_id)
+            try:
+                self.system_helper.purge_folder_contents(bigip, partition)
+                self.system_helper.delete_folder(bigip, partition)
+            except Exception as err:
+                LOG.exception("%s" % err.message)
+                raise f5ex.SystemDeleteException(
+                    "Failed to destroy folder %s manual cleanup might be "
+                    "required." % partition)

@@ -15,19 +15,20 @@
 #
 
 import os
-import shutil
-import tempfile
-
 from oslo_log import log as logging
-from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
+
+
+class SSLProfileError(Exception):
+    pass
 
 
 class SSLProfileHelper(object):
 
     @staticmethod
-    def create_client_ssl_profile(bigip, name, cert, key, sni_default=False):
+    def create_client_ssl_profile(
+            bigip, name, cert, key, sni_default=False, parent_profile=None):
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
@@ -37,44 +38,41 @@ class SSLProfileHelper(object):
         if ssl_client_profile.exists(name=name, partition='Common'):
             return
 
+        # Check that parent profile exists; use default if not.
+        if parent_profile and not ssl_client_profile.exists(
+                name=parent_profile, partition='Common'):
+            parent_profile = None
+
         certfilename = name + '.crt'
         keyfilename = name + '.key'
-        tls_dir = tempfile.mkdtemp()
 
-        # write certificate to temp file
-        certpath = os.path.join(tls_dir, certfilename)
-        f = open(certpath, "w")
-        f.write(cert)
-        f.close()
-
-        # write key to temp file
-        keypath = os.path.join(tls_dir, keyfilename)
-        f = open(keypath, "w")
-        f.write(key)
-        f.close()
-
-        # upload files to BIG-IP
         try:
-            uploader.upload_file(str(certpath))
-            uploader.upload_file(str(keypath))
+            # In-memory upload -- data not written to local file system but
+            # is saved as a file on the BIG-IP.
+            uploader.upload_bytes(cert, certfilename)
+            uploader.upload_bytes(key, keyfilename)
 
-            # create BIG-IP cert objects
-            cert_registrar.install_cert(certfilename)
-            key_registrar.install_key(certfilename, keyfilename)
+            # import certificate
+            param_set = {}
+            param_set['name'] = certfilename
+            param_set['from-local-file'] = os.path.join(
+                '/var/config/rest/downloads/', certfilename)
+            cert_registrar.exec_cmd('install', **param_set)
 
-            # create ssl-client profile
+            # import key
+            param_set['name'] = keyfilename
+            param_set['from-local-file'] = os.path.join(
+                '/var/config/rest/downloads/', keyfilename)
+            key_registrar.exec_cmd('install', **param_set)
+
+            # create ssl-client profile from cert/key pair
             chain = [{'name': name,
                       'cert': '/Common/' + certfilename,
                       'key': '/Common/' + keyfilename}]
             ssl_client_profile.create(name=name,
                                       certKeyChain=chain,
-                                      sniDefault=sni_default)
-        except HTTPError as err:
-            LOG.error("Error uploading cert/key %s"
-                      "Repsponse status code: %s. Response "
-                      "message: %s." % (certpath,
-                                        err.response.status_code,
-                                        err.message))
-            raise err
-        finally:
-            shutil.rmtree(tls_dir)
+                                      sniDefault=sni_default,
+                                      defaultsFrom=parent_profile)
+        except Exception as err:
+            LOG.error("Error creating SSL profile: %s" % err.message)
+            raise SSLProfileError(err.message)

@@ -20,7 +20,7 @@ from neutron.common.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
     L2ServiceBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -95,19 +95,17 @@ class NetworkServiceBuilder(object):
                     partition='Common')
 
                 # find the IP address for the selfip for each box
-                local_ip = self.network_helper.get_selfip_addr(
+                local_ip = self.bigip_selfip_manager.get_selfip_addr(
                     bigip,
                     vtep_selfip_name,
                     partition=vtep_folder
                 )
-                # FIXME(RJB) We need to make sure that the function is
-                # returning what we expect.
-                local_ip = local_ip.split("/")[0]
+
                 if local_ip:
                     bigip.local_ip = local_ip
                     local_ips.append(local_ip)
                 else:
-                    raise f5ex.MissingVTEPAddress(
+                    raise f5_ex.MissingVTEPAddress(
                         'device %s missing vtep selfip %s'
                         % (bigip.device_name,
                            '/' + vtep_folder + '/' +
@@ -120,31 +118,48 @@ class NetworkServiceBuilder(object):
             return
 
         if self.conf.use_namespaces:
-            self._annotate_service_route_domains(service)
+            try:
+                LOG.debug("Annotating the service definition networks "
+                          "with route domain ID.")
+                self._annotate_service_route_domains(service)
+            except Exception as err:
+                LOG.exception(err)
+                raise f5_ex.RouteDomainCreationException(
+                    "Route domain annotation error")
 
         # Per Device Network Connectivity (VLANs or Tunnels)
         subnetsinfo = self._get_subnets_to_assure(service)
         for (assure_bigip, subnetinfo) in (
                 itertools.product(self.driver.get_all_bigips(), subnetsinfo)):
+            LOG.debug("Assuring per device network connectivity "
+                      "for %s on subnet %s." % (assure_bigip.hostname,
+                                                subnetinfo['subnet']))
+
+            # Make sure the L2 network is established
             self.l2_service.assure_bigip_network(
                 assure_bigip, subnetinfo['network'])
-            LOG.debug("L2 Networking Assured")
+
+            # Connect the BigIP device to network, by getting
+            # a self-ip address on the subnet.
             self.bigip_selfip_manager.assure_bigip_selfip(
                 assure_bigip, service, subnetinfo)
-            LOG.debug("XXXXXXXXXXXXXXX SelfIP assured")
 
         # L3 Shared Config
         assure_bigips = self.driver.get_config_bigips()
-        LOG.debug("get subnetinfo for ...")
+        LOG.debug("Getting subnetinfo for ...")
         LOG.debug(assure_bigips)
         for subnetinfo in subnetsinfo:
             if self.conf.f5_snat_addresses_per_subnet > 0:
                 self._assure_subnet_snats(assure_bigips, service, subnetinfo)
 
             if subnetinfo['is_for_member'] and not self.conf.f5_snat_mode:
-                self._allocate_gw_addr(subnetinfo)
+                try:
+                    self._allocate_gw_addr(subnetinfo)
+                except KeyError as err:
+                    raise f5_ex.VirtualServerCreationException(err.message)
+
                 for assure_bigip in assure_bigips:
-                    # if we are not using SNATS, attempt to become
+                    # If we are not using SNATS, attempt to become
                     # the subnet's default gateway.
                     self.bigip_selfip_manager.assure_gateway_on_subnet(
                         assure_bigip, subnetinfo, traffic_group)
@@ -208,7 +223,7 @@ class NetworkServiceBuilder(object):
             return
 
         LOG.debug("max namespaces: %s" % self.conf.max_namespaces_per_tenant)
-        LOG.debug("max namespaces ==1: %s" %
+        LOG.debug("max namespaces == 1: %s" %
                   (self.conf.max_namespaces_per_tenant == 1))
 
         if self.conf.max_namespaces_per_tenant == 1:
@@ -379,7 +394,7 @@ class NetworkServiceBuilder(object):
         partition_id = self.service_adapter.get_folder_name(tenant_id)
         LOG.debug("Calling get_selfips with: partition %s and vlan_name %s",
                   partition_id, rd_vlan)
-        selfips = self.network_helper.get_selfips(
+        selfips = self.bigip_selfip_manager.get_selfips(
             bigip,
             partition=partition_id,
             vlan_name=rd_vlan
@@ -397,9 +412,8 @@ class NetworkServiceBuilder(object):
             subnet_id = selfip.name.split(bigip.device_name + '-')[1]
 
             # convert 10.1.1.1%1/24 to 10.1.1.1/24
-            addr = selfip.address.split('/')[0]
+            (addr, netbits) = selfip.address.split('/')
             addr = addr.split('%')[0]
-            netbits = selfip.address.split('/')[1]
             selfip.address = addr + '/' + netbits
 
             # selfip addresses will have slash notation: 10.1.1.1/24
@@ -409,7 +423,6 @@ class NetworkServiceBuilder(object):
             net_subnets[subnet_id] = {'cidr': netip.cidr}
             LOG.debug("rds_cache: now %s" % self.rds_cache)
 
-    # REVISIT: Should we do iteritems here?
     def get_route_domain_from_cache(self, network):
         # Get route domain from cache by network
         net_short_name = self.get_neutron_net_short_name(network)
@@ -470,17 +483,25 @@ class NetworkServiceBuilder(object):
         # Ensure snat for subnet exists on bigips
         tenant_id = service['loadbalancer']['tenant_id']
         subnet = subnetinfo['subnet']
+        snats_per_subnet = self.conf.f5_snat_addresses_per_subnet
+
         assure_bigips = \
             [bigip for bigip in assure_bigips
                 if tenant_id not in bigip.assured_tenant_snat_subnets or
                 subnet['id'] not in
                 bigip.assured_tenant_snat_subnets[tenant_id]]
-        LOG.debug("_assure_subnet_snats: getting snat addrs for: subnet")
+
+        LOG.debug("_assure_subnet_snats: getting snat addrs for: %s" %
+                  subnet['id'])
         if len(assure_bigips):
-            LOG.debug("have bigip to assure")
             snat_addrs = self.bigip_snat_manager.get_snat_addrs(
-                subnetinfo, tenant_id)
-            LOG.debug("Got snat addrs")
+                subnetinfo, tenant_id, snats_per_subnet)
+
+            if len(snat_addrs) != snats_per_subnet:
+                raise f5_ex.SNAT_CreationException(
+                    "Unable to satisfy request to allocate %d "
+                    "snats.  Actual SNAT count: %d SNATs" %
+                    (snats_per_subnet, len(snat_addrs)))
             for assure_bigip in assure_bigips:
                 self.bigip_snat_manager.assure_bigip_snats(
                     assure_bigip, subnetinfo, snat_addrs, tenant_id)
@@ -491,12 +512,16 @@ class NetworkServiceBuilder(object):
         # will answer ARP for the members
         need_port_for_gateway = False
         network = subnetinfo['network']
-        if not network:
+        subnet = subnetinfo['subnet']
+        if not network or not subnet:
             LOG.error('Attempted to create default gateway'
-                      ' for network with no id.. skipping.')
+                      ' for network with no id...skipping.')
             return
 
-        subnet = subnetinfo['subnet']
+        if not subnet['gateway_ip']:
+            raise KeyError("attempting to create gateway on subnet without "
+                           "gateway ip address specified.")
+
         gw_name = "gw-" + subnet['id']
         ports = self.driver.plugin_rpc.get_port_by_name(port_name=gw_name)
         if len(ports) < 1:
@@ -518,7 +543,7 @@ class NetworkServiceBuilder(object):
                        exc.message)
                 ermsg += " SNAT will not function and load balancing"
                 ermsg += " support will likely fail. Enable f5_snat_mode."
-                LOG.error(ermsg)
+                LOG.exception(ermsg)
         return True
 
     def post_service_networking(self, service, all_subnet_hints):
@@ -533,7 +558,7 @@ class NetworkServiceBuilder(object):
         # Delete shared config objects
         deleted_names = set()
         for bigip in self.driver.get_config_bigips():
-            LOG.debug('    post_service_networking: calling '
+            LOG.debug('post_service_networking: calling '
                       '_assure_delete_networks del nets sh for bigip %s %s'
                       % (bigip.device_name, all_subnet_hints))
             subnet_hints = all_subnet_hints[bigip.device_name]
@@ -591,8 +616,6 @@ class NetworkServiceBuilder(object):
 
             if "network_id" not in loadbalancer:
                 LOG.error("update_bigip_l2, expected network ID")
-                LOG.error(loadbalancer)
-                LOG.error(service)
                 return
 
             LOG.debug("update_bigip_l2 get network for ID %s" %
@@ -735,19 +758,23 @@ class NetworkServiceBuilder(object):
                 local_selfip_name = "local-" + bigip.device_name + \
                                     "-" + subnet['id']
 
-                selfip_address = self.network_helper.get_selfip_addr(
+                selfip_address = self.bigip_selfip_manager.get_selfip_addr(
                     bigip,
                     local_selfip_name,
                     partition=network_folder
                 )
 
-                self.network_helper.delete_selfip(
+                if not selfip_address:
+                    LOG.error("Failed to get self IP address %s in cleanup.",
+                              local_selfip_name)
+
+                self.bigip_selfip_manager.delete_selfip(
                     bigip,
                     local_selfip_name,
                     partition=network_folder
                 )
 
-                if self.l3_binding:
+                if self.l3_binding and selfip_address:
                     self.l3_binding.unbind_address(subnet_id=subnet['id'],
                                                    ip_address=selfip_address)
 

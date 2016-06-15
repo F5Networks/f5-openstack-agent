@@ -85,7 +85,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_ppp_profile(self, bigip, name,
                            partition=const.DEFAULT_PARTITION):
-        p = bigip.net.tunnels_s.ppps.ppp
+        p = bigip.tm.net.tunnels_s.ppps.ppp
         if p.exists(name=name, partition=partition):
             p.load(name=name, partition=partition)
         else:
@@ -104,7 +104,7 @@ class NetworkHelper(object):
         description = model.get('description', None)
         if description:
             payload['description'] = description
-        t = bigip.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels_s.tunnels.tunnel
         if t.exists(name=payload['name'], partition=payload['partition']):
             t.load(name=payload['name'], partition=payload['partition'])
         else:
@@ -171,41 +171,6 @@ class NetworkHelper(object):
                                         err.message))
         return None
 
-    @log_helpers.log_method_call
-    def get_selfips(self, bigip, partition=const.DEFAULT_PARTITION,
-                    vlan_name=None):
-        if not vlan_name.startswith('/'):
-            vlan_name = "/%s/%s" % (partition, vlan_name)
-        sc = bigip.tm.net.selfips
-        params = {'params': {'$filter': 'partition eq %s' % partition}}
-        selfips = sc.get_collection(requests_params=params)
-        selfips_list = []
-        for selfip in selfips:
-            if vlan_name and selfip.vlan != vlan_name:
-                LOG.debug("XXXXXXX vlan names don't match selfip.vlan %s "
-                          "and constructed vlan name %s",
-                          selfip.vlan, vlan_name)
-                continue
-            selfip.name = selfip.name
-            selfips_list.append(selfip)
-        return selfips_list
-
-    @log_helpers.log_method_call
-    def delete_selfip(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        """Delete the selfip if it exists."""
-        try:
-            s = bigip.tm.net.selfips.selfip
-            if s.exists(name=name, partition=partition):
-                s.load(name=name, partition=partition)
-                s.delete()
-        except HTTPError as err:
-            LOG.error("Error deleting selfip %s. "
-                      "Repsponse status code: %s. Response "
-                      "message: %s." % (name,
-                                        err.response.status_code,
-                                        err.message))
-
-    @log_helpers.log_method_call
     def route_domain_exists(self, bigip, partition=const.DEFAULT_PARTITION,
                             domain_id=None):
         if partition == 'Common':
@@ -251,14 +216,13 @@ class NetworkHelper(object):
 
         lowest_available_index = 1
         for i in range(len(rd_ids)):
-            if rd_ids[i] < lowest_available_index:
-                if len(rd_ids) > (i + 1):
-                    if rd_ids[i + 1] > lowest_available_index:
-                        return lowest_available_index
-                    else:
-                        lowest_available_index = lowest_available_index + 1
+            if lowest_available_index < rd_ids[i]:
+                break
             elif rd_ids[i] == lowest_available_index:
                 lowest_available_index = lowest_available_index + 1
+            else:
+                raise LookupError(
+                    "The list of route domain ids is out of order")
         else:
             return lowest_available_index
 
@@ -514,16 +478,6 @@ class NetworkHelper(object):
                                                 err.response.status_code,
                                                 err.message))
         return mac_addresses
-
-    @log_helpers.log_method_call
-    def get_snatpool_member_use_count(self, bigip, member_name):
-        snat_count = 0
-        snatpools = bigip.tm.ltm.snatpools.get_collection()
-        for snatpool in snatpools:
-            for member in snatpool.members:
-                if member_name == os.path.basename(member):
-                    snat_count += 1
-        return snat_count
 
     @log_helpers.log_method_call
     def split_addr_port(self, dest):
@@ -832,7 +786,6 @@ class NetworkHelper(object):
     def get_tunnel_folder(self, bigip, tunnel_name=None):
         tunnels = bigip.tm.net.fdbs.tunnels.get_collection()
         for tunnel in tunnels:
-            LOG.debug("Checking tunnel: %s" % (tunnel))
             if tunnel.name == tunnel_name:
                 return tunnel.partition
 
