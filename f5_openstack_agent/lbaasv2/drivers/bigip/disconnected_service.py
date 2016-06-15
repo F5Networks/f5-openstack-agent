@@ -119,7 +119,7 @@ class DisconnectedService(object):
         # check if virtual_server is connected on any of our bigips
         connected = True
         for bigip in bigips:
-            vs = bigip.ltm.virtuals.virtual
+            vs = bigip.tm.ltm.virtuals.virtual
             if vs.exists(name=virtual['name'], partition=virtual['partition']):
                 vs.load(name=virtual['name'], partition=virtual['partition'])
                 if (getattr(vs, 'vlansDisabled', False) or
@@ -136,7 +136,7 @@ class DisconnectedService(object):
         return connected
 
     def network_exists(self, bigip, partition):
-        t = bigip.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels_s.tunnels.tunnel
         return t.exists(name=self.network_name, partition=partition)
 
     @log_helpers.log_method_call
@@ -150,7 +150,7 @@ class DisconnectedService(object):
 
     @log_helpers.log_method_call
     def delete_network(self, bigip, partition):
-        t = bigip.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels_s.tunnels.tunnel
         if t.exists(name=self.network_name, partition=partition):
             t.load(name=self.network_name, partition=partition)
             t.delete()
