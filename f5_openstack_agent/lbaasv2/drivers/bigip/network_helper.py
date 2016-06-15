@@ -89,7 +89,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_ppp_profile(self, bigip, name,
                            partition=const.DEFAULT_PARTITION):
-        p = bigip.net.tunnels_s.ppps.ppp
+        p = bigip.tm.net.tunnels_s.ppps.ppp
         if p.exists(name=name, partition=partition):
             p.load(name=name, partition=partition)
         else:
@@ -108,7 +108,7 @@ class NetworkHelper(object):
         description = model.get('description', None)
         if description:
             payload['description'] = description
-        t = bigip.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels_s.tunnels.tunnel
         if t.exists(name=payload['name'], partition=payload['partition']):
             t.load(name=payload['name'], partition=payload['partition'])
         else:
