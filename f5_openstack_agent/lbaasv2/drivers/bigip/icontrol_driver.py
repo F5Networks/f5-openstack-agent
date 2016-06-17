@@ -142,7 +142,7 @@ OPTS = [
         help='tunnel types which are advertised to other VTEPs'
     ),
     cfg.BoolOpt(
-        'f5_populate_static_arp', default=True,
+        'f5_populate_static_arp', default=False,
         help='create static arp entries based on service entries'
     ),
     cfg.StrOpt(

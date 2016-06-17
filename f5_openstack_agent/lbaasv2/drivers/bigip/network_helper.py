@@ -357,17 +357,15 @@ class NetworkHelper(object):
                    ip_address,
                    partition=const.DEFAULT_PARTITION):
         if ip_address:
-            address = urllib.quote(self._remove_route_domain_zero(ip_address))
-            arp = bigip.tm.net.arps.arp
             try:
-                if arp.exists(name=address, partition=partition):
-
-                    arp.load(name=address, partition=partition)
-                    arp.delete()
+                arps = bigip.tm.net.arps.get_collection(partition=partition)
+                for arp in arps:
+                    if arp.ipAddress == ip_address:
+                        arp.delete()
             except HTTPError as err:
                 LOG.error("Error deleting arp %s. "
                           "Repsponse status code: %s. Response "
-                          "message: %s." % (address,
+                          "message: %s." % (ip_address,
                                             err.response.status_code,
                                             err.message))
 
@@ -522,24 +520,37 @@ class NetworkHelper(object):
                     # arp_ip_address is typcially member address.
                     if arp_ip_address:
                         try:
-                            LOG.debug("Creating ARP with IP address %s and"
+                            LOG.debug("Creating ARP with IP address %s and "
                                       "MAC addess %s" % (arp_ip_address,
                                                          mac_address))
                             arp = bigip.tm.net.arps.arp
-                            arp.create(ip_address=arp_ip_address,
-                                       mac_address=mac_address,
+                            ip_address = urllib.quote(
+                                self._remove_route_domain_zero(arp_ip_address))
+                            arp.create(name=arp_ip_address,
+                                       ipAddress=arp_ip_address,
+                                       macAddress=mac_address,
                                        partition=partition)
+                        except HTTPError as err:
+                            if err.response.status_code != 409:
+                                LOG.error("Error adding static arp %s. "
+                                          "Response status code: %s. Response "
+                                          "message: %s." % (
+                                              ip_address,
+                                              err.response.status_code,
+                                              err.message))
+                                return False
                         except Exception as e:
-                            LOG.error('add_fdb_entry',
-                                      'could not create static arp: %s'
-                                      % e.message)
+                            LOG.error('add_fdb_entry: '
+                                      'could not create static arp: %s' %
+                                      (e.message))
                             return False
+
                 return True
             else:
-                LOG.debug("Tunnel %s does not exist." % tunnel_name)
+                LOG.error("Tunnel %s does not exist." % tunnel_name)
         except HTTPError as err:
             LOG.error("Error checking tunnel %s. "
-                      "Repsponse status code: %s. Response "
+                      "Response status code: %s. Response "
                       "message: %s." % (tunnel_name,
                                         err.response.status_code,
                                         err.message))
