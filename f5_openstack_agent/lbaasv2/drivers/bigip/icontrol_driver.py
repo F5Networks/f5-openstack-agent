@@ -122,14 +122,6 @@ OPTS = [
         help='Mapping between Neutron physical_network to interfaces'
     ),
     cfg.StrOpt(
-        'sync_mode', default='replication',
-        help='The sync mechanism: autosync or replication'
-    ),
-    cfg.StrOpt(
-        'f5_sync_mode', default='replication',
-        help='The sync mechanism: autosync or replication'
-    ),
-    cfg.StrOpt(
         'f5_vtep_folder', default='Common',
         help='Folder for the VTEP SelfIP'
     ),
@@ -587,11 +579,7 @@ class iControlDriver(LBaaSBaseDriver):
         bigip.assured_gateway_subnets = []
 
         if self.conf.f5_ha_type != 'standalone':
-            if self.conf.f5_sync_mode == 'autosync':
-                self.cluster_manager.enable_auto_sync(device_group_name, bigip)
-            else:
-                self.cluster_manager.disable_auto_sync(device_group_name,
-                                                       bigip)
+            self.cluster_manager.disable_auto_sync(device_group_name, bigip)
 
         # Turn off tunnel syncing... our VTEPs are local SelfIPs
         if self.system_helper.get_tunnel_sync(bigip) == 'enable':
@@ -1224,13 +1212,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def get_config_bigips(self):
         # Return a list of big-ips that need to be configured.
-        #    In replication sync mode, we configure all big-ips
-        #    individually. In autosync mode we only use one big-ip
-        #    and then sync the configuration to the other big-ips.
-        if self.conf.f5_sync_mode == 'replication':
-            return self.get_all_bigips()
-        else:
-            return [self.get_bigip()]
+        return self.get_all_bigips()
 
     def get_inbound_throughput(self, bigip, global_statistics=None):
         pass
@@ -1270,36 +1252,6 @@ class iControlDriver(LBaaSBaseDriver):
         if 'traffic-group-local-only' in self.__traffic_groups:
             self.__traffic_groups.remove('traffic-group-local-only')
         self.__traffic_groups.sort()
-
-    def sync_if_clustered(self):
-        # sync device group if not in replication mode
-        if self.conf.f5_ha_type == 'standalone' or \
-                self.conf.f5_sync_mode == 'replication' or \
-                len(self.get_all_bigips()) < 2:
-            return
-        bigip = self.get_bigip()
-        self._sync_with_retries(bigip)
-
-    def _sync_with_retries(self, bigip, force_now=False,
-                           attempts=4, retry_delay=130):
-        # sync device group
-        for attempt in range(1, attempts + 1):
-            LOG.debug('Syncing Cluster... attempt %d of %d'
-                      % (attempt, attempts))
-            try:
-                if attempt != 1:
-                    force_now = False
-                self.cluster_manager.sync(bigip.device_group_name,
-                                          force_now=force_now)
-                LOG.debug('Cluster synced.')
-                return
-            except Exception as exc:
-                LOG.error('ERROR: Cluster sync failed: %s' % exc)
-                if attempt == attempts:
-                    raise
-                LOG.error('Wait another %d seconds for devices '
-                          'to recover from failed sync.' % retry_delay)
-                greenthread.sleep(retry_delay)
 
     def _validate_bigip_version(self, bigip, hostname):
         # Ensure the BIG-IP® has sufficient version

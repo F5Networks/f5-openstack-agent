@@ -566,24 +566,14 @@ class NetworkServiceBuilder(object):
                 self._assure_delete_nets_shared(bigip, service,
                                                 subnet_hints))
 
-        # avoids race condition:
-        # deletion of shared ip objects must sync before we
-        # remove the selfips or vlans from the peer bigips.
-        self.driver.sync_if_clustered()
-
         # Delete non shared config objects
         for bigip in self.driver.get_all_bigips():
             LOG.debug('    post_service_networking: calling '
                       '    _assure_delete_networks del nets ns for bigip %s'
                       % bigip.device_name)
-            if self.conf.f5_sync_mode == 'replication':
-                subnet_hints = all_subnet_hints[bigip.device_name]
-            else:
-                # If in autosync mode, then the IP operations were performed
-                # on just the primary big-ip, and so that is where the subnet
-                # hints are stored. So, just use those hints for every bigip.
-                device_name = self.driver.get_bigip().device_name
-                subnet_hints = all_subnet_hints[device_name]
+
+            subnet_hints = all_subnet_hints[bigip.device_name]
+
             deleted_names = deleted_names.union(
                 self._assure_delete_nets_nonshared(
                     bigip, service, subnet_hints)
