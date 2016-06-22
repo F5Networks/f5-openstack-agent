@@ -189,26 +189,32 @@ class L2ServiceBuilder(object):
 
         # setup all needed L2 network segments
         if network['provider:network_type'] == 'flat':
-            self._assure_device_network_flat(network, bigip, network_folder)
+            network_name = self._assure_device_network_flat(
+                network, bigip, network_folder)
         elif network['provider:network_type'] == 'vlan':
-            self._assure_device_network_vlan(network, bigip, network_folder)
+            network_name = self._assure_device_network_vlan(
+                network, bigip, network_folder)
         elif network['provider:network_type'] == 'vxlan':
-            self._assure_device_network_vxlan(network, bigip, network_folder)
+            network_name = self._assure_device_network_vxlan(
+                network, bigip, network_folder)
         elif network['provider:network_type'] == 'gre':
-            self._assure_device_network_gre(network, bigip, network_folder)
+            network_name = self._assure_device_network_gre(
+                network, bigip, network_folder)
         else:
             error_message = 'Unsupported network type %s.' \
                             % network['provider:network_type'] + \
                             ' Cannot setup network.'
             LOG.error(error_message)
             raise f5_ex.InvalidNetworkType(error_message)
-        bigip.assured_networks.append(network['id'])
+        bigip.assured_networks[network['id']] = network_name
+
         if time() - start_time > .001:
             LOG.debug("        assure bigip network took %.5f secs" %
                       (time() - start_time))
 
     def _assure_device_network_flat(self, network, bigip, network_folder):
         # Ensure bigip has configured flat vlan (untagged)
+        vlan_name = ""
         interface = self.interface_mapping['default']
         vlanid = 0
 
@@ -246,10 +252,13 @@ class L2ServiceBuilder(object):
             LOG.exception("%s", err.message)
             raise f5_ex.VLANCreationException("Failed to create flat network")
 
+        return vlan_name
+
     def _assure_device_network_vlan(self, network, bigip, network_folder):
         # Ensure bigip has configured tagged vlan
         # VLAN names are limited to 64 characters including
         # the folder name, so we name them foolish things.
+        vlan_name = ""
         interface = self.interface_mapping['default']
         tagged = self.tagging_mapping['default']
 
@@ -304,8 +313,12 @@ class L2ServiceBuilder(object):
                 vlanid=vlanid
             )
 
+        return vlan_name
+
     def _assure_device_network_vxlan(self, network, bigip, partition):
         # Ensure bigip has configured vxlan
+        tunnel_name = ""
+
         if not bigip.local_ip:
             error_message = 'Cannot create tunnel %s on %s' \
                 % (network['id'], bigip.hostname)
@@ -333,7 +346,11 @@ class L2ServiceBuilder(object):
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_added(network, bigip.local_ip)
 
+        return tunnel_name
+
     def _assure_device_network_gre(self, network, bigip, partition):
+        tunnel_name = ""
+
         # Ensure bigip has configured gre tunnel
         if not bigip.local_ip:
             error_message = 'Cannot create tunnel %s on %s' \
@@ -360,6 +377,8 @@ class L2ServiceBuilder(object):
 
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_added(network, bigip.local_ip)
+
+        return tunnel_name
 
     def _is_vlan_assoc_with_vcmp_guest(self, bigip, vlan):
         if not self.vcmp_manager:
@@ -493,7 +512,7 @@ class L2ServiceBuilder(object):
             LOG.error('Unsupported network type %s. Can not delete.'
                       % network['provider:network_type'])
         if network['id'] in bigip.assured_networks:
-            bigip.assured_networks.remove(network['id'])
+            del bigip.assured_networks[network['id']]
 
     def _delete_device_vlan(self, bigip, network, network_folder):
         # Delete tagged vlan on specific bigip

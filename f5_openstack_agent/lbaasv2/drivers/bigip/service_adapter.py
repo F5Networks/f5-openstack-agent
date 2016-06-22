@@ -340,6 +340,12 @@ class ServiceModelAdapter(object):
 
         return vip
 
+    def get_vlan(self, vip, bigip, network_id):
+        if network_id in bigip.assured_networks:
+            vip['vlans'].append(
+                bigip.assured_networks[network_id])
+            vip['vlansEnabled'] = True
+
     def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
 
@@ -373,10 +379,6 @@ class ServiceModelAdapter(object):
             if '.' in ip_address:
                 vip["mask"] = '255.255.255.255'
 
-        # vlan_name
-        if "network_name" in listener:
-            vip["vlan_name"] = listener["network_name"]
-
         # snat
         if "use_snat" in listener and listener["use_snat"]:
             vip['sourceAddressTranslation'] = {}
@@ -386,6 +388,10 @@ class ServiceModelAdapter(object):
                     listener["snat_pool_name"]
             else:
                 vip['sourceAddressTranslation']['type'] = 'automap'
+
+        # default values for pinning the VS to a specific VLAN set
+        vip['vlansEnabled'] = False
+        vip['vlans'] = []
 
     def _map_member(self, loadbalancer, lbaas_member):
         member = {}
