@@ -41,11 +41,11 @@ def opt_password(request):
     return request.config.getoption("--password")
 
 
-@pytest.fixture
-def bigip(opt_bigip, opt_username, opt_password, scope="module"):
-    '''bigip fixture'''
-    b = BigIP(opt_bigip, opt_username, opt_password)
-    return b
+#@pytest.fixture
+#def bigip(opt_bigip, opt_username, opt_password, scope="module"):
+#    '''bigip fixture'''
+#    b = BigIP(opt_bigip, opt_username, opt_password)
+#    return b
 
 
 @pytest.fixture

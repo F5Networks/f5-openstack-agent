@@ -140,6 +140,8 @@ class ServiceModelAdapter(object):
 
     def get_folder(self, service):
         loadbalancer = service["loadbalancer"]
+        # XXX maybe ServiceModelAdapter should get the data it needs on
+        # __init__?
         folder = None
 
         if "tenant_id" in loadbalancer:
@@ -159,6 +161,7 @@ class ServiceModelAdapter(object):
         return folder
 
     def get_folder_name(self, tenant_id):
+        # XXX Use of getter questionable move to @property?
         if tenant_id is not None:
             name = self.prefix + \
                 tenant_id.replace('/', '')

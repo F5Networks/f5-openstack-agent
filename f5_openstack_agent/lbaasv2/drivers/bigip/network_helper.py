@@ -26,6 +26,10 @@ LOG = logging.getLogger(__name__)
 
 
 class NetworkHelper(object):
+    '''Another device inreface helper class that's different thatn the 
+
+    service_adapter.ServiceModelAdapter
+    '''
     l2gre_multipoint_profile_defaults = {
         'name': None,
         'partition': const.DEFAULT_PARTITION,
