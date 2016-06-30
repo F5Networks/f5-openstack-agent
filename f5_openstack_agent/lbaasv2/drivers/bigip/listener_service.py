@@ -62,7 +62,6 @@ class ListenerServiceBuilder(object):
         # start the virtual server on a disconnected network if the neutron
         # network does not yet exist
         if not self.disconnected_service.is_service_connected(service):
-            tenant_id = service['listener']["tenant_id"]
             network_name = DisconnectedService.network_name
             vip['vlansEnabled'] = True
             vip['vlans'] = [

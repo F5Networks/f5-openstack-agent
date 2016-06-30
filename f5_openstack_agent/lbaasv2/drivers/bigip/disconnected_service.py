@@ -13,39 +13,103 @@
 # limitations under the License.
 #
 
-from oslo_log import helpers as log_helpers
-from oslo_log import log as logging
 from eventlet import greenthread
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
+from neutron.plugins.common import constants as plugin_const
+from neutron_lbaas.services.loadbalancer import constants as lb_const
+from oslo_log import helpers as log_helpers
+from oslo_log import log as logging
+from oslo_utils import timeutils
 
 LOG = logging.getLogger(__name__)
+
+
+class DisconnectedServicePolling(object):
+    def __init__(self, driver):
+        self.driver = driver
+        self.enabled = driver.conf.f5_network_segment_physical_network
+        if self.enabled:
+            greenthread.spawn(self.polling_thread)
+        self.start_time = {}
+
+    def scan(self):
+        """Periodically scan for disconnected virtual servers.
+
+        :return: Return the number of seconds to wait before invoking this
+            method again.
+        """
+
+        LOG.debug("scanning disconnected networks")
+        # find active loadbalancers for this agent to see which virtual
+        # servers have become un-disconnected.
+        d = self.driver
+        if d.plugin_rpc:
+            loadbalancer_ids = d.plugin_rpc.get_all_loadbalancers()
+            for lb in loadbalancer_ids:
+                id = lb['lb_id']
+                service = d.plugin_rpc.get_service_by_loadbalancer_id(id)
+                listeners = service.get('listeners', None)
+                service.pop('listeners', None)
+                provisioning_status = \
+                    service['loadbalancer']['provisioning_status']
+                if not d.disconnected_service.is_service_connected(service):
+                    if id in self.start_time:
+                        if timeutils.is_older_than(
+                                self.start_time[id],
+                                d.conf.f5_network_segment_gross_timeout):
+                            LOG.error("failed to connect loadbalancer %s to "
+                                      "a real network" % id)
+                            if (provisioning_status !=
+                                    plugin_const.PENDING_DELETE):
+                                d.plugin_rpc.update_loadbalancer_status(id)
+                    else:
+                        self.start_time[id] = timeutils.utcnow()
+                        d.plugin_rpc.update_loadbalancer_status(
+                            id, provisioning_status, lb_const.OFFLINE)
+                    continue
+                # service is connected in neutron, move all listeners for this
+                # loadbalancer onto a real network
+                for listener in listeners:
+                    service['listener'] = listener
+                    virtual = d.service_adapter.get_virtual_name(service)
+                    bigips = d.get_all_bigips()
+                    if not d.disconnected_service.is_virtual_connected(
+                            virtual, bigips):
+                        LOG.debug("connecting %s to a real network" %
+                                  virtual['name'])
+                        d.lbaas_builder.listener_builder.update_listener(
+                            service, bigips)
+                d.plugin_rpc.update_loadbalancer_status(
+                    id, provisioning_status, lb_const.ONLINE)
+                self.start_time.pop(id, None)
+
+    def polling_thread(self):
+        while True:
+            # Split out the actual scanning tech to accommodate migration
+            # greeenthread to oslo periodic_task.
+            self.scan()
+            greenthread.sleep(
+                self.driver.conf.f5_network_segment_polling_interval)
 
 
 class DisconnectedService(object):
     network_name = 'disconnected_network'
 
-    def __init__(self, driver=None):
-        self.driver = driver
-        self.name = DisconnectedService.network_name
-        if driver:
-            self.spawn_polling_thread()
+    def __init__(self):
+        self.network_name = DisconnectedService.network_name
         self.network_helper = NetworkHelper()
 
-    # Tailor this method to poll the appropriate field based on your ML2 driver.
-    # In a hierarchical network deployment, this code presumes that the
-    # segmentation_id will not exist upon creation of the loadbalancer and/or
-    # listener.
+    # The following method presumes that the plugin driver is aware that we're
+    # running in hierarchical mode or not and sets segmentation_id correctly.
     def is_service_connected(self, service):
-        from pprint import pformat
-        LOG.debug("service: %s" % pformat(service))
         networks = service['networks']
         network_id = service['loadbalancer']['network_id']
         segmentation_id = networks[network_id]['provider:segmentation_id']
-        return segmentation_id
+        return (segmentation_id)
 
     def is_virtual_connected(self, virtual, bigips):
-        # check if virtual_server is not connected on any of our bigips
+        # check if virtual_server is connected on any of our bigips
         connected = True
         for bigip in bigips:
             vs = bigip.ltm.virtuals.virtual
@@ -53,61 +117,24 @@ class DisconnectedService(object):
                 vs.load(name=virtual['name'], partition=virtual['partition'])
                 if (getattr(vs, 'vlansDisabled', False) or
                         not getattr(vs, 'vlansEnabled', True)):
-                    # accommodate quick of how big-ip returns virtual server
-                    # if vlans are disabled OR vlans are not enabled, then we're
-                    # connected
+                    # accommodate quirk of how big-ip returns virtual server
+                    # if vlans are disabled OR vlans are not enabled, then
+                    # we're connected
                     continue
                 network_path = "/%s/%s" % (virtual['partition'],
-                                           DisconnectedService.network_name)
+                                           self.network_name)
                 if network_path in getattr(vs, 'vlans', []):
                     connected = False
                     break
         return connected
 
-    def polling_thread(self):
-        while True:
-            LOG.debug("scanning disconnected networks")
-            # find active loadbalancers for this agent to see which virtual
-            # servers have become un-disconnected.
-            if self.driver.plugin_rpc:
-                loadbalancer_ids = \
-                    self.driver.plugin_rpc.get_all_loadbalancers()
-                for lb in loadbalancer_ids:
-                    service = \
-                        self.driver.plugin_rpc.get_service_by_loadbalancer_id(
-                            lb['lb_id'])
-                    listeners = service.get('listeners', None)
-                    if not listeners:
-                        # there are no virtual server to move
-                        continue
-                    service.pop('listeners', None)
-                    for listener in listeners:
-                        service['listener'] = listener
-                        sa = self.driver.service_adapter
-                        virtual = sa.get_virtual_name(service)
-                        bigips = self.driver.get_all_bigips()
-                        if (self.is_service_connected(service) and
-                                not self.is_virtual_connected(virtual, bigips)):
-                            # swing the virtual server to its final network
-                            LOG.debug("connecting %s to a real network" %
-                                      virtual['name'])
-                            lb_builder = self.driver.lbaas_builder
-                            lb_builder.listener_builder.update_listener(
-                                service, bigips)
-            greenthread.sleep(
-                self.driver.conf.disconnected_network_polling_interval)
-
-    def spawn_polling_thread(self):
-        obj = greenthread.spawn(self.polling_thread)
-        print obj
-
     def network_exists(self, bigip, partition):
         t = bigip.net.tunnels_s.tunnels.tunnel
-        return t.exists(name=self.name, partition=partition)
+        return t.exists(name=self.network_name, partition=partition)
 
     @log_helpers.log_method_call
     def create_network(self, bigip, partition):
-        model = {'name': self.name,
+        model = {'name': self.network_name,
                  'partition': partition,
                  'profile': 'ppp',
                  'description': 'Tenant disconnected network'}
@@ -117,6 +144,6 @@ class DisconnectedService(object):
     @log_helpers.log_method_call
     def delete_network(self, bigip, partition):
         t = bigip.net.tunnels_s.tunnels.tunnel
-        if t.exists(name=self.name, partition=partition):
-            t.load(name=self.name, partition=partition)
+        if t.exists(name=self.network_name, partition=partition):
+            t.load(name=self.network_name, partition=partition)
             t.delete()

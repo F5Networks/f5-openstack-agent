@@ -87,8 +87,6 @@ class BigipTenantManager(object):
                                                                folder_name):
                     try:
                         self.network_helper.create_route_domain(
-                            bigip,
-                            folder_name,
                             self.conf.f5_route_domain_strictness)
                     except Exception as err:
                         LOG.exception(err.message)
@@ -116,7 +114,8 @@ class BigipTenantManager(object):
         partition = self.service_adapter.get_folder_name(tenant_id)
         domain_names = self.network_helper.get_route_domain_names(bigip,
                                                                   partition)
-        self.driver.disconnected_service.delete_network(bigip, partition)
+        if self.driver.disconnected_service.network_exists(bigip, partition):
+            self.driver.disconnected_service.delete_network(bigip, partition)
 
         if domain_names:
             for domain_name in domain_names:
