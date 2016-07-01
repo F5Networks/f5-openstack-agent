@@ -39,6 +39,10 @@ from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
+from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
+    DisconnectedService
+from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
+    DisconnectedServicePolling
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
@@ -265,6 +269,19 @@ OPTS = [  # XXX maybe we should make this a dictionary
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '
         'for listeners with TERMINATED_HTTPS protocols.'
+    ),
+    cfg.StrOpt(
+        'f5_network_segment_physical_network',
+        default=None,
+        help='Name of physical network to use for discovery of segment ID'
+    ),
+    cfg.IntOpt(
+        'f5_network_segment_polling_interval', default=10,
+        help='Seconds between periodic scans for disconnected virtual servers'
+    ),
+    cfg.IntOpt(
+        'f5_network_segment_gross_timeout', default=300,
+        help='Seconds to wait for a virtual server to become connected'
     )
 ]
 
@@ -317,6 +334,9 @@ class iControlDriver(LBaaSBaseDriver):
         self.vlan_binding = None
         self.l3_binding = None
         self.cert_manager = None # overrides register_OPTS
+        # The following must not be None if/when assure_tenant_created called
+        self.disconnected_service = None
+        self.disconnected_service_polling = None
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -348,6 +368,9 @@ class iControlDriver(LBaaSBaseDriver):
         self._init_bigip_hostnames()
         self._init_bigip_managers()
         self.connect_bigips()
+
+        self.agent_configurations['network_segment_physical_network'] = \
+            self.disconnected_service_polling.get_physical_network()
 
         LOG.info('iControlDriver initialized to %d bigips with username:%s'
                  % (len(self.__bigips), self.conf.icontrol_username))
@@ -421,6 +444,8 @@ class iControlDriver(LBaaSBaseDriver):
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
         self.lbaas_builder = LBaaSBuilder(self.conf, self)
+        self.disconnected_service = DisconnectedService()
+        self.disconnected_service_polling = DisconnectedServicePolling(self)
 
         if self.conf.f5_global_routed_mode:
             self.network_builder = None
@@ -1171,10 +1196,15 @@ class iControlDriver(LBaaSBaseDriver):
 
         if (provisioning_status == plugin_const.PENDING_CREATE or
                 provisioning_status == plugin_const.PENDING_UPDATE):
+            operational_status = lb_const.ONLINE
+            if self.disconnected_service_polling.enabled:
+                # operational status will be set by the disconnected
+                # service polling thread if that mode is enabled
+                operational_status = lb_const.OFFLINE
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 plugin_const.ACTIVE,
-                lb_const.ONLINE)
+                operational_status)
         elif provisioning_status == plugin_const.PENDING_DELETE:
             self.plugin_rpc.loadbalancer_destroyed(
                 loadbalancer['id'])
