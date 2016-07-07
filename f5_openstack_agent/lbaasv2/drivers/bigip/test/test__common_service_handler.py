@@ -1,16 +1,9 @@
 import copy
 import json
-import mock
 import os
 from pprint import pprint as pp
-import pytest
 from pytest import symbols
 import requests
-
-from oslo_config import cfg
-
-from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import\
-    iControlDriver
 
 requests.packages.urllib3.disable_warnings()
 
@@ -30,11 +23,9 @@ def test__common_service_handler(bigip, neutronless_wrappedicontroldriver):
     print(type(symbols))
     print(symbols.debug)
     print(nless_wicd.hostnames)
-    #pp(CREATE)
     partition_names = [x.name for x in mgmt_rt.tm.sys.folders.get_collection()]
     pp(partition_names)
-    original_create = copy.deepcopy(CREATE) 
-    
+    copy.deepcopy(CREATE)
     nless_wicd._common_service_handler(CREATE)
     try:
         print('after _common_service_handler: %r' % CREATE['traffic_group'])
