@@ -26,10 +26,7 @@ LOG = logging.getLogger(__name__)
 
 
 class NetworkHelper(object):
-    '''Another device inreface helper class that's different thatn the 
 
-    service_adapter.ServiceModelAdapter
-    '''
     l2gre_multipoint_profile_defaults = {
         'name': None,
         'partition': const.DEFAULT_PARTITION,
@@ -77,7 +74,7 @@ class NetworkHelper(object):
             payload['name'] = name
             payload['partition'] = partition
             obj = p.create(**payload)
-        return obj 
+        return obj
 
     @log_helpers.log_method_call
     def create_multipoint_tunnel(self, bigip, model):

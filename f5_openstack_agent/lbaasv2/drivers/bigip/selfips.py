@@ -234,7 +234,8 @@ class BigipSelfIpManager(object):
         # Put the virtual server address in the specified traffic group
         virtual_address = bigip.tm.ltm.virtual_address_s.virtual_address
         try:
-            obj = virtual_address.load(name='0.0.0.0', partition=network_folder)
+            obj = virtual_address.load(
+                name='0.0.0.0', partition=network_folder)
             obj.update(trafficGroup=traffic_group)
         except Exception as err:
             LOG.exception(err)
