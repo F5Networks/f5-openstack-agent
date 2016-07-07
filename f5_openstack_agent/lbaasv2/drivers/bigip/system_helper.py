@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-from pprint import pprint as pp
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -33,15 +32,13 @@ class SystemHelper(object):
 
     def create_folder(self, bigip, folder):
         f = bigip.tm.sys.folders.folder
-        #pp(f)
         f.create(**folder)
-        #pp(f)
 
     def delete_folder(self, bigip, folder_name):
         f = bigip.tm.sys.folders.folder
         if f.exists(name=folder_name):
-            f.load(name=folder_name)
-            f.delete()
+            obj = f.load(name=folder_name)
+            obj.delete()
 
     def folder_exists(self, bigip, folder):
         if folder == 'Common':

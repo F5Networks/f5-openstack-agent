@@ -63,7 +63,8 @@ def main():
     config.register_root_helper(cfg.CONF)
 
     common_config.init(sys.argv[1:])
-    config.setup_logging() # alias for common_config.setup_logging()...
+    # alias for common_config.setup_logging()...
+    config.setup_logging()
 
     mgr = manager.LbaasAgentManager(cfg.CONF)
 

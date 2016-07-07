@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-from pprint import pprint as pp
 import datetime
 import hashlib
 import logging as std_logging
@@ -278,7 +277,7 @@ def is_connected(method):
                 return method(*args, **kwargs)
             except IOError as ioe:
                 LOG.error('IO Error detected: %s' % method.__name__)
-                instance.connect_bigips() #what's this do?
+                instance.connect_bigips()  # what's this do?
                 raise ioe
         else:
             LOG.error('Cannot execute %s. Not connected. Connecting.'
@@ -300,15 +299,15 @@ class iControlDriver(LBaaSBaseDriver):
             self.conf.register_opts(OPTS)
         self.hostnames = None
         self.device_type = conf.f5_device_type
-        self.plugin_rpc = None # overrides base, same value
+        self.plugin_rpc = None  # overrides base, same value
         self.__last_connect_attempt = None
-        self.connected = False # overrides base, same value
+        self.connected = False  # overrides base, same value
         self.driver_name = 'f5-lbaasv2-icontrol'
 
         # BIG-IP® containers
         self.__bigips = {}
         self.__traffic_groups = []
-        self.agent_configurations = {} # overrides base, same value
+        self.agent_configurations = {}  # overrides base, same value
         self.tenant_manager = None
         self.cluster_manager = None
         self.system_helper = None
@@ -316,7 +315,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.service_adapter = None
         self.vlan_binding = None
         self.l3_binding = None
-        self.cert_manager = None # overrides register_OPTS
+        self.cert_manager = None  # overrides register_OPTS
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -507,12 +506,12 @@ class iControlDriver(LBaaSBaseDriver):
         except NeutronException as exc:
             LOG.error('Could not communicate with all ' +
                       'iControl devices: %s' % exc.msg)
-            greenthread.sleep(5) # this should probably go away
+            greenthread.sleep(5)  # this should probably go away
             raise
         except Exception as exc:
             LOG.error('Could not communicate with all ' +
                       'iControl devices: %s' % exc.message)
-            greenthread.sleep(5) # this should probably go away
+            greenthread.sleep(5)  # this should probably go away
             raise
 
     def _open_bigip(self, hostname):
@@ -992,7 +991,7 @@ class iControlDriver(LBaaSBaseDriver):
         #        folder=service['pool']['tenant_id'],
         #        config_mode=self.conf.icontrol_config_mode)
         return True
-    
+
     def _common_service_handler(self, service, delete_partition=False):
         # Assure that the service is configured on bigip(s)
         start_time = time()
@@ -1001,7 +1000,6 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.error("_common_service_handler: Service loadbalancer is None")
             return
 
-        pp('about to attempt assure_tenant_created')
         try:
             self.tenant_manager.assure_tenant_created(service)
             LOG.debug("    _assure_tenant_created took %.5f secs" %
@@ -1202,9 +1200,9 @@ class iControlDriver(LBaaSBaseDriver):
         # As implemented I think this always returns the "first" bigip
         # without any HTTP traffic? CONFIRMED: __bigips are mgmt_rts
         hostnames = sorted(self.__bigips)
-        for i in range(len(hostnames)): # C-style make Pythonic.
+        for i in range(len(hostnames)):  # C-style make Pythonic.
             try:
-                bigip = self.__bigips[hostnames[i]] # Calling devices?!
+                bigip = self.__bigips[hostnames[i]]  # Calling devices?!
                 return bigip
             except urllib2.URLError:
                 pass

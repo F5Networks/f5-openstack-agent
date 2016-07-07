@@ -23,10 +23,10 @@ class LBaaSBaseDriver(object):
         subclassing...
         '''
         self.agent_id = None
-        self.plugin_rpc = None # XXX This is overridden in the only known subclass
-        self.connected = False # XXX This is overridden in the only known subclass
+        self.plugin_rpc = None  # XXX overridden in the only known subclass
+        self.connected = False  # XXX overridden in the only known subclass
         self.service_queue = []
-        self.agent_configurations = {} # XXX overridden in subclass
+        self.agent_configurations = {}  # XXX overridden in subclass
 
     def set_context(self, context):
         """Set the global context object for the lbaas driver """
@@ -36,7 +36,7 @@ class LBaaSBaseDriver(object):
         """Run after agent is fully connected """
         raise NotImplementedError()
 
-    def set_tunnel_rpc(self, tunnel_rpc): # XXX into this class?
+    def set_tunnel_rpc(self, tunnel_rpc):  # XXX into this class?
         """Provide FDB Connector RPC access """
         raise NotImplementedError()
 

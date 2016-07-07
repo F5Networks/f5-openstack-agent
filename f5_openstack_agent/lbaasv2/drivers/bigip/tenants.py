@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 class BigipTenantManager(object):
     """Create network connectivity for a bigip."""
 
-    def __init__(self, conf, driver): # XXX maybe we need a better name: conf
+    def __init__(self, conf, driver):  # XXX maybe we need a better name: conf
         """Create a BigipTenantManager."""
         self.conf = conf
         self.driver = driver
@@ -48,20 +48,15 @@ class BigipTenantManager(object):
         suppose this is the other way.
         """
         tenant_id = service['loadbalancer']['tenant_id']
-        print('tenant_id: %r:' % tenant_id) 
         traffic_group = self.driver.service_to_traffic_group(service)
-        print('traffic_group: %r' % traffic_group)
         traffic_group = '/Common/' + traffic_group
-        service["traffic_group"] = traffic_group # modify the passed dict
+        service["traffic_group"] = traffic_group  # modify the passed dict
 
         # create tenant folder
         folder_name = self.service_adapter.get_folder_name(tenant_id)
         LOG.debug("Creating tenant folder %s" % folder_name)
-        print("Creating tenant folder %s" % folder_name)
         for bigip in self.driver.get_config_bigips():
-            print("bigip is %r" % bigip)
             if not self.system_helper.folder_exists(bigip, folder_name):
-                print("folder_name: %r did not exist" % folder_name)
                 folder = self.service_adapter.get_folder(service)
                 # This folder is a dict config obj, that can be passed to
                 # folder.create in the SDK
@@ -77,7 +72,6 @@ class BigipTenantManager(object):
 
         # create tenant route domain
         if self.conf.use_namespaces:
-            print("self.conf.use_namespaces")
             for bigip in self.driver.get_all_bigips():
                 if not self.network_helper.route_domain_exists(bigip,
                                                                folder_name):
