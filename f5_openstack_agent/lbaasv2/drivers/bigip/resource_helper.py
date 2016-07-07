@@ -80,11 +80,11 @@ class BigIPResourceHelper(object):
         if "partition" in model:
             partition = model["partition"]
         if resource.exists(name=model["name"], partition=partition):
-            resource = self.update(bigip, model)
+            obj = self.update(bigip, model)
         else:
-            resource.create(**model)
+            obj = resource.create(**model)
 
-        return resource
+        return obj
 
     def exists(self, bigip, name=None, partition=None):
         """Test for the existence of a resource."""
@@ -103,8 +103,8 @@ class BigIPResourceHelper(object):
         """
         resource = self._resource(bigip)
         if resource.exists(name=name, partition=partition):
-            resource.load(name=name, partition=partition)
-            resource.delete()
+            obj = resource.load(name=name, partition=partition)
+            obj.delete()
 
     def load(self, bigip, name=None, partition=None):
         u"""Retrieve a BIG-IP® resource from a BIG-IP®.
@@ -118,9 +118,7 @@ class BigIPResourceHelper(object):
         :returns: created or updated resource object.
         """
         resource = self._resource(bigip)
-        resource.load(name=name, partition=partition)
-
-        return resource
+        return resource.load(name=name, partition=partition)
 
     def update(self, bigip, model):
         u"""Update a resource (e.g., pool) on a BIG-IP® system.

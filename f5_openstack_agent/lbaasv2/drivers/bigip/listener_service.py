@@ -175,8 +175,8 @@ class ListenerServiceBuilder(object):
         for bigip in bigips:
             v = bigip.tm.ltm.virtuals.virtual
             if v.exists(name=vip["name"], partition=vip["partition"]):
-                v.load(name=vip["name"], partition=vip["partition"])
-                v.update(**vip)
+                obj = v.load(name=vip["name"], partition=vip["partition"])
+                obj.update(**vip)
 
     def update_session_persistence(self, service, bigips):
         """Update session persistence for virtual server.
@@ -217,8 +217,8 @@ class ListenerServiceBuilder(object):
         :param bigip: Single BigIP instances to update.
         """
         v = bigip.tm.ltm.virtuals.virtual
-        v.load(name=vip["name"], partition=vip["partition"])
-        p = v.profiles_s
+        obj = v.load(name=vip["name"], partition=vip["partition"])
+        p = obj.profiles_s
         profiles = p.get_collection()
 
         # see if profile exists
@@ -333,8 +333,8 @@ class ListenerServiceBuilder(object):
         try:
             ssl_client_profile = bigip.tm.ltm.profile.client_ssls.client_ssl
             if ssl_client_profile.exists(name=name, partition='Common'):
-                ssl_client_profile.load(name=name, partition='Common')
-                ssl_client_profile.delete()
+                obj = ssl_client_profile.load(name=name, partition='Common')
+                obj.delete()
 
         except Exception as err:
             # Not necessarily an error -- profile might be referenced
@@ -353,8 +353,8 @@ class ListenerServiceBuilder(object):
         """
         try:
             v = bigip.tm.ltm.virtuals.virtual
-            v.load(name=vip["name"], partition=vip["partition"])
-            p = v.profiles_s
+            obj = v.load(name=vip["name"], partition=vip["partition"])
+            p = obj.profiles_s
             profiles = p.get_collection()
 
             # see if profile exists
@@ -382,12 +382,12 @@ class ListenerServiceBuilder(object):
 
         u = bigip.tm.ltm.persistences.universals.universal
         if u.exists(name=rule_name, partition=vip["partition"]):
-            u.load(name=rule_name, partition=vip["partition"])
-            u.delete()
+            obj = u.load(name=rule_name, partition=vip["partition"])
+            obj.delete()
             LOG.debug("Deleted persistence universal %s" % rule_name)
 
         r = bigip.tm.ltm.rules.rule
         if r.exists(name=rule_name, partition=vip["partition"]):
-            r.load(name=rule_name, partition=vip["partition"])
-            r.delete()
+            obj = r.load(name=rule_name, partition=vip["partition"])
+            obj.delete()
             LOG.debug("Deleted rule %s" % rule_name)
