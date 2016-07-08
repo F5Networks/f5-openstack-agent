@@ -93,8 +93,8 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
     wrappedicontroldriver = mock.MagicMock(wraps=icontroldriver)
 
     def _deletion_order(to_delete):
-        ordering = {'member': 1,
-                    '/mgmt/tm/ltm/pool': 2,
+        ordering = {'/mgmt/tm/ltm/pool': 1,
+                    'mgmt/tm/ltm/node/': 2,
                     'monitor': 3,
                     'virtual-address': 4,
                     '/mgmt/tm/ltm/virtual': 5,
@@ -106,11 +106,15 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
                 if k in item:
                     return ordering[k]
             return 999
-        return  sorted(list(to_delete), key=order_key)
+        ordered_for_deletion = sorted(list(to_delete), key=order_key)
+        pp(ordered_for_deletion)
+        return ordered_for_deletion
 
     def remove_test_created_elements():
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
+        pp('created')
+        pp(created)
         ordered = _deletion_order(created)
         for selfLink in ordered:
             if 'virtual-address' not in selfLink:
