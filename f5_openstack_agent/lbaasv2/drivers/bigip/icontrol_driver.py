@@ -275,7 +275,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'f5_network_segment_gross_timeout', default=300,
         help='Seconds to wait for a virtual server to become connected'
     ),
-    cfg.IntOpt(
+    cfg.StrOpt(
         'f5_parent_ssl_profile',
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '

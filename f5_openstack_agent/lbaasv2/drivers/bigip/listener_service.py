@@ -253,18 +253,18 @@ class ListenerServiceBuilder(object):
         rule_def = self._create_app_cookie_persist_rule(cookie_name)
         rule_name = 'app_cookie_' + vip['name']
 
-        r = bigip.tm.ltm.rules.rule
-        if not r.exists(name=rule_name, partition=vip["partition"]):
-            r.create(name=rule_name,
+        rf = bigip.tm.ltm.rules.rule
+        if not rf.exists(name=rule_name, partition=vip["partition"]):
+            r = rf.create(name=rule_name,
                      apiAnonymous=rule_def,
                      partition=vip["partition"])
             LOG.debug("Created rule %s" % rule_name)
 
-        u = bigip.tm.ltm.persistences.universals.universal
-        if not u.exists(name=rule_name, partition=vip["partition"]):
-            u.create(name=rule_name,
-                     rule=rule_name,
-                     partition=vip["partition"])
+        uf = bigip.tm.ltm.persistences.universals.universal
+        if not uf.exists(name=rule_name, partition=vip["partition"]):
+            u = uf.create(name=rule_name,
+                          rule=rule_name,
+                          partition=vip["partition"])
             LOG.debug("Created persistence universal %s" % rule_name)
 
     def _create_app_cookie_persist_rule(self, cookiename):

@@ -31,14 +31,12 @@ class SystemHelper(object):
         self.exempt_folders = ['/', 'Common']
 
     def create_folder(self, bigip, folder):
-        f = bigip.tm.sys.folders.folder
-        f.create(**folder)
+        bigip.tm.sys.folders.folder.create(**folder)
 
     def delete_folder(self, bigip, folder_name):
-        f = bigip.tm.sys.folders.folder
-        if f.exists(name=folder_name):
-            obj = f.load(name=folder_name)
-            obj.delete()
+        ff = bigip.tm.sys.folders.folder
+        if ff.exists(name=folder_name):
+            ff.load(name=folder_name).delete()
 
     def folder_exists(self, bigip, folder):
         if folder == 'Common':

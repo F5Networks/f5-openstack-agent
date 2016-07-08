@@ -456,11 +456,11 @@ class L2ServiceBuilder(object):
         # Wait for the VLAN to propagate to /Common on vCMP Guest
         full_path_vlan_name = '/Common/' + prefixed(vlan['name'])
         vlan_created = False
-        v = bigip.tm.net.vlans.vlan
+        vf = bigip.tm.net.vlans.vlan
         try:
             for _ in range(0, 30):
-                if v.exists(name=vlan['name'], partition='/Common'):
-                    v.load(name=vlan['name'], partition='/Common')
+                if vf.exists(name=vlan['name'], partition='/Common'):
+                    v = vf.load(name=vlan['name'], partition='/Common')
                     vlan_created = True
                     break
                 LOG.debug(('Wait for VLAN %s to be created on vCMP Guest %s.'
