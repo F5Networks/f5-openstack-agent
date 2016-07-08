@@ -18,22 +18,17 @@ import json
 import mock
 import os
 from pprint import pprint as pp
-import requests
-requests.packages.urllib3.disable_warnings()
-import sys
-import time
 import pytest
 from pytest import symbols
+import requests
+requests.packages.urllib3.disable_warnings()
 
 from oslo_config import cfg
+
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import\
     iControlDriver
 
 from f5.utils.testutils.registrytools import register_device
-from f5.utils.testutils.registrytools import register_OC_atoms
-
-from pycallgraph import PyCallGraph
-from pycallgraph.output import GraphvizOutput
 
 from urlparse import urlsplit
 osd = os.path.dirname
@@ -49,7 +44,6 @@ UPDATELB_SVC =\
     json.load(open(os.path.join(SERVICELIBDIR, 'updatelb.json'), 'r'))
 DELETELB_SVC =\
     json.load(open(os.path.join(SERVICELIBDIR, 'deletelb.json'), 'r'))
-
 
 
 @pytest.fixture(scope='module')
@@ -88,7 +82,7 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
         created = frozenset(posttest_registry) - pretest_snapshot
         ordered = _deletion_order(created)
         for selfLink in ordered:
-            posttest_registry[selfLink].delete() 
+            posttest_registry[selfLink].delete()
 
     request.addfinalizer(remove_test_created_elements)
     return bigip, wrappedicontroldriver, pretest_snapshot
@@ -162,6 +156,7 @@ CREATE_POOL_SVC['pools'].append(pool_config)
 DELETE_POOL_SVC = copy.deepcopy(CREATE_POOL_SVC)
 DELETE_POOL_SVC['pools'][0]['provisioning_status'] = 'PENDING_DELETE'
 
+
 def test_pool_CD(setup_neutronless):
     bigip, wicontrold, _ = setup_neutronless
     assert not bigip.tm.ltm.pools.get_collection()
@@ -191,24 +186,26 @@ def test_member_CD(setup_neutronless):
     members = bigip.tm.ltm.pools.get_collection()[0].members_s
     assert not members.get_collection()
     wicontrold._common_service_handler(CREATE_MEMBER_SVC)
-    # SANITY CHECK assert bigip.tm.ltm.pools.get_collection()[0].name == 'test_pool_anur23rgg'
+    # SANITY CHECK assert
+    # bigip.tm.ltm.pools.get_collection()[0].name == 'test_pool_anur23rgg'
     assert members.get_collection()
     wicontrold._common_service_handler(DELETE_MEMBER_SVC)
     assert not members.get_collection()
 
 
-monitor_config =  {'delay': 3,
-                   'pool_id': CREATE_POOL_SVC['pools'][0]['id'],
-                   'type': 'HTTP',
-                   'timeout': 13,
-                   'max_retries': 7,
-                   'provisioning_status': 'PENDING_CREATE',
-                   'id': 'e'*32}
+monitor_config = {'delay': 3,
+                  'pool_id': CREATE_POOL_SVC['pools'][0]['id'],
+                  'type': 'HTTP',
+                  'timeout': 13,
+                  'max_retries': 7,
+                  'provisioning_status': 'PENDING_CREATE',
+                  'id': 'e'*32}
 
 CREATE_HM_SVC = copy.deepcopy(CREATE_MEMBER_SVC)
 CREATE_HM_SVC['healthmonitors'].append(monitor_config)
 DELETE_HM_SVC = copy.deepcopy(CREATE_HM_SVC)
 DELETE_HM_SVC['healthmonitors'][0]['provisioning_status'] == 'PENDING_DELETE'
+
 
 def test_healthmonitor_CD(setup_neutronless):
     bigip, wicontrold, _ = setup_neutronless
@@ -218,7 +215,7 @@ def test_healthmonitor_CD(setup_neutronless):
     test_sl = 'https://localhost/mgmt/tm/ltm/monitor/http/'\
               '~TEST_00000000000000000000000000000000'\
               '~TEST_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee?ver=11.6.0'
-    expected_monitors = init_monitors|set((test_sl,))
+    expected_monitors = init_monitors | set((test_sl,))
     wicontrold._common_service_handler(CREATE_POOL_SVC)
     wicontrold._common_service_handler(CREATE_HM_SVC)
     observed_with_test_mon = set([x.selfLink for x in https.get_collection()])
