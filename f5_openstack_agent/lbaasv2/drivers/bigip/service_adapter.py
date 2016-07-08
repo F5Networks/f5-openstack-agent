@@ -86,9 +86,6 @@ class ServiceModelAdapter(object):
         return vip
 
     def get_virtual_name(self, service):
-        print('Inside get_virtual_name')
-        print('*'*80)
-        pp(service)
         listener = service["pool"]["listeners"][0]
         loadbalancer = service["loadbalancer"]
         return self._init_virtual_name(loadbalancer, listener)
@@ -137,9 +134,6 @@ class ServiceModelAdapter(object):
         return self._map_node(loadbalancer, member)
 
     def get_healthmonitor(self, service):
-        pp('*'*80)
-        pp('inside get_healthmonitor')
-        pp(service)
         healthmonitor = service["healthmonitor"]
         loadbalancer = service["loadbalancer"]
         return self._map_healthmonitor(loadbalancer,

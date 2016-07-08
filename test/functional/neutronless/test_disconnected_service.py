@@ -107,14 +107,11 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
                     return ordering[k]
             return 999
         ordered_for_deletion = sorted(list(to_delete), key=order_key)
-        pp(ordered_for_deletion)
         return ordered_for_deletion
 
     def remove_test_created_elements():
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
-        pp('created')
-        pp(created)
         ordered = _deletion_order(created)
         for selfLink in ordered:
             if 'virtual-address' not in selfLink:
@@ -124,9 +121,7 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
     return bigip, wrappedicontroldriver, pretest_snapshot
 
 
-def test_loadbalancer_CD(setup_neutronless):
-    # UPDATELB_SVC doesn't appear to change the device state
-    # so this test doesn't include an update invocation
+def test_disconnected_service(setup_neutronless):
     bigip, wicontrold, _ = setup_neutronless
 
     # record start state
@@ -135,37 +130,18 @@ def test_loadbalancer_CD(setup_neutronless):
     for sf in start_folders:
         assert sf.name == '/' or sf.name == 'Common'
 
-    # invoke CREATELB_SVC operation
-    pp(DISCONNECTED_SVC)
-    # pp(CREATELB_SVC)
-    wicontrold._common_service_handler(DISCONNECTED_SVC)
-
-    # verify CREATELB_SVCd state
-    active_folders = bigip.tm.sys.folders.get_collection()
-    vs = bigip.tm.ltm.virtuals.get_collection()[0]
-    # pp(vs.raw)
-    start_keys = frozenset(vs.__dict__)
+    count = 0
+    while count <= 5:
+        count = count + 1
+        time.sleep(1)
+        wicontrold._common_service_handler(DISCONNECTED_SVC)
+        vs = bigip.tm.ltm.virtuals.get_collection()[0]
+        assert vs.vlans ==\
+            [u'/TEST_cd6a91ccb44945129ac78e7c992655eb/disconnected_network']
     assert vs.selfLink == 'https://localhost/mgmt/tm/ltm/virtual'\
         '/~TEST_cd6a91ccb44945129ac78e7c992655eb~listener2?ver=11.6.0'
-    #wicontrold._common_service_handler(CONNECTED_SVC)
+    wicontrold._common_service_handler(CONNECTED_SVC)
     vsend = bigip.tm.ltm.virtuals.get_collection()[0]
-    # pp(vsend.raw)
-    stop_keys = frozenset(vsend.__dict__)
-    pp(stop_keys - start_keys)
-    pp(start_keys - stop_keys)
-    #for k in start_keys:
-    assert len(active_folders) == 3
-    folder_names = [sf.name for sf in active_folders]
-    thirty_two_zeros = '0'*32
-    # assert '/' in folder_names and\
-    #       'Common' in folder_names and\
-    #       'TEST_' + thirty_two_zeros in folder_names
-
-    # invoke DELETELB_SVC XXX operation FAILS silently!
-    # wicontrold._common_service_handler(DELETELB_SVC)
-
-    # verify DELETELB_SVCd state
-    # end_folders = bigip.tm.sys.folders.get_collection()
-    # assert len(end_folders) == 2
-    # for sf in end_folders:
-    #     assert sf.name == '/' or sf.name == 'Common'
+    assert vsend.selfLink == 'https://localhost/mgmt/tm/ltm/virtual'\
+        '/~TEST_cd6a91ccb44945129ac78e7c992655eb~listener2?ver=11.6.0'
+    assert 'vlans' not in vsend.__dict__

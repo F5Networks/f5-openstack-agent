@@ -4,7 +4,7 @@
       "description": "test load balancer",
       "admin_state_up": true,
       "tenant_id": "cd6a91ccb44945129ac78e7c992655eb",
-      "provisioning_status": "ACTIVE",
+      "provisioning_status": "PENDING_CREATE",
       "listeners": [
         {
           "id": "4e0f3a46-b28b-48c7-8ad6-23fa2141ceba"

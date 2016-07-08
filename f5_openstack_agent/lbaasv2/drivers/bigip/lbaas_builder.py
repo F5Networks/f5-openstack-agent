@@ -133,8 +133,6 @@ class LBaaSBuilder(object):
                     # assign pool name to virtual
                 pool_name = self.service_adapter.init_pool_name(
                         loadbalancer, pool)
-                from pprint import pprint as pp
-                pp(svc)
                 self.listener_builder.update_listener_pool(
                         svc, pool_name["name"], bigips)
 
