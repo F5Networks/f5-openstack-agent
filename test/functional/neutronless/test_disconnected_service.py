@@ -13,29 +13,23 @@
 # limitations under the License.
 #
 
-import copy
 import json
 import mock
 import os
 from pprint import pprint as pp
 import requests
 requests.packages.urllib3.disable_warnings()
-import sys
-import time
 import pytest
 from pytest import symbols
+import time
 
 from oslo_config import cfg
+
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import\
     iControlDriver
 
 from f5.utils.testutils.registrytools import register_device
-from f5.utils.testutils.registrytools import register_OC_atoms
 
-from pycallgraph import PyCallGraph
-from pycallgraph.output import GraphvizOutput
-
-from urlparse import urlsplit
 osd = os.path.dirname
 DISTRIBUTIONROOT = osd(osd(osd(osd(__file__))))
 del osd
@@ -58,6 +52,8 @@ DELETELB_SVC =\
 pp(DISCONNECTED_SVC)
 DISCONNECTED_SVC['pools'][0]['listeners'][0]['id'] = LISTENER_ID
 DISCONNECTED_SVC['listeners'][0]['id'] = LISTENER_ID
+CONNECTED_SVC['pools'][0]['listeners'][0]['id'] = LISTENER_ID
+CONNECTED_SVC['listeners'][0]['id'] = LISTENER_ID
 for listener in DISCONNECTED_SVC['listeners']:
     listener['provisioning_status'] = 'PENDING_CREATE'
 for pool in DISCONNECTED_SVC['pools']:
@@ -77,6 +73,7 @@ for monitor in CONNECTED_SVC['healthmonitors']:
 for member in CONNECTED_SVC['members']:
     member['provisioning_status'] = 'PENDING_CREATE'
     member['network_id'] = u'a8f301b2-b7b9-404a-a746-53c442fa1a4f'
+
 
 @pytest.fixture(scope='module')
 def setup_registry_snapshot(bigip):
@@ -105,6 +102,7 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
                     '/mgmt/tm/net/fdb/tunnel': 6,
                     'mgmt/tm/net/tunnels/tunnel/': 7,
                     '/mgmt/tm/sys/folder': 8}
+
         def order_key(item):
             for k in ordering:
                 if k in item:
@@ -119,7 +117,7 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
         ordered = _deletion_order(created)
         for selfLink in ordered:
             if 'virtual-address' not in selfLink:
-                posttest_registry[selfLink].delete() 
+                posttest_registry[selfLink].delete()
 
     request.addfinalizer(remove_test_created_elements)
     return bigip, wrappedicontroldriver, pretest_snapshot
@@ -144,8 +142,8 @@ def test_disconnected_service(setup_neutronless):
             [u'/TEST_cd6a91ccb44945129ac78e7c992655eb/disconnected_network']
     assert vs.selfLink == 'https://localhost/mgmt/tm/ltm/virtual'\
         '/~TEST_cd6a91ccb44945129ac78e7c992655eb~listener2?ver=11.6.0'
-    #wicontrold._common_service_handler(CONNECTED_SVC)
-    #vsend = bigip.tm.ltm.virtuals.get_collection()[0]
-    #assert vsend.selfLink == 'https://localhost/mgmt/tm/ltm/virtual'\
-    #    '/~TEST_cd6a91ccb44945129ac78e7c992655eb~listener2?ver=11.6.0'
-    #assert 'vlans' not in vsend.__dict__
+    wicontrold._common_service_handler(CONNECTED_SVC)
+    vsend = bigip.tm.ltm.virtuals.get_collection()[0]
+    assert vsend.selfLink == 'https://localhost/mgmt/tm/ltm/virtual'\
+        '/~TEST_cd6a91ccb44945129ac78e7c992655eb~listener2?ver=11.6.0'
+    assert 'vlans' not in vsend.__dict__
