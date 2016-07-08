@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from pprint import pprint as pp
 
 import hashlib
 
@@ -85,7 +86,7 @@ class ServiceModelAdapter(object):
         return vip
 
     def get_virtual_name(self, service):
-        listener = service["listener"]
+        listener = service["pool"]["listeners"][0]
         loadbalancer = service["loadbalancer"]
         return self._init_virtual_name(loadbalancer, listener)
 
