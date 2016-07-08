@@ -21,7 +21,7 @@ Overview
     :maxdepth: 1
 
     release_notes
-    ref_agent-config-file
+
 
 Quick Start
 -----------
