@@ -8,4 +8,4 @@ RUN pip install --upgrade /root/devenv/f5-openstack-agent
 COPY ./f5-common-python/ /root/devenv/f5-common-python/
 RUN pip install --upgrade /root/devenv/f5-common-python/
 VOLUME /root/devenv /root/devenv
-RUN py.test -s -v --symbols /root/devenv/f5-openstack-agent/devtools/common_service_handler_env.json -v /root/devenv/f5-openstack-agent/test/functional/neutronless/test_loadbalancer_CD.py::test_loadbalancer_CD
+RUN py.test -s -v --symbols /root/devenv/f5-openstack-agent/devtools/common_service_handler_env.json -v /root/devenv/f5-openstack-agent/test/functional/neutronless/test_disconnected_service.py::test_loadbalancer_CD
