@@ -83,10 +83,13 @@ class PoolServiceBuilder(object):
 
     def create_healthmonitor(self, service, bigips):
         # create member
+        print("1did I get here")
         hm = self.service_adapter.get_healthmonitor(service)
+        print("2did I get here")
         hm_helper = self._get_monitor_helper(service)
+        print("3did I get here")
         pool = self.service_adapter.get_pool(service)
-
+        print("4did I get here")
         for bigip in bigips:
             hm_helper.create(bigip, hm)
 

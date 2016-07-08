@@ -102,6 +102,7 @@ class LBaaSBuilder(object):
                    "listener": listener,
                    "networks": networks}
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
+                #  XXX This presumes the existence of 'provisioning_status'
                 try:
                     self.listener_builder.create_listener(svc, bigips)
                 except Exception as err:
@@ -125,16 +126,19 @@ class LBaaSBuilder(object):
                 # get associated listener for pool
                 self.add_listener_pool(service, svc)
 
-                try:
+                # try:
                     # create pool
-                    self.pool_builder.create_pool(svc, bigips)
+                self.pool_builder.create_pool(svc, bigips)
 
                     # assign pool name to virtual
-                    pool_name = self.service_adapter.init_pool_name(
+                pool_name = self.service_adapter.init_pool_name(
                         loadbalancer, pool)
-                    self.listener_builder.update_listener_pool(
+                from pprint import pprint as pp
+                pp(svc)
+                self.listener_builder.update_listener_pool(
                         svc, pool_name["name"], bigips)
 
+                try:
                     # update virtual sever pool name, session persistence
                     self.listener_builder.update_session_persistence(
                         svc, bigips)
@@ -175,11 +179,11 @@ class LBaaSBuilder(object):
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorDeleteException(err.message)
             else:
-                try:
-                    self.pool_builder.create_healthmonitor(svc, bigips)
-                except Exception as err:
-                    monitor['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MonitorCreationException(err.message)
+                #try:
+                self.pool_builder.create_healthmonitor(svc, bigips)
+                #except Exception as err:
+                #    monitor['provisioning_status'] = plugin_const.ERROR
+                #    raise f5_ex.MonitorCreationException(err.message)
 
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
@@ -194,17 +198,17 @@ class LBaaSBuilder(object):
                    "member": member,
                    "pool": self.get_pool_by_id(service, member["pool_id"])}
             if member['provisioning_status'] == plugin_const.PENDING_DELETE:
-                try:
-                    self.pool_builder.delete_member(svc, bigips)
-                except Exception as err:
-                    member['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MemberDeleteException(err.message)
+                # try:
+                self.pool_builder.delete_member(svc, bigips)
+                #except Exception as err:
+                #    member['provisioning_status'] = plugin_const.ERROR
+                #    raise f5_ex.MemberDeleteException(err.message)
             else:
-                try:
-                    self.pool_builder.create_member(svc, bigips)
-                except Exception as err:
-                    member['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MemberDeleteException(err.message)
+                #try:
+                self.pool_builder.create_member(svc, bigips)
+                #except Exception as err:
+                #    member['provisioning_status'] = plugin_const.ERROR
+                #    raise f5_ex.MemberDeleteException(err.message)
 
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
