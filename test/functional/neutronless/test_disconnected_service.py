@@ -71,21 +71,25 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
     wrappedicontroldriver = mock.MagicMock(wraps=icontroldriver)
 
     def _deletion_order(to_delete):
-        ordered = []
-        for order_tag in ['member',
-                          '/mgmt/tm/ltm/pool',
-                          'monitor',
-                          '/mgmt/tm/ltm/virtual',
-                          '/mgmt/tm/sys/folder']:
-            for td in to_delete:
-                path_start = urlsplit(td).path.rpartition('/')[0]
-                if (order_tag in path_start) and ('address' not in td):
-                    ordered.append(td)
-        return ordered
+        ordering = {'member': 1,
+                    '/mgmt/tm/ltm/pool': 2,
+                    'monitor': 3,
+                    '/mgmt/tm/ltm/virtual': 4,
+                    '/mgmt/tm/net/fdb/tunnel': 5,
+                    'mgmt/tm/net/tunnels/tunnel/': 6,
+                    '/mgmt/tm/sys/folder': 7}
+        def order_key(item):
+            for k in ordering:
+                if k in item:
+                    return ordering[k]
+            return 999
+        return  sorted(list(to_delete), key=order_key)
 
     def remove_test_created_elements():
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
+        pp('created')
+        pp(created)
         ordered = _deletion_order(created)
         for selfLink in ordered:
             posttest_registry[selfLink].delete() 

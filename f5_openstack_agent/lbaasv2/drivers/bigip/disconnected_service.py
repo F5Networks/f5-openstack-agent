@@ -50,28 +50,28 @@ class DisconnectedServicePolling(object):
         if d.plugin_rpc:
             loadbalancer_ids = d.plugin_rpc.get_all_loadbalancers()
             for lb in loadbalancer_ids:
-                id = lb['lb_id']
-                service = d.plugin_rpc.get_service_by_loadbalancer_id(id)
+                lb_id = lb['lb_id']
+                service = d.plugin_rpc.get_service_by_loadbalancer_id(lb_id)
                 listeners = service.get('listeners', None)
-                service.pop('listeners', None)
+                service.pop('listeners', None)  # perhaps collapse with prev
                 provisioning_status = \
                     service['loadbalancer']['provisioning_status']
                 if not d.disconnected_service.is_service_connected(service):
-                    if id in self.start_time:
+                    if lb_id in self.start_time:
                         if timeutils.is_older_than(
-                                self.start_time[id],
+                                self.start_time[lb_id],
                                 d.conf.f5_network_segment_gross_timeout):
                             LOG.error(
                                 "TIMEOUT: failed to connect loadbalancer %s "
                                 "to a real network after %d seconds" %
-                                (id, d.conf.f5_network_segment_gross_timeout))
+                                (lb_id, d.conf.f5_network_segment_gross_timeout))
                             if (provisioning_status !=
                                     plugin_const.PENDING_DELETE):
-                                d.plugin_rpc.update_loadbalancer_status(id)
+                                d.plugin_rpc.update_loadbalancer_status(lb_id)
                     else:
-                        self.start_time[id] = timeutils.utcnow()
+                        self.start_time[lb_id] = timeutils.utcnow()
                         d.plugin_rpc.update_loadbalancer_status(
-                            id, provisioning_status, lb_const.OFFLINE)
+                            lb_id, provisioning_status, lb_const.OFFLINE)
                     continue
                 # service is connected in neutron, move all listeners for this
                 # loadbalancer onto a real network
@@ -86,8 +86,8 @@ class DisconnectedServicePolling(object):
                         d.lbaas_builder.listener_builder.update_listener(
                             service, bigips)
                 d.plugin_rpc.update_loadbalancer_status(
-                    id, provisioning_status, lb_const.ONLINE)
-                self.start_time.pop(id, None)
+                    lb_id, provisioning_status, lb_const.ONLINE)
+                self.start_time.pop(lb_id, None)
 
     def polling_thread(self):
         while True:
@@ -113,15 +113,17 @@ class DisconnectedService(object):
         networks = service['networks']
         network_id = service['loadbalancer']['network_id']
         segmentation_id = networks[network_id]['provider:segmentation_id']
-        return (segmentation_id)
+        return (segmentation_id)  # Why parens here?
 
     def is_virtual_connected(self, virtual, bigips):
         # check if virtual_server is connected on any of our bigips
         connected = True
         for bigip in bigips:
-            vs = bigip.tm.ltm.virtuals.virtual
-            if vs.exists(name=virtual['name'], partition=virtual['partition']):
-                vs.load(name=virtual['name'], partition=virtual['partition'])
+            virt_factory = bigip.tm.ltm.virtuals.virtual
+            if virt_factory.exists(
+                    name=virtual['name'], partition=virtual['partition']):
+                vs = virt_factory.load(
+                    name=virtual['name'], partition=virtual['partition'])
                 if (getattr(vs, 'vlansDisabled', False) or
                         not getattr(vs, 'vlansEnabled', True)):
                     # accommodate quirk of how big-ip returns virtual server
@@ -136,7 +138,7 @@ class DisconnectedService(object):
         return connected
 
     def network_exists(self, bigip, partition):
-        t = bigip.tm.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels.tunnels.tunnel
         return t.exists(name=self.network_name, partition=partition)
 
     @log_helpers.log_method_call
@@ -150,7 +152,7 @@ class DisconnectedService(object):
 
     @log_helpers.log_method_call
     def delete_network(self, bigip, partition):
-        t = bigip.tm.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels.tunnels.tunnel
         if t.exists(name=self.network_name, partition=partition):
             t.load(name=self.network_name, partition=partition)
             t.delete()

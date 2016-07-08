@@ -17,7 +17,7 @@ import json
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-from f5.bigip import BigIP
+from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
@@ -35,7 +35,7 @@ from pytest import symbols as symbols_data
 
 class DummyConf(object):
     def __init__(self):
-        self.environment_prefix = 'Project'
+        self.environment_prefix = 'TEST'
         self.f5_snat_mode = True
 
 
@@ -44,7 +44,7 @@ disconnected_service = DisconnectedService()
 service_adapter = ServiceModelAdapter(DummyConf())
 listener_builder = ListenerServiceBuilder(service_adapter)
 folder_helper = BigIPResourceHelper(ResourceType.folder)
-bigips = [BigIP(symbols_data.bigip_ip,
+bigips = [ManagementRoot(symbols_data.bigip_ip,
                 symbols_data.bigip_username,
                 symbols_data.bigip_password)]
 

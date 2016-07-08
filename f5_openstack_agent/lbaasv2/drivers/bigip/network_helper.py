@@ -63,7 +63,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_l2gre_multipoint_profile(self, bigip, name,
                                         partition=const.DEFAULT_PARTITION):
-        p = bigip.tm.net.tunnels_s.gres.gre
+        p = bigip.tm.net.tunnels.gres.gre
         if p.exists(name=name, partition=partition):
             p.load(name=name, partition=partition)
         else:
@@ -76,7 +76,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_vxlan_multipoint_profile(self, bigip, name,
                                         partition=const.DEFAULT_PARTITION):
-        p = bigip.tm.net.tunnels_s.vxlans.vxlan
+        p = bigip.tm.net.tunnels.vxlans.vxlan
         if p.exists(name=name, partition=partition):
             p.load(name=name, partition=partition)
         else:
@@ -89,7 +89,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_ppp_profile(self, bigip, name,
                            partition=const.DEFAULT_PARTITION):
-        p = bigip.tm.net.tunnels_s.ppps.ppp
+        p = bigip.tm.net.tunnels.ppps.ppp
         if p.exists(name=name, partition=partition):
             p.load(name=name, partition=partition)
         else:
@@ -108,7 +108,7 @@ class NetworkHelper(object):
         description = model.get('description', None)
         if description:
             payload['description'] = description
-        t = bigip.tm.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels.tunnels.tunnel
         if t.exists(name=payload['name'], partition=payload['partition']):
             t.load(name=payload['name'], partition=payload['partition'])
         else:
@@ -129,7 +129,7 @@ class NetworkHelper(object):
             payload['description'] = description
         route_domain_id = model.pop('route_domain_id',
                                     const.DEFAULT_ROUTE_DOMAIN_ID)
-        t = bigip.tm.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels.tunnels.tunnel
         if t.exists(name=payload['name'], partition=payload['partition']):
             t.load(name=payload['name'], partition=payload['partition'])
         else:
@@ -142,7 +142,7 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_tunnel_key(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        t = bigip.tm.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels.tunnels.tunnel
         t.load(name=name, partition=partition)
         return t.key
 
@@ -775,7 +775,7 @@ class NetworkHelper(object):
                                         err.message))
 
         try:
-            ts = bigip.tm.net.tunnels_s.tunnels.tunnel
+            ts = bigip.tm.net.tunnels.tunnels.tunnel
             if ts.exists(name=tunnel_name, partition=partition):
                 ts.load(name=tunnel_name, partition=partition)
                 ts.delete()

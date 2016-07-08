@@ -125,10 +125,11 @@ class BigipTenantManager(object):
             self.driver.disconnected_service.delete_network(bigip, partition)
 
         if domain_names:
-            for domain_name in domain_names:
-                self.network_helper.delete_route_domain(bigip,
-                                                        partition,
-                                                        domain_name)
+            try:
+                for domain_name in domain_names:
+                    self.network_helper.delete_route_domain(bigip,
+                                                            partition,
+                                                            domain_name)
             except Exception as err:
                 LOG.error("Failed to delete route domain %s. "
                           "%s. Manual intervention might be required."
