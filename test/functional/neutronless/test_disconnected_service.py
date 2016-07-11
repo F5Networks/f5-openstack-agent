@@ -75,6 +75,16 @@ for member in CONNECTED_SVC['members']:
     member['network_id'] = u'a8f301b2-b7b9-404a-a746-53c442fa1a4f'
 
 
+ORDERING = {'/mgmt/tm/ltm/virtual': 1,
+            '/mgmt/tm/ltm/pool': 2,
+            'mgmt/tm/ltm/node/': 3,
+            'monitor': 4,
+            'virtual-address': 5,
+            '/mgmt/tm/net/fdb/tunnel': 6,
+            'mgmt/tm/net/tunnels/tunnel/': 7,
+            '/mgmt/tm/sys/folder': 8}
+
+
 @pytest.fixture(scope='module')
 def setup_registry_snapshot(bigip):
     # Setup device registries
@@ -99,21 +109,14 @@ def create_configured_wrapped_icd(**kwargs):
     return _create_wrapped_icd()
 
 
-def order_for_deletion(to_delete):
-    ordering = {'/mgmt/tm/ltm/virtual': 1,
-                '/mgmt/tm/ltm/pool': 2,
-                'mgmt/tm/ltm/node/': 3,
-                'monitor': 4,
-                'virtual-address': 5,
-                '/mgmt/tm/net/fdb/tunnel': 6,
-                'mgmt/tm/net/tunnels/tunnel/': 7,
-                '/mgmt/tm/sys/folder': 8}
+def order_for_deletion(to_delete, weights_table):
+    max_plus_one = max(weights_table.values()) + 1
 
     def order_key(item):
-        for k in ordering:
+        for k in weights_table:
             if k in item:
-                return ordering[k]
-        return 999
+                return weights_table[k]
+        return max_plus_one
     ordered_for_deletion = sorted(list(to_delete), key=order_key)
     return ordered_for_deletion
 
@@ -124,7 +127,7 @@ def setup_neutronless_test(setup_registry_snapshot, request, bigip):
     def remove_test_created_elements():
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
-        ordered = order_for_deletion(created)
+        ordered = order_for_deletion(created, ORDERING)
         for selfLink in ordered:
             if 'virtual-address' not in selfLink:
                 posttest_registry[selfLink].delete()
