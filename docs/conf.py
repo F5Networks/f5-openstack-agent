@@ -74,7 +74,7 @@ release = VERSION
 
 # OpenStack release
 
-openstack_release = "Liberty"
+openstack_release = "Mitaka"
 rst_epilog = """
 .. |openstack| replace:: {0}
 """.format(openstack_release)
