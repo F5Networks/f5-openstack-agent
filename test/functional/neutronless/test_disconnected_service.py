@@ -82,43 +82,53 @@ def setup_registry_snapshot(bigip):
     return frozenset(register_device(bigip))
 
 
-def set_cfgdotCONF(**kwargs):
+def _set_cfgdotCONF(**kwargs):
+    symbols.__dict__.update(kwargs)
     for element, value in symbols.__dict__.items():
         setattr(cfg.CONF, element, value)
     
+
+def _create_wrapped_icd():
+    icontroldriver = iControlDriver(cfg.CONF, registerOpts=False)
+    icontroldriver.plugin_rpc = mock.MagicMock()
+    return mock.MagicMock(wraps=icontroldriver)
+
+
+def create_configured_wrapped_icd(**kwargs):
+    _set_cfgdotCONF(**kwargs)
+    return _create_wrapped_icd()
+
+
+def order_for_deletion(to_delete):
+    ordering = {'/mgmt/tm/ltm/virtual': 1,
+                '/mgmt/tm/ltm/pool': 2,
+                'mgmt/tm/ltm/node/': 3,
+                'monitor': 4,
+                'virtual-address': 5,
+                '/mgmt/tm/net/fdb/tunnel': 6,
+                'mgmt/tm/net/tunnels/tunnel/': 7,
+                '/mgmt/tm/sys/folder': 8}
+
+    def order_key(item):
+        for k in ordering:
+            if k in item:
+                return ordering[k]
+        return 999
+    ordered_for_deletion = sorted(list(to_delete), key=order_key)
+    return ordered_for_deletion
+
 
 @pytest.fixture
 def setup_neutronless(request, bigip, setup_registry_snapshot):
     pretest_snapshot = setup_registry_snapshot
     """F5 LBaaS agent for OpenStack."""
     # Setup neutronless icontroldriver
-    set_cfgdotCONF()
-    icontroldriver = iControlDriver(cfg.CONF, registerOpts=False)
-    icontroldriver.plugin_rpc = mock.MagicMock()
-    wrappedicontroldriver = mock.MagicMock(wraps=icontroldriver)
-
-    def _deletion_order(to_delete):
-        ordering = {'/mgmt/tm/ltm/virtual': 1,
-                    '/mgmt/tm/ltm/pool': 2,
-                    'mgmt/tm/ltm/node/': 3,
-                    'monitor': 4,
-                    'virtual-address': 5,
-                    '/mgmt/tm/net/fdb/tunnel': 6,
-                    'mgmt/tm/net/tunnels/tunnel/': 7,
-                    '/mgmt/tm/sys/folder': 8}
-
-        def order_key(item):
-            for k in ordering:
-                if k in item:
-                    return ordering[k]
-            return 999
-        ordered_for_deletion = sorted(list(to_delete), key=order_key)
-        return ordered_for_deletion
+    wrappedicontroldriver = create_configured_wrapped_icd()
 
     def remove_test_created_elements():
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
-        ordered = _deletion_order(created)
+        ordered = order_for_deletion(created)
         for selfLink in ordered:
             if 'virtual-address' not in selfLink:
                 posttest_registry[selfLink].delete()
