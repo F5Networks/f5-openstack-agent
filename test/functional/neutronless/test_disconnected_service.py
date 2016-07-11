@@ -119,12 +119,8 @@ def order_for_deletion(to_delete):
 
 
 @pytest.fixture
-def setup_neutronless(request, bigip, setup_registry_snapshot):
+def setup_neutronless_test(setup_registry_snapshot, request, bigip):
     pretest_snapshot = setup_registry_snapshot
-    """F5 LBaaS agent for OpenStack."""
-    # Setup neutronless icontroldriver
-    wrappedicontroldriver = create_configured_wrapped_icd()
-
     def remove_test_created_elements():
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
@@ -134,11 +130,10 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
                 posttest_registry[selfLink].delete()
 
     request.addfinalizer(remove_test_created_elements)
-    return bigip, wrappedicontroldriver, pretest_snapshot
 
 
-def test_disconnected_service(setup_neutronless):
-    bigip, wicontrold, _ = setup_neutronless
+def test_disconnected_service(setup_neutronless_test, bigip):
+    wicontrold = create_configured_wrapped_icd()
 
     # record start state
     start_folders = bigip.tm.sys.folders.get_collection()
