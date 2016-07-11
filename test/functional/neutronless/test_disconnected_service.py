@@ -82,13 +82,17 @@ def setup_registry_snapshot(bigip):
     return frozenset(register_device(bigip))
 
 
+def set_cfgdotCONF(**kwargs):
+    for element, value in symbols.__dict__.items():
+        setattr(cfg.CONF, element, value)
+    
+
 @pytest.fixture
 def setup_neutronless(request, bigip, setup_registry_snapshot):
     pretest_snapshot = setup_registry_snapshot
     """F5 LBaaS agent for OpenStack."""
     # Setup neutronless icontroldriver
-    for element, value in symbols.__dict__.items():
-        setattr(cfg.CONF, element, value)
+    set_cfgdotCONF()
     icontroldriver = iControlDriver(cfg.CONF, registerOpts=False)
     icontroldriver.plugin_rpc = mock.MagicMock()
     wrappedicontroldriver = mock.MagicMock(wraps=icontroldriver)
@@ -124,6 +128,32 @@ def setup_neutronless(request, bigip, setup_registry_snapshot):
 
 
 def test_disconnected_service(setup_neutronless):
+    bigip, wicontrold, _ = setup_neutronless
+
+    # record start state
+    start_folders = bigip.tm.sys.folders.get_collection()
+    assert len(start_folders) == 2
+    for sf in start_folders:
+        assert sf.name == '/' or sf.name == 'Common'
+
+    count = 0
+    while count <= 5:
+        count = count + 1
+        time.sleep(1)
+        wicontrold._common_service_handler(DISCONNECTED_SVC)
+        vs = bigip.tm.ltm.virtuals.get_collection()[0]
+        assert vs.vlans ==\
+            [u'/TEST_cd6a91ccb44945129ac78e7c992655eb/disconnected_network']
+    assert vs.selfLink == 'https://localhost/mgmt/tm/ltm/virtual'\
+        '/~TEST_cd6a91ccb44945129ac78e7c992655eb~listener2?ver=11.6.0'
+    wicontrold._common_service_handler(CONNECTED_SVC)
+    vsend = bigip.tm.ltm.virtuals.get_collection()[0]
+    assert vsend.selfLink == 'https://localhost/mgmt/tm/ltm/virtual'\
+        '/~TEST_cd6a91ccb44945129ac78e7c992655eb~listener2?ver=11.6.0'
+    assert 'vlans' not in vsend.__dict__
+
+
+def test_maximum_timeout(setup_neutronless):
     bigip, wicontrold, _ = setup_neutronless
 
     # record start state
