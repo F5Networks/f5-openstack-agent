@@ -135,7 +135,7 @@ def setup_neutronless_test(setup_registry_snapshot, request, bigip):
     request.addfinalizer(remove_test_created_elements)
 
 
-def test_disconnected_service(setup_neutronless_test, bigip):
+def test_vlans_stub_removal(setup_neutronless_test, bigip):
     wicontrold = create_configured_wrapped_icd()
 
     # record start state
@@ -161,8 +161,8 @@ def test_disconnected_service(setup_neutronless_test, bigip):
     assert 'vlans' not in vsend.__dict__
 
 
-def test_maximum_timeout(setup_neutronless):
-    bigip, wicontrold, _ = setup_neutronless
+def test_max_timeout_error_generation(setup_neutronless_test, bigip):
+    wicontrold = create_configured_wrapped_icd()
 
     # record start state
     start_folders = bigip.tm.sys.folders.get_collection()
