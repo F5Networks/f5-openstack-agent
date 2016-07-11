@@ -49,7 +49,7 @@ class F5AgentService(n_rpc.Service):
             self.manager.run_periodic_tasks,
             None,
             None
-        )
+        )   # Hmmm....  "tg"?
         super(F5AgentService, self).start()
 
 
@@ -63,6 +63,7 @@ def main():
     config.register_root_helper(cfg.CONF)
 
     common_config.init(sys.argv[1:])
+    # alias for common_config.setup_logging()...
     config.setup_logging()
 
     mgr = manager.LbaasAgentManager(cfg.CONF)

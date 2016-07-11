@@ -116,8 +116,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_listener_status(self,
                                listener_id,
-                               provisioning_status,
-                               operating_status):
+                               provisioning_status=plugin_const.ERROR,
+                               operating_status=lb_const.OFFLINE):
         """Update the database with listener status."""
         return self._cast(
             self.context,
@@ -141,8 +141,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_pool_status(self,
                            pool_id,
-                           provisioning_status,
-                           operating_status):
+                           provisioning_status=plugin_const.ERROR,
+                           operating_status=lb_const.OFFLINE):
         """Update the database with pool status."""
         return self._cast(
             self.context,
@@ -166,8 +166,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_member_status(self,
                              member_id,
-                             provisioning_status,
-                             operating_status):
+                             provisioning_status=plugin_const.ERROR,
+                             operating_status=lb_const.OFFLINE):
         """Update the database with member status."""
         return self._cast(
             self.context,
@@ -192,8 +192,8 @@ class LBaaSv2PluginRPC(object):
     def update_health_monitor_status(
             self,
             health_monitor_id,
-            provisioning_status,
-            operating_status):
+            provisioning_status=plugin_const.ERROR,
+            operating_status=lb_const.OFFLINE):
         """Update the database with health_monitor status."""
         return self._cast(
             self.context,

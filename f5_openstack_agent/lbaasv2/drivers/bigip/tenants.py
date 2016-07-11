@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 class BigipTenantManager(object):
     """Create network connectivity for a bigip."""
 
-    def __init__(self, conf, driver):
+    def __init__(self, conf, driver):  # XXX maybe we need a better name: conf
         """Create a BigipTenantManager."""
         self.conf = conf
         self.driver = driver
@@ -36,11 +36,21 @@ class BigipTenantManager(object):
         self.service_adapter = self.driver.service_adapter
 
     def assure_tenant_created(self, service):
-        """Create tenant partition."""
+        """Create tenant partition.
+
+        This method modifies its argument 'service' in place.
+        This method adds a 'traffic_group" key to the service
+        dict with a value of traffic_group_string_id.  But aren't
+        traffic_groups a bigIP device concept?  And wasn't (until
+        this method was called) the service object a configuration
+        entirely defined by neutron?  Also for neutron->device
+        adaptations shouldn't we be using ServiceModelAdapter...  though I
+        suppose this is the other way.
+        """
         tenant_id = service['loadbalancer']['tenant_id']
         traffic_group = self.driver.service_to_traffic_group(service)
         traffic_group = '/Common/' + traffic_group
-        service["traffic_group"] = traffic_group
+        service["traffic_group"] = traffic_group  # modify the passed dict
 
         # create tenant folder
         folder_name = self.service_adapter.get_folder_name(tenant_id)
@@ -48,9 +58,12 @@ class BigipTenantManager(object):
         for bigip in self.driver.get_config_bigips():
             if not self.system_helper.folder_exists(bigip, folder_name):
                 folder = self.service_adapter.get_folder(service)
+                # This folder is a dict config obj, that can be passed to
+                # folder.create in the SDK
                 try:
                     self.system_helper.create_folder(bigip, folder)
                 except Exception as err:
+                    # XXX Maybe we can make this more specific?
                     LOG.exception("Error creating folder %s" %
                                   (folder))
                     raise f5ex.SystemCreationException(

@@ -10,7 +10,7 @@ Install the F5 OpenStack Agent
 
     .. code-block:: text
 
-        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@mitaka
+        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@liberty
 
 .. topic:: To install the ``f5-openstack-agent`` release package for v |version|:
 
