@@ -61,12 +61,12 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
 LOG = logging.getLogger(__name__)
 
-
 NS_PREFIX = 'qlbaas-'
 __VERSION__ = '0.1.1'
 
 # configuration objects specific to iControl® driver
-OPTS = [
+# XXX see /etc/neutron/services/f5/f5-openstack-agent.ini
+OPTS = [  # XXX maybe we should make this a dictionary
     cfg.StrOpt(
         'bigiq_hostname',
         help='The hostname (name or IP address) to use for the BIG-IQ host'
@@ -124,14 +124,6 @@ OPTS = [
     cfg.ListOpt(
         'f5_external_physical_mappings', default=['default:1.1:True'],
         help='Mapping between Neutron physical_network to interfaces'
-    ),
-    cfg.StrOpt(
-        'sync_mode', default='replication',
-        help='The sync mechanism: autosync or replication'
-    ),
-    cfg.StrOpt(
-        'f5_sync_mode', default='replication',
-        help='The sync mechanism: autosync or replication'
     ),
     cfg.StrOpt(
         'f5_vtep_folder', default='Common',
@@ -283,7 +275,7 @@ OPTS = [
         'f5_network_segment_gross_timeout', default=300,
         help='Seconds to wait for a virtual server to become connected'
     ),
-    cfg.IntOpt(
+    cfg.StrOpt(
         'f5_parent_ssl_profile',
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '
@@ -301,7 +293,7 @@ def is_connected(method):
                 return method(*args, **kwargs)
             except IOError as ioe:
                 LOG.error('IO Error detected: %s' % method.__name__)
-                instance.connect_bigips()
+                instance.connect_bigips()  # what's this do?
                 raise ioe
         else:
             LOG.error('Cannot execute %s. Not connected. Connecting.'
@@ -311,6 +303,7 @@ def is_connected(method):
 
 
 class iControlDriver(LBaaSBaseDriver):
+    '''gets rpc plugin from manager (which instantiates, via importutils'''
 
     def __init__(self, conf, registerOpts=True):
         # The registerOpts parameter allows a test to
@@ -322,15 +315,15 @@ class iControlDriver(LBaaSBaseDriver):
             self.conf.register_opts(OPTS)
         self.hostnames = None
         self.device_type = conf.f5_device_type
-        self.plugin_rpc = None
+        self.plugin_rpc = None  # overrides base, same value
         self.__last_connect_attempt = None
-        self.connected = False
+        self.connected = False  # overrides base, same value
         self.driver_name = 'f5-lbaasv2-icontrol'
 
         # BIG-IP® containers
         self.__bigips = {}
         self.__traffic_groups = []
-        self.agent_configurations = {}
+        self.agent_configurations = {}  # overrides base, same value
         self.tenant_manager = None
         self.cluster_manager = None
         self.system_helper = None
@@ -338,7 +331,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.service_adapter = None
         self.vlan_binding = None
         self.l3_binding = None
-        self.cert_manager = None
+        self.cert_manager = None  # overrides register_OPTS
         self.disconnected_service = None
         self.disconnected_service_polling = None
 
@@ -420,6 +413,7 @@ class iControlDriver(LBaaSBaseDriver):
                           % self.conf.vlan_binding_driver)
 
         if self.conf.l3_binding_driver:
+            print('self.conf.l3_binding_driver')
             try:
                 self.l3_binding = importutils.import_object(
                     self.conf.l3_binding_driver, self.conf, self)
@@ -535,12 +529,12 @@ class iControlDriver(LBaaSBaseDriver):
         except NeutronException as exc:
             LOG.error('Could not communicate with all ' +
                       'iControl devices: %s' % exc.msg)
-            greenthread.sleep(5)
+            greenthread.sleep(5)  # this should probably go away
             raise
         except Exception as exc:
             LOG.error('Could not communicate with all ' +
                       'iControl devices: %s' % exc.message)
-            greenthread.sleep(5)
+            greenthread.sleep(5)  # this should probably go away
             raise
 
     def _open_bigip(self, hostname):
@@ -605,16 +599,12 @@ class iControlDriver(LBaaSBaseDriver):
                   (bigip.device_name, ', '.join(bigip.mac_addresses)))
         bigip.device_interfaces = \
             self.system_helper.get_interface_macaddresses_dict(bigip)
-        bigip.assured_networks = []
+        bigip.assured_networks = {}
         bigip.assured_tenant_snat_subnets = {}
         bigip.assured_gateway_subnets = []
 
         if self.conf.f5_ha_type != 'standalone':
-            if self.conf.f5_sync_mode == 'autosync':
-                self.cluster_manager.enable_auto_sync(device_group_name, bigip)
-            else:
-                self.cluster_manager.disable_auto_sync(device_group_name,
-                                                       bigip)
+            self.cluster_manager.disable_auto_sync(device_group_name, bigip)
 
         # Turn off tunnel syncing... our VTEPs are local SelfIPs
         if self.system_helper.get_tunnel_sync(bigip) == 'enable':
@@ -714,7 +704,7 @@ class iControlDriver(LBaaSBaseDriver):
     def flush_cache(self):
         # Remove cached objects so they can be created if necessary
         for bigip in self.get_all_bigips():
-            bigip.assured_networks = []
+            bigip.assured_networks = {}
             bigip.assured_tenant_snat_subnets = {}
             bigip.assured_gateway_subnets = []
 
@@ -728,7 +718,7 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def update_loadbalancer(self, old_loadbalancer, loadbalancer, service):
         """Update virtual server"""
-        LOG.debug("Updating loadbalancer")
+        # anti-pattern three args unused.
         self._common_service_handler(service)
 
     @serialized('delete_loadbalancer')
@@ -1222,21 +1212,25 @@ class iControlDriver(LBaaSBaseDriver):
 
     def service_to_traffic_group(self, service):
         # Hash service tenant id to index of traffic group
+        # return which iControlDriver.__traffic_group that tenant is "in?"
         return self.tenant_to_traffic_group(
             service['loadbalancer']['tenant_id'])
 
     def tenant_to_traffic_group(self, tenant_id):
         # Hash tenant id to index of traffic group
+        print('tenant_to_traffic_group called')
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
 
     def get_bigip(self):
         # Get one consistent big-ip
+        # As implemented I think this always returns the "first" bigip
+        # without any HTTP traffic? CONFIRMED: __bigips are mgmt_rts
         hostnames = sorted(self.__bigips)
-        for i in range(len(hostnames)):
+        for i in range(len(hostnames)):  # C-style make Pythonic.
             try:
-                bigip = self.__bigips[hostnames[i]]
+                bigip = self.__bigips[hostnames[i]]  # Calling devices?!
                 return bigip
             except urllib2.URLError:
                 pass
@@ -1252,13 +1246,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def get_config_bigips(self):
         # Return a list of big-ips that need to be configured.
-        #    In replication sync mode, we configure all big-ips
-        #    individually. In autosync mode we only use one big-ip
-        #    and then sync the configuration to the other big-ips.
-        if self.conf.f5_sync_mode == 'replication':
-            return self.get_all_bigips()
-        else:
-            return [self.get_bigip()]
+        return self.get_all_bigips()
 
     def get_inbound_throughput(self, bigip, global_statistics=None):
         pass
@@ -1298,36 +1286,6 @@ class iControlDriver(LBaaSBaseDriver):
         if 'traffic-group-local-only' in self.__traffic_groups:
             self.__traffic_groups.remove('traffic-group-local-only')
         self.__traffic_groups.sort()
-
-    def sync_if_clustered(self):
-        # sync device group if not in replication mode
-        if self.conf.f5_ha_type == 'standalone' or \
-                self.conf.f5_sync_mode == 'replication' or \
-                len(self.get_all_bigips()) < 2:
-            return
-        bigip = self.get_bigip()
-        self._sync_with_retries(bigip)
-
-    def _sync_with_retries(self, bigip, force_now=False,
-                           attempts=4, retry_delay=130):
-        # sync device group
-        for attempt in range(1, attempts + 1):
-            LOG.debug('Syncing Cluster... attempt %d of %d'
-                      % (attempt, attempts))
-            try:
-                if attempt != 1:
-                    force_now = False
-                self.cluster_manager.sync(bigip.device_group_name,
-                                          force_now=force_now)
-                LOG.debug('Cluster synced.')
-                return
-            except Exception as exc:
-                LOG.error('ERROR: Cluster sync failed: %s' % exc)
-                if attempt == attempts:
-                    raise
-                LOG.error('Wait another %d seconds for devices '
-                          'to recover from failed sync.' % retry_delay)
-                greenthread.sleep(retry_delay)
 
     def _validate_bigip_version(self, bigip, hostname):
         # Ensure the BIG-IP® has sufficient version

@@ -16,6 +16,7 @@
 
 import hashlib
 
+from pprint import pprint as pp
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
@@ -85,6 +86,8 @@ class ServiceModelAdapter(object):
         return vip
 
     def get_virtual_name(self, service):
+        pp('get_virtual_name'*10)
+        pp(service)
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
         return self._init_virtual_name(loadbalancer, listener)
@@ -140,6 +143,8 @@ class ServiceModelAdapter(object):
 
     def get_folder(self, service):
         loadbalancer = service["loadbalancer"]
+        # XXX maybe ServiceModelAdapter should get the data it needs on
+        # __init__?
         folder = None
 
         if "tenant_id" in loadbalancer:
@@ -159,6 +164,7 @@ class ServiceModelAdapter(object):
         return folder
 
     def get_folder_name(self, tenant_id):
+        # XXX Use of getter questionable move to @property?
         if tenant_id is not None:
             name = self.prefix + \
                 tenant_id.replace('/', '')
@@ -340,6 +346,12 @@ class ServiceModelAdapter(object):
 
         return vip
 
+    def get_vlan(self, vip, bigip, network_id):
+        if network_id in bigip.assured_networks:
+            vip['vlans'].append(
+                bigip.assured_networks[network_id])
+            vip['vlansEnabled'] = True
+
     def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
 
@@ -372,10 +384,6 @@ class ServiceModelAdapter(object):
             ip_address = vip["ip_address"]
             if '.' in ip_address:
                 vip["mask"] = '255.255.255.255'
-
-        # vlan_name
-        if "network_name" in listener:
-            vip["vlan_name"] = listener["network_name"]
 
         # snat
         if "use_snat" in listener and listener["use_snat"]:

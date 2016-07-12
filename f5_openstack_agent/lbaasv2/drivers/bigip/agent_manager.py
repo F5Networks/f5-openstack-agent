@@ -39,9 +39,10 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 
 LOG = logging.getLogger(__name__)
 
+# XXX OPTS is used in (at least) agent.py Maybe move/rename to agent.py
 OPTS = [
-    cfg.StrOpt(
-        'f5_bigip_lbaas_device_driver',
+    cfg.StrOpt(  # XXX should we use this with internal classes?
+        'f5_bigip_lbaas_device_driver',  # XXX maybe remove "device" and "f5"?
         default=('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
                  'iControlDriver'),
         help=('The driver used to provision BigIPs')
@@ -113,7 +114,7 @@ OPTS = [
 class LogicalServiceCache(object):
     """Manage a cache of known services."""
 
-    class Service(object):
+    class Service(object):  # XXX maybe promote/use this class elsewhere?
         """Inner classes used to hold values for weakref lookups."""
 
         def __init__(self, port_id, loadbalancer_id, tenant_id, agent_host):
@@ -200,8 +201,8 @@ class LogicalServiceCache(object):
         return agent_hosts.keys()
 
 
-class LbaasAgentManager(periodic_task.PeriodicTasks):
-    """Periodic task that is an endpoing for plugin to agent RPC."""
+class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
+    """Periodic task that is an endpoint for plugin to agent RPC."""
 
     RPC_API_VERSION = '1.0'
 
