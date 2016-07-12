@@ -43,6 +43,13 @@ class NetworkHelper(object):
         'port': const.VXLAN_UDP_PORT
     }
 
+    ppp_profile_defaults = {
+        'name': None,
+        'partition': const.DEFAULT_PARTITION,
+        'defaultsFrom': 'ppp',
+        'floodingType': 'none',
+    }
+
     route_domain_defaults = {
         'name': None,
         'partition': '/' + const.DEFAULT_PARTITION,
@@ -53,7 +60,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_l2gre_multipoint_profile(self, bigip, name,
                                         partition=const.DEFAULT_PARTITION):
-        p = bigip.tm.net.tunnels_s.gres.gre
+        p = bigip.tm.net.tunnels.gres.gre
         if p.exists(name=name, partition=partition):
             obj = p.load(name=name, partition=partition)
         else:
@@ -66,7 +73,7 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def create_vxlan_multipoint_profile(self, bigip, name,
                                         partition=const.DEFAULT_PARTITION):
-        p = bigip.tm.net.tunnels_s.vxlans.vxlan
+        p = bigip.tm.net.tunnels.vxlans.vxlan
         if p.exists(name=name, partition=partition):
             obj = p.load(name=name, partition=partition)
         else:
@@ -75,6 +82,35 @@ class NetworkHelper(object):
             payload['partition'] = partition
             obj = p.create(**payload)
         return obj
+
+    @log_helpers.log_method_call
+    def create_ppp_profile(self, bigip, name,
+                           partition=const.DEFAULT_PARTITION):
+        pf = bigip.tm.net.tunnels.ppps.ppp
+        if pf.exists(name=name, partition=partition):
+            p = pf.load(name=name, partition=partition)
+        else:
+            payload = NetworkHelper.ppp_profile_defaults
+            payload['name'] = name
+            payload['partition'] = partition
+            p = pf.create(**payload)
+        return p
+
+    @log_helpers.log_method_call
+    def create_tunnel(self, bigip, model):
+        payload = {'name': model.get('name', None),
+                   'partition': model.get('partition',
+                                          const.DEFAULT_PARTITION),
+                   'profile': model.get('profile', None)}
+        description = model.get('description', None)
+        if description:
+            payload['description'] = description
+        tf = bigip.tm.net.tunnels.tunnels.tunnel
+        if tf.exists(name=payload['name'], partition=payload['partition']):
+            t = tf.load(name=payload['name'], partition=payload['partition'])
+        else:
+            t = tf.create(**payload)
+        return t
 
     @log_helpers.log_method_call
     def create_multipoint_tunnel(self, bigip, model):
@@ -90,7 +126,7 @@ class NetworkHelper(object):
             payload['description'] = description
         route_domain_id = model.pop('route_domain_id',
                                     const.DEFAULT_ROUTE_DOMAIN_ID)
-        t = bigip.tm.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels.tunnels.tunnel
         if t.exists(name=payload['name'], partition=payload['partition']):
             obj = t.load(name=payload['name'], partition=payload['partition'])
         else:
@@ -103,7 +139,7 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_tunnel_key(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        t = bigip.tm.net.tunnels_s.tunnels.tunnel
+        t = bigip.tm.net.tunnels.tunnels.tunnel
         obj = t.load(name=name, partition=partition)
         return obj.key
 
@@ -154,8 +190,8 @@ class NetworkHelper(object):
             name = '0'
         else:
             name = partition
-        r = bigip.tm.net.route_domains.route_domain
-        return r.load(name=name, partition=partition)
+        return bigip.tm.net.route_domains.route_domain.load(
+            name=name, partition=partition)
 
     @log_helpers.log_method_call
     def get_route_domain_by_id(self, bigip, partition=const.DEFAULT_PARTITION,
@@ -273,8 +309,7 @@ class NetworkHelper(object):
             if interface:
                 payload = {'name': interface,
                            ('tagged' if tag else 'untagged'): True}
-                i = obj.interfaces_s.interfaces
-                i.create(**payload)
+                obj.interfaces_s.interfaces.create(**payload)
             if not partition == const.DEFAULT_PARTITION:
                 self.add_vlan_to_domain_by_id(bigip, name, partition,
                                               route_domain_id)
@@ -733,7 +768,7 @@ class NetworkHelper(object):
                                         err.message))
 
         try:
-            ts = bigip.tm.net.tunnels_s.tunnels.tunnel
+            ts = bigip.tm.net.tunnels.tunnels.tunnel
             if ts.exists(name=tunnel_name, partition=partition):
                 obj = ts.load(name=tunnel_name, partition=partition)
                 obj.delete()

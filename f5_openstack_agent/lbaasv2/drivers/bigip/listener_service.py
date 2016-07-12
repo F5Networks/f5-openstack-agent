@@ -16,6 +16,8 @@
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
+    DisconnectedService
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 
@@ -32,8 +34,8 @@ class ListenerServiceBuilder(object):
 
     def __init__(self, service_adapter, cert_manager, parent_ssl_profile=None):
         self.cert_manager = cert_manager
+        self.disconnected_service = DisconnectedService()
         self.parent_ssl_profile = parent_ssl_profile
-
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
         self.service_adapter = service_adapter
@@ -55,6 +57,15 @@ class ListenerServiceBuilder(object):
         if tls:
             tls['name'] = vip['name']
             tls['partition'] = vip['partition']
+
+        # start the virtual server on a disconnected network if the neutron
+        # network does not yet exist
+        if not self.disconnected_service.is_service_connected(service):
+            network_name = DisconnectedService.network_name
+            vip['vlansEnabled'] = True
+            vip['vlans'] = [
+                '/%s/%s' % (vip['partition'], network_name)
+            ]
 
         network_id = service['loadbalancer']['network_id']
         for bigip in bigips:
@@ -242,18 +253,18 @@ class ListenerServiceBuilder(object):
         rule_def = self._create_app_cookie_persist_rule(cookie_name)
         rule_name = 'app_cookie_' + vip['name']
 
-        r = bigip.tm.ltm.rules.rule
-        if not r.exists(name=rule_name, partition=vip["partition"]):
-            r.create(name=rule_name,
+        rf = bigip.tm.ltm.rules.rule
+        if not rf.exists(name=rule_name, partition=vip["partition"]):
+            r = rf.create(name=rule_name,
                      apiAnonymous=rule_def,
                      partition=vip["partition"])
             LOG.debug("Created rule %s" % rule_name)
 
-        u = bigip.tm.ltm.persistences.universals.universal
-        if not u.exists(name=rule_name, partition=vip["partition"]):
-            u.create(name=rule_name,
-                     rule=rule_name,
-                     partition=vip["partition"])
+        uf = bigip.tm.ltm.persistences.universals.universal
+        if not uf.exists(name=rule_name, partition=vip["partition"]):
+            u = uf.create(name=rule_name,
+                          rule=rule_name,
+                          partition=vip["partition"])
             LOG.debug("Created persistence universal %s" % rule_name)
 
     def _create_app_cookie_persist_rule(self, cookiename):

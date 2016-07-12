@@ -16,6 +16,7 @@
 
 import hashlib
 
+from pprint import pprint as pp
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
@@ -85,6 +86,8 @@ class ServiceModelAdapter(object):
         return vip
 
     def get_virtual_name(self, service):
+        pp('get_virtual_name'*10)
+        pp(service)
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
         return self._init_virtual_name(loadbalancer, listener)
