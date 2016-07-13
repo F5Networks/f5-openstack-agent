@@ -67,9 +67,9 @@ class CreateLoadValidator(ast.NodeVisitor):
                 raise UnexpectedCallNodeFuncType(node)
         for assigned_node in self.cl_assignments:
             if assigned_node.lineno <= node.lineno:
-                if assigned_node.col_offset <= node.col_offset:
-                    if assigned_node.id == node.id:
-                        return True
+                #if assigned_node.col_offset <= node.col_offset:
+                if assigned_node.id == node.id:
+                    return True
         self.anti_patterns.append((node.lineno))
         return False
 
