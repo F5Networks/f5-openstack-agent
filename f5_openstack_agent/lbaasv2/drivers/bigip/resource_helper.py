@@ -197,7 +197,7 @@ class BigIPResourceHelper(object):
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains.route_domain,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels_s.tunnels.tunnel
+                lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -233,7 +233,7 @@ class BigIPResourceHelper(object):
             ResourceType.arp:
                 lambda bigip: bigip.tm.net.arps,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels_s.tunnels,
+                lambda bigip: bigip.tm.net.tunnels.tunnels,
         }
 
         if self.resource_type in collection_map:
