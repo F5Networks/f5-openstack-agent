@@ -18,6 +18,7 @@ import netaddr
 import os
 import urllib
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
@@ -164,7 +165,9 @@ class NetworkHelper(object):
         rdc = bigip.tm.net.route_domains
         params = {}
         if partition:
-            params = {'params': {'$filter': 'partition eq %s' % partition}}
+            params = {
+                'params': get_filter(bigip, 'partition', 'eq', partition)
+            }
         route_domains = rdc.get_collection(requests_params=params)
         for rd in route_domains:
             if rd.id == id:
@@ -222,7 +225,9 @@ class NetworkHelper(object):
         rdc = bigip.tm.net.route_domains
         params = {}
         if partition:
-            params = {'params': {'$filter': 'partition eq %s' % partition}}
+            params = {
+                'params': get_filter(bigip, 'partition', 'eq', partition)
+            }
         route_domains = rdc.get_collection(requests_params=params)
         rd_ids_list = []
         for rd in route_domains:
@@ -234,7 +239,9 @@ class NetworkHelper(object):
         rdc = bigip.tm.net.route_domains
         params = {}
         if partition:
-            params = {'params': {'$filter': 'partition eq %s' % partition}}
+            params = {
+                'params': get_filter(bigip, 'partition', 'eq', partition)
+            }
         route_domains = rdc.get_collection(requests_params=params)
         rd_names_list = []
         for rd in route_domains:
@@ -412,7 +419,7 @@ class NetworkHelper(object):
             return []
         mac_addresses = []
         ac = bigip.tm.net.arps
-        params = {'params': {'$filter': 'partition eq %s' % partition}}
+        params = {'params': get_filter(bigip, 'partition', 'eq', partition)}
         try:
             arps = ac.get_collection(requests_params=params)
         except HTTPError as err:
