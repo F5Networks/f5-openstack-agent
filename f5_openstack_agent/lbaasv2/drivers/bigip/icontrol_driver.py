@@ -209,8 +209,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     ),
     cfg.StrOpt(
         'cert_manager',
-        default='f5_openstack_agent.lbaasv2.drivers.bigip.barbican_cert.'
-                'BarbicanCertManager',
+        default=None,
         help='Class name of the certificate mangager used for retrieving '
              'certificates and keys.'
     ),
