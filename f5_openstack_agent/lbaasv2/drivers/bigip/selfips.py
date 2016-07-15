@@ -25,6 +25,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import ResourceType
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
@@ -333,7 +334,7 @@ class BigipSelfIpManager(object):
             if not vlan_name.startswith('/'):
                 vlan_name = "/%s/%s" % (partition, vlan_name)
 
-        params = {'params': {'$filter': 'partition eq %s' % partition}}
+        params = {'params': get_filter(bigip, 'partition', 'eq', partition)}
         try:
             selfips_list = [selfip for selfip in
                             bigip.tm.net.selfips.get_collection(

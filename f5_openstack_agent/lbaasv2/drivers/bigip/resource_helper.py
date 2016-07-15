@@ -14,6 +14,7 @@
 #   limitations under the License.
 
 from enum import Enum
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 
 from oslo_log import log as logging
 
@@ -157,7 +158,9 @@ class BigIPResourceHelper(object):
 
         if collection:
             if partition:
-                params = {'params': {'$filter': 'partition eq %s' % partition}}
+                params = {
+                    'params': get_filter(bigip, 'partition', 'eq', partition)
+                }
                 resources = collection.get_collection(requests_params=params)
             else:
                 resources = collection.get_collection()
