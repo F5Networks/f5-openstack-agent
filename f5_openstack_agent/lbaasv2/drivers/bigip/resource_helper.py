@@ -135,6 +135,10 @@ class BigIPResourceHelper(object):
         if "partition" in model:
             partition = model["partition"]
         resource = self.load(bigip, name=model["name"], partition=partition)
+        if 'vlansEnabled' in model:
+            resource.__dict__.pop('vlansDisabled', None)
+        if 'vlansDisabled' in model:
+            resource.__dict__.pop('vlansEnabled', None)
         resource.update(**model)
 
         return resource
