@@ -33,7 +33,7 @@ deploy:
   overwrite: true
   on:
     repo: F5Networks/f5-openstack-agent
-    branch: feature.rpmbuild
+    branch: feature.rpms
     tags: true
 
 notifications:
