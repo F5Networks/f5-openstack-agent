@@ -21,7 +21,7 @@ install:
     - sudo apt-get install git -y
 script:
     - flake8 f5_openstack_agent
-    - ${DIST_REPO}/scripts/package_agent.sh ${OS_TYPE} ${OS_VERSION} ${DIST_REPO}
+    - f5-openstack-agent-dist/scripts/package_agent.sh ${OS_TYPE} ${OS_VERSION} ${DIST_REPO}
 
 deploy:
   provider: releases
