@@ -17,17 +17,14 @@ before_install:
 
 install:
     - pip install hacking
-    - sudo apt-get update
-    - sudo apt-get install git -y
 script:
     - flake8 f5_openstack_agent
-    - git clone https://github.com/F5Networks/${DIST_REPO}.git
-    - ${DIST_REPO}/scripts/package_agent.sh ${OS_TYPE} ${OS_VERSION} ${DIST_REPO}
+    - f5-openstack-agent-dist/scripts/package_agent.sh ${OS_TYPE} ${OS_VERSION} ${DIST_REPO}
 
 deploy:
   provider: releases
   api_key:
-    secure: ikSQ8t+CSrqOokNpbnSL77EOG09473MgSKTH6bDbkxipEFgxgY0fsZzuCwypzvZOzwj8rcKBRWRvNwIs+g4+aeRMV+xAa0oGprr7Cg7PLgN3w6JuXU949IG9lu0+Futa0UwO14HVTOgLJ1mFWDqQGtkFSjeDygDWS0LJjqqrMCP3GHo0VUVQvcOKHmVATt2jU5iuKRxsR6qkrZVvQtnrWD1PW4DggKm28mEapuL6M4koUJC/VUJn77DRkawsnZPx/QPeZD3z5vqUF+LkdKO4YWzzvxcllpEaG2i9cAjIobovsJh9ms6i42Kn2RbAM36dO/VAQD6/fDxzyxFTQBueDEchaz/q73r/iXPOKiSS2QiIJivXlcYIN+hYLCmEI7S1d/xy4+EH8DdeZ9sAQv4PMx822st7ZFv5AWZ+9oER4l0fd9dwK5AQnPTtkqBH3XUx4QwCK/4s4SJtBrxqmeOU3dPQJjxB0e+eDEwtksWTngv3CfOl84jMblW0SMMxUNEdmVBXTNMYWpdU4QMvI9vYItQe/j7bfl7pVmCwY2AW3VovQicBZzk8cnxLMrk4YtX8GI3/cNBe26voYsncuTEzrKVPqqp6xEMD3xX9Obov7+5aS+0Dqk8rB7O1tRgGICAYSE3Y1clUWyJXyWmXbMztXFogKwjBvt0nO76N1rKA0Vk=
+    secure: lTash9wrbwY5rsdl+ZfhYZ+Iqt2EdvZNqrq6FlLT6L4Wc4/RYCDLFwY2qrDb/n1XI3g/XhOCTyYMCu9URrw0HAY45HcAgOcEABNcAGfs/aBk5uB+l/V/42QKB+oAR9RR9qves5PJGBpJcBym9oswcxblBo8L6Z2o/yFzyGo3tHKVopTZoIw+hPqt5eAClPz8FX0ZIUZqH1iUiqMj1JJWvO9DRWECcjt4pr5HuY3u32qocQP4DUY1WQwI/R6iye5VPTAbWnsIBChJcJF1HAbsVa5IhQHhSo03RCJwZay/NF0btc9dKvIyrwqhQIUZX/RcDPvbs7TP02zg9O27HBAts2ivVRoBulN9dsHGiWGXMMQjavZGsdZ/TddKQxUvWoUKv+nHQyWGbyrE4smDHrex29NR/WgB/kHSAkNyUU1rZs8ALaoab5LY3Z0WmrFlHFs4HDb4YG+//0ODVppRe+Z8uFFnSsN4fjG9Xok+Tl+Gb9XM6/LNu+C+5DCG2VfPCnp2UGzmmo9Hm6ODhWauCR9DfJk1dUTVYb871I3ina0rwm2NQ04bKv0UHGZ2FWpq/KGx+jvXW8F54cWIluU/ze2MrJF/z9uKyTluEbDNBEr9/LaZoG22MBzHZB4xK0cEy+CSwGdOredCDCyEM7dsLlnE8ruiujbCAMvdjsHH4bu4MjU=
   file: ${DIST_REPO}/rpms/f5-openstack-agent-$TRAVIS_TAG-1.el${OS_VERSION}.noarch.rpm
   skip_cleanup: true
   overwrite: true
