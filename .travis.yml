@@ -15,7 +15,7 @@ python:
 before_install:
     - git config --global user.email "OpenStack_TravisCI@f5.com"
     - git config --global user.name "Travis F5 Openstack"
-
+    - echo ${RPM_VERSION}
 install:
     - pip install hacking
 script:
