@@ -71,8 +71,8 @@ class BigipSelfIpManager(object):
                                           err.message))
                         raise f5_ex.SelfIPCreationException("selfip")
                 else:
-                    LOG.exception("selfip creation error: %s($s)",
-                                  err.message, err.response.status_code)
+                    LOG.exception("selfip creation error: %s(%s)" %
+                                  (err.message, err.response.status_code))
                     raise
             except Exception as err:
                 LOG.error("Failed to create selfip")
