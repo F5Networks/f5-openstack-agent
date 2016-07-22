@@ -23,15 +23,24 @@ script:
 before_deploy:
   PKG_VERSION=$(python -c "import f5_openstack_agent; print f5_openstack_agent.__version__")
 deploy:
-  provider: releases
-  api_key:
-    secure: lTash9wrbwY5rsdl+ZfhYZ+Iqt2EdvZNqrq6FlLT6L4Wc4/RYCDLFwY2qrDb/n1XI3g/XhOCTyYMCu9URrw0HAY45HcAgOcEABNcAGfs/aBk5uB+l/V/42QKB+oAR9RR9qves5PJGBpJcBym9oswcxblBo8L6Z2o/yFzyGo3tHKVopTZoIw+hPqt5eAClPz8FX0ZIUZqH1iUiqMj1JJWvO9DRWECcjt4pr5HuY3u32qocQP4DUY1WQwI/R6iye5VPTAbWnsIBChJcJF1HAbsVa5IhQHhSo03RCJwZay/NF0btc9dKvIyrwqhQIUZX/RcDPvbs7TP02zg9O27HBAts2ivVRoBulN9dsHGiWGXMMQjavZGsdZ/TddKQxUvWoUKv+nHQyWGbyrE4smDHrex29NR/WgB/kHSAkNyUU1rZs8ALaoab5LY3Z0WmrFlHFs4HDb4YG+//0ODVppRe+Z8uFFnSsN4fjG9Xok+Tl+Gb9XM6/LNu+C+5DCG2VfPCnp2UGzmmo9Hm6ODhWauCR9DfJk1dUTVYb871I3ina0rwm2NQ04bKv0UHGZ2FWpq/KGx+jvXW8F54cWIluU/ze2MrJF/z9uKyTluEbDNBEr9/LaZoG22MBzHZB4xK0cEy+CSwGdOredCDCyEM7dsLlnE8ruiujbCAMvdjsHH4bu4MjU=
-  file: ${DIST_REPO}/rpms/f5-openstack-agent-${PKG_VERSION}-1.el${OS_VERSION}.noarch.rpm
-  skip_cleanup: true
-  overwrite: true
-  on:
-    repo: F5Networks/f5-openstack-agent
-    tags: true
+  - provider: releases
+    api_key:
+      secure: lTash9wrbwY5rsdl+ZfhYZ+Iqt2EdvZNqrq6FlLT6L4Wc4/RYCDLFwY2qrDb/n1XI3g/XhOCTyYMCu9URrw0HAY45HcAgOcEABNcAGfs/aBk5uB+l/V/42QKB+oAR9RR9qves5PJGBpJcBym9oswcxblBo8L6Z2o/yFzyGo3tHKVopTZoIw+hPqt5eAClPz8FX0ZIUZqH1iUiqMj1JJWvO9DRWECcjt4pr5HuY3u32qocQP4DUY1WQwI/R6iye5VPTAbWnsIBChJcJF1HAbsVa5IhQHhSo03RCJwZay/NF0btc9dKvIyrwqhQIUZX/RcDPvbs7TP02zg9O27HBAts2ivVRoBulN9dsHGiWGXMMQjavZGsdZ/TddKQxUvWoUKv+nHQyWGbyrE4smDHrex29NR/WgB/kHSAkNyUU1rZs8ALaoab5LY3Z0WmrFlHFs4HDb4YG+//0ODVppRe+Z8uFFnSsN4fjG9Xok+Tl+Gb9XM6/LNu+C+5DCG2VfPCnp2UGzmmo9Hm6ODhWauCR9DfJk1dUTVYb871I3ina0rwm2NQ04bKv0UHGZ2FWpq/KGx+jvXW8F54cWIluU/ze2MrJF/z9uKyTluEbDNBEr9/LaZoG22MBzHZB4xK0cEy+CSwGdOredCDCyEM7dsLlnE8ruiujbCAMvdjsHH4bu4MjU=
+    file: ${DIST_REPO}/rpms/f5-openstack-agent-${PKG_VERSION}-1.el${OS_VERSION}.noarch.rpm
+    skip_cleanup: true
+    overwrite: true
+    on:
+      repo: F5Networks/f5-openstack-agent
+      tags: true
+  - provider: pypi
+    user: $PYPI_USER
+    password: $PYPI_PASSWORD
+    server: https://pypy.python.org/pypi
+    on:
+      all_branches: true
+      tags: true
+      python: 2.7
+    skip_cleanup: true
 
 notifications:
   slack:
