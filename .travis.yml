@@ -35,6 +35,7 @@ deploy:
   - provider: pypi
     user: $PYPI_USER
     password: $PYPI_PASSWORD
+    distributions: "sdist bdist"
     server: https://pypi.python.org/pypi
     on:
       all_branches: true
