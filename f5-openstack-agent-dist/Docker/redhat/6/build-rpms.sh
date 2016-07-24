@@ -12,7 +12,6 @@ buildroot=$(mktemp -d /tmp/f5-openstack-agent-dist.XXXX)
 cp -R $SRC_DIR/* ${buildroot}
 
 pushd ${buildroot}
-cp ${DIST_DIR}/MANIFEST.in ${buildroot}
 
 python setup.py bdist_rpm
 
