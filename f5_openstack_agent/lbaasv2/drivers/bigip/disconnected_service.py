@@ -120,7 +120,8 @@ class DisconnectedService(object):
         connected = True
         for bigip in bigips:
             vsf = bigip.tm.ltm.virtuals.virtual
-            if vsf.exists(name=virtual['name'], partition=virtual['partition']):
+            if vsf.exists(name=virtual['name'],
+                          partition=virtual['partition']):
                 vs = vsf.load(
                     name=virtual['name'], partition=virtual['partition'])
                 if (getattr(vs, 'vlansDisabled', False) or

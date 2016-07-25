@@ -28,7 +28,7 @@ def setup_neutronless_test(request, bigip):
 
     def remove_test_created_elements():
         for t in bigip.tm.net.fdb.tunnels.get_collection():
-            if t.name == 'tunnel-vxlan-45':
+            if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
                 t.update(records=[])
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
@@ -41,6 +41,6 @@ def setup_neutronless_test(request, bigip):
                 if exc.response.status_code == 404:
                     logging.debug(exc.response.status_code)
                 else:
-                    raise exc
+                    raise
 
     request.addfinalizer(remove_test_created_elements)
