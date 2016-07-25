@@ -435,10 +435,10 @@ class NetworkServiceBuilder(object):
     def remove_from_rds_cache(self, network, subnet):
         # Get route domain from cache by network
         LOG.debug("remove_from_rds_cache")
-        deleted_rds = []
         net_short_name = self.get_neutron_net_short_name(network)
         for tenant_id in self.rds_cache:
             LOG.debug("rds_cache: processing remove for %s" % tenant_id)
+            deleted_rds = []
             tenant_cache = self.rds_cache[tenant_id]
             for route_domain_id in tenant_cache:
                 if net_short_name in tenant_cache[route_domain_id]:
