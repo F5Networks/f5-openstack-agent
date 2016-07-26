@@ -2,7 +2,7 @@
 .
 # app
 f5-sdk
-git+https://github.com/openstack/neutron#stable/liberty
+git+https://github.com/openstack/neutron#stable/mitaka
 
 # Test Requirements
 mock==1.3.0
