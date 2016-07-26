@@ -348,6 +348,7 @@ class ServiceModelAdapter(object):
             vip['vlans'].append(
                 bigip.assured_networks[network_id])
             vip['vlansEnabled'] = True
+            vip.pop('vlansDisabled', None)
 
     def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
@@ -393,7 +394,7 @@ class ServiceModelAdapter(object):
                 vip['sourceAddressTranslation']['type'] = 'automap'
 
         # default values for pinning the VS to a specific VLAN set
-        vip['vlansEnabled'] = False
+        vip['vlansDisabled'] = True
         vip['vlans'] = []
 
     def _map_member(self, loadbalancer, lbaas_member):
