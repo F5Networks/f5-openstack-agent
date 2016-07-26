@@ -14,6 +14,7 @@
 #   limitations under the License.
 
 from enum import Enum
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 
 from oslo_log import log as logging
 
@@ -157,7 +158,9 @@ class BigIPResourceHelper(object):
 
         if collection:
             if partition:
-                params = {'params': {'$filter': 'partition eq %s' % partition}}
+                params = {
+                    'params': get_filter(bigip, 'partition', 'eq', partition)
+                }
                 resources = collection.get_collection(requests_params=params)
             else:
                 resources = collection.get_collection()
@@ -197,7 +200,7 @@ class BigIPResourceHelper(object):
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains.route_domain,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels_s.tunnels.tunnel
+                lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -233,7 +236,7 @@ class BigIPResourceHelper(object):
             ResourceType.arp:
                 lambda bigip: bigip.tm.net.arps,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels_s.tunnels,
+                lambda bigip: bigip.tm.net.tunnels.tunnels,
         }
 
         if self.resource_type in collection_map:
