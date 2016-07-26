@@ -220,7 +220,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     ),
     cfg.StrOpt(
         'barbican_endpoint',
-        default='http://10.190.4.169:9311',
+        default='http://BARBICAN_IP:9311',
         help='Barbican endpoint to use when no authentication is specified.'
     ),
     cfg.StrOpt(
