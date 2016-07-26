@@ -16,6 +16,7 @@
 from time import time
 import uuid
 
+from distutils.version import LooseVersion
 from eventlet import greenthread
 from oslo_log import log as logging
 
@@ -24,7 +25,16 @@ OBJ_PREFIX = 'uuid_'
 
 
 def strip_domain_address(ip_address):
-    # Strip domain from ip address
+    """Return the address or address/netmask from a route domain address.
+
+    When an address is retrieved from the BIG-IP that has a route domain
+    it contains a %<number> in it.  We need to strip that out so we are
+    just dealing with an IP address or IP address/mask.
+
+    Examples:
+        192.168.1.1%20 ==> 192.168.1.1
+        192.168.1.1%20/24 ==> 192.168.1.1/24
+    """
     mask_index = ip_address.find('/')
     if mask_index > 0:
         return ip_address[:mask_index].split('%')[0] + ip_address[mask_index:]
@@ -97,7 +107,18 @@ def serialized(method_name):
 
 
 def request_index(request_queue, request_id):
-    """Get index of request in request queue."""
+    """Get index of request in request queue.
+
+    If we are not in the queue return the length of the list.
+    """
     for request in request_queue:
         if request[0] == request_id:
             return request_queue.index(request)
+    return len(request_queue)
+
+
+def get_filter(bigip, key, op, value):
+    if LooseVersion(bigip.tmos_version) < LooseVersion('11.6.0'):
+        return '$filter=%s+%s+%s' % (key, op, value)
+    else:
+        return {'$filter': '%s %s %s' % (key, op, value)}
