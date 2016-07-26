@@ -289,18 +289,18 @@ class NetworkServiceBuilder(object):
         route_domain_id = None
         for bigip in self.driver.get_all_bigips():
             partition_id = self.service_adapter.get_folder_name(tenant_id)
-            bigip_id = self.network_helper.create_route_domain(
+            bigip_route_domain_id = self.network_helper.create_route_domain(
                 bigip,
                 partition=partition_id,
                 strictness=self.conf.f5_route_domain_strictness,
                 is_aux=True)
             if route_domain_id is None:
-                route_domain_id = bigip_id
-            elif bigip_id != route_domain_id:
+                route_domain_id = bigip_route_domain_id.id
+            elif bigip_route_domain_id.id != route_domain_id:
                 # FixME error
                 LOG.debug(
                     "Bigips allocated two different route domains!: %s %s"
-                    % (bigip_id, route_domain_id))
+                    % (bigip_route_domain_id, route_domain_id))
         LOG.debug("Allocated route domain %s for tenant %s"
                   % (route_domain_id, tenant_id))
         return route_domain_id
@@ -434,14 +434,27 @@ class NetworkServiceBuilder(object):
 
     def remove_from_rds_cache(self, network, subnet):
         # Get route domain from cache by network
+        LOG.debug("remove_from_rds_cache")
         net_short_name = self.get_neutron_net_short_name(network)
         for tenant_id in self.rds_cache:
+            LOG.debug("rds_cache: processing remove for %s" % tenant_id)
+            deleted_rds = []
             tenant_cache = self.rds_cache[tenant_id]
             for route_domain_id in tenant_cache:
                 if net_short_name in tenant_cache[route_domain_id]:
                     net_entry = tenant_cache[route_domain_id][net_short_name]
-                    if subnet['id'] in net_entry:
-                        del net_entry[subnet['id']]
+                    if subnet['id'] in net_entry['subnets']:
+                        del net_entry['subnets'][subnet['id']]
+                        if len(net_entry['subnets']) == 0:
+                            del net_entry['subnets']
+                    if len(tenant_cache[route_domain_id][net_short_name]) == 0:
+                        del tenant_cache[route_domain_id][net_short_name]
+                if len(self.rds_cache[tenant_id][route_domain_id]) == 0:
+                    deleted_rds.append(route_domain_id)
+            for rd in deleted_rds:
+                LOG.debug("removing route domain %d from tenant %s" %
+                          (rd, tenant_id))
+                del self.rds_cache[tenant_id][rd]
 
     def get_bigip_net_short_name(self, bigip, tenant_id, network_name):
         # Return <network_type>-<seg_id> for bigip network
@@ -566,24 +579,14 @@ class NetworkServiceBuilder(object):
                 self._assure_delete_nets_shared(bigip, service,
                                                 subnet_hints))
 
-        # avoids race condition:
-        # deletion of shared ip objects must sync before we
-        # remove the selfips or vlans from the peer bigips.
-        self.driver.sync_if_clustered()
-
         # Delete non shared config objects
         for bigip in self.driver.get_all_bigips():
             LOG.debug('    post_service_networking: calling '
                       '    _assure_delete_networks del nets ns for bigip %s'
                       % bigip.device_name)
-            if self.conf.f5_sync_mode == 'replication':
-                subnet_hints = all_subnet_hints[bigip.device_name]
-            else:
-                # If in autosync mode, then the IP operations were performed
-                # on just the primary big-ip, and so that is where the subnet
-                # hints are stored. So, just use those hints for every bigip.
-                device_name = self.driver.get_bigip().device_name
-                subnet_hints = all_subnet_hints[device_name]
+
+            subnet_hints = all_subnet_hints[bigip.device_name]
+
             deleted_names = deleted_names.union(
                 self._assure_delete_nets_nonshared(
                     bigip, service, subnet_hints)

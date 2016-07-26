@@ -14,6 +14,7 @@
 #   limitations under the License.
 
 from enum import Enum
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 
 from oslo_log import log as logging
 
@@ -80,11 +81,11 @@ class BigIPResourceHelper(object):
         if "partition" in model:
             partition = model["partition"]
         if resource.exists(name=model["name"], partition=partition):
-            resource = self.update(bigip, model)
+            obj = self.update(bigip, model)
         else:
-            resource.create(**model)
+            obj = resource.create(**model)
 
-        return resource
+        return obj
 
     def exists(self, bigip, name=None, partition=None):
         """Test for the existence of a resource."""
@@ -103,8 +104,8 @@ class BigIPResourceHelper(object):
         """
         resource = self._resource(bigip)
         if resource.exists(name=name, partition=partition):
-            resource.load(name=name, partition=partition)
-            resource.delete()
+            obj = resource.load(name=name, partition=partition)
+            obj.delete()
 
     def load(self, bigip, name=None, partition=None):
         u"""Retrieve a BIG-IP® resource from a BIG-IP®.
@@ -118,9 +119,7 @@ class BigIPResourceHelper(object):
         :returns: created or updated resource object.
         """
         resource = self._resource(bigip)
-        resource.load(name=name, partition=partition)
-
-        return resource
+        return resource.load(name=name, partition=partition)
 
     def update(self, bigip, model):
         u"""Update a resource (e.g., pool) on a BIG-IP® system.
@@ -159,7 +158,9 @@ class BigIPResourceHelper(object):
 
         if collection:
             if partition:
-                params = {'params': {'$filter': 'partition eq %s' % partition}}
+                params = {
+                    'params': get_filter(bigip, 'partition', 'eq', partition)
+                }
                 resources = collection.get_collection(requests_params=params)
             else:
                 resources = collection.get_collection()
@@ -199,7 +200,7 @@ class BigIPResourceHelper(object):
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains.route_domain,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels_s.tunnels.tunnel
+                lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -235,7 +236,7 @@ class BigIPResourceHelper(object):
             ResourceType.arp:
                 lambda bigip: bigip.tm.net.arps,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels_s.tunnels,
+                lambda bigip: bigip.tm.net.tunnels.tunnels,
         }
 
         if self.resource_type in collection_map:
