@@ -80,11 +80,11 @@ def test_gre_profile(setup):
                                                              te.partition)
     add_resource_teardown(te.request, profile)
     params = {'params': {'$filter': 'partition eq %s' % te.partition}}
-    gc = te.bigip.net.tunnels_s.gres
+    gc = te.bigip.net.tunnels.gres
     profiles = gc.get_collection(requests_params=params)
     profile_names = (r.name for r in profiles)
     assert(name in profile_names)
-    p = te.bigip.net.tunnels_s.gres.gre
+    p = te.bigip.net.tunnels.gres.gre
     p.load(name=name, partition=te.partition)
     payload = NetworkHelper.l2gre_multipoint_profile_defaults
     for k in payload.keys():
@@ -101,11 +101,11 @@ def test_vxlan_profile(setup):
                                                              te.partition)
     add_resource_teardown(te.request, profile)
     params = {'params': {'$filter': 'partition eq %s' % te.partition}}
-    vc = te.bigip.net.tunnels_s.vxlans
+    vc = te.bigip.net.tunnels.vxlans
     profiles = vc.get_collection(requests_params=params)
     profile_names = (r.name for r in profiles)
     assert(name in profile_names)
-    p = te.bigip.net.tunnels_s.vxlans.vxlan
+    p = te.bigip.net.tunnels.vxlans.vxlan
     p.load(name=name, partition=te.partition)
     payload = NetworkHelper.vxlan_multipoint_profile_defaults
     for k in payload.keys():
@@ -121,7 +121,7 @@ def test_get_gre_tunnel_key(setup):
     profile = 'gre'  # pre-exiting profile on BIGIP
     local_ip = '192.168.102.1'
     remote_ip = '192.168.102.2'
-    t = te.bigip.net.tunnels_s.tunnels.tunnel
+    t = te.bigip.net.tunnels.tunnels.tunnel
     t.create(name=name, partition=te.partition,
              localAddress=local_ip, remoteAddress=remote_ip, profile=profile)
     add_resource_teardown(te.request, t)
@@ -136,7 +136,7 @@ def test_get_vxlan_tunnel_key(setup):
     profile = 'vxlan'  # pre-exiting profile on BIGIP
     local_ip = '224.0.0.1'
     remote_ip = '224.0.0.2'
-    t = te.bigip.net.tunnels_s.tunnels.tunnel
+    t = te.bigip.net.tunnels.tunnels.tunnel
     t.create(name=name, partition=te.partition,
              localAddress=local_ip, remoteAddress=remote_ip, profile=profile)
     add_resource_teardown(te.request, t)

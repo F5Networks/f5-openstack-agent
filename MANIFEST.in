@@ -1,0 +1,3 @@
+include etc/neutron/services/f5/f5-openstack-agent.ini
+include etc/init.d/*
+recursive-include lib *.service

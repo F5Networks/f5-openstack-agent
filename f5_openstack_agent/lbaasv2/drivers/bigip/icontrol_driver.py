@@ -134,7 +134,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='tunnel types which are advertised to other VTEPs'
     ),
     cfg.BoolOpt(
-        'f5_populate_static_arp', default=True,
+        'f5_populate_static_arp', default=False,
         help='create static arp entries based on service entries'
     ),
     cfg.StrOpt(
@@ -209,8 +209,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     ),
     cfg.StrOpt(
         'cert_manager',
-        default='f5_openstack_agent.lbaasv2.drivers.bigip.barbican_cert.'
-                'BarbicanCertManager',
+        default=None,
         help='Class name of the certificate mangager used for retrieving '
              'certificates and keys.'
     ),
@@ -221,7 +220,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     ),
     cfg.StrOpt(
         'barbican_endpoint',
-        default='http://10.190.4.169:9311',
+        default='http://BARBICAN_IP:9311',
         help='Barbican endpoint to use when no authentication is specified.'
     ),
     cfg.StrOpt(

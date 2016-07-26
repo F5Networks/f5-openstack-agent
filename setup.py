@@ -29,7 +29,7 @@ setuptools.setup(
         'Environment :: OpenStack',
 	'Intended Audience :: Information Technology',
 	'Intended Audience :: System Administrators',
-	'License :: OSI Approved :: Apache Software',
+	'License :: OSI Approved :: Apache Software License',
 	'Operating System :: POSIX :: Linux',
 	'Programming Language :: Python',
 	'Programming Language :: Python :: 2',
@@ -40,6 +40,6 @@ setuptools.setup(
             'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main'
         ]
     },
-    install_requires=['f5-sdk==0.1.7']
+    install_requires=['f5-sdk==1.0.2']
 )
 
