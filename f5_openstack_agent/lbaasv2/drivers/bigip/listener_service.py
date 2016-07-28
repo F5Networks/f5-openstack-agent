@@ -249,7 +249,7 @@ class ListenerServiceBuilder(object):
                      partition=vip["partition"])
             LOG.debug("Created rule %s" % rule_name)
 
-        u = bigip.tm.ltm.persistences.universals.universal
+        u = bigip.tm.ltm.persistence.universals.universal
         if not u.exists(name=rule_name, partition=vip["partition"]):
             u.create(name=rule_name,
                      rule=rule_name,
@@ -380,7 +380,7 @@ class ListenerServiceBuilder(object):
         """
         rule_name = 'app_cookie_' + vip['name']
 
-        u = bigip.tm.ltm.persistences.universals.universal
+        u = bigip.tm.ltm.persistence.universals.universal
         if u.exists(name=rule_name, partition=vip["partition"]):
             obj = u.load(name=rule_name, partition=vip["partition"])
             obj.delete()
