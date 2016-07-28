@@ -1,8 +1,7 @@
-0 bash                                                                                                                                                            SEA-ML-RBROWNE  07/26  8:52pm
 #!/bin/bash -ex
 
 SRC_DIR=$1
-PKG_NAME=f5-openstack-agent
+PKG_NAME="f5-openstack-agent"
 DIST_DIR="${PKG_NAME}-dist"
 RPMBUILD_DIR="rpmbuild"
 OS_VERSION=7
@@ -21,6 +20,7 @@ echo "%_topdir ${buildroot}/rpmbuild" > ~/.rpmmacros
 
 python setup.py bdist_rpm --spec-only --dist-dir rpmbuild/SPECS
 echo "%config /etc/neutron/services/f5/f5-openstack-agent.ini" >> rpmbuild/SPECS/f5-openstack-agent.spec
+
 rpmbuild -ba rpmbuild/SPECS/f5-openstack-agent.spec
 
 mkdir -p ${DEST_DIR}/rpms/build
