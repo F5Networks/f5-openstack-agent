@@ -20,6 +20,7 @@ install:
 script:
     - flake8 f5_openstack_agent
     - f5-openstack-agent-dist/scripts/package_agent.sh ${OS_TYPE} ${OS_VERSION} ${DIST_REPO}
+    - sudo chown -R travis:travis ${DIST_REPO}/rpms/build
 before_deploy:
   PKG_VERSION=$(python -c "import f5_openstack_agent; print f5_openstack_agent.__version__")
 deploy:

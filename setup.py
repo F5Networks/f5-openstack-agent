@@ -18,7 +18,8 @@ import setuptools
 setuptools.setup(
     version=f5_openstack_agent.__version__,
     name="f5-openstack-agent",
-    description = 'F5 Networks Agent for OpenStack services',
+    description = ("F5 Networks Agent for OpenStack services"),
+    license = 'Apache License, Version 2.0',
     author="F5 Networks",
     author_email="f5_openstack_agent@f5.com",
     data_files=[('/etc/neutron/services/f5', ['etc/neutron/services/f5/f5-openstack-agent.ini']),
