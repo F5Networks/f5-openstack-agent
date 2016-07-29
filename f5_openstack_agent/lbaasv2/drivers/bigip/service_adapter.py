@@ -18,12 +18,26 @@ import hashlib
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.exceptions import\
+    F5AgentException
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 
 LOG = logging.getLogger(__name__)
 
 
 class UnsupportedProtocolException(Exception):
+    pass
+
+
+class ServiceAdapterError(F5AgentException):
+    pass
+
+
+class SubnetsNotInService(ServiceAdapterError):
+    pass
+
+
+class SubnetNotMatched(ServiceAdapterError):
     pass
 
 
@@ -422,7 +436,14 @@ class ServiceModelAdapter(object):
 
     def get_subnet_from_service(self, service, subnet_id):
         if 'subnets' in service:
-            return service['subnets'][subnet_id]
+            for subnet in service['subnets']:
+                if subnet['id'] == subnet_id:
+                    return subnet
+            raise SubnetNotMatched('No matching subnet.  Subnets: {}'
+                                   .format(service['subnets']))
+        else:
+            raise SubnetsNotInService('The service object does not have'
+                                      '"subnets". service: {}'.format(service))
 
     def get_session_persistence(self, service):
         pool = service['pool']
