@@ -14,19 +14,69 @@
 #
 
 import logging
+import mock
+import os
 import pytest
+import time
 
 from f5.utils.testutils.registrytools import register_device
 from f5_os_test.order_utils import AGENT_LB_DEL_ORDER
 from f5_os_test.order_utils import order_by_weights
 from icontrol.exceptions import iControlUnexpectedHTTPError
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import\
+    iControlDriver
+
+
+class MatchFilter(logging.Filter):
+    def __init__(self, match_strings):
+        self.match_strings = match_strings
+
+    def filter(self, record):
+        msg = record.getMessage()
+        for match in self.match_strings:
+            if match in msg:
+                return True
+        return False
+
+
+error_filter = MatchFilter(['ERROR',
+                            'error',
+                            'Error',
+                            'Exception',
+                            'exception'])
+@pytest.fixture(scope='module')
+def makelogdir(request):
+    logtime = '%0.0f' % time.time()
+    dirname = os.path.dirname(request.module.__file__)
+    modfname = request.module.__name__
+    logdirname = os.path.join(dirname, 'logs', modfname, logtime)
+    os.makedirs(logdirname)
+    return logdirname
+    
+
+def _get_nolevel_handler(logname):
+    rootlogger = logging.getLogger()
+    for h in rootlogger.handlers:
+        rootlogger.removeHandler(h)
+    rootlogger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(logname)
+    fh.addFilter(error_filter)
+    fh.setLevel(logging.NOTSET)
+    rootlogger.addHandler(fh)
+    return fh
+
 
 @pytest.fixture
-def setup_neutronless_test(request, bigip):
+def setup_neutronless_test(request, bigip, makelogdir):
     pretest_snapshot = frozenset(register_device(bigip))
 
+    logname = os.path.join(makelogdir, request.function.__name__)
+    loghandler = _get_nolevel_handler(logname)
+    
+
     def remove_test_created_elements():
+        logging.getLogger().setLevel(logging.NOTSET)
         for t in bigip.tm.net.fdb.tunnels.get_collection():
             if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
                 t.update(records=[])
@@ -44,3 +94,28 @@ def setup_neutronless_test(request, bigip):
                     raise
 
     request.addfinalizer(remove_test_created_elements)
+    return loghandler
+
+
+@pytest.fixture
+def configure_icd():
+    class ConfFake(object):
+        '''minimal fake config object to replace oslo with controlled params'''
+        def __init__(self, params):
+            self.__dict__ = params
+            for k, v in self.__dict__.items():
+                if isinstance(v, unicode):
+                    self.__dict__[k] = v.encode('utf-8')
+
+        def __repr__(self):
+            return repr(self.__dict__)
+
+    def _icd(icd_config):
+        mock_rpc_plugin = mock.MagicMock()
+        mock_rpc_plugin.get_port_by_name.return_value =\
+            [{'fixed_ips': [{'ip_address': '10.2.2.134'}]}]
+        icontroldriver = iControlDriver(ConfFake(icd_config),
+                                        registerOpts=False)
+        icontroldriver.plugin_rpc = mock_rpc_plugin
+        return icontroldriver
+    return _icd
