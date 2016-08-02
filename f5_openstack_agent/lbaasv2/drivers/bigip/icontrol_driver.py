@@ -716,6 +716,7 @@ class iControlDriver(LBaaSBaseDriver):
     def update_listener(self, old_listener, listener, service):
         """Update virtual server"""
         LOG.debug("Updating listener")
+        service['old_listener'] = old_listener
         self._common_service_handler(service)
 
     @serialized('delete_listener')
