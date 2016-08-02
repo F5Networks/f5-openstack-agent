@@ -274,7 +274,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'f5_network_segment_gross_timeout', default=300,
         help='Seconds to wait for a virtual server to become connected'
     ),
-    cfg.IntOpt(
+    cfg.StrOpt(
         'f5_parent_ssl_profile',
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '
@@ -1217,7 +1217,6 @@ class iControlDriver(LBaaSBaseDriver):
 
     def tenant_to_traffic_group(self, tenant_id):
         # Hash tenant id to index of traffic group
-        print('tenant_to_traffic_group called')
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
