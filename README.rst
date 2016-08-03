@@ -92,6 +92,30 @@ We use the hacking module for our style checks (installed as part of step 1 in t
 
     $ flake8 ./
 
+Troubleshooting
+===============
+
+When the f5-openstack-agent is installed, the *debug_bundler.pyr* script will be installed to */usr/bin/f5/*. This script can be run from the command line directly. It will search in the specified directories to bundle log files and configuration files for use in debugging an issue with the f5-openstack-agent. In addition to the above files, it also dumps a complete listing of the ``pip lists`` output.
+
+**WARNING**
+
+The files added to this bundle may contain VERY SENSITIVE INFORMATION such as encryption keys, passwords, and usernames. Do not upload this bundle, or any information within, to a public forum unless you have scrubbed sensitive information thoroughly. When in doubt, don't upload it at all.
+
+Below you can see the basic usage, using the default command-line arguments:
+
+::
+
+    $ python /usr/bin/f5/debug_bundler.py /home/myuser/debug_bundle_output/
+
+A tarred, compressed, file will be created in the directory specified. It will contain all logs and configuration files the script found. Note that the script offers a best-effort search of the directories given, and if it cannot find the log files it is looking for in those directories, it will print a message and continue running.
+
+The default log location is set to `/var/log/neutron` and the default configuration file location is in `/etc/neutron`. These locations can be overriden via the command-line invocation shown below:
+
+::
+
+    $ python /usr/bin/f5/debug_bundler.py --log-dir=/var/log/mylogs --config-dir /etc/myconfigs/ ~/
+
+If any issue is found with the debug_bundler script, please file an issue on GitHub.
 
 Copyright
 *********

@@ -24,7 +24,8 @@ setuptools.setup(
     author_email="f5_openstack_agent@f5.com",
     data_files=[('/etc/neutron/services/f5', ['etc/neutron/services/f5/f5-openstack-agent.ini']),
                 ('/etc/init.d', ['etc/init.d/f5-oslbaasv2-agent']),
-                ('/usr/lib/systemd/system', ['lib/systemd/system/f5-openstack-agent.service'])],
+                ('/usr/lib/systemd/system', ['lib/systemd/system/f5-openstack-agent.service']),
+                ('/usr/bin/f5', ['bin/debug_bundler.py'])],
     packages=setuptools.find_packages(exclude=['*.test', '*.test.*', 'test*', 'test']),
     classifiers=[
         'Environment :: OpenStack',
