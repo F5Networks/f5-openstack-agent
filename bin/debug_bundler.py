@@ -41,8 +41,14 @@ import argparse
 from argparse import RawTextHelpFormatter
 import fnmatch
 import os
-import pip
 import tarfile
+
+
+try:
+    import pip
+    PIP_INSTALLED = True
+except ImportError:
+    PIP_INSTALLED = False
 
 
 class DebugBundle(object):
@@ -145,7 +151,8 @@ class DebugBundle(object):
                 self._tar_config_files(tar)
             if not self.no_log_files:
                 self._tar_log_files(tar)
-            self._save_pip_list(tar)
+            if PIP_INSTALLED:
+                self._save_pip_list(tar)
 
 
 if __name__ == "__main__":
