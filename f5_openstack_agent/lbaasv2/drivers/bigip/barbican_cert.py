@@ -14,13 +14,24 @@
 # limitations under the License.
 #
 
-from barbicanclient import client
+try:
+    from barbicanclient.client import Client
+except ImportError:
+    raise ImportError("Missing Python library barbicanclient."
+                      "Install barbicanclient and restart the agent.")
+try:
+    from keystoneauth1.identity import v2
+    from keystoneauth1.identity import v3
+    from keystoneauth1.session import Session
+except ImportError:
+    raise ImportError("Missing Python library keystoneauth1."
+                      "Install keystoneauth1 and restart the agent.")
 
-from keystoneauth1 import identity
-from keystoneauth1 import session
 from oslo_log import log as logging
+import time
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import cert_manager
+
 
 LOG = logging.getLogger(__name__)
 
@@ -38,55 +49,77 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
         if not conf:
             raise InvalidBarbicanConfig
 
-        auth = ""
-        if hasattr(conf, "auth_version"):
-            if conf.auth_version == "v2" or conf.auth_version == "v2.0":
-                auth = identity.v2.Password(
-                    username=conf.os_username,
-                    password=conf.os_password,
-                    tenant_name=conf.os_tenant_name,
-                    auth_url=conf.os_auth_url)
-            elif conf.auth_version == "v3":
-                auth = identity.v3.Password(
-                    username=conf.os_username,
-                    user_domain_name=conf.os_user_domain_name,
-                    password=conf.os_password,
-                    project_domain_name=conf.os_project_domain_name,
-                    project_name=conf.os_project_name,
-                    auth_url=conf.os_auth_url)
+        self.username = conf.os_username
+        self.password = conf.os_password
+        self.auth_url = conf.os_auth_url
+        self.auth_version = conf.auth_version
 
-        if auth:
-            sess = session.Session(auth=auth)
-            self.barbican = client.Client(session=sess)
-            LOG.debug("BarbicanCertManager: using %s authentication" %
-                      conf.auth_version)
+        if self.auth_version == "v3":
+            self.user_domain_name = conf.os_user_domain_name
+            self.project_domain_name = conf.os_project_domain_name
+            self.project_name = conf.os_project_name
         else:
-            if hasattr(conf, "barbican_endpoint"):
-                endpoint = conf.barbican_endpoint
-            else:
-                msg = "A Barbican endpoint must be " \
-                      "defined to use Barbican in no-auth mode."
-                LOG.error(msg)
-                raise InvalidBarbicanConfig(msg)
+            self.tenant_name = conf.os_tenant_name
 
-            if hasattr(conf, "barbican_project_id"):
-                project_id = conf.barbican_project_id
-            else:
-                msg = "A Barbican project_id must be " \
-                      "defined to use Barbican in no-auth mode."
-                LOG.error(msg)
-                raise InvalidBarbicanConfig(msg)
+        self._init_barbican_client()
 
-            self.barbican = client.Client(endpoint=endpoint,
-                                          project_id=project_id)
-            LOG.debug("BarbicanCertManager: using no-auth mode with endpoint "
-                      "%s and project-id %s." % (endpoint, project_id))
+    def _init_barbican_client(self):
+        """Creates barbican client instance.
+
+        Verifies that client can communicate with Barbican, retrying
+        multiple times in case either Barbican or Keystone services are
+        still starting up.
+        """
+        max_attempts = 5
+        sleep_time = 5
+        n_attempts = 0
+        while n_attempts < max_attempts:
+            n_attempts += 1
+            try:
+                if self.auth_version == "v3":
+                    auth = v3.Password(
+                        username=self.username,
+                        password=self.password,
+                        auth_url=self.auth_url,
+                        user_domain_name=self.user_domain_name,
+                        project_domain_name=self.project_domain_name,
+                        project_name=self.project_name)
+
+                else:
+                    # assume v2 auth
+                    auth = v2.Password(
+                        username=self.username,
+                        password=self.password,
+                        auth_url=self.auth_url,
+                        tenant_name=self.tenant_name)
+
+                sess = Session(auth=auth)
+                self.barbican = Client(session=sess)
+
+                # test barbican service
+                self.barbican.containers.list()
+
+                # success
+                LOG.debug(
+                    "Barbican client initialized using Keystone %s "
+                    "authentication." % self.auth_version)
+                break
+
+            except Exception as exc:
+                if n_attempts < max_attempts:
+                    LOG.debug("Barbican client initialization failed. "
+                              "Trying again.")
+                    time.sleep(sleep_time)
+                else:
+                    raise InvalidBarbicanConfig(
+                        "Unable to initialize Barbican client. %s" %
+                        exc.message)
 
     def get_certificate(self, container_ref):
         """Retrieves certificate from certificate manager.
 
-        :param string ref: Reference to certificate stored in a certificate
-        manager.
+        :param string container_ref: Reference to certificate stored in a
+        certificate manager.
         :returns string: Certificate data.
         """
         container = self.barbican.containers.get(container_ref)
@@ -95,7 +128,8 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
     def get_private_key(self, container_ref):
         """Retrieves key from certificate manager.
 
-        :param string ref: Reference to key stored in a certificate manager.
+        :param string container_ref: Reference to key stored in a
+        certificate manager.
         :returns string: Key data.
         """
         container = self.barbican.containers.get(container_ref)
@@ -104,13 +138,13 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
     def get_name(self, container_ref, prefix):
         """Returns a name that uniquely identifies cert/key pair.
 
-        Barbican conatainers have a name attribute, but there is
+        Barbican containers have a name attribute, but there is
         no guarantee that the name is unique. Instead of using the
         container name, create a unique name by parsing UUID from
         container_ref and prepending prefix.
 
-        :param string ref: Reference to certificate/key container stored in a
-        certificate manager.
+        :param string container_ref: Reference to certificate/key container
+        stored in a certificate manager.
         :param string prefix: The environment prefix. Can be optionally
         used to
         :returns string: Name. Unique name with prefix.
