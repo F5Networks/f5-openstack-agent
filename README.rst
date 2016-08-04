@@ -95,7 +95,7 @@ We use the hacking module for our style checks (installed as part of step 1 in t
 Troubleshooting
 ===============
 
-When the f5-openstack-agent is installed, the *debug_bundler.pyr* script will be installed to */usr/bin/f5/*. This script can be run from the command line directly. It will search in the specified directories to bundle log files and configuration files for use in debugging an issue with the f5-openstack-agent. In addition to the above files, it also dumps a complete listing of the ``pip lists`` output.
+When the f5-openstack-agent is installed, the *debug_bundler.py* script will be installed to */usr/bin/f5/*. This script can be run from the command line directly. It will search in the specified directories to bundle log files and configuration files for use in debugging an issue with the f5-openstack-agent. In addition to the above files, it also dumps a complete listing of the ``pip lists`` output.
 
 **WARNING**
 
