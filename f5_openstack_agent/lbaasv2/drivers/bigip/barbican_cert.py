@@ -73,7 +73,7 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
         max_attempts = 5
         sleep_time = 5
         n_attempts = 0
-        while n_attempts < max_attempts:
+        while n_attempts <= max_attempts:
             n_attempts += 1
             try:
                 if self.auth_version == "v3":
