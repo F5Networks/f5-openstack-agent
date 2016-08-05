@@ -20,12 +20,22 @@ except ImportError:
     raise ImportError("Missing Python library barbicanclient."
                       "Install barbicanclient and restart the agent.")
 try:
+    # Try keystoneuath1 first as OpenStack is migrating from keystoneclient
+    # to keystoneauth1. Some systems, particularly liberty, may not
+    # have keystoneauth1 installed. If ImportError, try keystoneclient.
     from keystoneauth1.identity import v2
     from keystoneauth1.identity import v3
     from keystoneauth1.session import Session
+
 except ImportError:
-    raise ImportError("Missing Python library keystoneauth1."
-                      "Install keystoneauth1 and restart the agent.")
+    try:
+        # no keystoneauth1 -- try keystoneclient
+        from keystoneclient.auth.identity import v2
+        from keystoneclient.auth.identity import v3
+        from keystoneclient.session import Session
+    except ImportError:
+        raise ImportError("Missing Python library keystoneclient."
+                          "Install keystoneclient and restart the agent.")
 
 from oslo_log import log as logging
 import time
@@ -93,6 +103,8 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
                         auth_url=self.auth_url,
                         tenant_name=self.tenant_name)
 
+                # NOTE: Session is deprecated in keystoneclient 2.1.0
+                # and will be removed in a future keystoneclient release.
                 sess = Session(auth=auth)
                 self.barbican = Client(session=sess)
 
