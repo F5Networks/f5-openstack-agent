@@ -21,6 +21,8 @@ script:
     - f5-openstack-agent-dist/scripts/package_agent.sh "ubuntu" "14.04"
     - sudo chown -R travis:travis ${DIST_REPO}/rpms/build
     - sudo chown -R travis:travis ${DIST_REPO}/deb_dist/*.deb
+after_success:
+  - f5-openstack-agent-dist/scripts/test_install.sh "redhat" "7"
 before_deploy:
   PKG_VERSION=$(python -c "import f5_openstack_agent; print f5_openstack_agent.__version__")
   PKG_RELEASE=$(python ${DIST_REPO}/scripts/get_version_release.py --release)
