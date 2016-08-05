@@ -168,8 +168,8 @@ def test_withsegid_lb(setup_neutronless_test, bigip):
             icontroldriver._common_service_handler,
             SEGID_CREATELB)
     after_create_registry = register_device(bigip)
-    new_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert new_uris == SEG_INDEPENDENT_LB_URIS | SEG_DEPENDENT_LB_URIS
+    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    assert create_uris == SEG_INDEPENDENT_LB_URIS | SEG_DEPENDENT_LB_URIS
     logfilename = setup_neutronless_test.baseFilename
     assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
         not in open(logfilename).read()
@@ -193,8 +193,8 @@ def test_featureoff_withsegid_listener(setup_neutronless_test, bigip):
             icontroldriver._common_service_handler,
             SEGID_CREATELISTENER)
     after_create_registry = register_device(bigip)
-    new_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert new_uris ==\
+    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    assert create_uris ==\
         SEG_INDEPENDENT_LB_URIS |\
         SEG_DEPENDENT_LB_URIS |\
         LISTENER_SPECIFIC_URIS
@@ -229,8 +229,8 @@ def test_featureoff_nosegid_lb(setup_neutronless_test, bigip):
             icontroldriver._common_service_handler,
             NOSEGID_CREATELB)
     after_create_registry = register_device(bigip)
-    new_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert new_uris == SEG_INDEPENDENT_LB_URIS
+    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    assert create_uris == SEG_INDEPENDENT_LB_URIS
     logfilename = setup_neutronless_test.baseFilename
     assert 'MISCONFIGURATION' in open(logfilename).read()
     print(icontroldriver.plugin_rpc.method_calls)
@@ -250,8 +250,8 @@ def test_featureoff_nosegid_listener(setup_neutronless_test, bigip):
             icontroldriver._common_service_handler,
             NOSEGID_CREATELISTENER)
     after_create_registry = register_device(bigip)
-    new_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert new_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
+    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    assert create_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
     logfilename = setup_neutronless_test.baseFilename
     assert 'MISCONFIGURATION' in open(logfilename).read()
     print(icontroldriver.plugin_rpc.method_calls)
@@ -277,8 +277,8 @@ def test_withsegid_listener(setup_neutronless_test, bigip):
             icontroldriver._common_service_handler,
             SEGID_CREATELISTENER)
     after_create_registry = register_device(bigip)
-    new_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert new_uris ==\
+    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    assert create_uris ==\
         SEG_INDEPENDENT_LB_URIS |\
         SEG_DEPENDENT_LB_URIS |\
         LISTENER_SPECIFIC_URIS
@@ -312,8 +312,8 @@ def test_nosegid_lb(setup_neutronless_test, bigip):
             icontroldriver._common_service_handler,
             NOSEGID_CREATELB)
     after_create_registry = register_device(bigip)
-    new_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert new_uris == SEG_INDEPENDENT_LB_URIS
+    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    assert create_uris == SEG_INDEPENDENT_LB_URIS
     logfilename = setup_neutronless_test.baseFilename
     assert 'MISCONFIGURATION' not in open(logfilename).read()
     print(icontroldriver.plugin_rpc.method_calls)
@@ -337,8 +337,8 @@ def test_nosegid_listener(setup_neutronless_test, bigip):
     assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
         not in open(logfilename).read()
     assert 'MISCONFIGURATION' not in open(logfilename).read()
-    new_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert new_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
+    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    assert create_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
     assert icontroldriver.plugin_rpc.\
         update_loadbalancer_status.call_args_list ==\
         [call.update_loadbalancer_status(
@@ -373,8 +373,8 @@ def test_nosegid_listener_timeout(setup_neutronless_test, bigip):
                 icontroldriver._common_service_handler,
                 NOSEGID_CREATELISTENER)
         create_registry = register_device(bigip)
-        new_uris = set(create_registry.keys()) - set(start_registry.keys())
-        assert new_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
+        create_uris = set(create_registry.keys()) - set(start_registry.keys())
+        assert create_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
     logfilename = setup_neutronless_test.baseFilename
     assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
         not in open(logfilename).read()
@@ -438,18 +438,18 @@ def test_nosegid_to_segid(setup_neutronless_test, bigip):
                 icontroldriver._common_service_handler,
                 NOSEGID_CREATELISTENER)
         create_registry = register_device(bigip)
-        new_uris = set(create_registry.keys()) - set(start_registry.keys())
-        assert new_uris == SEG_INDEPENDENT_LB_URIS
+        create_uris = set(create_registry.keys()) - set(start_registry.keys())
+        assert create_uris == SEG_INDEPENDENT_LB_URIS
     # Before gtimeout
     time.sleep(poll_interval)
     logcall(setup_neutronless_test,
             icontroldriver._common_service_handler,
             SEGID_CREATELISTENER)
     create_registry = register_device(bigip)
-    new_uris = set(create_registry.keys()) - set(start_registry.keys())
+    create_uris = set(create_registry.keys()) - set(start_registry.keys())
 
     print(icontroldriver.plugin_rpc.method_calls)
-    assert new_uris ==\
+    assert create_uris ==\
         SEG_INDEPENDENT_LB_URIS |\
         SEG_DEPENDENT_LB_URIS |\
         LISTENER_SPECIFIC_URIS
