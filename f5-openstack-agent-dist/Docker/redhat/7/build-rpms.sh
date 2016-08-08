@@ -7,6 +7,7 @@ DIST_DIR="${PKG_NAME}-dist"
 RPMBUILD_DIR="rpmbuild"
 OS_VERSION=7
 DEST_DIR="${SRC_DIR}/${DIST_DIR}"
+PRE_INSTALL_SCRIPT=${DIST_DIR}/rpms/scripts/f5-openstack-agent-preinstall.sh
 
 # The version is embedded in the package.
 pushd ${SRC_DIR}
@@ -31,7 +32,7 @@ python setup.py build bdist_rpm --rpm-base rpmbuild
 echo "%_topdir ${buildroot}/rpmbuild" > ~/.rpmmacros
 
 # Create a .spec file to use as the package template.
-python setup.py bdist_rpm --spec-only --dist-dir rpmbuild/SPECS
+python setup.py bdist_rpm --spec-only --dist-dir rpmbuild/SPECS --pre-install ${PRE_INSTALL_SCRIPT}
 echo "%config /etc/neutron/services/f5/f5-openstack-agent.ini" >> rpmbuild/SPECS/f5-openstack-agent.spec
 
 rpmbuild -ba rpmbuild/SPECS/f5-openstack-agent.spec
