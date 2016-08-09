@@ -219,11 +219,6 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Keystone authentication version (v2 or v3) for Barbican client.'
     ),
     cfg.StrOpt(
-        'barbican_endpoint',
-        default='http://BARBICAN_IP:9311',
-        help='Barbican endpoint to use when no authentication is specified.'
-    ),
-    cfg.StrOpt(
         'os_project_id',
         default='service',
         help='OpenStack project ID.'
@@ -406,13 +401,14 @@ class iControlDriver(LBaaSBaseDriver):
             try:
                 self.cert_manager = importutils.import_object(
                     self.conf.cert_manager, self.conf)
-            except ImportError:
-                self.cert_manager = None
-                LOG.error('Failed to import CertManager: %s'
-                          % self.conf.cert_manager)
-
-        if not self.cert_manager:
-            LOG.debug('No CertManager is configured.')
+            except ImportError as import_err:
+                LOG.error('Failed to import CertManager: %s.' %
+                          import_err.message)
+                raise
+            except Exception as err:
+                LOG.error('Failed to initialize CertManager. %s' % err.message)
+                # re-raise as ImportError to cause agent exit
+                raise ImportError(err.message)
 
         self.service_adapter = ServiceModelAdapter(self.conf)
         self.tenant_manager = BigipTenantManager(self.conf, self)
@@ -716,6 +712,7 @@ class iControlDriver(LBaaSBaseDriver):
     def update_listener(self, old_listener, listener, service):
         """Update virtual server"""
         LOG.debug("Updating listener")
+        service['old_listener'] = old_listener
         self._common_service_handler(service)
 
     @serialized('delete_listener')
