@@ -59,7 +59,7 @@ The f5-openstack-package can be installed using ``rpm`` tools.
 Next Steps
 ``````````
 
-Next, :ref:`install the f5-lbaasv2-driver <lbaasv2driver:Install the F5 LBaaSv2 Driver>`.
+Next, :ref:`install the f5-openstack-lbaasv2-driver <lbaasv2driver:Install the F5 LBaaSv2 Driver>`.
 
 
 Need to Upgrade?
