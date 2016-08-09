@@ -4,17 +4,26 @@ Install the F5 OpenStack Agent
 Quick Start
 ```````````
 
-.. topic:: Install the ``f5-openstack-agent`` PyPi package using ``pip``:
+.. rubric:: Install the ``f5-openstack-agent`` package for v |release|:
 
+.. code-block:: text
+
+    $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v8.0.6
+
+.. tip::
+
+    You can install packages from HEAD on a specific branches by adding ``@<branch_name>`` to the end of the install command instead of the release tag.
+
+    .. rubric:: Example:
     .. code-block:: text
 
-        $ sudo pip install f5-openstack-agent
+        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@liberty
 
 
 Debian Package
 ``````````````
 
-The f5-openstack-agent package can be installed using ``dpkg`` tools.
+The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
 
 1. Download and install the dependencies:
 
@@ -36,7 +45,7 @@ The f5-openstack-agent package can be installed using ``dpkg`` tools.
 RPM Package
 ```````````
 
-The f5-openstack-package can be installed using ``rpm`` tools.
+The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
 
 1. Download and install the dependencies:
 
