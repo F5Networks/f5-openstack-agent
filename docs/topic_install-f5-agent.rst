@@ -30,7 +30,7 @@ The f5-openstack-agent package can be installed using ``dpkg`` tools.
 .. code-block:: bash
 
     $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v8.0.6/python-f5-openstack-agent_8.0.6-1_1404_all.deb
-    $ sudo dpkg –I python-f5-openstack-agent_8.0.6-1_1404_all.deb
+    $ sudo dpkg –i python-f5-openstack-agent_8.0.6-1_1404_all.deb
 
 
 RPM Package
