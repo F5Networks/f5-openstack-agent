@@ -312,8 +312,7 @@ class NetworkHelper(object):
             return False
 
         existing_vlans.append(name)
-        rd.vlans = existing_vlans
-        rd.modify()
+        rd.modify(vlans=existing_vlans)
         return True
 
     @log_helpers.log_method_call
@@ -329,8 +328,7 @@ class NetworkHelper(object):
         else:
             return False
         existing_vlans.append(name)
-        rd.vlans = existing_vlans
-        rd.modify()
+        rd.modify(vlans=existing_vlans)
         return True
 
     @log_helpers.log_method_call
