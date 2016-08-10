@@ -172,7 +172,7 @@ class PoolServiceBuilder(object):
             if m.exists(name=urllib.quote(member["name"]), partition=part):
                 m = m.load(name=urllib.quote(member["name"]),
                            partition=part)
-                m.update(**member)
+                m.modify(**member)
 
     def _get_monitor_helper(self, service):
         monitor_type = self.service_adapter.get_monitor_type(service)

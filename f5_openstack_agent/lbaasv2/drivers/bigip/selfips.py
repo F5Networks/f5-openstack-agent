@@ -237,7 +237,7 @@ class BigipSelfIpManager(object):
         try:
             obj = virtual_address.load(
                 name='0.0.0.0', partition=network_folder)
-            obj.update(trafficGroup=traffic_group)
+            obj.modify(trafficGroup=traffic_group)
         except Exception as err:
             LOG.exception(err)
             raise f5_ex.VirtualServerCreationException(
