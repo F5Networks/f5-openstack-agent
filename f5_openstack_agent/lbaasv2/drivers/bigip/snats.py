@@ -188,7 +188,6 @@ class BigipSnatManager(object):
                     snatpool.members.append(snatpool_member)
                     snatpool.modify(members=snatpool.members)
 
-
             except Exception as err:
                 LOG.error("Create SNAT pool failed %s" % err.message)
                 raise f5_ex.SNATCreationException(
