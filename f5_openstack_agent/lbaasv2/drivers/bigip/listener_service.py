@@ -176,7 +176,7 @@ class ListenerServiceBuilder(object):
             v = bigip.tm.ltm.virtuals.virtual
             if v.exists(name=vip["name"], partition=vip["partition"]):
                 obj = v.load(name=vip["name"], partition=vip["partition"])
-                obj.update(**vip)
+                obj.modify(**vip)
 
     def update_session_persistence(self, service, bigips):
         """Update session persistence for virtual server.
