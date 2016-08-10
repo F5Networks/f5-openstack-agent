@@ -312,8 +312,7 @@ class NetworkHelper(object):
             return False
 
         existing_vlans.append(name)
-        rd.vlans = existing_vlans
-        rd.update()
+        rd.modify(vlans=existing_vlans)
         return True
 
     @log_helpers.log_method_call
@@ -329,8 +328,7 @@ class NetworkHelper(object):
         else:
             return False
         existing_vlans.append(name)
-        rd.vlans = existing_vlans
-        rd.update()
+        rd.modify(vlans=existing_vlans)
         return True
 
     @log_helpers.log_method_call
@@ -522,7 +520,7 @@ class NetworkHelper(object):
             tunnel = bigip.tm.net.fdb.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 obj = tunnel.load(name=tunnel_name, partition=partition)
-                obj.update(records=records)
+                obj.modify(records=records)
                 if const.FDB_POPULATE_STATIC_ARP:
                     # arp_ip_address is typcially member address.
                     if arp_ip_address:
@@ -581,7 +579,7 @@ class NetworkHelper(object):
             tunnel = bigip.tm.net.fdb.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 obj = tunnel.load(name=tunnel_name, partition=partition)
-                obj.update(records=records)
+                obj.modify(records=records)
         except HTTPError as err:
             LOG.error("Error updating tunnel %s. "
                       "Repsponse status code: %s. Response "
@@ -626,7 +624,7 @@ class NetworkHelper(object):
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
                 obj = tunnel.load(name=tunnel_name, partition=folder)
-                obj.update(records=new_records)
+                obj.modify(records=new_records)
 
     @log_helpers.log_method_call
     def delete_fdb_entries(self, bigip, tunnel_name=None, fdb_entries=None):
@@ -655,7 +653,7 @@ class NetworkHelper(object):
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
                 obj = tunnel.load(name=tunnel_name, partition=folder)
-                obj.update(records=new_records)
+                obj.modify(records=new_records)
 
             if const.FDB_POPULATE_STATIC_ARP:
                 for mac in arps_to_delete:
@@ -703,7 +701,7 @@ class NetworkHelper(object):
         try:
             t = bigip.tm.net.fdb.tunnels.tunnel
             obj = t.load(name=tunnel_name, partition=partition)
-            obj.update(records=None)
+            obj.modify(records=None)
         except HTTPError as err:
             LOG.error("Error deleting all fdb entries %s. "
                       "Repsponse status code: %s. Response "
@@ -731,7 +729,7 @@ class NetworkHelper(object):
                             partition=partition
                         )
 
-                    obj.update(records=[])
+                    obj.modify(records=[])
         except HTTPError as err:
             LOG.error("Error updating tunnel %s. "
                       "Repsponse status code: %s. Response "
