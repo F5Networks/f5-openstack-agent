@@ -13,9 +13,10 @@ This release introduces the following:
 
 - Installation via rpm
 - Installation via dpkg
+- Uses either Keystone Auth1 or Keystone Client python library
 - Bug fixes
 
-See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v8.0.5...v8.0.6>`_ for the full list of changes in this release.
+See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v9.0.1...v9.0.2>`_ for the full list of changes in this release.
 
 Caveats
 -------
@@ -25,6 +26,8 @@ The following features are unsupported in v |release|:
 * `BIG-IP® vCMP® <https://f5.com/resources/white-papers/virtual-clustered-multiprocessing-vcmp>`_
 * Agent High Availability (HA)
 * Differentiated environments
+* Unattached pools
+* L7 routing
 * Loadbalancer statistics
 
 Open Issues

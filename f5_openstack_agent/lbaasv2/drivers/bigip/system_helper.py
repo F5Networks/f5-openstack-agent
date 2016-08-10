@@ -101,7 +101,7 @@ class SystemHelper(object):
         else:
             val = 'disable'
         db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
-        db.update(value=val)
+        db.modify(value=val)
 
     def get_provision_extramb(self, bigip):
         db = bigip.tm.sys.dbs.db.load(name='provision.extramb')
