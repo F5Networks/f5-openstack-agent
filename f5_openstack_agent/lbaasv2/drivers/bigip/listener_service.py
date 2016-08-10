@@ -227,7 +227,9 @@ class ListenerServiceBuilder(object):
                 return
 
         # not found -- add profile (assumes Common partition)
-        p.profiles.create(name=profile_name, context=context)
+        p.profiles.create(name=profile_name,
+                          partition='Common',
+                          context=context)
         LOG.debug("Created profile %s" % profile_name)
 
     def _add_cookie_persist_rule(self, vip, persistence, bigip):
@@ -360,7 +362,7 @@ class ListenerServiceBuilder(object):
             # see if profile exists
             for profile in profiles:
                 if profile.name == profile_name:
-                    pr = p.profiles.load(name=profile_name)
+                    pr = p.profiles.load(name=profile_name, partition='Common')
                     pr.delete()
                     LOG.debug("Deleted profile %s" % profile.name)
                     return

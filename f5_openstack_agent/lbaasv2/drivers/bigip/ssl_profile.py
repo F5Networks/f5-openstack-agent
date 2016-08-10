@@ -70,6 +70,7 @@ class SSLProfileHelper(object):
                       'cert': '/Common/' + certfilename,
                       'key': '/Common/' + keyfilename}]
             ssl_client_profile.create(name=name,
+                                      partition='Common',
                                       certKeyChain=chain,
                                       sniDefault=sni_default,
                                       defaultsFrom=parent_profile)
