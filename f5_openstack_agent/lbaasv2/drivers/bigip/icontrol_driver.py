@@ -1030,7 +1030,25 @@ class iControlDriver(LBaaSBaseDriver):
             traffic_group = self.service_to_traffic_group(service)
 
             LOG.debug("XXXXXXXXXX: traffic group created ")
-            if self.network_builder:
+
+            while (self.network_builder):
+                if not self.disconnected_service.is_service_connected(service):
+                    if self.disconnected_service_polling.enabled:
+                        # Hierarchical port-binding mode:
+                        # Skip network setup if the service is not connected.
+                        break
+                    else:
+                        LOG.error("Misconfiguration: Segmentation ID is "
+                                  "missing from the service definition. "
+                                  "Please check the setting for "
+                                  "f5_network_segment_physical_network in "
+                                  "f5-openstack-agent.ini in case neutron "
+                                  "is operating in Hierarhical Port Binding "
+                                  "mode.")
+                        service['loadbalancer']['provisioning_status'] = \
+                            plugin_const.ERROR
+                        raise f5ex.MissingNetwork("Missing segmentation id")
+
                 start_time = time()
                 try:
                     self.network_builder.prep_service_networking(
@@ -1044,6 +1062,7 @@ class iControlDriver(LBaaSBaseDriver):
                 if time() - start_time > .001:
                     LOG.debug("    _prep_service_networking "
                               "took %.5f secs" % (time() - start_time))
+                break
 
             all_subnet_hints = {}
             LOG.debug("XXXXXXXXXX: getting bigip configs")
@@ -1102,12 +1121,8 @@ class iControlDriver(LBaaSBaseDriver):
             )
         if 'listeners' in service:
             # Call update_listener_status
-            self._update_listener_status(
-                service['listeners']
-            )
-        self._update_loadbalancer_status(
-            service['loadbalancer']
-        )
+            self._update_listener_status(service)
+        self._update_loadbalancer_status(service)
 
     def _update_member_status(self, members):
         """Update member status in OpenStack """
@@ -1166,8 +1181,9 @@ class iControlDriver(LBaaSBaseDriver):
                     self.plugin_rpc.update_pool_status(pool['id'])
 
     @log_helpers.log_method_call
-    def _update_listener_status(self, listeners):
+    def _update_listener_status(self, service):
         """Update listener status in OpenStack """
+        listeners = service['listeners']
         for listener in listeners:
             if 'provisioning_status' in listener:
                 provisioning_status = listener['provisioning_status']
@@ -1176,36 +1192,46 @@ class iControlDriver(LBaaSBaseDriver):
                         self.plugin_rpc.update_listener_status(
                             listener['id'],
                             plugin_const.ACTIVE,
-                            lb_const.ONLINE
+                            listener['operating_status']
                         )
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.listener_destroyed(
                         listener['id'])
                 elif provisioning_status == plugin_const.ERROR:
-                    self.plugin_rpc.update_listener_status(listener['id'])
+                    self.plugin_rpc.update_listener_status(
+                        listener['id'],
+                        provisioning_status,
+                        lb_const.OFFLINE)
 
     @log_helpers.log_method_call
-    def _update_loadbalancer_status(self, loadbalancer):
+    def _update_loadbalancer_status(self, service):
         """Update loadbalancer status in OpenStack """
+        loadbalancer = service['loadbalancer']
         provisioning_status = loadbalancer['provisioning_status']
 
         if (provisioning_status == plugin_const.PENDING_CREATE or
                 provisioning_status == plugin_const.PENDING_UPDATE):
-            operational_status = lb_const.ONLINE
-            if self.disconnected_service_polling.enabled:
+            listeners = service['listeners']
+            operating_status = (lb_const.ONLINE if len(listeners)
+                                else lb_const.OFFLINE)
+            if (self.disconnected_service_polling.enabled and
+                    not
+                    self.disconnected_service.is_service_connected(service)):
                 # operational status will be set by the disconnected
                 # service polling thread if that mode is enabled
-                operational_status = lb_const.OFFLINE
+                operating_status = lb_const.OFFLINE
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 plugin_const.ACTIVE,
-                operational_status)
+                operating_status)
         elif provisioning_status == plugin_const.PENDING_DELETE:
             self.plugin_rpc.loadbalancer_destroyed(
                 loadbalancer['id'])
         elif provisioning_status == plugin_const.ERROR:
             self.plugin_rpc.update_loadbalancer_status(
-                loadbalancer['id'])
+                loadbalancer['id'],
+                provisioning_status,
+                lb_const.OFFLINE)
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
 

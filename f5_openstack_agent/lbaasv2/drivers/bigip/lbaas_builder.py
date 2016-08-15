@@ -104,6 +104,8 @@ class LBaaSBuilder(object):
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
                     self.listener_builder.create_listener(svc, bigips)
+                    listener['operating_status'] = \
+                        svc['listener']['operating_status']
                 except Exception as err:
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerCreationException(err.message)

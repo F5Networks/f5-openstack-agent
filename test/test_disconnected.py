@@ -18,12 +18,12 @@ import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 from f5.bigip import BigIP
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
-    import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
     DisconnectedService
 from f5_openstack_agent.lbaasv2.drivers.bigip.listener_service import \
     ListenerServiceBuilder
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
+    import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import ResourceType
 from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
