@@ -50,7 +50,8 @@ class DisconnectedServicePolling(object):
     def remove_obsolete_service_address(self, bigips, virtual,
                                         starting_dest, ending_dest):
         for bigip in bigips:
-            if starting_dest[bigip] != ending_dest[bigip]:
+            if (starting_dest[bigip] != ending_dest[bigip] and
+                    starting_dest[bigip]):
                 vac = bigip.tm.ltm.virtual_address_s
                 dest = basename(starting_dest[bigip])
                 nh = self.driver.disconnected_service.network_helper
@@ -81,8 +82,8 @@ class DisconnectedServicePolling(object):
                     continue
                 service = d.plugin_rpc.get_service_by_loadbalancer_id(id)
 
-                if (plugin_const.ACTIVE !=
-                        service['loadbalancer']['provisioning_status']):
+                if (service['loadbalancer']['provisioning_status'].upper() !=
+                        plugin_const.ACTIVE):
                     continue
 
                 if not d.disconnected_service.is_service_connected(service):

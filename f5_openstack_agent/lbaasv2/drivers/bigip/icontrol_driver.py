@@ -1031,6 +1031,8 @@ class iControlDriver(LBaaSBaseDriver):
 
             LOG.debug("XXXXXXXXXX: traffic group created ")
 
+            # This loop will only run once.  Using while as a control-flow
+            # mechanism to flatten out the code by allowing breaks.
             while (self.network_builder):
                 if not self.disconnected_service.is_service_connected(service):
                     if self.disconnected_service_polling.enabled:
