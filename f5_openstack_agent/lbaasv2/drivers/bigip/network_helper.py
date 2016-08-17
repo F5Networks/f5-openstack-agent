@@ -764,3 +764,25 @@ class NetworkHelper(object):
         if decorator_index > 0:
             ip_address = ip_address[:decorator_index]
         return ip_address
+
+    def get_route_domain_count(self, bigip, partition=''):
+        """Return number of route domains, exluding route domain 0"""
+        route_domain_ids = self.get_route_domain_ids(
+            bigip, partition=partition)
+        if 0 in route_domain_ids:
+            route_domain_ids.remove(0)
+        return len(route_domain_ids)
+
+    def get_tunnel_count(self, bigip, partition='/'):
+        """Return sum of VXLAN and GRE tunnels"""
+        all_tunnels = bigip.tm.net.tunnels.tunnels.get_collection(
+            partition=partition)
+
+        tunnels = [item for item in all_tunnels if
+                   item.profile.find('vxlan') > 0 or
+                   item.profile.find('gre') > 0]
+        return len(tunnels)
+
+    def get_vlan_count(self, bigip, partition='/'):
+        """Return number of VLANs"""
+        return len(bigip.tm.net.vlans.get_collection(partition=partition))
