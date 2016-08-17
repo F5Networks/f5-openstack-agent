@@ -38,6 +38,10 @@ from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
+from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
+    DisconnectedService
+from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
+    DisconnectedServicePolling
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
@@ -257,6 +261,18 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='OpenStack user password for Keystone authentication.'
     ),
     cfg.StrOpt(
+        'f5_network_segment_physical_network', default=None,
+        help='Name of physical network to use for discovery of segment ID'
+    ),
+    cfg.IntOpt(
+        'f5_network_segment_polling_interval', default=10,
+        help='Seconds between periodic scans for disconnected virtual servers'
+    ),
+    cfg.IntOpt(
+        'f5_network_segment_gross_timeout', default=300,
+        help='Seconds to wait for a virtual server to become connected'
+    ),
+    cfg.StrOpt(
         'f5_parent_ssl_profile',
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '
@@ -315,6 +331,8 @@ class iControlDriver(LBaaSBaseDriver):
         self.cert_manager = None  # overrides register_OPTS
         self.stat_helper = stat_helper.StatHelper()
         self.network_helper = network_helper.NetworkHelper()
+        self.disconnected_service = None
+        self.disconnected_service_polling = None
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -346,6 +364,9 @@ class iControlDriver(LBaaSBaseDriver):
         self._init_bigip_hostnames()
         self._init_bigip_managers()
         self.connect_bigips()
+
+        self.agent_configurations['network_segment_physical_network'] = \
+            self.disconnected_service_polling.get_physical_network()
 
         LOG.info('iControlDriver initialized to %d bigips with username:%s'
                  % (len(self.__bigips), self.conf.icontrol_username))
@@ -420,6 +441,8 @@ class iControlDriver(LBaaSBaseDriver):
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
         self.lbaas_builder = LBaaSBuilder(self.conf, self)
+        self.disconnected_service = DisconnectedService()
+        self.disconnected_service_polling = DisconnectedServicePolling(self)
 
         if self.conf.f5_global_routed_mode:
             self.network_builder = None
@@ -1042,7 +1065,27 @@ class iControlDriver(LBaaSBaseDriver):
             traffic_group = self.service_to_traffic_group(service)
 
             LOG.debug("XXXXXXXXXX: traffic group created ")
-            if self.network_builder:
+
+            # This loop will only run once.  Using while as a control-flow
+            # mechanism to flatten out the code by allowing breaks.
+            while (self.network_builder):
+                if not self.disconnected_service.is_service_connected(service):
+                    if self.disconnected_service_polling.enabled:
+                        # Hierarchical port-binding mode:
+                        # Skip network setup if the service is not connected.
+                        break
+                    else:
+                        LOG.error("Misconfiguration: Segmentation ID is "
+                                  "missing from the service definition. "
+                                  "Please check the setting for "
+                                  "f5_network_segment_physical_network in "
+                                  "f5-openstack-agent.ini in case neutron "
+                                  "is operating in Hierarhical Port Binding "
+                                  "mode.")
+                        service['loadbalancer']['provisioning_status'] = \
+                            plugin_const.ERROR
+                        raise f5ex.MissingNetwork("Missing segmentation id")
+
                 start_time = time()
                 try:
                     self.network_builder.prep_service_networking(
@@ -1056,6 +1099,7 @@ class iControlDriver(LBaaSBaseDriver):
                 if time() - start_time > .001:
                     LOG.debug("    _prep_service_networking "
                               "took %.5f secs" % (time() - start_time))
+                break
 
             all_subnet_hints = {}
             LOG.debug("XXXXXXXXXX: getting bigip configs")
@@ -1114,12 +1158,8 @@ class iControlDriver(LBaaSBaseDriver):
             )
         if 'listeners' in service:
             # Call update_listener_status
-            self._update_listener_status(
-                service['listeners']
-            )
-        self._update_loadbalancer_status(
-            service['loadbalancer']
-        )
+            self._update_listener_status(service)
+        self._update_loadbalancer_status(service)
 
     def _update_member_status(self, members):
         """Update member status in OpenStack """
@@ -1178,8 +1218,9 @@ class iControlDriver(LBaaSBaseDriver):
                     self.plugin_rpc.update_pool_status(pool['id'])
 
     @log_helpers.log_method_call
-    def _update_listener_status(self, listeners):
+    def _update_listener_status(self, service):
         """Update listener status in OpenStack """
+        listeners = service['listeners']
         for listener in listeners:
             if 'provisioning_status' in listener:
                 provisioning_status = listener['provisioning_status']
@@ -1188,31 +1229,46 @@ class iControlDriver(LBaaSBaseDriver):
                         self.plugin_rpc.update_listener_status(
                             listener['id'],
                             plugin_const.ACTIVE,
-                            lb_const.ONLINE
+                            listener['operating_status']
                         )
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.listener_destroyed(
                         listener['id'])
                 elif provisioning_status == plugin_const.ERROR:
-                    self.plugin_rpc.update_listener_status(listener['id'])
+                    self.plugin_rpc.update_listener_status(
+                        listener['id'],
+                        provisioning_status,
+                        lb_const.OFFLINE)
 
     @log_helpers.log_method_call
-    def _update_loadbalancer_status(self, loadbalancer):
+    def _update_loadbalancer_status(self, service):
         """Update loadbalancer status in OpenStack """
+        loadbalancer = service['loadbalancer']
         provisioning_status = loadbalancer['provisioning_status']
 
         if (provisioning_status == plugin_const.PENDING_CREATE or
                 provisioning_status == plugin_const.PENDING_UPDATE):
+            listeners = service['listeners']
+            operating_status = (lb_const.ONLINE if len(listeners)
+                                else lb_const.OFFLINE)
+            if (self.disconnected_service_polling.enabled and
+                    not
+                    self.disconnected_service.is_service_connected(service)):
+                # operational status will be set by the disconnected
+                # service polling thread if that mode is enabled
+                operating_status = lb_const.OFFLINE
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 plugin_const.ACTIVE,
-                lb_const.ONLINE)
+                operating_status)
         elif provisioning_status == plugin_const.PENDING_DELETE:
             self.plugin_rpc.loadbalancer_destroyed(
                 loadbalancer['id'])
         elif provisioning_status == plugin_const.ERROR:
             self.plugin_rpc.update_loadbalancer_status(
-                loadbalancer['id'])
+                loadbalancer['id'],
+                provisioning_status,
+                lb_const.OFFLINE)
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
 
@@ -1224,7 +1280,6 @@ class iControlDriver(LBaaSBaseDriver):
 
     def tenant_to_traffic_group(self, tenant_id):
         # Hash tenant id to index of traffic group
-        print('tenant_to_traffic_group called')
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
