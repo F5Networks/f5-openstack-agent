@@ -425,6 +425,25 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if self.sync_state():
                 self.needs_resync = True
 
+    @periodic_task.periodic_task(spacing=30)
+    def collect_stats(self, context):
+        if not self.plugin_rpc:
+            return
+
+        active_loadbalancers = (self.plugin_rpc.get_active_loadbalancers())
+        for loadbalancer in active_loadbalancers:
+            if self.agent_host == loadbalancer['agent_host']:
+                try:
+                    lb_id = loadbalancer['lb_id']
+                    LOG.debug("collecting stats for loadbalancer %s" % lb_id)
+                    svc = self.plugin_rpc.get_service_by_loadbalancer_id(lb_id)
+                    stats = self.lbdriver.get_stats(svc)
+                    if stats:
+                        self.plugin_rpc.update_loadbalancer_stats(lb_id, stats)
+                except Exception as e:
+                    LOG.exception('Error upating stats' + str(e.message))
+                    self.needs_resync = True
+
     def tunnel_sync(self):
         """Call into driver to advertise tunnels."""
         LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")

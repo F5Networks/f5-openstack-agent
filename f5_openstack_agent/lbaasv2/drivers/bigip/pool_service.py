@@ -185,3 +185,38 @@ class PoolServiceBuilder(object):
         else:
             hm = self.http_mon_helper
         return hm
+
+    def get_stats(self, service, bigips, stats):
+        """Return stat values for a single pool.
+
+        Stats to collect are defined as an array of strings in input stats.
+        Values are summed across one or more BIG-IPs defined in input bigips.
+
+        :param service: Has pool name/partition
+        :param bigips: One or more BIG-IPs to get pool stats from.
+        :param stats: Array of strings that define which stats to collect.
+        :return: A dict with key/value pairs for each stat defined in
+        input stats.
+        """
+        collected_stats = {}
+        pool = self.service_adapter.get_pool(service)
+        part = pool["partition"]
+        for bigip in bigips:
+            try:
+                # get pool, then its stats
+                p = self.pool_helper.load(bigip,
+                                          name=pool["name"],
+                                          partition=part)
+                pool_stats = p.stats.load()
+
+                # add stats defined in input stats array
+                for stat in stats:
+                    if stat in pool_stats.entries:
+                        collected_stats[stat] = \
+                            pool_stats.entries[stat]['value']
+
+            except Exception as e:
+                # log error but continue on
+                LOG.error("Error getting pool stats: %s", e.message)
+
+        return collected_stats

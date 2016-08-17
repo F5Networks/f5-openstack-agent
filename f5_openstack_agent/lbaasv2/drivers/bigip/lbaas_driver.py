@@ -57,7 +57,7 @@ class LBaaSBaseDriver(object):
         raise NotImplementedError()
 
     def get_stats(self, service):
-        """Get Stats for a Pool Service """
+        """Get Stats for a loadbalancer Service """
         raise NotImplementedError()
 
     def exists(self, service):

@@ -360,3 +360,37 @@ class LBaaSBuilder(object):
                         {'network_id': network_id,
                          'subnet_id': subnet_id,
                          'is_for_member': is_member}
+
+    def get_pool_stats(self, service, stats):
+        """Get pool statistics for a loadbalancer service.
+
+        Sums values for stats defined in pool_stats dictionary for all pools
+        defined in service object. For example, if loadbalancer has two pools
+        and the pool_stats defines a stat 'serverside.bitsIn' as a key, the
+        sum of all pools' serverside.bitsIn will be return in pool_stats.
+
+        Pool provisioning status is ignored -- PENDING_DELETE pools are
+        included.
+
+        :param service: defines loadbalancer and set of pools.
+        :param pool_stats: a dictionary that defines which stats to get.
+        Should be initialized by caller with 0 values.
+        :return: stats are appended to input pool_stats dict (i.e., contains
+        the sum of all pools for all BIG-IPs).
+        """
+
+        pools = service["pools"]
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_config_bigips()
+
+        collected_stats = {}
+        for stat in stats:
+            collected_stats[stat] = 0
+
+        for pool in pools:
+            svc = {"loadbalancer": loadbalancer, "pool": pool}
+            pool_stats = self.pool_builder.get_stats(svc, bigips, stats)
+            for stat in stats:
+                collected_stats[stat] += pool_stats[stat]
+
+        return collected_stats
