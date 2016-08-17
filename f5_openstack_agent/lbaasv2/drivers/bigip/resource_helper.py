@@ -246,3 +246,26 @@ class BigIPResourceHelper(object):
                       "resource %s", self.resource_type)
             raise KeyError("No collection available for %s" %
                            (self.resource_type))
+
+    def get_stats(self, bigip,  name=None, partition=None, stats=None):
+        """Returns stats
+
+        :param bigip: BIG-IP to get stats
+        :param name: name of resource object
+        :param partition: partition where to get resource
+        :param stats: Array of strings that define stats to collect.
+        :return:
+        """
+        collected_stats = {}
+
+        # get resource, then its stats
+        resource = self.load(bigip, name=name, partition=partition)
+        resource_stats = resource.stats.load()
+
+        # add stats defined in input stats array
+        for stat in stats:
+            if stat in resource_stats.entries:
+                collected_stats[stat] = \
+                    resource_stats.entries[stat]['value']
+
+        return collected_stats
