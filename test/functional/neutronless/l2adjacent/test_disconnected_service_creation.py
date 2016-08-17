@@ -14,21 +14,23 @@
 #
 
 
+from conftest import remove_elements
+from conftest import setup_neutronless_test
+from copy import deepcopy
+from f5.utils.testutils.registrytools import register_device
+from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
+    iControlDriver
 import json
+import logging
 import mock
 from mock import call
 import pytest
 import requests
 import time
 
-from f5.utils.testutils.registrytools import register_device
 requests.packages.urllib3.disable_warnings()
 
-
-from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import\
-    iControlDriver
-
-import logging
+LOG = logging.getLogger(__name__)
 
 # Toggle feature on/off configurations
 OSLO_CONFIGS = json.load(open('oslo_confs.json'))
@@ -36,7 +38,7 @@ FEATURE_ON = OSLO_CONFIGS["feature_on"]
 FEATURE_OFF = OSLO_CONFIGS["feature_off"]
 
 
-# LIbrary of services as received from the neutron server
+# Library of services as received from the neutron server
 NEUTRON_SERVICES = json.load(open('neutron_services.json'))
 SEGID_CREATELB = NEUTRON_SERVICES["create_connected_loadbalancer"]
 NOSEGID_CREATELB = NEUTRON_SERVICES["create_disconnected_loadbalancer"]
@@ -48,7 +50,7 @@ AGENT_INIT_URIS = \
     set([u'https://localhost/mgmt/tm/net/tunnels/vxlan/'
          '~Common~vxlan_ovs?ver=11.6.0',
 
-         'https://localhost/mgmt/tm/net/tunnels/gre/'
+         u'https://localhost/mgmt/tm/net/tunnels/gre/'
          '~Common~gre_ovs?ver=11.6.0'])
 
 SEG_INDEPENDENT_LB_URIS =\
@@ -59,11 +61,11 @@ SEG_INDEPENDENT_LB_URIS =\
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver=11.6.0',
 
-         'https://localhost/mgmt/tm/net/fdb/tunnel/'
+         u'https://localhost/mgmt/tm/net/fdb/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~disconnected_network?ver=11.5.0',
 
-         'https://localhost/mgmt/tm/net/tunnels/tunnel/'
+         u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~disconnected_network?ver=11.6.0'])
 
@@ -88,7 +90,7 @@ SEG_DEPENDENT_LB_URIS =\
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~tunnel-vxlan-46?ver=11.6.0'])
 
-LISTENER_SPECIFIC_URIS =\
+SEG_LISTENER_URIS = \
     set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~10.2.2.140%251?ver=11.6.0',
@@ -97,8 +99,30 @@ LISTENER_SPECIFIC_URIS =\
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~SAMPLE_LISTENER?ver=11.6.0'])
 
+NOSEG_LISTENER_URIS =\
+    set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+         '~10.2.2.140?ver=11.6.0',
 
-def configure_icd(icd_config):
+         u'https://localhost/mgmt/tm/ltm/virtual/'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+         '~SAMPLE_LISTENER?ver=11.6.0'])
+
+ERROR_MSG_MISCONFIG = 'Misconfiguration: Segmentation ID is missing'
+ERROR_MSG_VXLAN_TUN = 'Failed to create vxlan tunnel:'
+ERROR_MSG_GRE_TUN = 'Failed to create gre tunnel:'
+ERROR_MSG_TIMEOUT = 'TIMEOUT: failed to connect '
+
+
+def create_default_mock_rpc_plugin():
+    mock_rpc_plugin = mock.MagicMock(name='mock_rpc_plugin')
+    mock_rpc_plugin.get_port_by_name.return_value = [
+        {'fixed_ips': [{'ip_address': '10.2.2.134'}]}
+    ]
+    return mock_rpc_plugin
+
+
+def configure_icd(icd_config, create_mock_rpc):
     class ConfFake(object):
         '''minimal fake config object to replace oslo with controlled params'''
         def __init__(self, params):
@@ -110,377 +134,357 @@ def configure_icd(icd_config):
         def __repr__(self):
             return repr(self.__dict__)
 
-    mock_rpc_plugin = mock.MagicMock(name='mock_rpc_plugin')
-    mock_rpc_plugin.get_port_by_name.return_value =\
-        [{'fixed_ips': [{'ip_address': '10.2.2.134'}]}]
     icontroldriver = iControlDriver(ConfFake(icd_config),
                                     registerOpts=False)
-    icontroldriver.plugin_rpc = mock_rpc_plugin
+    icontroldriver.plugin_rpc = create_mock_rpc()
     return icontroldriver
 
 
 def logcall(lh, call, *cargs, **ckwargs):
-    lh.setLevel(logging.DEBUG)
     call(*cargs, **ckwargs)
-    lh.setLevel(logging.NOTSET)
 
 
-def handle_init_registry(bigip, icd_configuration):
+@pytest.fixture
+def setup_l2adjacent_test(request, bigip, makelogdir):
+    loghandler = setup_neutronless_test(request, bigip, makelogdir)
+    LOG.info('Test setup: %s' % request.node.name)
+
+    try:
+        remove_elements(bigip,
+                        SEG_INDEPENDENT_LB_URIS |
+                        SEG_DEPENDENT_LB_URIS |
+                        SEG_LISTENER_URIS |
+                        AGENT_INIT_URIS)
+    finally:
+        LOG.info('removing pre-existing config')
+
+    return loghandler
+
+
+def handle_init_registry(bigip, icd_configuration,
+                         create_mock_rpc=create_default_mock_rpc_plugin):
     init_registry = register_device(bigip)
-    icontroldriver = configure_icd(icd_configuration)
+    icontroldriver = configure_icd(icd_configuration, create_mock_rpc)
     start_registry = register_device(bigip)
     assert set(start_registry.keys()) - set(init_registry.keys()) ==\
         AGENT_INIT_URIS
     return icontroldriver, start_registry
 
 
-@pytest.mark.skip(reason="Fails because it's possible the agent should report"
-                  " operating_status as OFFLINE.")
-def test_featureoff_withsegid_lb(setup_neutronless_test, bigip):
+def test_featureoff_withsegid_lb(setup_l2adjacent_test, bigip):
     icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_OFF)
-    logcall(setup_neutronless_test,
+    service = deepcopy(SEGID_CREATELB)
+    logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
-            SEGID_CREATELB)
+            service)
     after_create_registry = register_device(bigip)
-    create_uris = set(after_create_registry.keys()) -\
-        set(start_registry.keys())
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS | SEG_DEPENDENT_LB_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
-        not in open(logfilename).read()
-    assert 'MISCONFIGURATION' not in open(logfilename).read()
-    print(icontroldriver.plugin_rpc.method_calls)
-    assert icontroldriver.plugin_rpc.get_port_by_name.call_args_list ==\
-        [call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
-         call(port_name=u'snat-traffic-group-local-only-'
-         'ce69e293-56e7-43b8-b51c-01b91d66af20_0')]
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list ==\
-        [call.update_loadbalancer_status(
-            u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-            'ACTIVE',
-            'OFFLINE')]
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    assert rpc.get_port_by_name.call_args_list == [
+        call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
+        call(port_name=u'snat-traffic-group-local-only-'
+                       'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
+    ]
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
+    ]
 
 
-def test_withsegid_lb(setup_neutronless_test, bigip):
+def test_withsegid_lb(setup_l2adjacent_test, bigip):
     icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_ON)
-    logcall(setup_neutronless_test,
+    service = deepcopy(SEGID_CREATELB)
+    logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
-            SEGID_CREATELB)
+            service)
     after_create_registry = register_device(bigip)
-    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS | SEG_DEPENDENT_LB_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
-        not in open(logfilename).read()
-    assert 'MISCONFIGURATION' not in open(logfilename).read()
-    print(icontroldriver.plugin_rpc.method_calls)
-    assert icontroldriver.plugin_rpc.get_port_by_name.call_args_list ==\
-        [call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
-         call(port_name=u'snat-traffic-group-local-only-'
-         'ce69e293-56e7-43b8-b51c-01b91d66af20_0')]
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list ==\
-        [call.update_loadbalancer_status(
-            u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-            'ACTIVE',
-            'OFFLINE')]
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    assert rpc.get_port_by_name.call_args_list == [
+        call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
+        call(port_name=u'snat-traffic-group-local-only-'
+                       'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
+    ]
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
+    ]
 
 
-def test_featureoff_withsegid_listener(setup_neutronless_test, bigip):
+def test_featureoff_withsegid_listener(setup_l2adjacent_test, bigip):
     icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_OFF)
-    logcall(setup_neutronless_test,
+    service = deepcopy(SEGID_CREATELISTENER)
+    logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
-            SEGID_CREATELISTENER)
+            service)
     after_create_registry = register_device(bigip)
-    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert create_uris ==\
-        SEG_INDEPENDENT_LB_URIS |\
-        SEG_DEPENDENT_LB_URIS |\
-        LISTENER_SPECIFIC_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
-        not in open(logfilename).read()
-    assert 'MISCONFIGURATION' not in open(logfilename).read()
-    print(icontroldriver.plugin_rpc.method_calls)
-    assert icontroldriver.plugin_rpc.get_port_by_name.call_args_list ==\
-        [call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
-         call(port_name=u'snat-traffic-group-local-only-'
-         'ce69e293-56e7-43b8-b51c-01b91d66af20_0')]
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list ==\
-        [call.update_loadbalancer_status(
-            u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-            'ACTIVE',
-            'ONLINE')]
-    assert icontroldriver.plugin_rpc.\
-        update_listener_status.call_args_list ==\
-        [call.update_listener_status(
-            u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-            'ACTIVE',
-            'ONLINE')]
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == (SEG_INDEPENDENT_LB_URIS |
+                           SEG_DEPENDENT_LB_URIS |
+                           SEG_LISTENER_URIS)
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    assert rpc.get_port_by_name.call_args_list == [
+        call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
+        call(port_name=u'snat-traffic-group-local-only-'
+                       'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
+    ]
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+    ]
+    assert rpc.update_listener_status.call_args_list == [
+        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+    ]
 
 
-@pytest.mark.skip(reason='Fails until an appropriate log message is written'
-                  ' and a correct update is sent to neutron.')
-def test_featureoff_nosegid_lb(setup_neutronless_test, bigip):
+def test_featureoff_nosegid_lb(setup_l2adjacent_test, bigip):
     icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_OFF)
-    logcall(setup_neutronless_test,
+    service = deepcopy(NOSEGID_CREATELB)
+    logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
-            NOSEGID_CREATELB)
+            service)
     after_create_registry = register_device(bigip)
-    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert 'MISCONFIGURATION' in open(logfilename).read()
-    print(icontroldriver.plugin_rpc.method_calls)
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list ==\
-        [call.update_loadbalancer_status(
-            u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-            'ERROR',
-            'OFFLINE')]
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_MISCONFIG in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
+    ]
 
 
-@pytest.mark.skip(reason='Fails until an appropriate log message is written'
-                  ' and a correct update is sent to neutron.')
-def test_featureoff_nosegid_listener(setup_neutronless_test, bigip):
+def test_featureoff_nosegid_listener(setup_l2adjacent_test, bigip):
     icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_OFF)
-    logcall(setup_neutronless_test,
+    service = deepcopy(NOSEGID_CREATELISTENER)
+    logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
-            NOSEGID_CREATELISTENER)
+            service)
     after_create_registry = register_device(bigip)
-    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert create_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert 'MISCONFIGURATION' in open(logfilename).read()
-    print(icontroldriver.plugin_rpc.method_calls)
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list ==\
-        [call.update_loadbalancer_status(
-            u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-            'ERROR',
-            'OFFLINE')]
-    assert icontroldriver.plugin_rpc.\
-        update_listener_status.call_args_list ==\
-        [call.update_listener_status(
-            u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-            'ERROR',
-            'OFFLINE')]
-
-
-@pytest.mark.skip(reason="fails until vxlan-none bug is fixed and rpc calls"
-                  " are validated.")
-def test_withsegid_listener(setup_neutronless_test, bigip):
-    icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_ON)
-    logcall(setup_neutronless_test,
-            icontroldriver._common_service_handler,
-            SEGID_CREATELISTENER)
-    after_create_registry = register_device(bigip)
-    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert create_uris ==\
-        SEG_INDEPENDENT_LB_URIS |\
-        SEG_DEPENDENT_LB_URIS |\
-        LISTENER_SPECIFIC_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
-        not in open(logfilename).read()
-    assert 'MISCONFIGURATION' not in open(logfilename).read()
-    print(icontroldriver.plugin_rpc.method_calls)
-    assert icontroldriver.plugin_rpc.get_port_by_name.call_args_list ==\
-        [call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
-         call(port_name=u'snat-traffic-group-local-only-'
-         'ce69e293-56e7-43b8-b51c-01b91d66af20_0')]
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list ==\
-        [call.update_loadbalancer_status(
-            u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-            'ACTIVE',
-            'ONLINE')]
-    assert icontroldriver.plugin_rpc.\
-        update_listener_status.call_args_list ==\
-        [call.update_listener_status(
-            u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-            'ACTIVE',
-            'ONLINE')]
-
-
-@pytest.mark.skip(reason="Fails until rpc call is validated.")
-def test_nosegid_lb(setup_neutronless_test, bigip):
-    icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_ON)
-    logcall(setup_neutronless_test,
-            icontroldriver._common_service_handler,
-            NOSEGID_CREATELB)
-    after_create_registry = register_device(bigip)
-    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert 'MISCONFIGURATION' not in open(logfilename).read()
-    print(icontroldriver.plugin_rpc.method_calls)
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list ==\
-        [call.update_loadbalancer_status(
-            u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-            'ACTIVE',
-            'OFFLINE')]
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_MISCONFIG in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
+    ]
 
 
-@pytest.mark.skip(reason="fails until vxlan-none bug is fixed and appropriate"
-                  " update_listener_status rpc call is validated")
-def test_nosegid_listener(setup_neutronless_test, bigip):
+def test_withsegid_listener(setup_l2adjacent_test, bigip):
     icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_ON)
-    logcall(setup_neutronless_test,
+    service = deepcopy(SEGID_CREATELISTENER)
+    logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
-            NOSEGID_CREATELISTENER)
+            service)
     after_create_registry = register_device(bigip)
-    logfilename = setup_neutronless_test.baseFilename
-    assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
-        not in open(logfilename).read()
-    assert 'MISCONFIGURATION' not in open(logfilename).read()
-    create_uris = set(after_create_registry.keys()) - set(start_registry.keys())
-    assert create_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list ==\
-        [call.update_loadbalancer_status(
-            u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-            'ACTIVE',
-            'OFFLINE')]
-    assert icontroldriver.plugin_rpc.\
-        update_listener_status.call_args_list ==\
-        [call.update_listener_status(
-            u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-            'ACTIVE',
-            'OFFLINE')]
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == (SEG_INDEPENDENT_LB_URIS |
+                           SEG_DEPENDENT_LB_URIS |
+                           SEG_LISTENER_URIS)
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    assert rpc.get_port_by_name.call_args_list == [
+        call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
+        call(port_name=u'snat-traffic-group-local-only-'
+                       'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
+    ]
+    assert rpc.update_listener_status.call_args_list == [
+        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+    ]
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+    ]
 
 
-@pytest.mark.skip(reason="fails until vxlan-none bug is fixed and appropriate"
-                  " update_listener_status rpc call is validated")
-def test_nosegid_listener_timeout(setup_neutronless_test, bigip):
+def test_nosegid_lb(setup_l2adjacent_test, bigip):
+    icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_ON)
+    service = deepcopy(NOSEGID_CREATELB)
+    logcall(setup_l2adjacent_test,
+            icontroldriver._common_service_handler,
+            service)
+    after_create_registry = register_device(bigip)
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == SEG_INDEPENDENT_LB_URIS
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
+    ]
+
+
+def test_nosegid_listener(setup_l2adjacent_test, bigip):
+    icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_ON)
+    service = deepcopy(NOSEGID_CREATELISTENER)
+    logcall(setup_l2adjacent_test,
+            icontroldriver._common_service_handler,
+            service)
+    after_create_registry = register_device(bigip)
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    assert rpc.update_listener_status.call_args_list == [
+        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'OFFLINE')
+    ]
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
+    ]
+
+
+def test_nosegid_listener_timeout(setup_l2adjacent_test, bigip):
+    def create_mock_rpc_plugin():
+        mock_rpc_plugin = mock.MagicMock(name='mock_rpc_plugin')
+        mock_rpc_plugin.get_port_by_name.return_value = [
+            {'fixed_ips': [{'ip_address': '10.2.2.134'}]}
+        ]
+        mock_rpc_plugin.get_all_loadbalancers.return_value = [
+            {'lb_id': u'50c5d54a-5a9e-4a80-9e74-8400a461a077'}
+        ]
+        service = deepcopy(NOSEGID_CREATELISTENER)
+        service['loadbalancer']['provisioning_status'] = "ACTIVE"
+        mock_rpc_plugin.get_service_by_loadbalancer_id.return_value = service
+        return mock_rpc_plugin
     # Configure
-    icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_ON)
+    icontroldriver, start_registry = handle_init_registry(
+        bigip, FEATURE_ON, create_mock_rpc_plugin)
     gtimeout = icontroldriver.conf.f5_network_segment_gross_timeout
     poll_interval = icontroldriver.conf.f5_network_segment_polling_interval
-    # Set timers
-    logcall(setup_neutronless_test,
+    service = deepcopy(NOSEGID_CREATELISTENER)
+    logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
-            NOSEGID_CREATELB)
+            service)
+    # Set timers
     start_time = time.time()
     timeout = start_time + gtimeout
     # Begin operations
     while time.time() < (timeout + (2*poll_interval)):
         time.sleep(poll_interval)
-        logcall(setup_neutronless_test,
-                icontroldriver._common_service_handler,
-                NOSEGID_CREATELISTENER)
         create_registry = register_device(bigip)
         create_uris = set(create_registry.keys()) - set(start_registry.keys())
-        assert create_uris == SEG_INDEPENDENT_LB_URIS | LISTENER_SPECIFIC_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
-        not in open(logfilename).read()
-    assert "TIMEOUT: failed to connect " in open(logfilename).read()
+        assert create_uris == SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+    assert ERROR_MSG_TIMEOUT in open(logfilename).read()
 
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list == [
-            call.update_loadbalancer_status(
-                u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_loadbalancer_status(
-                u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_loadbalancer_status(
-                u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_loadbalancer_status(
-                u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-                'ERROR',
-                'OFFLINE')]
-    assert icontroldriver.plugin_rpc.\
-        update_listener_status.call_args_list == [
-            call.update_listener_status(
-                u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_listener_status(
-                u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_listener_status(
-                u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_listener_status(
-                u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-                'ERROR',
-                'OFFLINE')]
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    # check for the expected number of calls to each rpc
+    all_list = []
+    for rpc_call in rpc.get_all_loadbalancers.call_args_list:
+        all_list.append(str(rpc_call))
+    assert len(all_list) > gtimeout+1
+    one_list = []
+    for rpc_call in rpc.get_service_by_loadbalancer_id.call_args_list:
+        one_list.append(str(rpc_call))
+    assert len(one_list) == gtimeout+1
+    # check for the expected number of unique calls to each rpc
+    assert len(set(all_list)) == 1
+    assert len(set(one_list)) == 1
+    # check for the expected status transitions
+    assert rpc.update_listener_status.call_args_list == [
+        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'OFFLINE'),
+        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ERROR', 'OFFLINE')
+    ]
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE'),
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE'),
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
+    ]
 
 
-@pytest.mark.skip(reason="fails until vxlan-none bug is fixed and appropriate"
-                  " update_listener_status rpc call is validated")
-def test_nosegid_to_segid(setup_neutronless_test, bigip):
+def test_nosegid_to_segid(setup_l2adjacent_test, bigip):
+    def create_swing_mock_rpc_plugin():
+        # set up mock to return segid after 3 polling attempts
+        mock_rpc_plugin = mock.MagicMock(name='swing_mock_rpc_plugin')
+        mock_rpc_plugin.get_port_by_name.return_value = [
+            {'fixed_ips': [{'ip_address': '10.2.2.134'}]}
+        ]
+        no_lb = []
+        one_lb = [{'lb_id': '50c5d54a-5a9e-4a80-9e74-8400a461a077'}]
+        mock_rpc_plugin.get_all_loadbalancers.side_effect = [
+            no_lb, no_lb, no_lb, no_lb,
+            one_lb, one_lb, one_lb, one_lb, one_lb, one_lb, one_lb, one_lb
+        ]
+        miss = deepcopy(NOSEGID_CREATELISTENER)
+        miss['loadbalancer']['provisioning_status'] = "ACTIVE"
+        hit = deepcopy(SEGID_CREATELISTENER)
+        hit['loadbalancer']['provisioning_status'] = "ACTIVE"
+        mock_rpc_plugin.get_service_by_loadbalancer_id.side_effect = [
+            miss, deepcopy(miss), deepcopy(miss),
+            hit, deepcopy(hit), deepcopy(hit), deepcopy(hit), deepcopy(hit),
+            deepcopy(hit), deepcopy(hit), deepcopy(hit), deepcopy(hit)
+        ]
+        return mock_rpc_plugin
     # Configure
-    icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_ON)
+    icontroldriver, start_registry = handle_init_registry(
+        bigip, FEATURE_ON, create_swing_mock_rpc_plugin)
     gtimeout = icontroldriver.conf.f5_network_segment_gross_timeout
-    poll_interval = icontroldriver.conf.f5_network_segment_polling_interval
-    # Set timers
-    start_time = time.time()
-    timeout = start_time + gtimeout
     # Begin operations
-    logcall(setup_neutronless_test,
+    service = deepcopy(NOSEGID_CREATELISTENER)
+    logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
-            NOSEGID_CREATELB)
-    while time.time() < (timeout - (2*poll_interval)):
-        time.sleep(poll_interval)
-        logcall(setup_neutronless_test,
-                icontroldriver._common_service_handler,
-                NOSEGID_CREATELISTENER)
-        create_registry = register_device(bigip)
-        create_uris = set(create_registry.keys()) - set(start_registry.keys())
-        assert create_uris == SEG_INDEPENDENT_LB_URIS
+            service)
     # Before gtimeout
-    time.sleep(poll_interval)
-    logcall(setup_neutronless_test,
-            icontroldriver._common_service_handler,
-            SEGID_CREATELISTENER)
+    time.sleep(gtimeout)
     create_registry = register_device(bigip)
     create_uris = set(create_registry.keys()) - set(start_registry.keys())
 
-    print(icontroldriver.plugin_rpc.method_calls)
-    assert create_uris ==\
-        SEG_INDEPENDENT_LB_URIS |\
-        SEG_DEPENDENT_LB_URIS |\
-        LISTENER_SPECIFIC_URIS
-    logfilename = setup_neutronless_test.baseFilename
-    assert "Failed to create vxlan tunnel: tunnel-vxlan-None"\
-        not in open(logfilename).read()
-    assert icontroldriver.plugin_rpc.\
-        update_loadbalancer_status.call_args_list == [
-            call.update_loadbalancer_status(
-                u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_loadbalancer_status(
-                u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_loadbalancer_status(
-                u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-                'ACTIVE',
-                'ONLINE')]
-    assert icontroldriver.plugin_rpc.\
-        update_listener_status.call_args_list == [
-            call.update_listener_status(
-                u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_listener_status(
-                u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-                'ACTIVE',
-                'OFFLINE'),
-            call.update_listener_status(
-                u'105a227a-cdbf-4ce3-844c-9ebedec849e9',
-                'ACTIVE',
-                'ONLINE')]
+    rpc = icontroldriver.plugin_rpc
+    print(rpc.method_calls)
+    # check for the expected number of calls to each rpc
+    all_list = []
+    for rpc_call in rpc.get_all_loadbalancers.call_args_list:
+        all_list.append(str(rpc_call))
+    assert len(all_list) > gtimeout
+    one_list = []
+    for rpc_call in rpc.get_service_by_loadbalancer_id.call_args_list:
+        one_list.append(str(rpc_call))
+    assert len(one_list) > gtimeout
+    # check for the expected number of unique calls to each rpc
+    assert len(set(all_list)) == 1
+    assert len(set(one_list)) == 1
+    assert create_uris == (SEG_INDEPENDENT_LB_URIS |
+                           SEG_DEPENDENT_LB_URIS |
+                           SEG_LISTENER_URIS)
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_TIMEOUT not in open(logfilename).read()
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+    # check that the last status update takes the object online
+    assert list(rpc.update_loadbalancer_status.call_args_list)[-1] == (
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+    )
+    assert rpc.update_listener_status.call_args_list[-1] == (
+        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+    )

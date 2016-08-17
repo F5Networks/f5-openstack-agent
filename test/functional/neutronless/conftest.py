@@ -45,6 +45,8 @@ error_filter = MatchFilter(['ERROR',
                             'Error',
                             'Exception',
                             'exception'])
+
+
 @pytest.fixture(scope='module')
 def makelogdir(request):
     logtime = '%0.0f' % time.time()
@@ -53,7 +55,7 @@ def makelogdir(request):
     logdirname = os.path.join(dirname, 'logs', modfname, logtime)
     os.makedirs(logdirname)
     return logdirname
-    
+
 
 def _get_nolevel_handler(logname):
     rootlogger = logging.getLogger()
@@ -61,37 +63,40 @@ def _get_nolevel_handler(logname):
         rootlogger.removeHandler(h)
     rootlogger.setLevel(logging.DEBUG)
     fh = logging.FileHandler(logname)
-    fh.addFilter(error_filter)
-    fh.setLevel(logging.NOTSET)
+    fh.setLevel(logging.DEBUG)
     rootlogger.addHandler(fh)
     return fh
 
 
-@pytest.fixture
+def remove_elements(bigip, uris):
+    for t in bigip.tm.net.fdb.tunnels.get_collection():
+        if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
+            t.update(records=[])
+    registry = register_device(bigip)
+    ordered = order_by_weights(uris, AGENT_LB_DEL_ORDER)
+    for selfLink in ordered:
+        try:
+            if selfLink in registry:
+                registry[selfLink].delete()
+        except iControlUnexpectedHTTPError as exc:
+            if exc.response.status_code == 404:
+                logging.debug(exc.response.status_code)
+            else:
+                raise
+
+
 def setup_neutronless_test(request, bigip, makelogdir):
     pretest_snapshot = frozenset(register_device(bigip))
 
     logname = os.path.join(makelogdir, request.function.__name__)
     loghandler = _get_nolevel_handler(logname)
-    
 
     def remove_test_created_elements():
-        logging.getLogger().setLevel(logging.NOTSET)
-        for t in bigip.tm.net.fdb.tunnels.get_collection():
-            if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
-                t.update(records=[])
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
-        ordered = order_by_weights(created, AGENT_LB_DEL_ORDER)
-        for selfLink in ordered:
-            try:
-                logging.info(selfLink)
-                posttest_registry[selfLink].delete()
-            except iControlUnexpectedHTTPError as exc:
-                if exc.response.status_code == 404:
-                    logging.debug(exc.response.status_code)
-                else:
-                    raise
+        remove_elements(bigip, created)
+        rootlogger = logging.getLogger()
+        rootlogger.removeHandler(loghandler)
 
     request.addfinalizer(remove_test_created_elements)
     return loghandler

@@ -18,6 +18,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
 from neutron.plugins.common import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
+from os.path import basename
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import timeutils
@@ -31,10 +32,35 @@ class DisconnectedServicePolling(object):
         self.enabled = (True if self.get_physical_network() else False)
         if self.enabled:
             greenthread.spawn(self.polling_thread)
-        self.start_time = {}
+        self.timer = {}
 
     def get_physical_network(self):
         return self.driver.conf.f5_network_segment_physical_network
+
+    def get_service_virtual_address(self, bigips, virtual):
+        va_table = {}
+        for bigip in bigips:
+            vsf = bigip.tm.ltm.virtuals.virtual
+            vs = vsf.load(
+                name=virtual['name'], partition=virtual['partition'])
+            destination = getattr(vs, 'destination', None)
+            va_table[bigip] = destination
+        return va_table
+
+    def remove_obsolete_service_address(self, bigips, virtual,
+                                        starting_dest, ending_dest):
+        for bigip in bigips:
+            if (starting_dest[bigip] != ending_dest[bigip] and
+                    starting_dest[bigip]):
+                vac = bigip.tm.ltm.virtual_address_s
+                dest = basename(starting_dest[bigip])
+                nh = self.driver.disconnected_service.network_helper
+                (vip_addr, vip_port) = nh.split_addr_port(dest)
+                if vac.virtual_address.exists(
+                        name=vip_addr, partition=virtual['partition']):
+                    va = vac.virtual_address.load(
+                        name=vip_addr, partition=virtual['partition'])
+                    va.delete()
 
     def scan(self):
         """Periodically scan for disconnected virtual servers.
@@ -51,43 +77,74 @@ class DisconnectedServicePolling(object):
             loadbalancer_ids = d.plugin_rpc.get_all_loadbalancers()
             for lb in loadbalancer_ids:
                 id = lb['lb_id']
+                if (id in self.timer and self.timer[id]['expired']):
+                    # LB is in error state, no need to check further
+                    continue
                 service = d.plugin_rpc.get_service_by_loadbalancer_id(id)
-                listeners = service.get('listeners', None)
-                service.pop('listeners', None)
-                provisioning_status = \
-                    service['loadbalancer']['provisioning_status']
+
+                if (service['loadbalancer']['provisioning_status'].upper() !=
+                        plugin_const.ACTIVE):
+                    continue
+
                 if not d.disconnected_service.is_service_connected(service):
-                    if id in self.start_time:
-                        if timeutils.is_older_than(
-                                self.start_time[id],
+                    if id in self.timer:
+                        if not timeutils.is_older_than(
+                                self.timer[id]['start'],
                                 d.conf.f5_network_segment_gross_timeout):
-                            LOG.error(
-                                "TIMEOUT: failed to connect loadbalancer %s "
-                                "to a real network after %d seconds" %
-                                (id, d.conf.f5_network_segment_gross_timeout))
-                            if (provisioning_status !=
-                                    plugin_const.PENDING_DELETE):
-                                d.plugin_rpc.update_loadbalancer_status(id)
-                    else:
-                        self.start_time[id] = timeutils.utcnow()
+                            continue
+                        self.timer[id]['expired'] = True
+                        LOG.error(
+                            "TIMEOUT: failed to connect loadbalancer %s "
+                            "to a real network after %d seconds" %
+                            (id, d.conf.f5_network_segment_gross_timeout))
                         d.plugin_rpc.update_loadbalancer_status(
-                            id, provisioning_status, lb_const.OFFLINE)
+                            id, plugin_const.ERROR, lb_const.OFFLINE)
+                        for listener in service['listeners']:
+                            if (listener['provisioning_status'] !=
+                                    plugin_const.PENDING_DELETE):
+                                d.plugin_rpc.update_listener_status(
+                                    listener['id'], plugin_const.ERROR,
+                                    lb_const.OFFLINE)
+                    else:
+                        self.timer[id] = {
+                            'start': timeutils.utcnow(),
+                            'expired': False
+                        }
+                        d.plugin_rpc.update_loadbalancer_status(
+                            id, plugin_const.ACTIVE, lb_const.OFFLINE)
                     continue
                 # service is connected in neutron, move all listeners for this
                 # loadbalancer onto a real network
-                for listener in listeners:
-                    service['listener'] = listener
-                    virtual = d.service_adapter.get_virtual_name(service)
+                for listener in service['listeners']:
+                    if (listener['provisioning_status'] ==
+                            plugin_const.PENDING_DELETE):
+                        continue
+                    test_service = {
+                        'listener': listener,
+                        'loadbalancer': service['loadbalancer']
+                    }
+                    virtual = d.service_adapter.get_virtual_name(test_service)
                     bigips = d.get_all_bigips()
                     if not d.disconnected_service.is_virtual_connected(
                             virtual, bigips):
                         LOG.debug("connecting %s to a real network" %
                                   virtual['name'])
-                        d.lbaas_builder.listener_builder.update_listener(
-                            service, bigips)
-                d.plugin_rpc.update_loadbalancer_status(
-                    id, provisioning_status, lb_const.ONLINE)
-                self.start_time.pop(id, None)
+                        service['loadbalancer']['provisioning_status'] = \
+                            plugin_const.PENDING_UPDATE
+                        # Save existing list of virtual addresses in case
+                        # a new one is created in the next step.  We need to
+                        # remove obsolete entries
+                        starting_dest = self.get_service_virtual_address(
+                            bigips, virtual)
+                        # if any virtual is not connected update the entire
+                        # service, but only once since the handler will run
+                        # through all listeners
+                        d._common_service_handler(service)
+                        ending_dest = self.get_service_virtual_address(
+                            bigips, virtual)
+                        self.remove_obsolete_service_address(
+                            bigips, virtual, starting_dest, ending_dest)
+                        break
 
     def polling_thread(self):
         while True:
