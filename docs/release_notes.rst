@@ -1,28 +1,33 @@
 .. toctree::
     :hidden:
 
-Release Notes |release|
-=======================
+Release Notes v |release|
+=========================
 
 This release provides an implementation of the F5® agent to support the use of F5 Networks® BIG-IP® systems with OpenStack Neutron LBaaSv2.
 
 Release Highlights
 ------------------
 
-This release introduces support for the following:
+This release introduces the following:
 
-* Listener ``TERMINATED_HTTPS`` protocol (SSL offloading)
-* BIG-IP® device clusters (``active-standby`` and ``scalen`` configurations).
+- Installation via rpm
+- Installation via dpkg
+- Uses either Keystone Auth1 or Keystone Client python library
+- Bug fixes
+
+See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v8.0.5...v8.0.7>`_ for the full list of changes in this release.
 
 Caveats
 -------
 
-The following features are unsupported in v8.0.3:
+The following features are unsupported in v |release|:
 
 * `BIG-IP® vCMP® <https://f5.com/resources/white-papers/virtual-clustered-multiprocessing-vcmp>`_
 * Agent High Availability (HA)
-* Auto-sync mode for clustered devices
 * Differentiated environments
+* Unattached pools
+* L7 routing
 * Loadbalancer statistics
 
 Open Issues

@@ -18,12 +18,14 @@ import setuptools
 setuptools.setup(
     version=f5_openstack_agent.__version__,
     name="f5-openstack-agent",
-    description = 'F5 Networks Agent for OpenStack services',
+    description = ("F5 Networks Agent for OpenStack services"),
+    license = 'Apache License, Version 2.0',
     author="F5 Networks",
     author_email="f5_openstack_agent@f5.com",
     data_files=[('/etc/neutron/services/f5', ['etc/neutron/services/f5/f5-openstack-agent.ini']),
                 ('/etc/init.d', ['etc/init.d/f5-oslbaasv2-agent']),
-                ('/usr/lib/systemd/system', ['lib/systemd/system/f5-openstack-agent.service'])],
+                ('/usr/lib/systemd/system', ['lib/systemd/system/f5-openstack-agent.service']),
+                ('/usr/bin/f5', ['bin/debug_bundler.py'])],
     packages=setuptools.find_packages(exclude=['*.test', '*.test.*', 'test*', 'test']),
     classifiers=[
         'Environment :: OpenStack',
@@ -40,6 +42,6 @@ setuptools.setup(
             'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main'
         ]
     },
-    install_requires=['f5-sdk==1.0.2']
+    install_requires=['f5-sdk==1.2.0']
 )
 

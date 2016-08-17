@@ -1,26 +1,74 @@
 Install the F5 OpenStack Agent
 ------------------------------
 
-.. note::
+Quick Start
+```````````
 
-    - You must have both ``pip`` and ``git`` installed on your machine in order to use these commands.
-    - It may be necessary to use ``sudo``, depending on your environment.
+.. rubric:: Install the ``f5-openstack-agent`` package for v |release|:
 
-.. topic:: To install the ``f5-openstack-agent`` package from the |openstack| branch:
+.. code-block:: text
 
+    $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v8.0.7
+
+.. tip::
+
+    You can install packages from HEAD on a specific branches by adding ``@<branch_name>`` to the end of the install command instead of the release tag.
+
+    .. rubric:: Example:
     .. code-block:: text
 
         $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@liberty
 
-.. topic:: To install the ``f5-openstack-agent`` release package for v |version|:
 
-    You can install specific releases by adding ``@<release_tag>`` to the end of the install command.
+Debian Package
+``````````````
 
-    For example:
+The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
 
-    .. code-block:: text
+1. Download and install the dependencies:
 
-        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v8.0.3
+.. code-block:: bash
+
+    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v1.1.0/python-f5–sdk_1.1.0–1_1404_all.deb
+    $ curl –L –O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.0.9/python-f5-icontrol-rest_1.0.9-1_1404_all.deb
+    $ sudo dpkg –i python-f5-icontrol-rest_1.0.9-1_1404_all.deb
+    $ sudo dpkg –i python-f5–sdk_1.1.0–1_1404_all.deb
+
+2. Download and install the f5-openstack-agent:
+
+.. code-block:: bash
+
+    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v8.0.7/python-f5-openstack-agent_8.0.7-1_1404_all.deb
+    $ sudo dpkg –i python-f5-openstack-agent_8.0.7-1_1404_all.deb
+
+
+RPM Package
+```````````
+
+The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
+
+1. Download and install the dependencies:
+
+.. code-block:: bash
+
+    $ curl –L –O https://github.com/F5Networks/f5-common-python/releases/download/v1.1.0/f5-sdk-1.1.0-1.el7.noarch.rpm
+    $ curl –L –O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.0.9/f5-icontrol-rest-1.0.9-1.el7.noarch.rpm
+    $ sudo rpm –ivh f5-icontrol-rest-1.0.9-1.el7.noarch.rpm f5-sdk-1.1.0-1.el7.noarch.rpm
+
+
+2. Download and install the f5-openstack-agent:
+
+.. code-block:: bash
+
+    $ curl –L –O https://github.com/F5Networks/f5-common-python/releases/download/v8.0.7/f5-openstack-agent-8.0.7-1.el7.noarch.rpm
+    $ sudo rpm –ivh f5-openstack-agent-8.0.7-1.el7.noarch.rpm
+
+
+
+Next Steps
+``````````
+
+Next, :ref:`install the f5-openstack-lbaasv2-driver <lbaasv2driver:Install the F5 LBaaSv2 Driver>`.
 
 
 Need to Upgrade?

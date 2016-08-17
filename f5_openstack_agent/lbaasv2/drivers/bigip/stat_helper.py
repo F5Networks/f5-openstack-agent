@@ -25,7 +25,7 @@ LOG = logging.getLogger(__name__)
 
 class StatHelper(object):
     def get_global_statistics(self, bigip):
-        allstats = bigip.tm.sys.performance.all_stats.load()
+        allstats = bigip.tm.sys.performances.all_stats.load().__dict__
         if 'apiRawValues' in allstats:
             sr = {'Sys::Performance System': {
                 'System CPU Usage': {

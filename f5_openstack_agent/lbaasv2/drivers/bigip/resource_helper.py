@@ -135,7 +135,7 @@ class BigIPResourceHelper(object):
         if "partition" in model:
             partition = model["partition"]
         resource = self.load(bigip, name=model["name"], partition=partition)
-        resource.update(**model)
+        resource.modify(**model)
 
         return resource
 
