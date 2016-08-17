@@ -207,7 +207,7 @@ class PoolServiceBuilder(object):
         for bigip in bigips:
             try:
                 pool_stats = self.pool_helper.get_stats(
-                    bigip, name=pool["name"], partition=part)
+                    bigip, name=pool["name"], partition=part, stats=stats)
                 for stat in stats:
                     if stat in pool_stats:
                         collected_stats[stat] += pool_stats[stat]
