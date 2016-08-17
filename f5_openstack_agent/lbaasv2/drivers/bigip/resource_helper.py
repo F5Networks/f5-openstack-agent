@@ -244,3 +244,33 @@ class BigIPResourceHelper(object):
                       "resource %s", self.resource_type)
             raise KeyError("No collection available for %s" %
                            (self.resource_type))
+
+    def get_stats(self, bigip,  name=None, partition=None, stats=[]):
+        """Returns dictionary of stats.
+
+        Use by calling with an array of stats to get from resource. Return
+        value will be a dict with key/value pairs. The stat key will only
+        be included in the return dict if the resource includes that stat.
+
+        :param bigip: BIG-IP to get stats from.
+        :param name: name of resource object.
+        :param partition: partition where to get resource.
+        :param stats: Array of strings that define stats to collect.
+        :return: dictionary with key/value pairs where key is string
+        defined in input array, if present in resource stats, and value
+        as the value of resource stats 'value' key.
+        """
+        collected_stats = {}
+
+        # get resource, then its stats
+        if self.exists(bigip, name=name, partition=partition):
+            resource = self.load(bigip, name=name, partition=partition)
+            resource_stats = resource.stats.load()
+
+            # add stats defined in input stats array
+            for stat in stats:
+                if stat in resource_stats.entries:
+                    collected_stats[stat] = \
+                        resource_stats.entries[stat]['value']
+
+        return collected_stats

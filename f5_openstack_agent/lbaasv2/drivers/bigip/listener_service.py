@@ -423,3 +423,35 @@ class ListenerServiceBuilder(object):
             obj = r.load(name=rule_name, partition=vip["partition"])
             obj.delete()
             LOG.debug("Deleted rule %s" % rule_name)
+
+    def get_stats(self, service, bigips, stats):
+        """Return stat values for a single virtual.
+
+        Stats to collect are defined as an array of strings in input stats.
+        Values are summed across one or more BIG-IPs defined in input bigips.
+
+        :param service: Has listener name/partition
+        :param bigips: One or more BIG-IPs to get listener stats from.
+        :param stats: Array of strings that define which stats to collect.
+        :return: A dict with key/value pairs for each stat defined in
+        input stats.
+        """
+        collected_stats = {}
+        for stat in stats:
+            collected_stats[stat] = 0
+
+        virtual = self.service_adapter.get_virtual(service)
+        part = virtual["partition"]
+        for bigip in bigips:
+            try:
+                vs_stats = self.vs_helper.get_stats(
+                    bigip, name=virtual["name"], partition=part, stats=stats)
+                for stat in stats:
+                    if stat in vs_stats:
+                        collected_stats[stat] += vs_stats[stat]
+
+            except Exception as e:
+                # log error but continue on
+                LOG.error("Error getting virtual server stats: %s", e.message)
+
+        return collected_stats
