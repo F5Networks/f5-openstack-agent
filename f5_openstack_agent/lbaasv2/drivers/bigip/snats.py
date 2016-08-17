@@ -186,7 +186,7 @@ class BigipSnatManager(object):
                         partition=model["partition"]
                     )
                     snatpool.members.append(snatpool_member)
-                    snatpool.update()
+                    snatpool.modify(members=snatpool.members)
 
             except Exception as err:
                 LOG.error("Create SNAT pool failed %s" % err.message)
@@ -297,7 +297,7 @@ class BigipSnatManager(object):
                 else:
                     LOG.debug('Snat pool is not empty - update snatpool')
                     try:
-                        snatpool.update()
+                        snatpool.modify(members=snatpool.members)
                     except HTTPError as err:
                         LOG.error("Update SNAT pool failed %s" % err.message)
             except HTTPError as err:

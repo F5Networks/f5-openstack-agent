@@ -195,7 +195,7 @@ class ListenerServiceBuilder(object):
             v = bigip.tm.ltm.virtuals.virtual
             if v.exists(name=vip["name"], partition=vip["partition"]):
                 obj = v.load(name=vip["name"], partition=vip["partition"])
-                obj.update(**vip)
+                obj.modify(**vip)
 
     def update_session_persistence(self, service, bigips):
         """Update session persistence for virtual server.
@@ -246,7 +246,9 @@ class ListenerServiceBuilder(object):
                 return
 
         # not found -- add profile (assumes Common partition)
-        p.profiles.create(name=profile_name, context=context)
+        p.profiles.create(name=profile_name,
+                          partition='Common',
+                          context=context)
         LOG.debug("Created profile %s" % profile_name)
 
     def _add_cookie_persist_rule(self, vip, persistence, bigip):
@@ -268,7 +270,7 @@ class ListenerServiceBuilder(object):
                      partition=vip["partition"])
             LOG.debug("Created rule %s" % rule_name)
 
-        u = bigip.tm.ltm.persistences.universals.universal
+        u = bigip.tm.ltm.persistence.universals.universal
         if not u.exists(name=rule_name, partition=vip["partition"]):
             u.create(name=rule_name,
                      rule=rule_name,
@@ -379,7 +381,7 @@ class ListenerServiceBuilder(object):
             # see if profile exists
             for profile in profiles:
                 if profile.name == profile_name:
-                    pr = p.profiles.load(name=profile_name)
+                    pr = p.profiles.load(name=profile_name, partition='Common')
                     pr.delete()
                     LOG.debug("Deleted profile %s" % profile.name)
                     return
@@ -399,7 +401,7 @@ class ListenerServiceBuilder(object):
         """
         rule_name = 'app_cookie_' + vip['name']
 
-        u = bigip.tm.ltm.persistences.universals.universal
+        u = bigip.tm.ltm.persistence.universals.universal
         if u.exists(name=rule_name, partition=vip["partition"]):
             obj = u.load(name=rule_name, partition=vip["partition"])
             obj.delete()

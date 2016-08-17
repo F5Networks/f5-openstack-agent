@@ -655,7 +655,7 @@ class NetworkServiceBuilder(object):
         # Delete pool member l2 records
         network = member['network']
         if network:
-            if member['port']:
+            if 'port' in member:
                 if self.l2_service.is_common_network(network):
                     net_folder = 'Common'
                 else:

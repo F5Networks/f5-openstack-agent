@@ -47,10 +47,13 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import \
     LBaaSBaseDriver
+from f5_openstack_agent.lbaasv2.drivers.bigip import network_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_service import \
     NetworkServiceBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
     ServiceModelAdapter
+from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
+from f5_openstack_agent.lbaasv2.drivers.bigip import stat_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
@@ -223,11 +226,6 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Keystone authentication version (v2 or v3) for Barbican client.'
     ),
     cfg.StrOpt(
-        'barbican_endpoint',
-        default='http://BARBICAN_IP:9311',
-        help='Barbican endpoint to use when no authentication is specified.'
-    ),
-    cfg.StrOpt(
         'os_project_id',
         default='service',
         help='OpenStack project ID.'
@@ -331,6 +329,8 @@ class iControlDriver(LBaaSBaseDriver):
         self.vlan_binding = None
         self.l3_binding = None
         self.cert_manager = None  # overrides register_OPTS
+        self.stat_helper = stat_helper.StatHelper()
+        self.network_helper = network_helper.NetworkHelper()
         self.disconnected_service = None
         self.disconnected_service_polling = None
 
@@ -427,13 +427,14 @@ class iControlDriver(LBaaSBaseDriver):
             try:
                 self.cert_manager = importutils.import_object(
                     self.conf.cert_manager, self.conf)
-            except ImportError:
-                self.cert_manager = None
-                LOG.error('Failed to import CertManager: %s'
-                          % self.conf.cert_manager)
-
-        if not self.cert_manager:
-            LOG.debug('No CertManager is configured.')
+            except ImportError as import_err:
+                LOG.error('Failed to import CertManager: %s.' %
+                          import_err.message)
+                raise
+            except Exception as err:
+                LOG.error('Failed to initialize CertManager. %s' % err.message)
+                # re-raise as ImportError to cause agent exit
+                raise ImportError(err.message)
 
         self.service_adapter = ServiceModelAdapter(self.conf)
         self.tenant_manager = BigipTenantManager(self.conf, self)
@@ -675,6 +676,39 @@ class iControlDriver(LBaaSBaseDriver):
 
     def generate_capacity_score(self, capacity_policy=None):
         """Generate the capacity score of connected devices """
+        if capacity_policy:
+            highest_metric = 0.0
+            highest_metric_name = None
+            my_methods = dir(self)
+            bigips = self.get_all_bigips()
+            for metric in capacity_policy:
+                func_name = 'get_' + metric
+                if func_name in my_methods:
+                    max_capacity = int(capacity_policy[metric])
+                    metric_func = getattr(self, func_name)
+                    metric_value = 0
+                    for bigip in bigips:
+                        global_stats = \
+                            self.stat_helper.get_global_statistics(bigip)
+                        value = int(
+                            metric_func(bigip=bigip,
+                                        global_statistics=global_stats)
+                        )
+                        LOG.debug('calling capacity %s on %s returned: %s'
+                                  % (func_name, bigip.hostname, value))
+                        if value > metric_value:
+                            metric_value = value
+                    metric_capacity = float(metric_value) / float(max_capacity)
+                    if metric_capacity > highest_metric:
+                        highest_metric = metric_capacity
+                        highest_metric_name = metric
+                else:
+                    LOG.warn('capacity policy has method '
+                             '%s which is not implemented in this driver'
+                             % metric)
+            LOG.debug('capacity score: %s based on %s'
+                      % (highest_metric, highest_metric_name))
+            return highest_metric
         return 0
 
     def set_context(self, context):
@@ -739,6 +773,7 @@ class iControlDriver(LBaaSBaseDriver):
     def update_listener(self, old_listener, listener, service):
         """Update virtual server"""
         LOG.debug("Updating listener")
+        service['old_listener'] = old_listener
         self._common_service_handler(service)
 
     @serialized('delete_listener')
@@ -1275,37 +1310,42 @@ class iControlDriver(LBaaSBaseDriver):
         return self.get_all_bigips()
 
     def get_inbound_throughput(self, bigip, global_statistics=None):
-        pass
+        return self.stat_helper.get_inbound_throughput(
+            bigip, global_stats=global_statistics)
 
     def get_outbound_throughput(self, bigip, global_statistics=None):
-        pass
+        return self.stat_helper.get_outbound_throughput(
+            bigip, global_stats=global_statistics)
 
     def get_throughput(self, bigip=None, global_statistics=None):
-        pass
+        return self.stat_helper.get_throughput(
+            bigip, global_stats=global_statistics)
 
     def get_active_connections(self, bigip=None, global_statistics=None):
-        pass
+        return self.stat_helper.get_active_connection_count(
+            bigip, global_stats=global_statistics)
 
     def get_ssltps(self, bigip=None, global_statistics=None):
-        pass
+        return self.stat_helper.get_active_SSL_TPS(
+            bigip, global_stats=global_statistics)
 
     def get_node_count(self, bigip=None, global_statistics=None):
-        pass
+        return len(bigip.tm.ltm.nodes.get_collection())
 
     def get_clientssl_profile_count(self, bigip=None, global_statistics=None):
-        pass
+        return ssl_profile.SSLProfileHelper.get_client_ssl_profile_count(bigip)
 
     def get_tenant_count(self, bigip=None, global_statistics=None):
-        pass
+        return self.system_helper.get_tenant_folder_count(bigip)
 
     def get_tunnel_count(self, bigip=None, global_statistics=None):
-        pass
+        return self.network_helper.get_tunnel_count(bigip)
 
     def get_vlan_count(self, bigip=None, global_statistics=None):
-        pass
+        return self.network_helper.get_vlan_count(bigip)
 
     def get_route_domain_count(self, bigip=None, global_statistics=None):
-        pass
+        return self.network_helper.get_route_domain_count(bigip)
 
     def _init_traffic_groups(self, bigip):
         self.__traffic_groups = self.cluster_manager.get_traffic_groups(bigip)
