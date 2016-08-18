@@ -1,0 +1,11 @@
+[
+    "https://localhost/mgmt/tm/net/fdb/tunnel/~TEST_128a63ef33bc4cf891d684fad58e7f2d~tunnel-vxlan-45?ver=11.5.0",
+    "https://localhost/mgmt/tm/net/fdb/tunnel/~TEST_128a63ef33bc4cf891d684fad58e7f2d~disconnected_network?ver=11.5.0",
+    "https://localhost/mgmt/tm/net/self/~TEST_128a63ef33bc4cf891d684fad58e7f2d~local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20?ver=11.6.0",
+    "https://localhost/mgmt/tm/sys/folder/~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver=11.6.0",
+    "https://localhost/mgmt/tm/ltm/snatpool/~TEST_128a63ef33bc4cf891d684fad58e7f2d~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver=11.6.0",
+    "https://localhost/mgmt/tm/ltm/snat-translation/~TEST_128a63ef33bc4cf891d684fad58e7f2d~snat-traffic-group-local-only-ce69e293-56e7-43b8-b51c-01b91d66af20_0?ver=11.6.0",
+    "https://localhost/mgmt/tm/net/tunnels/tunnel/~TEST_128a63ef33bc4cf891d684fad58e7f2d~tunnel-vxlan-45?ver=11.6.0",
+    "https://localhost/mgmt/tm/net/route-domain/~TEST_128a63ef33bc4cf891d684fad58e7f2d~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver=11.6.0",
+    "https://localhost/mgmt/tm/net/tunnels/tunnel/~TEST_128a63ef33bc4cf891d684fad58e7f2d~disconnected_network?ver=11.6.0"
+]

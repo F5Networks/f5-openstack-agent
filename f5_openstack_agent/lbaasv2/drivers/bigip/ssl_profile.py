@@ -77,3 +77,9 @@ class SSLProfileHelper(object):
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
             raise SSLProfileError(err.message)
+
+    @staticmethod
+    def get_client_ssl_profile_count(bigip):
+        return len(
+            bigip.tm.ltm.profile.client_ssls.get_collection(
+                partition='Common'))
