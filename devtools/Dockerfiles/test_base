@@ -34,4 +34,3 @@ COPY ./f5-openstack-lbaasv2-driver/ /root/devenv/f5-openstack-lbaasv2-driver/
 RUN pip install /root/devenv/f5-openstack-lbaasv2-driver
 COPY ./f5-openstack-test/ /root/devenv/f5-openstack-test/
 RUN pip install /root/devenv/f5-openstack-test
-COPY /root_ssh/ /root/.ssh

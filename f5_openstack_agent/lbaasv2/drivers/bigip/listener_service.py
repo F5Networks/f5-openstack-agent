@@ -16,8 +16,11 @@
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
+    DisconnectedService
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
+from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 LOG = logging.getLogger(__name__)
 
@@ -32,8 +35,8 @@ class ListenerServiceBuilder(object):
 
     def __init__(self, service_adapter, cert_manager, parent_ssl_profile=None):
         self.cert_manager = cert_manager
+        self.disconnected_service = DisconnectedService()
         self.parent_ssl_profile = parent_ssl_profile
-
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
         self.service_adapter = service_adapter
@@ -55,6 +58,22 @@ class ListenerServiceBuilder(object):
         if tls:
             tls['name'] = vip['name']
             tls['partition'] = vip['partition']
+
+        service['listener']['operating_status'] = lb_const.ONLINE
+        # Hierarchical Port Binding mode adjustments
+        if not self.disconnected_service.is_service_connected(service):
+            # start the virtual server on a disconnected network if the neutron
+            # network does not yet exist
+            network_name = DisconnectedService.network_name
+            vip['vlansEnabled'] = True
+            vip.pop('vlansDisabled', None)
+            vip['vlans'] = [
+                '/%s/%s' % (vip['partition'], network_name)
+            ]
+            # strip out references to network pieces that don't yet exist
+            vip.pop('sourceAddressTranslation', None)
+            # the listener is offline until we have a real network
+            service['listener']['operating_status'] = lb_const.OFFLINE
 
         network_id = service['loadbalancer']['network_id']
         for bigip in bigips:
