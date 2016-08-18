@@ -835,10 +835,14 @@ class iControlDriver(LBaaSBaseDriver):
             pool_stats = self.lbaas_builder.get_pool_stats(service, stats)
 
             # convert to bytes
-            lb_stats['bytes_in'] = pool_stats['serverside.bitsIn']/8
-            lb_stats['bytes_out'] = pool_stats['serverside.bitsOut']/8
-            lb_stats['active_connections'] = pool_stats['serverside.curConns']
-            lb_stats['total_connections'] = pool_stats['serverside.totConns']
+            lb_stats[lb_const.STATS_IN_BYTES] = \
+                pool_stats['serverside.bitsIn']/8
+            lb_stats[lb_const.STATS_OUT_BYTES] = \
+                pool_stats['serverside.bitsOut']/8
+            lb_stats[lb_const.STATS_ACTIVE_CONNECTIONS] = \
+                pool_stats['serverside.curConns']
+            lb_stats[lb_const.STATS_TOTAL_CONNECTIONS] = \
+                pool_stats['serverside.totConns']
 
         except Exception as e:
             LOG.error("Error getting pool stats: %s", e.message)
