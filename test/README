@@ -1,0 +1,19 @@
+
+In the test_env.json file,
+
+    *  Replace angle-bracketed data locations with required IP Addresses.
+    *  Change any other default data as needed.
+
+The following test files need to be run with the pytest symbols plugin:
+
+    *  test_disconnected.py
+
+Install the pytest_symbols plugin:
+
+    https://bldr-git.int.lineratesystems.com/tools/pytest-symbols
+
+After configuring the envirnomental data in test_env.json,
+execute those tests similar to this:
+
+    py.test --symbols ./test_env.json -sv -- test_disconnected.py
+

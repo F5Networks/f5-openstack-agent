@@ -94,11 +94,13 @@ class LBaaSBuilder(object):
 
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
+        networks = service["networks"]
         bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
             svc = {"loadbalancer": loadbalancer,
-                   "listener": listener}
+                   "listener": listener,
+                   "networks": networks}
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
                 if 'old_listener' in service:
                     # Check if the update includes a name change.
@@ -120,11 +122,12 @@ class LBaaSBuilder(object):
                                 plugin_const.ERROR
                             raise f5_ex.VirtualServerDeleteException(
                                 err.message)
-
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
                     # create_listener() will do an update if VS exists
                     self.listener_builder.create_listener(svc, bigips)
+                    listener['operating_status'] = \
+                        svc['listener']['operating_status']
                 except Exception as err:
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerCreationException(err.message)

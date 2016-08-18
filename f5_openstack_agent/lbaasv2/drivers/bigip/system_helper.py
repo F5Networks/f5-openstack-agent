@@ -181,3 +181,10 @@ class SystemHelper(object):
             LOG.error(
                 ('Request to purge exempt folder %s ignored.' %
                  folder))
+
+    def get_tenant_folder_count(self, bigip):
+        folders = bigip.tm.sys.folders.get_collection()
+        # ignore '/' and 'Common'
+        tenants = [item for item in folders if item.name != '/' and
+                   item.name != 'Common']
+        return len(tenants)
