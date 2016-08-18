@@ -44,6 +44,13 @@ class NetworkHelper(object):
         'port': const.VXLAN_UDP_PORT
     }
 
+    ppp_profile_defaults = {
+        'name': None,
+        'partition': const.DEFAULT_PARTITION,
+        'defaultsFrom': 'ppp',
+        'floodingType': 'none',
+    }
+
     route_domain_defaults = {
         'name': None,
         'partition': '/' + const.DEFAULT_PARTITION,
@@ -76,6 +83,35 @@ class NetworkHelper(object):
             payload['partition'] = partition
             obj = p.create(**payload)
         return obj
+
+    @log_helpers.log_method_call
+    def create_ppp_profile(self, bigip, name,
+                           partition=const.DEFAULT_PARTITION):
+        pf = bigip.tm.net.tunnels.ppps.ppp
+        if pf.exists(name=name, partition=partition):
+            p = pf.load(name=name, partition=partition)
+        else:
+            payload = NetworkHelper.ppp_profile_defaults
+            payload['name'] = name
+            payload['partition'] = partition
+            p = pf.create(**payload)
+        return p
+
+    @log_helpers.log_method_call
+    def create_tunnel(self, bigip, model):
+        payload = {'name': model.get('name', None),
+                   'partition': model.get('partition',
+                                          const.DEFAULT_PARTITION),
+                   'profile': model.get('profile', None)}
+        description = model.get('description', None)
+        if description:
+            payload['description'] = description
+        tf = bigip.tm.net.tunnels.tunnels.tunnel
+        if tf.exists(name=payload['name'], partition=payload['partition']):
+            t = tf.load(name=payload['name'], partition=payload['partition'])
+        else:
+            t = tf.create(**payload)
+        return t
 
     @log_helpers.log_method_call
     def create_multipoint_tunnel(self, bigip, model):
@@ -764,3 +800,25 @@ class NetworkHelper(object):
         if decorator_index > 0:
             ip_address = ip_address[:decorator_index]
         return ip_address
+
+    def get_route_domain_count(self, bigip, partition=''):
+        """Return number of route domains, exluding route domain 0"""
+        route_domain_ids = self.get_route_domain_ids(
+            bigip, partition=partition)
+        if 0 in route_domain_ids:
+            route_domain_ids.remove(0)
+        return len(route_domain_ids)
+
+    def get_tunnel_count(self, bigip, partition='/'):
+        """Return sum of VXLAN and GRE tunnels"""
+        all_tunnels = bigip.tm.net.tunnels.tunnels.get_collection(
+            partition=partition)
+
+        tunnels = [item for item in all_tunnels if
+                   item.profile.find('vxlan') > 0 or
+                   item.profile.find('gre') > 0]
+        return len(tunnels)
+
+    def get_vlan_count(self, bigip, partition='/'):
+        """Return number of VLANs"""
+        return len(bigip.tm.net.vlans.get_collection(partition=partition))
