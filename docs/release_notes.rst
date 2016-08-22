@@ -16,7 +16,7 @@ This release introduces the following:
 - Uses either Keystone Auth1 or Keystone Client python library
 - Bug fixes
 
-See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v9.0.1...v9.0.2>`_ for the full list of changes in this release.
+See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v9.0.2...v9.0.3>`_ for the full list of changes in this release.
 
 Caveats
 -------
