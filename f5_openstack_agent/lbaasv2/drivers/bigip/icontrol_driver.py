@@ -1249,8 +1249,7 @@ class iControlDriver(LBaaSBaseDriver):
         if (provisioning_status == plugin_const.PENDING_CREATE or
                 provisioning_status == plugin_const.PENDING_UPDATE):
             listeners = service['listeners']
-            operating_status = (lb_const.ONLINE if len(listeners)
-                                else lb_const.OFFLINE)
+            operating_status = (lb_const.ONLINE)
             if (self.disconnected_service_polling.enabled and
                     not
                     self.disconnected_service.is_service_connected(service)):
