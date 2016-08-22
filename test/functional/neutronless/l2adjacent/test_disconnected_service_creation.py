@@ -192,7 +192,7 @@ def test_featureoff_withsegid_lb(setup_l2adjacent_test, bigip):
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
 
 
@@ -217,7 +217,7 @@ def test_withsegid_lb(setup_l2adjacent_test, bigip):
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
 
 
