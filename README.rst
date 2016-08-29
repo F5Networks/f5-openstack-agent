@@ -19,7 +19,7 @@
 f5-openstack-agent
 ##################
 
-|Build Status| |slack badge|
+|Build Status| |slack badge| |coveralls badge|
 
 Introduction
 ************
@@ -151,9 +151,13 @@ Contributor License Agreement
 Individuals or business entities who contribute to this project must have completed and submitted the `F5® Contributor License Agreement <http://f5-openstack-docs.readthedocs.org/en/latest/cla_landing.html#cla-landing>`_ to Openstack\_CLA@f5.com prior to their code submission being included in this project.
 
 
-.. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=master
-   :target: https://travis-ci.org/F5Networks/f5-openstack-agent
+.. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=liberty
+   :target: https://travis-ci.org/F5Networks/f5-openstack-agent?branch=liberty
 
 .. |slack badge| image:: https://f5-openstack-slack.herokuapp.com/badge.svg
     :target: https://f5-openstack-slack.herokuapp.com/
     :alt: Slack
+
+.. |coveralls badge| image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=liberty
+    :target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=liberty
+    :alt: Coveralls
