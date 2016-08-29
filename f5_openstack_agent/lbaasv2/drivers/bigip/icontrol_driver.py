@@ -1004,7 +1004,7 @@ class iControlDriver(LBaaSBaseDriver):
         # Only sync when supported types are present
         if not [i for i in self.agent_configurations['tunnel_types']
                 if i in ['gre', 'vxlan']]:
-            return
+            return False
 
         tunnel_ips = []
         for bigip in self.get_all_bigips():
@@ -1012,6 +1012,9 @@ class iControlDriver(LBaaSBaseDriver):
                 tunnel_ips.append(bigip.local_ip)
 
         self.network_builder.tunnel_sync(tunnel_ips)
+
+        # Tunnel sync sent.
+        return False
 
     @serialized('sync')
     @is_connected
