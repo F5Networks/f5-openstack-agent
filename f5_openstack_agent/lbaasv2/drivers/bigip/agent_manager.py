@@ -469,15 +469,15 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # This produces a list of loadbalancers with pending tasks to
             # be performed.
             pending_loadbalancers = (
-                self.plugin_rpc.get_pending_loadbalancers()
+                self.plugin_rpc.get_pending_loadbalancers(host=self.agent_host)
             )
-            pending_lb_ids = set()
-            for loadbalancer in pending_loadbalancers:
-                if self.agent_host == loadbalancer['agent_host']:
-                    pending_lb_ids.add(loadbalancer['lb_id'])
+            pending_lb_ids = set(
+                [lb['lb_id'] for lb in pending_loadbalancers]
+            )
             LOG.debug(
                 "plugin produced the list of pending loadbalancer ids: %s"
                 % list(pending_lb_ids))
+
             for lb_id in pending_lb_ids:
                 self.refresh_service(lb_id)
 
