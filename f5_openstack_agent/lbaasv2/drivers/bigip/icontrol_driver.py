@@ -234,7 +234,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     cfg.StrOpt(
         'os_username',
         default=None,
-        help='OpenStack user name for Keystone authentication..'
+        help='OpenStack user name for Keystone authentication.'
     ),
     cfg.StrOpt(
         'os_user_domain_name',
@@ -261,6 +261,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '
         'for listeners with TERMINATED_HTTPS protocols.'
+    ),
+    cfg.StrOpt(
+        'os_tenant_name',
+        default=None,
+        help='OpenStack tenant name for Keystone authentication (v2 only).'
     )
 ]
 
