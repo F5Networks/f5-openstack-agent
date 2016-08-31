@@ -363,3 +363,13 @@ class LBaaSBuilder(object):
                         {'network_id': network_id,
                          'subnet_id': subnet_id,
                          'is_for_member': is_member}
+
+    def listener_exists(self, service, bigip):
+        """Test the existence of the listener defined by service."""
+        try:
+            # Throw an exception if the listener does not exist.
+            self.listener_builder.get_listener(service, bigip)
+        except HTTPError as err:
+            return False
+
+        return True
