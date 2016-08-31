@@ -23,6 +23,7 @@ from neutron.plugins.common import constants as plugin_const
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import listener_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
+from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -46,7 +47,6 @@ class LBaaSBuilder(object):
 
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
-
         start_time = time()
         LOG.debug("Starting assure_service")
 
@@ -363,3 +363,14 @@ class LBaaSBuilder(object):
                         {'network_id': network_id,
                          'subnet_id': subnet_id,
                          'is_for_member': is_member}
+
+    def listener_exists(self, service, bigip):
+        """Test the existence of the listener defined by service."""
+        try:
+            # Throw an exception if the listener does not exist.
+            self.listener_builder.get_listener(service, bigip)
+        except HTTPError as err:
+            LOG.debug("Virtual service service discovery error.", err.msg)
+            return False
+
+        return True

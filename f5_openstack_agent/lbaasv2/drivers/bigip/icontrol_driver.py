@@ -1004,7 +1004,7 @@ class iControlDriver(LBaaSBaseDriver):
         # Only sync when supported types are present
         if not [i for i in self.agent_configurations['tunnel_types']
                 if i in ['gre', 'vxlan']]:
-            return
+            return False
 
         tunnel_ips = []
         for bigip in self.get_all_bigips():
@@ -1012,6 +1012,9 @@ class iControlDriver(LBaaSBaseDriver):
                 tunnel_ips.append(bigip.local_ip)
 
         self.network_builder.tunnel_sync(tunnel_ips)
+
+        # Tunnel sync sent.
+        return False
 
     @serialized('sync')
     @is_connected
@@ -1041,12 +1044,26 @@ class iControlDriver(LBaaSBaseDriver):
         # Returns whether the bigip has a pool for the service
         if not service['loadbalancer']:
             return False
+        loadbalancer = service['loadbalancer']
 
-        # bigip = self.get_bigip()
-        # return bigip.pool.exists(
-        #        name=service['pool']['id'],
-        #        folder=service['pool']['tenant_id'],
-        #        config_mode=self.conf.icontrol_config_mode)
+        bigip = self.get_bigip()
+        folder_name = self.service_adapter.get_folder_name(
+            loadbalancer['tenant_id']
+        )
+
+        # Does the tenant folder exist?
+        if not self.system_helper.folder_exists(bigip, folder_name):
+            return False
+
+        # Ensure that each virtual service exists.
+        # TODO(Rich Browne): check the listener status instead, this can be
+        # used to detemine the health of the service.
+        for listener in service['listeners']:
+            svc = {'loadbalancer': loadbalancer,
+                   'listener': listener}
+            if not self.lbaas_builder.listener_exists(svc, bigip):
+                return False
+
         return True
 
     def _common_service_handler(self, service, delete_partition=False):
