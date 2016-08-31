@@ -1044,6 +1044,7 @@ class iControlDriver(LBaaSBaseDriver):
         # Returns whether the bigip has a pool for the service
         if not service['loadbalancer']:
             return False
+        loadbalancer = service['loadbalancer']
 
         bigip = self.get_bigip()
         folder_name = self.service_adapter.get_folder_name(
@@ -1055,8 +1056,8 @@ class iControlDriver(LBaaSBaseDriver):
             return False
 
         # Ensure that each virtual service exists.
-        # TODO: check the listener status instead, this can be used
-        # to detemine the health of the service.
+        # TODO(Rich Browne): check the listener status instead, this can be
+        # used to detemine the health of the service.
         for listener in service['listeners']:
             svc = {'loadbalancer': loadbalancer,
                    'listener': listener}

@@ -386,8 +386,7 @@ class LBaaSv2PluginRPC(object):
                 self._make_msg('get_all_loadbalancers',
                                env=env,
                                group=group,
-                               host=host
-                           ),
+                               host=host),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
@@ -410,8 +409,7 @@ class LBaaSv2PluginRPC(object):
                 self._make_msg('get_active_loadbalancers',
                                env=env,
                                group=group,
-                               host=host
-                           ),
+                               host=host),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
@@ -434,8 +432,7 @@ class LBaaSv2PluginRPC(object):
                 self._make_msg('get_pending_loadbalancers',
                                env=env,
                                group=group,
-                               host=host
-                           ),
+                               host=host),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
