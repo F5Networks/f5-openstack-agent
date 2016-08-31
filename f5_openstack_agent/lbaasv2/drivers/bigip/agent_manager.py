@@ -102,12 +102,6 @@ OPTS = [
         default={},
         help=('Metrics to measure capacity and their limits')
     ),
-    # FIXME(RJB): This is a test option REMOVE
-    cfg.BoolOpt(
-        'service_sync',
-        default=True,
-        help=('perform the operations associated with service validation')
-    )
 ]
 
 
@@ -424,6 +418,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.needs_resync = True
             if self.sync_state():
                 self.needs_resync = True
+        else:
+            # Resync the next time around.
+            self.needs_resync = True
 
     def tunnel_sync(self):
         """Call into driver to advertise tunnels."""
@@ -432,22 +429,32 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def sync_state(self):
-        if not self.plugin_rpc:
-            return
+        """Sync state of BIG-IP with that of the neutron database."""
         resync = False
+
         known_services = set()
+        owned_services = set()
         for lb_id, service in self.cache.services.iteritems():
+            known_services.add(lb_id)
             if self.agent_host == service.agent_host:
-                known_services.add(lb_id)
+                owned_services.add(lb_id)
 
         try:
+            # Get loadbalancers from the environment which are bound to
+            # this agent.
             active_loadbalancers = (
-                self.plugin_rpc.get_active_loadbalancers()
+                self.plugin_rpc.get_active_loadbalancers(host=self.agent_host)
             )
-            active_loadbalancer_ids = set()
-            for loadbalancer in active_loadbalancers:
-                if self.agent_host == loadbalancer['agent_host']:
-                    active_loadbalancer_ids.add(loadbalancer['lb_id'])
+            active_loadbalancer_ids = set(
+                [lb['lb_id'] for lb in active_loadbalancers]
+            )
+
+            all_loadbalancers = (
+                self.plugin_rpc.get_all_loadbalancers(host=self.agent_host)
+            )
+            all_loadbalancer_ids = set(
+                [lb['lb_id'] for lb in all_loadbalancers]
+            )
 
             LOG.debug("plugin produced the list of active loadbalancer ids: %s"
                       % list(active_loadbalancer_ids))
@@ -456,12 +463,18 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
             # Remove services that are in Neutron, but no longer managed
             # by this agent.
-            # TODO(RJB): IMPLEMENT DESTROY when we have a fully testable HA
-            # solution.
-            # for deleted_lb in known_services - active_loadbalancer_ids:
-            #    self.destroy_service(deleted_lb)
+            for deleted_lb in owned_services - all_loadbalancer_ids:
+                LOG.error("Cached service not found in neutron database")
+                # TODO(Rich Browne) -- This can't be implemented with the
+                # normal tear down b/c the RPC destroy methods walk all
+                # over one another.  Although this case suggests that the
+                # database lacks the service definitition, there could be
+                # some service objects (pools, listeners, etc.) that need
+                # to be removed from the database
+                # self.destroy_service(deleted_lb)
 
-            # Validate each service we are supposed to know about.
+            # Validate each service we own, i.e. loadbalancers to which this
+            # agent is bound, that does not exist in our service cache.
             for lb_id in active_loadbalancer_ids:
                 if not self.cache.get_by_loadbalancer_id(lb_id):
                     self.validate_service(lb_id)
@@ -490,13 +503,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug("currently known loadbalancer ids after sync: %s"
                       % list(known_services))
 
-            # TODO(RJB): IMPLEMENT PURGE when we have a fully testable HA
-            # solution.
-            # all_loadbalancers = self.plugin_rpc.get_all_loadbalancers()
-            # LOG.debug("loadbalancer ids after calling into plugin: %s"
-            #          % all_loadbalancers)
-            # self.remove_orphans(all_loadbalancers)
-
         except Exception as e:
             LOG.error("Unable to retrieve ready service: %s" % e.message)
             resync = True
@@ -505,12 +511,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def validate_service(self, lb_id):
-        if not self.conf.service_sync:
-            LOG.debug("Validating service")
-            return
 
-        if not self.plugin_rpc:
-            return
         try:
             service = self.plugin_rpc.get_service_by_loadbalancer_id(
                 lb_id
@@ -528,9 +529,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def refresh_service(self, lb_id):
-        if not self.conf.service_sync:
-            LOG.debug("Refreshing service")
-            return
+
         try:
             service = self.plugin_rpc.get_service_by_loadbalancer_id(
                 lb_id
@@ -545,14 +544,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def destroy_service(self, lb_id):
-        if not self.conf.service_sync:
-            LOG.debug("destroying_service")
-            return
+        """Remove the service from BIG-IP and the neutron database."""
         service = self.plugin_rpc.get_service_by_loadbalancer_id(
             lb_id
         )
         if not service:
             return
+
+        # Force removal of this loadbalancer.
         service['loadbalancer']['provisioning_status'] = (
             plugin_const.PENDING_DELETE
         )
@@ -567,9 +566,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def remove_orphans(self, all_loadbalancers):
-        if not self.conf.service_sync:
-            LOG.debug("removing_ophans")
-            return
+
         try:
             self.lbdriver.remove_orphans(all_loadbalancers)
         except Exception as exc:
