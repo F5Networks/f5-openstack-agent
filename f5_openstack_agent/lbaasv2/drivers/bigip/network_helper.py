@@ -226,8 +226,8 @@ class NetworkHelper(object):
             else:
                 raise LookupError(
                     "The list of route domain ids is out of order")
-        else:
-            return lowest_available_index
+
+        return lowest_available_index
 
     @log_helpers.log_method_call
     def create_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
