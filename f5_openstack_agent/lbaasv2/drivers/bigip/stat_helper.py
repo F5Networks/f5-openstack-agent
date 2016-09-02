@@ -53,7 +53,7 @@ class StatHelper(object):
                     }
                 }
             },
-                'Sys::Performance Connections': {
+            'Sys::Performance Connections': {
                 'Active Connections': {
                     'Connections': {
                         'current': 0,
@@ -167,12 +167,20 @@ class StatHelper(object):
                                     values = re.split(r'\s{2,}', line)
                                     if len(values) == 4:
                                         if values[0] in fields:
-                                            sr[sec][div][values[0]] = \
-                                                {
-                                                    'current': values[1],
-                                                    'average': values[2],
-                                                    'max': values[3]
-                                                }
+                                            value = values[0]
+                                            vdict = sr[sec][div][value]
+                                            value_set = (
+                                                (1, 'current'),
+                                                (2, 'average'),
+                                                (3, 'max'),
+                                            )
+                                            for i,k in value_set:
+                                                try:
+                                                    vdict[k] = int(values[i])
+                                                except ValueError:
+                                                    vdict[k] = 0
+                                                    pass
+                                            sr[sec][div][values[0]] = vdict
             sr['since'] = since
             return sr
         return None
