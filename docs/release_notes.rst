@@ -11,9 +11,7 @@ Release Highlights
 
 This release introduces the following:
 
-- Installation via rpm
-- Installation via dpkg
-- Uses either Keystone Auth1 or Keystone Client python library
+- Hierarchical port binding
 - Bug fixes
 
 See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v9.0.2...v9.0.3>`_ for the full list of changes in this release.

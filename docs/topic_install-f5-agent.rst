@@ -41,7 +41,6 @@ The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
     $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.0.3/python-f5-openstack-agent_9.0.3-1_1404_all.deb
     $ sudo dpkg –i python-f5-openstack-agent_9.0.3-1_1404_all.deb
 
-
 RPM Package
 ```````````
 
@@ -62,7 +61,6 @@ The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
 
     $ curl –L –O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.0.3/f5-openstack-agent-9.0.3-1.el7.noarch.rpm
     $ sudo rpm –ivh f5-openstack-agent-9.0.3-1.el7.noarch.rpm
-
 
 
 Next Steps
