@@ -29,18 +29,17 @@ The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
 
 .. code-block:: bash
 
-    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v1.1.0/python-f5–sdk_1.1.0–1_1404_all.deb
+    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v1.2.0/python-f5–sdk_1.2.0–1_1404_all.deb
     $ curl –L –O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.0.9/python-f5-icontrol-rest_1.0.9-1_1404_all.deb
     $ sudo dpkg –i python-f5-icontrol-rest_1.0.9-1_1404_all.deb
-    $ sudo dpkg –i python-f5–sdk_1.1.0–1_1404_all.deb
+    $ sudo dpkg –i python-f5–sdk_1.2.0–1_1404_all.deb
 
 2. Download and install the f5-openstack-agent:
 
 .. code-block:: bash
 
-    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v9.0.3/python-f5-openstack-agent_9.0.3-1_1404_all.deb
+    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.0.3/python-f5-openstack-agent_9.0.3-1_1404_all.deb
     $ sudo dpkg –i python-f5-openstack-agent_9.0.3-1_1404_all.deb
-
 
 RPM Package
 ```````````
@@ -51,18 +50,17 @@ The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
 
 .. code-block:: bash
 
-    $ curl –L –O https://github.com/F5Networks/f5-common-python/releases/download/v1.1.0/f5-sdk-1.1.0-1.el7.noarch.rpm
+    $ curl –L –O https://github.com/F5Networks/f5-common-python/releases/download/v1.2.0/f5-sdk-1.2.0-1.el7.noarch.rpm
     $ curl –L –O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.0.9/f5-icontrol-rest-1.0.9-1.el7.noarch.rpm
-    $ sudo rpm –ivh f5-icontrol-rest-1.0.9-1.el7.noarch.rpm f5-sdk-1.1.0-1.el7.noarch.rpm
+    $ sudo rpm –ivh f5-icontrol-rest-1.0.9-1.el7.noarch.rpm f5-sdk-1.2.0-1.el7.noarch.rpm
 
 
 2. Download and install the f5-openstack-agent:
 
 .. code-block:: bash
 
-    $ curl –L –O https://github.com/F5Networks/f5-common-python/releases/download/v9.0.3/f5-openstack-agent-9.0.3-1.el7.noarch.rpm
+    $ curl –L –O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.0.3/f5-openstack-agent-9.0.3-1.el7.noarch.rpm
     $ sudo rpm –ivh f5-openstack-agent-9.0.3-1.el7.noarch.rpm
-
 
 
 Next Steps
