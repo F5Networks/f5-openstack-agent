@@ -39,7 +39,7 @@ class NetworkServiceBuilder(object):
         self.conf = conf
         self.driver = driver
         self.l3_binding = l3_binding
-        self.l2_service = L2ServiceBuilder(conf, f5_global_routed_mode)
+        self.l2_service = L2ServiceBuilder(driver, f5_global_routed_mode)
 
         self.bigip_selfip_manager = BigipSelfIpManager(
             self.driver, self.l2_service, self.driver.l3_binding)
@@ -67,6 +67,9 @@ class NetworkServiceBuilder(object):
     def set_l2pop_rpc(self, l2pop_rpc):
         # Provide FDB Connector with ML2 RPC access """
         self.l2_service.set_l2pop_rpc(l2pop_rpc)
+
+    def initialize_vcmp(self):
+        self.l2_service.initialize_vcmp_manager()
 
     def initialize_tunneling(self):
         # setup tunneling
