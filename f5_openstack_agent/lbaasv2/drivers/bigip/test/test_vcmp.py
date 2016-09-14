@@ -361,11 +361,10 @@ def test_assoc_vlan_with_vcmp_no_vlan_attr(
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.utils', mock_utils)
 def test_disassoc_vlan_with_vcmp_guest(setup_vcmp_method_test):
     vcmp, mock_bigip = setup_vcmp_method_test
-    vcmp.get_vcmp_host = mock.MagicMock(return_value=False)
+    vcmp.get_vcmp_host = mock.MagicMock(return_value=vcmp.vcmp_hosts[0])
     mock_utils.get_device_info.return_value = mock_bigip
     vcmp._get_vlan_use_count = mock.MagicMock(return_value=0)
-    vcmp.disassoc_vlan_with_vcmp_guest(
-        vcmp.vcmp_hosts[0], vcmp.vcmp_hosts[0]['guests'][0], 'test_vlan')
+    vcmp.disassoc_vlan_with_vcmp_guest(mock_bigip, 'test_vlan')
     assert mock_log.debug.call_args == mock.call(
         'VcmpManager::disassoc_vlan_with_vcmp_guest Deleted VLAN test_vlan '
         'from vCMP Host host1')
@@ -376,11 +375,10 @@ def test_disassoc_vlan_with_vcmp_guest(setup_vcmp_method_test):
 def test_disassoc_vlan_with_vcmp_guest_exception(setup_vcmp_method_test):
     vcmp, mock_bigip = setup_vcmp_method_test
     vcmp.vcmp_hosts[0]['guests'][0].modify.side_effect = Exception('test')
-    vcmp.get_vcmp_host = mock.MagicMock(return_value=False)
+    vcmp.get_vcmp_host = mock.MagicMock(return_value=vcmp.vcmp_hosts[0])
     mock_utils.get_device_info.return_value = mock_bigip
     vcmp._get_vlan_use_count = mock.MagicMock(return_value=0)
-    vcmp.disassoc_vlan_with_vcmp_guest(
-        vcmp.vcmp_hosts[0], vcmp.vcmp_hosts[0]['guests'][0], 'test_vlan')
+    vcmp.disassoc_vlan_with_vcmp_guest(mock_bigip, 'test_vlan')
     assert mock_log.error.call_args == mock.call(
         'VcmpManager::disassoc_vlan_with_vcmp_guest Exception removing VLAN '
         'test_vlan association from vCMP Guest 192.168.1.1: test')
@@ -390,11 +388,10 @@ def test_disassoc_vlan_with_vcmp_guest_exception(setup_vcmp_method_test):
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.utils', mock_utils)
 def test_disassoc_vlan_with_vcmp_guest_vlan_in_use(setup_vcmp_method_test):
     vcmp, mock_bigip = setup_vcmp_method_test
-    vcmp.get_vcmp_host = mock.MagicMock(return_value=False)
+    vcmp.get_vcmp_host = mock.MagicMock(return_value=vcmp.vcmp_hosts[0])
     mock_utils.get_device_info.return_value = mock_bigip
     vcmp._get_vlan_use_count = mock.MagicMock(return_value=1)
-    vcmp.disassoc_vlan_with_vcmp_guest(
-        vcmp.vcmp_hosts[0], vcmp.vcmp_hosts[0]['guests'][0], 'test_vlan')
+    vcmp.disassoc_vlan_with_vcmp_guest(mock_bigip, 'test_vlan')
     assert mock_log.debug.call_args == mock.call(
         'VcmpManager::disassoc_vlan_with_vcmp_guest VLAN test_vlan in use by '
         'other vCMP Guests on vCMP Host host1')
@@ -404,13 +401,12 @@ def test_disassoc_vlan_with_vcmp_guest_vlan_in_use(setup_vcmp_method_test):
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.utils', mock_utils)
 def test_disassoc_vlan_with_vcmp_guest_vlan_exception(setup_vcmp_method_test):
     vcmp, mock_bigip = setup_vcmp_method_test
-    vcmp.get_vcmp_host = mock.MagicMock(return_value=False)
+    vcmp.get_vcmp_host = mock.MagicMock(return_value=vcmp.vcmp_hosts[0])
     mock_utils.get_device_info.return_value = mock_bigip
     vcmp._get_vlan_use_count = mock.MagicMock(return_value=0)
     vcmp.vcmp_hosts[0]['bigip'].tm.net.vlans.vlan.load().side_effect = \
         Exception('test')
-    vcmp.disassoc_vlan_with_vcmp_guest(
-        vcmp.vcmp_hosts[0], vcmp.vcmp_hosts[0]['guests'][0], 'test_vlan')
+    vcmp.disassoc_vlan_with_vcmp_guest(mock_bigip, 'test_vlan')
     assert mock_log.error.call_args == mock.call(
         'VcmpManager::disassoc_vlan_with_vcmp_guest Exception removing VLAN '
         'test_vlan association from vCMP Guest 192.168.1.1: test')
@@ -421,14 +417,14 @@ def test_disassoc_vlan_with_vcmp_guest_vlan_exception(setup_vcmp_method_test):
 def test_disassoc_vlan_with_vcmp_guest_vlan_delete_exception(
         setup_vcmp_method_test):
     vcmp, mock_bigip = setup_vcmp_method_test
-    vcmp.get_vcmp_host = mock.MagicMock(return_value=False)
+    vcmp.get_vcmp_host = mock.MagicMock(return_value=vcmp.vcmp_hosts[0])
+    mock_utils.get_device_info.return_value = mock_bigip
     mock_utils.get_device_info.return_value = mock_bigip
     vcmp._get_vlan_use_count = mock.MagicMock(return_value=0)
     vcmp.vcmp_hosts[0]['bigip'].tm.net.vlans.vlan.load().delete.side_effect = \
         Exception('test')
     vcmp.vcmp_hosts[0]['bigip'].icontrol.hostname = 'host1'
-    vcmp.disassoc_vlan_with_vcmp_guest(
-        vcmp.vcmp_hosts[0], vcmp.vcmp_hosts[0]['guests'][0], 'test_vlan')
+    vcmp.disassoc_vlan_with_vcmp_guest(mock_bigip, 'test_vlan')
     assert mock_log.error.call_args == mock.call(
         'VcmpManager::disassoc_vlan_with_vcmp_guest Exception deleting VLAN '
         'test_vlan from vCMP Host host1:test')
