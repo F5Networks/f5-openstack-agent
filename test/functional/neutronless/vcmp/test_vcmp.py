@@ -46,10 +46,12 @@ COMMON_VLAN = '/Common/vlan-1-1-46'
 # Library of services as received from the neutron server
 NEUTRON_SERVICES = json.load(open(os.path.join(
     curdir, 'vcmp_neutron_services.json')))
-CREATELB = NEUTRON_SERVICES["create_connected_loadbalancer"]
-DELETELB = NEUTRON_SERVICES["delete_connected_loadbalancer"]
-CREATELISTENER = NEUTRON_SERVICES["create_connected_listener"]
-DELETELISTENER = NEUTRON_SERVICES["delete_connected_listener"]
+CREATELB = NEUTRON_SERVICES["create_lb"]
+DELETELB = NEUTRON_SERVICES["delete_lb"]
+CREATELISTENER = NEUTRON_SERVICES["create_listener"]
+DELETELISTENER = NEUTRON_SERVICES["delete_listener"]
+CREATELISTENER_FLAT = NEUTRON_SERVICES["create_listener_flat"]
+DELETELISTENER_FLAT = NEUTRON_SERVICES["delete_listener_flat"]
 
 
 def create_default_mock_rpc_plugin():
@@ -373,3 +375,46 @@ def test_vcmp_clustered_guests_more_hosts_than_guests(
             bigip, copy_config)
     assert 'VcmpManager::_init_vcmp_hosts: Given vCMP host 10.190.5.187 ' \
         'is not licensed for vCMP.' in ex.value.message
+
+
+def test_vcmp_delete_listener_flat(
+        setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+    vcmp_host = vcmp_setup
+    icontroldriver, start_registry = handle_init_registry(bigip, VCMP_CONFIG)
+    service = deepcopy(CREATELISTENER_FLAT)
+    logcall(setup_bigip_devices,
+            icontroldriver._common_service_handler,
+            service)
+    after_create_registry = register_device(bigip)
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == (
+        set(vcmp_uris['vcmp_lb_uris']) | set(vcmp_uris['vcmp_listener_uris']))
+    rpc = icontroldriver.plugin_rpc
+    assert rpc.get_port_by_name.call_args_list == \
+        [call(port_name=u'local-bigip-12.0.int.lineratesystems.com-ce69e293-'
+              '56e7-43b8-b51c-01b91d66af20'),
+         call(port_name=u'snat-traffic-group-local-only-ce69e293-'
+              '56e7-43b8-b51c-01b91d66af20_0')]
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+    ]
+    assert rpc.update_listener_status.call_args_list == [
+        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+    ]
+    # Delete the listener, then delete the loadbalancer
+    logcall(setup_bigip_devices,
+            icontroldriver._common_service_handler,
+            deepcopy(DELETELISTENER_FLAT))
+    logcall(setup_bigip_devices,
+            icontroldriver._common_service_handler,
+            deepcopy(DELETELB),
+            delete_partition=True)
+
+    bigip_vlans = [v.fullPath for v in bigip.tm.net.vlans.get_collection()]
+    assert GUEST_VLAN not in bigip_vlans
+    assert COMMON_VLAN not in bigip_vlans
+    vcmp_host[0]['guest'].refresh()
+    assert not hasattr(vcmp_host[0]['guest'], 'vlans')
+    assert vcmp_host[0]['bigip'].tm.net.vlans.vlan.exists(
+        name='vlan-1-1-46', partition='Common') is False
