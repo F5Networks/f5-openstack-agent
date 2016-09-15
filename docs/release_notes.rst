@@ -11,7 +11,6 @@ Release Highlights
 
 This release introduces the following:
 
-- Hierarchical port binding
 - Bug fixes
 
 See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v8.0.7...v8.0.8>`_ for the full list of changes in this release.
