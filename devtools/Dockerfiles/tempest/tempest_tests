@@ -1,0 +1,19 @@
+From ubuntu:xenial
+
+RUN apt-get -y update \
+    && apt-get -y install \
+        python-pip \
+        git \
+        mtr \
+        libssl-dev \
+        libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --upgrade pip
+RUN pip install tempest
+RUN pip install crudini
+RUN mkdir -p /etc/tempest
+RUN mkdir -p /root/f5-openstack-agent
+RUN tempest workspace register --name tempest_test --path /root/f5-openstack-agent
+ADD run_tempest.sh /root/
+#ENTRYPOINT ["/root/run_tempest.sh"]

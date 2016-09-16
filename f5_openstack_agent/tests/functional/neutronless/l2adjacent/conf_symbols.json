@@ -1,0 +1,22 @@
+{
+  "tenant_username":                              "testlab",
+  "tenant_password":                              "changeme",
+  "tenant_name":                                  "testlab",
+  "auth_url":                                     "http://OSCONTROLLER_IP:5000/v2.0",
+  "bigip_ip":                                     "DEVICE_IP",
+  "bigip_username":                               "admin",
+  "bigip_password":                               "admin",
+  "icontrol_hostname":                            "DEVICE_IP",
+  "icontrol_username":                            "admin",
+  "icontrol_password":                            "admin",
+  "f5_device_type":                               "external",
+  "f5_ha_type":                                   "standalone",
+  "f5_global_routed_mode":                        false,
+  "f5_sync_mode":                                 "replication",
+  "environment_prefix":                           "TEST",
+  "vlan_binding_driver":                          null,
+  "l3_binding_driver":                            null,
+  "cert_manager":                                 null,
+  "debug":                                        false,
+  "f5_parent_ssl_profile":                        null
+}
