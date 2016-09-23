@@ -23,11 +23,6 @@ import mock
 import pytest
 
 
-tagged_vlan_no_int = {'name': "test_valan",
-                      'partition': "Project_123456789",
-                      'tag': 1000}
-
-
 class TestVLANCreate(object):
 
     @pytest.fixture
@@ -39,13 +34,15 @@ class TestVLANCreate(object):
         return bigip
 
     @pytest.fixture
-    def network_helper(self):
+    def network_helper(self, bigip):
         nh = NetworkHelper()
-        nh.get_route_domain_by_id = mock.MagicMock(return_value=0)
+        nh.get_route_domain_by_id = mock.MagicMock(
+            return_value=bigip.tm.net.route_domains.route_domain)
 
         return nh
 
     def test_create_vlan_no_name(self, bigip, network_helper):
+        """Assert that if name is not in model that returned vlan none."""
         tagged_vlan_no_name = {'partition': "Project_123456789"}
 
         vlan = network_helper.create_vlan(bigip, tagged_vlan_no_name)
@@ -53,6 +50,13 @@ class TestVLANCreate(object):
         assert(vlan is None)
 
     def test_create_vlan_exists(self, bigip, network_helper):
+        """Test vlan_create with preexisting vlan.
+
+        Assert that if vlan already exists that vlan create
+        is not performed.
+
+        """
+
         tagged_vlan_no_int = {'name': "test_vlan",
                               'partition': "Project_123456789",
                               'tag': 1000}
@@ -65,9 +69,15 @@ class TestVLANCreate(object):
             name='test_vlan', partition='Project_123456789')
         bigip.tm.net.vlans.vlan.load.assert_called_once_with(
             name='test_vlan', partition='Project_123456789')
+        bigip.tm.net.vlans.vlan.create.assert_not_called
 
     def test_create_vlan_no_int(self, bigip, network_helper):
+        """Test vlan_create with model without interface.
 
+        1) Assert that create vlan returns a vlan object.
+        2) Assert that the vlan was created.
+
+        """
         tagged_vlan_no_int = {'name': "test_vlan",
                               'partition': "Project_123456789",
                               'tag': 1000}
@@ -82,6 +92,12 @@ class TestVLANCreate(object):
             name='test_vlan', partition='Project_123456789', tag=1000)
 
     def test_create_vlan_with_untagged_int(self, bigip, network_helper):
+        """Test vlan create when model contains untagged interface.
+
+        1) Assert that create vlan is only called once.
+        2) Assert that create vlan called once with expected args.
+
+        """
 
         vlan_with_untagged_int = {'name': "test_vlan",
                                   'partition': "Project_123456789",
@@ -96,10 +112,19 @@ class TestVLANCreate(object):
         bigip.tm.net.vlans.vlan.create.assert_called_once_with(
             name='test_vlan', partition='Project_123456789', tag=0)
 
-        v.interfaces_s.interfaces.create.assert_called_with(
+        v.interfaces_s.interfaces.create.assert_called_once_with(
             name='1.3', untagged=True)
 
     def test_create_vlan_with_tagged_int(self, bigip, network_helper):
+        """Test vlan create when model contains tagged interface.
+
+        1) Assert that create vlan is only called once with
+        expected args.
+
+        2) Assert that create vlan interface called once with
+        expected args.
+
+        """
 
         vlan_with_untagged_int = {'name': "test_vlan",
                                   'partition': "Project_123456789",
@@ -119,6 +144,19 @@ class TestVLANCreate(object):
             name='1.3', tagged=True, tagMode="service")
 
     def test_create_vlan_with_tagged_int_11_5(self, bigip, network_helper):
+        """Test vlan create when model contains tagged interface (TMOS 11.5)
+
+        1) Assert that create vlan is only called once with
+        expected args.
+
+        2) Assert that create vlan interface called once with
+        expected args including tagMode.
+        3) The first call to create vlan interface results in exception
+        that is caught.
+        4) The subsequent call to create vlan interface does not have
+        tagMode and does not result in exception
+
+        """
 
         vlan_with_untagged_int = {'name': "test_vlan",
                                   'partition': "Project_123456789",
@@ -138,6 +176,16 @@ class TestVLANCreate(object):
             name='test_vlan', partition='Project_123456789', tag=1000)
 
         call_count = v.interfaces_s.interfaces.create.call_count
-        v.interfaces_s.interfaces.create.assert_called_with(
-            name='1.3', tagged=True)
+        call_list = v.interfaces_s.interfaces.create.call_args_list
+
+        # Ensure that the create v.interfaces_s.interfaces.create
+        # is called only twice.
         assert(call_count == 2)
+
+        # Check that tagMode was used in first call
+        args, kwargs = call_list[0]
+        assert("tagMode" in kwargs)
+
+        # Check that tagMode was not used in second call.
+        args, kwargs = call_list[1]
+        assert("tagMode" not in kwargs)
