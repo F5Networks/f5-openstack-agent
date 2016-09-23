@@ -352,3 +352,7 @@ class VXLANUpdateException(F5AgentException):
 
 class VXLANDeleteException(F5AgentException):
     pass
+
+
+class BigIPNotLicensedForVcmp(F5AgentException):
+    pass
