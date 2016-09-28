@@ -1088,6 +1088,7 @@ class iControlDriver(LBaaSBaseDriver):
                       (time() - start_time))
 
             traffic_group = self.service_to_traffic_group(service)
+            service['loadbalancer']['traffic_group'] = traffic_group
 
             LOG.debug("XXXXXXXXXX: traffic group created ")
 
