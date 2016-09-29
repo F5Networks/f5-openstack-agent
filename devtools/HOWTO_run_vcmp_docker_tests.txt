@@ -1,0 +1,6 @@
+To run the vcmp docker tests:
+
+1. docker build -t $IMAGE_TAG -f Dockerfiles/vcmp_functional_tests .
+2. docker run $IMAGE_TAG
+
+The tests will run when the docker run command is executed.
