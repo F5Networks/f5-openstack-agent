@@ -14,6 +14,7 @@
 #
 
 import constants_v2 as const
+from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
 import netaddr
 import os
 import urllib
@@ -309,15 +310,28 @@ class NetworkHelper(object):
             payload = {'name': name,
                        'partition': partition,
                        'tag': tag}
+
             if description:
                 payload['description'] = description
             obj = v.create(**payload)
             interface = model.get('interface', None)
             if interface:
-                payload = {'name': interface,
-                           ('tagged' if tag else 'untagged'): True}
+                payload = {'name': interface}
+                if tag:
+                    payload['tagged'] = True
+                    payload['tagMode'] = "service"
+                else:
+                    payload['untagged'] = True
+
                 i = obj.interfaces_s.interfaces
-                i.create(**payload)
+                try:
+                    i.create(**payload)
+                except TagModeDisallowedForTMOSVersion as e:
+                    # Providing the tag-mode is not supported
+                    LOG.warn(e.message)
+                    payload.pop('tagMode')
+                    i.create(**payload)
+
             if not partition == const.DEFAULT_PARTITION:
                 self.add_vlan_to_domain_by_id(bigip, name, partition,
                                               route_domain_id)
