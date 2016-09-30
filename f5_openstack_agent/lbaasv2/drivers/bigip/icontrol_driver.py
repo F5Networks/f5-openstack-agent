@@ -238,7 +238,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     cfg.StrOpt(
         'os_username',
         default=None,
-        help='OpenStack user name for Keystone authentication..'
+        help='OpenStack user name for Keystone authentication.'
     ),
     cfg.StrOpt(
         'os_user_domain_name',
@@ -277,6 +277,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '
         'for listeners with TERMINATED_HTTPS protocols.'
+    ),
+    cfg.StrOpt(
+        'os_tenant_name',
+        default=None,
+        help='OpenStack tenant name for Keystone authentication (v2 only).'
     )
 ]
 
@@ -364,6 +369,9 @@ class iControlDriver(LBaaSBaseDriver):
         self._init_bigip_hostnames()
         self._init_bigip_managers()
         self.connect_bigips()
+
+        # After we have a connection to the BIG-IPs, initialize vCMP
+        self.network_builder.initialize_vcmp()
 
         self.agent_configurations['network_segment_physical_network'] = \
             self.disconnected_service_polling.get_physical_network()
@@ -1080,6 +1088,7 @@ class iControlDriver(LBaaSBaseDriver):
                       (time() - start_time))
 
             traffic_group = self.service_to_traffic_group(service)
+            service['loadbalancer']['traffic_group'] = traffic_group
 
             LOG.debug("XXXXXXXXXX: traffic group created ")
 

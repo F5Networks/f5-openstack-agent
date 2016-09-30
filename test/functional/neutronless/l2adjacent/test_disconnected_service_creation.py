@@ -32,6 +32,9 @@ requests.packages.urllib3.disable_warnings()
 
 LOG = logging.getLogger(__name__)
 
+OSLO_CONFIGS = json.load(open('vcmp_oslo_confs.json'))
+VCMP_CONFIG = OSLO_CONFIGS["vcmp_single_host"]
+
 # Toggle feature on/off configurations
 OSLO_CONFIGS = json.load(open('oslo_confs.json'))
 FEATURE_ON = OSLO_CONFIGS["feature_on"]

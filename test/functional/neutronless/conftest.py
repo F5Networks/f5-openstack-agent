@@ -13,12 +13,14 @@
 # limitations under the License.
 #
 
+import json
 import logging
 import mock
 import os
 import pytest
 import time
 
+from f5.bigip import ManagementRoot
 from f5.utils.testutils.registrytools import register_device
 from f5_os_test.order_utils import AGENT_LB_DEL_ORDER
 from f5_os_test.order_utils import order_by_weights
@@ -68,7 +70,7 @@ def _get_nolevel_handler(logname):
     return fh
 
 
-def remove_elements(bigip, uris):
+def remove_elements(bigip, uris, vlan=False):
     for t in bigip.tm.net.fdb.tunnels.get_collection():
         if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
             t.update(records=[])
@@ -79,13 +81,18 @@ def remove_elements(bigip, uris):
             if selfLink in registry:
                 registry[selfLink].delete()
         except iControlUnexpectedHTTPError as exc:
-            if exc.response.status_code == 404:
-                logging.debug(exc.response.status_code)
+            sc = exc.response.status_code
+            if sc == 404:
+                logging.debug(sc)
+            elif sc == 400 and 'fdb/tunnel' in selfLink and vlan:
+                # If testing VLAN (with vCMP) the fdb tunnel cannot be deleted
+                # directly. It goes away when the net tunnel is deleted
+                continue
             else:
                 raise
 
 
-def setup_neutronless_test(request, bigip, makelogdir):
+def setup_neutronless_test(request, bigip, makelogdir, vlan=False):
     pretest_snapshot = frozenset(register_device(bigip))
 
     logname = os.path.join(makelogdir, request.function.__name__)
@@ -94,7 +101,7 @@ def setup_neutronless_test(request, bigip, makelogdir):
     def remove_test_created_elements():
         posttest_registry = register_device(bigip)
         created = frozenset(posttest_registry) - pretest_snapshot
-        remove_elements(bigip, created)
+        remove_elements(bigip, created, vlan)
         rootlogger = logging.getLogger()
         rootlogger.removeHandler(loghandler)
 
@@ -124,3 +131,47 @@ def configure_icd():
         icontroldriver.plugin_rpc = mock_rpc_plugin
         return icontroldriver
     return _icd
+
+
+@pytest.fixture
+def bigip2(request):
+    bigip2 = ManagementRoot(pytest.symbols.bigip2_ip,
+                            pytest.symbols.bigip_username,
+                            pytest.symbols.bigip_password)
+    return bigip2
+
+
+@pytest.fixture
+def vcmp_uris(request):
+    dirname = os.path.dirname(request.module.__file__)
+    return json.load(open(os.path.join(dirname, 'vcmp_uris.json')))
+
+
+@pytest.fixture
+def setup_bigip_devices(request, bigip, bigip2, vcmp_uris, makelogdir):
+    lb_uris = set(vcmp_uris['vcmp_lb_uris'])
+    listener_uris = set(vcmp_uris['vcmp_listener_uris'])
+    cluster_uris = set(vcmp_uris['vcmp_cluster_uris'])
+    bigips = [bigip, bigip2]
+    logname = os.path.join(makelogdir, request.function.__name__)
+    loghandler = _get_nolevel_handler(logname)
+
+    def remove_test_created_elements():
+        for device in bigips:
+            pretest_snapshot = frozenset(register_device(device))
+            posttest_registry = register_device(device)
+            created = frozenset(posttest_registry) - pretest_snapshot
+            remove_elements(device, created, vlan=True)
+
+    rootlogger = logging.getLogger()
+    rootlogger.removeHandler(loghandler)
+    for device in bigips:
+        try:
+            remove_elements(
+                device, lb_uris | listener_uris | cluster_uris, vlan=True)
+        finally:
+            rootlogger.info('removing pre-existing config on bigip {}'.format(
+                bigip.hostname))
+
+    request.addfinalizer(remove_test_created_elements)
+    return loghandler

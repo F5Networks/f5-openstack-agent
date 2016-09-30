@@ -1,0 +1,735 @@
+{ "create_lb":
+    {
+        "healthmonitors": [], 
+        "listeners": [], 
+        "loadbalancer": {
+            "admin_state_up": true, 
+            "description": "", 
+            "gre_vteps": [], 
+            "id": "50c5d54a-5a9e-4a80-9e74-8400a461a077", 
+            "listeners": [], 
+            "name": "testlb_02", 
+            "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+            "operating_status": "OFFLINE", 
+            "provider": null, 
+            "provisioning_status": "PENDING_CREATE", 
+            "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+            "vip_address": "10.2.2.112", 
+            "vip_port": {
+                "admin_state_up": false, 
+                "allowed_address_pairs": [], 
+                "binding:host_id": "", 
+                "binding:profile": {}, 
+                "binding:vif_details": {}, 
+                "binding:vif_type": "unbound", 
+                "binding:vnic_type": "normal", 
+                "device_id": "50c5d54a-5a9e-4a80-9e74-8400a461a077", 
+                "device_owner": "neutron:LOADBALANCERV2", 
+                "dns_assignment": [
+                    {
+                        "fqdn": "host-10-2-2-112.openstacklocal.", 
+                        "hostname": "host-10-2-2-112", 
+                        "ip_address": "10.2.2.112"
+                    }
+                ], 
+                "dns_name": null, 
+                "extra_dhcp_opts": [], 
+                "fixed_ips": [
+                    {
+                        "ip_address": "10.2.2.112", 
+                        "subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                    }
+                ], 
+                "id": "806ccc5f-bfed-4116-bbe1-d73cc3381c36", 
+                "mac_address": "fa:16:3e:cd:07:43", 
+                "name": "loadbalancer-50c5d54a-5a9e-4a80-9e74-8400a461a077",
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "security_groups": [
+                    "a5ad40a2-7b08-4f3b-b88c-67fb6ed8fa66"
+                ],
+                "status": "DOWN",
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            },
+            "vip_port_id": "806ccc5f-bfed-4116-bbe1-d73cc3381c36", 
+            "vip_subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+            "vxlan_vteps": [
+                "201.0.5.1", 
+                "201.0.38.10", 
+                "201.0.8.1", 
+                "201.0.4.1"
+            ]
+        }, 
+        "members": [], 
+        "networks": {
+            "b098aac8-9590-4e06-9092-6eaa286e156d": {
+                "admin_state_up": true, 
+                "id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "mtu": 0, 
+                "name": "testlab-client-network", 
+                "provider:network_type": "vlan", 
+                "provider:physical_network": "default", 
+                "provider:segmentation_id": 46, 
+                "router:external": false, 
+                "shared": false, 
+                "status": "ACTIVE", 
+                "subnets": [
+                    "0f8c36e3-2e65-47cf-9dbb-22d15c6eecf0", 
+                    "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                ], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+                "vlan_transparent": null
+            }
+        }, 
+        "pools": [], 
+        "subnets": {
+            "ce69e293-56e7-43b8-b51c-01b91d66af20": {
+                "allocation_pools": [
+                    {
+                        "end": "10.2.2.150", 
+                        "start": "10.2.2.100"
+                    }
+                ], 
+                "cidr": "10.2.2.0/24", 
+                "dns_nameservers": [], 
+                "enable_dhcp": true, 
+                "gateway_ip": null, 
+                "host_routes": [], 
+                "id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+                "ip_version": 4, 
+                "ipv6_address_mode": null, 
+                "ipv6_ra_mode": null, 
+                "name": "testlab-client-v4-subnet", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "shared": false, 
+                "subnetpool_id": null, 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        }
+    },
+  "delete_lb":
+    {
+        "healthmonitors": [], 
+        "listeners": [], 
+        "loadbalancer": {
+            "admin_state_up": true, 
+            "description": "", 
+            "gre_vteps": [], 
+            "id": "50c5d54a-5a9e-4a80-9e74-8400a461a077", 
+            "listeners": [], 
+            "name": "testlb_02", 
+            "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+            "operating_status": "OFFLINE", 
+            "provider": null, 
+            "provisioning_status": "PENDING_DELETE", 
+            "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+            "vip_address": "10.2.2.112", 
+            "vip_port": {
+                "admin_state_up": false, 
+                "allowed_address_pairs": [], 
+                "binding:host_id": "", 
+                "binding:profile": {}, 
+                "binding:vif_details": {}, 
+                "binding:vif_type": "unbound", 
+                "binding:vnic_type": "normal", 
+                "device_id": "50c5d54a-5a9e-4a80-9e74-8400a461a077", 
+                "device_owner": "neutron:LOADBALANCERV2", 
+                "dns_assignment": [
+                    {
+                        "fqdn": "host-10-2-2-112.openstacklocal.", 
+                        "hostname": "host-10-2-2-112", 
+                        "ip_address": "10.2.2.112"
+                    }
+                ], 
+                "dns_name": null, 
+                "extra_dhcp_opts": [], 
+                "fixed_ips": [
+                    {
+                        "ip_address": "10.2.2.112", 
+                        "subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                    }
+                ], 
+                "id": "806ccc5f-bfed-4116-bbe1-d73cc3381c36", 
+                "mac_address": "fa:16:3e:cd:07:43", 
+                "name": "loadbalancer-50c5d54a-5a9e-4a80-9e74-8400a461a077", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "security_groups": [
+                    "a5ad40a2-7b08-4f3b-b88c-67fb6ed8fa66"
+                ], 
+                "status": "DOWN", 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }, 
+            "vip_port_id": "806ccc5f-bfed-4116-bbe1-d73cc3381c36", 
+            "vip_subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+            "vxlan_vteps": [
+                "201.0.5.1", 
+                "201.0.38.10", 
+                "201.0.8.1", 
+                "201.0.4.1"
+            ]
+        }, 
+        "members": [], 
+        "networks": {
+            "b098aac8-9590-4e06-9092-6eaa286e156d": {
+                "admin_state_up": true, 
+                "id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "mtu": 0, 
+                "name": "testlab-client-network", 
+                "provider:network_type": "vlan", 
+                "provider:physical_network": "default", 
+                "provider:segmentation_id": 46, 
+                "router:external": false, 
+                "shared": false, 
+                "status": "ACTIVE", 
+                "subnets": [
+                    "0f8c36e3-2e65-47cf-9dbb-22d15c6eecf0", 
+                    "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                ], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+                "vlan_transparent": null
+            }
+        }, 
+        "pools": [], 
+        "subnets": {
+            "ce69e293-56e7-43b8-b51c-01b91d66af20": {
+                "allocation_pools": [
+                    {
+                        "end": "10.2.2.150", 
+                        "start": "10.2.2.100"
+                    }
+                ], 
+                "cidr": "10.2.2.0/24", 
+                "dns_nameservers": [], 
+                "enable_dhcp": true, 
+                "gateway_ip": null, 
+                "host_routes": [], 
+                "id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+                "ip_version": 4, 
+                "ipv6_address_mode": null, 
+                "ipv6_ra_mode": null, 
+                "name": "testlab-client-v4-subnet", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "shared": false, 
+                "subnetpool_id": null, 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        }
+    },
+ "create_listener":
+    {
+        "healthmonitors": [], 
+        "listeners": [
+            {
+                "admin_state_up": true, 
+                "connection_limit": -1, 
+                "default_pool_id": null, 
+                "default_tls_container_id": null, 
+                "description": "", 
+                "id": "105a227a-cdbf-4ce3-844c-9ebedec849e9", 
+                "loadbalancer_id": "11cd7206-5912-429b-bd22-41fc3a583ab5", 
+                "name": "SAMPLE_LISTENER", 
+                "operating_status": "OFFLINE", 
+                "protocol": "HTTP", 
+                "protocol_port": 80, 
+                "provisioning_status": "PENDING_CREATE", 
+                "sni_containers": [], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        ], 
+        "loadbalancer": {
+            "admin_state_up": true, 
+            "description": "", 
+            "gre_vteps": [], 
+            "id": "50c5d54a-5a9e-4a80-9e74-8400a461a077",
+            "listeners": [
+                {
+                    "id": "105a227a-cdbf-4ce3-844c-9ebedec849e9"
+                }
+            ], 
+            "name": "TEST_LB", 
+            "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+            "operating_status": "ONLINE", 
+            "provider": "f5networks", 
+            "provisioning_status": "PENDING_UPDATE", 
+            "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+            "vip_address": "10.2.2.140", 
+            "vip_port": {
+                "admin_state_up": true, 
+                "allowed_address_pairs": [], 
+                "binding:host_id": "host-3.int.lineratesystems.com:f0565d8f-17ce-5ef0-943e-2b33378eab1a", 
+                "binding:profile": {}, 
+                "binding:vif_details": {}, 
+                "binding:vif_type": "binding_failed", 
+                "binding:vnic_type": "normal", 
+                "device_id": "06c69a8b-491c-5b36-be13-0583674bcb1a", 
+                "device_owner": "network:f5lbaasv2", 
+                "dns_assignment": [
+                    {
+                        "fqdn": "host-10-2-2-140.openstacklocal.", 
+                        "hostname": "host-10-2-2-140", 
+                        "ip_address": "10.2.2.140"
+                    }
+                ], 
+                "dns_name": "", 
+                "extra_dhcp_opts": [], 
+                "fixed_ips": [
+                    {
+                        "ip_address": "10.2.2.140", 
+                        "subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                    }
+                ], 
+                "id": "d2dc26c3-38bd-4e2a-a84f-b820c53cde6e", 
+                "mac_address": "fa:16:3e:16:93:f3", 
+                "name": "loadbalancer-11cd7206-5912-429b-bd22-41fc3a583ab5", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "security_groups": [
+                    "a5ad40a2-7b08-4f3b-b88c-67fb6ed8fa66"
+                ], 
+                "status": "ACTIVE", 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }, 
+            "vip_port_id": "d2dc26c3-38bd-4e2a-a84f-b820c53cde6e", 
+            "vip_subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+            "vxlan_vteps": [
+                "201.0.5.1", 
+                "201.0.38.10", 
+                "201.0.8.1", 
+                "201.0.4.1"
+            ]
+        }, 
+        "members": [], 
+        "networks": {
+            "b098aac8-9590-4e06-9092-6eaa286e156d": {
+                "admin_state_up": true, 
+                "id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "mt": 0, 
+                "name": "testlab-client-network", 
+                "provider:network_type": "vlan", 
+                "provider:physical_network": "default", 
+                "provider:segmentation_id": 46, 
+                "router:external": false, 
+                "shared": false, 
+                "status": "ACTIVE", 
+                "subnets": [
+                    "0f8c36e3-2e65-47cf-9dbb-22d15c6eecf0", 
+                    "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                ], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+                "vlan_transparent": null
+            }
+        }, 
+        "pools": [], 
+        "subnets": {
+            "ce69e293-56e7-43b8-b51c-01b91d66af20": {
+                "allocation_pools": [
+                    {
+                        "end": "10.2.2.150", 
+                        "start": "10.2.2.100"
+                    }
+                ], 
+                "cidr": "10.2.2.0/24", 
+                "dns_nameservers": [], 
+                "enable_dhcp": true, 
+                "gateway_ip": null, 
+                "host_routes": [], 
+                "id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+                "ip_version": 4, 
+                "ipv6_address_mode": null, 
+                "ipv6_ra_mode": null, 
+                "name": "testlab-client-v4-subnet", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "shared": false, 
+                "subnetpool_id": null, 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        }
+    },
+ "delete_listener":
+    {
+        "healthmonitors": [], 
+        "listeners": [
+            {
+                "admin_state_up": true, 
+                "connection_limit": -1, 
+                "default_pool_id": null, 
+                "default_tls_container_id": null, 
+                "description": "", 
+                "id": "105a227a-cdbf-4ce3-844c-9ebedec849e9", 
+                "loadbalancer_id": "11cd7206-5912-429b-bd22-41fc3a583ab5", 
+                "name": "SAMPLE_LISTENER", 
+                "operating_status": "OFFLINE", 
+                "protocol": "HTTP", 
+                "protocol_port": 80, 
+                "provisioning_status": "PENDING_DELETE", 
+                "sni_containers": [], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        ], 
+        "loadbalancer": {
+            "admin_state_up": true, 
+            "description": "", 
+            "gre_vteps": [], 
+            "id": "50c5d54a-5a9e-4a80-9e74-8400a461a077",
+            "listeners": [
+                {
+                    "id": "105a227a-cdbf-4ce3-844c-9ebedec849e9"
+                }
+            ], 
+            "name": "TEST_LB", 
+            "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+            "operating_status": "ONLINE", 
+            "provider": "f5networks", 
+            "provisioning_status": "PENDING_UPDATE", 
+            "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+            "vip_address": "10.2.2.140", 
+            "vip_port": {
+                "admin_state_up": true, 
+                "allowed_address_pairs": [], 
+                "binding:host_id": "host-3.int.lineratesystems.com:f0565d8f-17ce-5ef0-943e-2b33378eab1a", 
+                "binding:profile": {}, 
+                "binding:vif_details": {}, 
+                "binding:vif_type": "binding_failed", 
+                "binding:vnic_type": "normal", 
+                "device_id": "06c69a8b-491c-5b36-be13-0583674bcb1a", 
+                "device_owner": "network:f5lbaasv2", 
+                "dns_assignment": [
+                    {
+                        "fqdn": "host-10-2-2-140.openstacklocal.", 
+                        "hostname": "host-10-2-2-140", 
+                        "ip_address": "10.2.2.140"
+                    }
+                ], 
+                "dns_name": "", 
+                "extra_dhcp_opts": [], 
+                "fixed_ips": [
+                    {
+                        "ip_address": "10.2.2.140", 
+                        "subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                    }
+                ], 
+                "id": "d2dc26c3-38bd-4e2a-a84f-b820c53cde6e", 
+                "mac_address": "fa:16:3e:16:93:f3", 
+                "name": "loadbalancer-11cd7206-5912-429b-bd22-41fc3a583ab5", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "security_groups": [
+                    "a5ad40a2-7b08-4f3b-b88c-67fb6ed8fa66"
+                ], 
+                "status": "ACTIVE", 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }, 
+            "vip_port_id": "d2dc26c3-38bd-4e2a-a84f-b820c53cde6e", 
+            "vip_subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+            "vxlan_vteps": [
+                "201.0.5.1", 
+                "201.0.38.10", 
+                "201.0.8.1", 
+                "201.0.4.1"
+            ]
+        }, 
+        "members": [], 
+        "networks": {
+            "b098aac8-9590-4e06-9092-6eaa286e156d": {
+                "admin_state_up": true, 
+                "id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "mt": 0, 
+                "name": "testlab-client-network", 
+                "provider:network_type": "vlan", 
+                "provider:physical_network": "default", 
+                "provider:segmentation_id": 46, 
+                "router:external": false, 
+                "shared": false, 
+                "status": "ACTIVE", 
+                "subnets": [
+                    "0f8c36e3-2e65-47cf-9dbb-22d15c6eecf0", 
+                    "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                ], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+                "vlan_transparent": null
+            }
+        }, 
+        "pools": [], 
+        "subnets": {
+            "ce69e293-56e7-43b8-b51c-01b91d66af20": {
+                "allocation_pools": [
+                    {
+                        "end": "10.2.2.150", 
+                        "start": "10.2.2.100"
+                    }
+                ], 
+                "cidr": "10.2.2.0/24", 
+                "dns_nameservers": [], 
+                "enable_dhcp": true, 
+                "gateway_ip": null, 
+                "host_routes": [], 
+                "id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+                "ip_version": 4, 
+                "ipv6_address_mode": null, 
+                "ipv6_ra_mode": null, 
+                "name": "testlab-client-v4-subnet", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "shared": false, 
+                "subnetpool_id": null, 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        }
+    },
+  "create_listener_flat":
+    {
+        "healthmonitors": [], 
+        "listeners": [
+            {
+                "admin_state_up": true, 
+                "connection_limit": -1, 
+                "default_pool_id": null, 
+                "default_tls_container_id": null, 
+                "description": "", 
+                "id": "105a227a-cdbf-4ce3-844c-9ebedec849e9", 
+                "loadbalancer_id": "11cd7206-5912-429b-bd22-41fc3a583ab5", 
+                "name": "SAMPLE_LISTENER", 
+                "operating_status": "OFFLINE", 
+                "protocol": "HTTP", 
+                "protocol_port": 80, 
+                "provisioning_status": "PENDING_CREATE", 
+                "sni_containers": [], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        ], 
+        "loadbalancer": {
+            "admin_state_up": true, 
+            "description": "", 
+            "gre_vteps": [], 
+            "id": "50c5d54a-5a9e-4a80-9e74-8400a461a077",
+            "listeners": [
+                {
+                    "id": "105a227a-cdbf-4ce3-844c-9ebedec849e9"
+                }
+            ], 
+            "name": "TEST_LB", 
+            "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+            "operating_status": "ONLINE", 
+            "provider": "f5networks", 
+            "provisioning_status": "PENDING_UPDATE", 
+            "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+            "vip_address": "10.2.2.140", 
+            "vip_port": {
+                "admin_state_up": true, 
+                "allowed_address_pairs": [], 
+                "binding:host_id": "host-3.int.lineratesystems.com:f0565d8f-17ce-5ef0-943e-2b33378eab1a", 
+                "binding:profile": {}, 
+                "binding:vif_details": {}, 
+                "binding:vif_type": "binding_failed", 
+                "binding:vnic_type": "normal", 
+                "device_id": "06c69a8b-491c-5b36-be13-0583674bcb1a", 
+                "device_owner": "network:f5lbaasv2", 
+                "dns_assignment": [
+                    {
+                        "fqdn": "host-10-2-2-140.openstacklocal.", 
+                        "hostname": "host-10-2-2-140", 
+                        "ip_address": "10.2.2.140"
+                    }
+                ], 
+                "dns_name": "", 
+                "extra_dhcp_opts": [], 
+                "fixed_ips": [
+                    {
+                        "ip_address": "10.2.2.140", 
+                        "subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                    }
+                ], 
+                "id": "d2dc26c3-38bd-4e2a-a84f-b820c53cde6e", 
+                "mac_address": "fa:16:3e:16:93:f3", 
+                "name": "loadbalancer-11cd7206-5912-429b-bd22-41fc3a583ab5", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "security_groups": [
+                    "a5ad40a2-7b08-4f3b-b88c-67fb6ed8fa66"
+                ], 
+                "status": "ACTIVE", 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }, 
+            "vip_port_id": "d2dc26c3-38bd-4e2a-a84f-b820c53cde6e", 
+            "vip_subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+            "vxlan_vteps": [
+                "201.0.5.1", 
+                "201.0.38.10", 
+                "201.0.8.1", 
+                "201.0.4.1"
+            ]
+        }, 
+        "members": [], 
+        "networks": {
+            "b098aac8-9590-4e06-9092-6eaa286e156d": {
+                "admin_state_up": true, 
+                "id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "mt": 0, 
+                "name": "testlab-client-network", 
+                "provider:network_type": "vlan", 
+                "provider:physical_network": "default", 
+                "provider:segmentation_id": 46, 
+                "router:external": false, 
+                "shared": false, 
+                "status": "ACTIVE", 
+                "subnets": [
+                    "0f8c36e3-2e65-47cf-9dbb-22d15c6eecf0", 
+                    "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                ], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+                "vlan_transparent": null
+            }
+        }, 
+        "pools": [], 
+        "subnets": {
+            "ce69e293-56e7-43b8-b51c-01b91d66af20": {
+                "allocation_pools": [
+                    {
+                        "end": "10.2.2.150", 
+                        "start": "10.2.2.100"
+                    }
+                ], 
+                "cidr": "10.2.2.0/24", 
+                "dns_nameservers": [], 
+                "enable_dhcp": true, 
+                "gateway_ip": null, 
+                "host_routes": [], 
+                "id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+                "ip_version": 4, 
+                "ipv6_address_mode": null, 
+                "ipv6_ra_mode": null, 
+                "name": "testlab-client-v4-subnet", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "shared": false, 
+                "subnetpool_id": null, 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        }
+    },
+ "delete_listener_flat":
+    {
+        "healthmonitors": [], 
+        "listeners": [
+            {
+                "admin_state_up": true, 
+                "connection_limit": -1, 
+                "default_pool_id": null, 
+                "default_tls_container_id": null, 
+                "description": "", 
+                "id": "105a227a-cdbf-4ce3-844c-9ebedec849e9", 
+                "loadbalancer_id": "11cd7206-5912-429b-bd22-41fc3a583ab5", 
+                "name": "SAMPLE_LISTENER", 
+                "operating_status": "OFFLINE", 
+                "protocol": "HTTP", 
+                "protocol_port": 80, 
+                "provisioning_status": "PENDING_DELETE", 
+                "sni_containers": [], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        ], 
+        "loadbalancer": {
+            "admin_state_up": true, 
+            "description": "", 
+            "gre_vteps": [], 
+            "id": "50c5d54a-5a9e-4a80-9e74-8400a461a077",
+            "listeners": [
+                {
+                    "id": "105a227a-cdbf-4ce3-844c-9ebedec849e9"
+                }
+            ], 
+            "name": "TEST_LB", 
+            "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+            "operating_status": "ONLINE", 
+            "provider": "f5networks", 
+            "provisioning_status": "PENDING_UPDATE", 
+            "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+            "vip_address": "10.2.2.140", 
+            "vip_port": {
+                "admin_state_up": true, 
+                "allowed_address_pairs": [], 
+                "binding:host_id": "host-3.int.lineratesystems.com:f0565d8f-17ce-5ef0-943e-2b33378eab1a", 
+                "binding:profile": {}, 
+                "binding:vif_details": {}, 
+                "binding:vif_type": "binding_failed", 
+                "binding:vnic_type": "normal", 
+                "device_id": "06c69a8b-491c-5b36-be13-0583674bcb1a", 
+                "device_owner": "network:f5lbaasv2", 
+                "dns_assignment": [
+                    {
+                        "fqdn": "host-10-2-2-140.openstacklocal.", 
+                        "hostname": "host-10-2-2-140", 
+                        "ip_address": "10.2.2.140"
+                    }
+                ], 
+                "dns_name": "", 
+                "extra_dhcp_opts": [], 
+                "fixed_ips": [
+                    {
+                        "ip_address": "10.2.2.140", 
+                        "subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                    }
+                ], 
+                "id": "d2dc26c3-38bd-4e2a-a84f-b820c53cde6e", 
+                "mac_address": "fa:16:3e:16:93:f3", 
+                "name": "loadbalancer-11cd7206-5912-429b-bd22-41fc3a583ab5", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "security_groups": [
+                    "a5ad40a2-7b08-4f3b-b88c-67fb6ed8fa66"
+                ], 
+                "status": "ACTIVE", 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }, 
+            "vip_port_id": "d2dc26c3-38bd-4e2a-a84f-b820c53cde6e", 
+            "vip_subnet_id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+            "vxlan_vteps": [
+                "201.0.5.1", 
+                "201.0.38.10", 
+                "201.0.8.1", 
+                "201.0.4.1"
+            ]
+        }, 
+        "members": [], 
+        "networks": {
+            "b098aac8-9590-4e06-9092-6eaa286e156d": {
+                "admin_state_up": true, 
+                "id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "mt": 0, 
+                "name": "testlab-client-network", 
+                "provider:network_type": "flat", 
+                "provider:physical_network": "default", 
+                "provider:segmentation_id": 46, 
+                "router:external": false, 
+                "shared": false, 
+                "status": "ACTIVE", 
+                "subnets": [
+                    "0f8c36e3-2e65-47cf-9dbb-22d15c6eecf0", 
+                    "ce69e293-56e7-43b8-b51c-01b91d66af20"
+                ], 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d", 
+                "vlan_transparent": null
+            }
+        }, 
+        "pools": [], 
+        "subnets": {
+            "ce69e293-56e7-43b8-b51c-01b91d66af20": {
+                "allocation_pools": [
+                    {
+                        "end": "10.2.2.150", 
+                        "start": "10.2.2.100"
+                    }
+                ], 
+                "cidr": "10.2.2.0/24", 
+                "dns_nameservers": [], 
+                "enable_dhcp": true, 
+                "gateway_ip": null, 
+                "host_routes": [], 
+                "id": "ce69e293-56e7-43b8-b51c-01b91d66af20", 
+                "ip_version": 4, 
+                "ipv6_address_mode": null, 
+                "ipv6_ra_mode": null, 
+                "name": "testlab-client-v4-subnet", 
+                "network_id": "b098aac8-9590-4e06-9092-6eaa286e156d", 
+                "shared": false, 
+                "subnetpool_id": null, 
+                "tenant_id": "128a63ef33bc4cf891d684fad58e7f2d"
+            }
+        }
+    }
+
+
+}

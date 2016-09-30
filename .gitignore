@@ -107,3 +107,4 @@ venv/*
 target/
 
 test/logs/
+test/functional/neutronless/vcmp/logs
