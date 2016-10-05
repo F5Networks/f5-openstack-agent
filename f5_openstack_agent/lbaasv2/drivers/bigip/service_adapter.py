@@ -99,13 +99,11 @@ class ServiceModelAdapter(object):
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}
 
     def get_traffic_group(self, service):
-        tg = None
+        tg = "traffic-group-local-only"
         loadbalancer = service["loadbalancer"]
 
         if "traffic_group" in loadbalancer:
-            listener = service["listener"]
-            tg = self._init_virtual_name(loadbalancer, listener)
-            tg["traffic_group"] = loadbalancer["traffic_group"]
+            tg = loadbalancer["traffic_group"]
 
         return tg
 
