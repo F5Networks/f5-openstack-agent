@@ -371,7 +371,8 @@ class iControlDriver(LBaaSBaseDriver):
         self.connect_bigips()
 
         # After we have a connection to the BIG-IPs, initialize vCMP
-        self.network_builder.initialize_vcmp()
+        if self.network_builder:
+            self.network_builder.initialize_vcmp()
 
         self.agent_configurations['network_segment_physical_network'] = \
             self.disconnected_service_polling.get_physical_network()
