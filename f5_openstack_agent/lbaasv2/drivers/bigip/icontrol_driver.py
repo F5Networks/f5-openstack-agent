@@ -19,7 +19,6 @@ import datetime
 import hashlib
 import logging as std_logging
 import urllib2
-import uuid
 
 from eventlet import greenthread
 from time import time
@@ -297,6 +296,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.conf = conf
         if registerOpts:
             self.conf.register_opts(OPTS)
+        self.initialized = False
         self.hostnames = None
         self.device_type = conf.f5_device_type
         self.plugin_rpc = None  # overrides base, same value
@@ -352,6 +352,7 @@ class iControlDriver(LBaaSBaseDriver):
                  % (len(self.__bigips), self.conf.icontrol_username))
         LOG.info('iControlDriver dynamic agent configurations:%s'
                  % self.agent_configurations)
+        self.initialized = True
 
     def connect_bigips(self):
         self._init_bigips()
@@ -451,21 +452,6 @@ class iControlDriver(LBaaSBaseDriver):
         self.hostnames = self.conf.icontrol_hostname.split(',')
         self.hostnames = [item.strip() for item in self.hostnames]
         self.hostnames = sorted(self.hostnames)
-
-        # Setting an agent_id is the flag to the agent manager
-        # that your plugin has initialized correctly. If you
-        # don't set one, the agent manager will not register
-        # with Neutron as a valid agent.
-        if self.conf.environment_prefix:
-            self.agent_id = str(
-                uuid.uuid5(uuid.NAMESPACE_DNS,
-                           self.conf.environment_prefix +
-                           '.' + self.hostnames[0])
-                )
-        else:
-            self.agent_id = str(
-                uuid.uuid5(uuid.NAMESPACE_DNS, self.hostnames[0])
-            )
 
     def _init_bigips(self):
         # Connect to all BIG-IP®s

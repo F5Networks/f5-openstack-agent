@@ -16,6 +16,7 @@
 #
 
 import datetime
+import uuid
 
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -71,6 +72,11 @@ OPTS = [
         'f5_snat_addresses_per_subnet',
         default=1,
         help=('Interface and VLAN for the VTEP overlay network')
+    ),
+    cfg.StrOpt(
+        'agent_id',
+        default=None,
+        help=('static agent ID to use with Neutron')
     ),
     cfg.StrOpt(
         'static_agent_configuration_data',
@@ -227,8 +233,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.service_resync_interval)
 
+        # Set the agent ID
+        if self.conf.agent_id:
+            self.agent_host = self.conf.agent_id
+            LOG.debug('setting agent host to %s' % self.agent_host)
+        else:
+            self.agent_host = conf.host
+
         # Load the iControl® driver.
-        self.agent_host = conf.host
         self._load_driver(conf)
 
         # Initialize agent configurations
@@ -279,12 +291,17 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 conf.f5_bigip_lbaas_device_driver,
                 self.conf)
 
-            if self.lbdriver.agent_id:
-                self.agent_host = conf.host + ":" + self.lbdriver.agent_id
-                self.lbdriver.agent_host = self.agent_host
-                LOG.debug('setting agent host to %s' % self.agent_host)
+            if self.lbdriver.initialized:
+                if not self.conf.agent_id:
+                    # If not set statically, add the driver agent env hash
+                    agent_hash = str(
+                        uuid.uuid5(uuid.NAMESPACE_DNS,
+                                   self.conf.environment_prefix +
+                                   '.' + self.lbdriver.hostnames[0])
+                    )
+                    self.agent_host = conf.host + ":" + agent_hash
+                    LOG.debug('setting agent host to %s' % self.agent_host)
             else:
-                self.agent_host = None
                 LOG.error('Driver did not initialize. Fix the driver config '
                           'and restart the agent.')
                 return
