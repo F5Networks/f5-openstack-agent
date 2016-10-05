@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import urllib
+
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
@@ -90,6 +92,8 @@ class ListenerServiceBuilder(object):
             ip_address = service['loadbalancer']['vip_address']
             if str(ip_address).endswith('%0'):
                 ip_address = ip_address[:-2]
+            else:
+                ip_address = urllib.quote(ip_address)
 
             for bigip in bigips:
                 virtual_address = \
