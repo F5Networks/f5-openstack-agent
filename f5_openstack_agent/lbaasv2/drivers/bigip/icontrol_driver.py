@@ -404,6 +404,7 @@ class iControlDriver(LBaaSBaseDriver):
                  % (len(self.__bigips), self.conf.icontrol_username))
         LOG.info('iControlDriver dynamic agent configurations:%s'
                  % self.agent_configurations)
+        self.initialized = True
 
         # read enhanced services definitions
         esd_dir = os.path.join(self.get_config_dir(), 'esd')
