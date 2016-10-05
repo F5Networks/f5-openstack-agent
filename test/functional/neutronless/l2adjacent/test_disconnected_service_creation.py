@@ -17,6 +17,7 @@
 from conftest import remove_elements
 from conftest import setup_neutronless_test
 from copy import deepcopy
+from f5.bigip import ManagementRoot
 from f5.utils.testutils.registrytools import register_device
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
@@ -24,6 +25,7 @@ import json
 import logging
 import mock
 from mock import call
+from pprint import pprint as pp
 import pytest
 import requests
 import time
@@ -32,15 +34,16 @@ requests.packages.urllib3.disable_warnings()
 
 LOG = logging.getLogger(__name__)
 
-OSLO_CONFIGS = json.load(open('vcmp_oslo_confs.json'))
-VCMP_CONFIG = OSLO_CONFIGS["vcmp_single_host"]
-
 # Toggle feature on/off configurations
 OSLO_CONFIGS = json.load(open('oslo_confs.json'))
 FEATURE_ON = OSLO_CONFIGS["feature_on"]
 FEATURE_OFF = OSLO_CONFIGS["feature_off"]
+FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
+FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
 
 
+dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip.replace('.', '-')
+icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
 # Library of services as received from the neutron server
 NEUTRON_SERVICES = json.load(open('neutron_services.json'))
 SEGID_CREATELB = NEUTRON_SERVICES["create_connected_loadbalancer"]
@@ -87,7 +90,7 @@ SEG_DEPENDENT_LB_URIS =\
 
          u'https://localhost/mgmt/tm/net/self/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20?ver=11.6.0',
+         '~local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20?ver=11.6.0',
 
          u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
@@ -148,6 +151,12 @@ def logcall(lh, call, *cargs, **ckwargs):
 
 
 @pytest.fixture
+def bigip():
+    print(pytest.symbols)
+    print(pytest.symbols.bigip_mgmt_ip)
+    return ManagementRoot(pytest.symbols.bigip_mgmt_ip, 'admin', 'admin')
+
+@pytest.fixture
 def setup_l2adjacent_test(request, bigip, makelogdir):
     loghandler = setup_neutronless_test(request, bigip, makelogdir)
     LOG.info('Test setup: %s' % request.node.name)
@@ -166,10 +175,13 @@ def setup_l2adjacent_test(request, bigip, makelogdir):
 
 def handle_init_registry(bigip, icd_configuration,
                          create_mock_rpc=create_default_mock_rpc_plugin):
+    print(type(bigip))
+    from pprint import pprint as pp
     init_registry = register_device(bigip)
+    pp(bigip.raw)
     icontroldriver = configure_icd(icd_configuration, create_mock_rpc)
     start_registry = register_device(bigip)
-    assert set(start_registry.keys()) - set(init_registry.keys()) ==\
+    assert set(start_registry.keys()) - set(init_registry.keys()) == \
         AGENT_INIT_URIS
     return icontroldriver, start_registry
 
@@ -190,7 +202,7 @@ def test_featureoff_withsegid_lb(setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     print(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
-        call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
+        call(port_name=u'local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20'),
         call(port_name=u'snat-traffic-group-local-only-'
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
@@ -215,7 +227,7 @@ def test_withsegid_lb(setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     print(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
-        call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
+        call(port_name=u'local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20'),
         call(port_name=u'snat-traffic-group-local-only-'
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
@@ -242,7 +254,7 @@ def test_featureoff_withsegid_listener(setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     print(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
-        call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
+        call(port_name=u'local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20'),
         call(port_name=u'snat-traffic-group-local-only-'
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
@@ -310,7 +322,7 @@ def test_withsegid_listener(setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     print(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
-        call(port_name=u'local-bigip1-ce69e293-56e7-43b8-b51c-01b91d66af20'),
+        call(port_name=u'local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20'),
         call(port_name=u'snat-traffic-group-local-only-'
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]

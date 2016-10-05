@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from f5.bigip import BigIP
+from f5.bigip import ManagementRoot
 import pytest
 
 
@@ -44,7 +44,8 @@ def opt_password(request):
 #@pytest.fixture
 #def bigip(opt_bigip, opt_username, opt_password, scope="module"):
 #    '''bigip fixture'''
-#    b = BigIP(opt_bigip, opt_username, opt_password)
+#    b = ManagementRoot(pytest.symbols.bigip_mgmt_ip,
+#                       'admin', 'admin')
 #    return b
 
 
