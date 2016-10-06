@@ -25,7 +25,6 @@ import json
 import logging
 import mock
 from mock import call
-from pprint import pprint as pp
 import pytest
 import requests
 import time
@@ -152,8 +151,8 @@ def logcall(lh, call, *cargs, **ckwargs):
 
 @pytest.fixture
 def bigip():
-    print(pytest.symbols)
-    print(pytest.symbols.bigip_mgmt_ip)
+    LOG.debug(pytest.symbols)
+    LOG.debug(pytest.symbols.bigip_mgmt_ip)
     return ManagementRoot(pytest.symbols.bigip_mgmt_ip, 'admin', 'admin')
 
 @pytest.fixture
@@ -175,11 +174,10 @@ def setup_l2adjacent_test(request, bigip, makelogdir):
 
 def handle_init_registry(bigip, icd_configuration,
                          create_mock_rpc=create_default_mock_rpc_plugin):
-    print(type(bigip))
-    from pprint import pprint as pp
+    LOG.debug(type(bigip))
     init_registry = register_device(bigip)
-    pp(bigip.raw)
     icontroldriver = configure_icd(icd_configuration, create_mock_rpc)
+    LOG.debug(bigip.raw)
     start_registry = register_device(bigip)
     assert set(start_registry.keys()) - set(init_registry.keys()) == \
         AGENT_INIT_URIS
@@ -200,7 +198,7 @@ def test_featureoff_withsegid_lb(setup_l2adjacent_test, bigip):
     assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
         call(port_name=u'local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20'),
         call(port_name=u'snat-traffic-group-local-only-'
@@ -225,7 +223,7 @@ def test_withsegid_lb(setup_l2adjacent_test, bigip):
     assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
         call(port_name=u'local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20'),
         call(port_name=u'snat-traffic-group-local-only-'
@@ -252,7 +250,7 @@ def test_featureoff_withsegid_listener(setup_l2adjacent_test, bigip):
     assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
         call(port_name=u'local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20'),
         call(port_name=u'snat-traffic-group-local-only-'
@@ -279,7 +277,7 @@ def test_featureoff_nosegid_lb(setup_l2adjacent_test, bigip):
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_MISCONFIG in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     assert rpc.update_loadbalancer_status.call_args_list == [
         call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
     ]
@@ -298,7 +296,7 @@ def test_featureoff_nosegid_listener(setup_l2adjacent_test, bigip):
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_MISCONFIG in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     assert rpc.update_loadbalancer_status.call_args_list == [
         call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
     ]
@@ -320,7 +318,7 @@ def test_withsegid_listener(setup_l2adjacent_test, bigip):
     assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
         call(port_name=u'local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20'),
         call(port_name=u'snat-traffic-group-local-only-'
@@ -347,7 +345,7 @@ def test_nosegid_lb(setup_l2adjacent_test, bigip):
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     assert rpc.update_loadbalancer_status.call_args_list == [
         call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
     ]
@@ -367,7 +365,7 @@ def test_nosegid_listener(setup_l2adjacent_test, bigip):
                    set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     assert rpc.update_listener_status.call_args_list == [
         call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'OFFLINE')
     ]
@@ -413,7 +411,7 @@ def test_nosegid_listener_timeout(setup_l2adjacent_test, bigip):
     assert ERROR_MSG_TIMEOUT in open(logfilename).read()
 
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     # check for the expected number of calls to each rpc
     all_list = []
     for rpc_call in rpc.get_all_loadbalancers.call_args_list:
@@ -476,7 +474,7 @@ def test_nosegid_to_segid(setup_l2adjacent_test, bigip):
     create_uris = set(create_registry.keys()) - set(start_registry.keys())
 
     rpc = icontroldriver.plugin_rpc
-    print(rpc.method_calls)
+    LOG.debug(rpc.method_calls)
     # check for the expected number of calls to each rpc
     all_list = []
     for rpc_call in rpc.get_all_loadbalancers.call_args_list:
