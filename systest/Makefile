@@ -15,6 +15,7 @@ results_dir := test_results/proxy/proxy-$(version)-$(timestamp)
 
 func_session := os-agent-neutronless_$(version)
 
+current_branch := $(shell git rev-parse --abbrev-ref HEAD)
 
 functest:
 	@echo "automated functional tests..."
@@ -36,7 +37,7 @@ functest-install:
 	@echo "installing system tests ..."
 	scp -rp -F $(ssh_conf) testenv_symbols/ bastion:~/
 	scp -F $(ssh_conf) ./scripts/install_systests.sh bastion:~/
-	ssh -AF $(ssh_conf) bastion "~/install_systests.sh $(repo)"
+	ssh -AF $(ssh_conf) bastion "~/install_systests.sh $(repo) $(current_branch)"
 
 unittest-run:
 	scp -F $(ssh_conf) ./scripts/run_unittests.sh bastion:~/
