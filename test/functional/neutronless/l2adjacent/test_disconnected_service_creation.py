@@ -41,6 +41,9 @@ FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
 FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
 
 
+tmos_version = ManagementRoot(
+                   pytest.symbols.bigip_mgmt_ip, 'admin', 'admin'
+               ).tmos_version
 dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip.replace('.', '-')
 icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
 # Library of services as received from the neutron server
@@ -53,18 +56,18 @@ NOSEGID_CREATELISTENER = NEUTRON_SERVICES["create_disconnected_listener"]
 # BigIP device states observed via f5sdk.
 AGENT_INIT_URIS = \
     set([u'https://localhost/mgmt/tm/net/tunnels/vxlan/'
-         '~Common~vxlan_ovs?ver=11.6.0',
+         '~Common~vxlan_ovs?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/net/tunnels/gre/'
-         '~Common~gre_ovs?ver=11.6.0'])
+         '~Common~gre_ovs?ver='+tmos_version])
 
 SEG_INDEPENDENT_LB_URIS =\
     set([u'https://localhost/mgmt/tm/sys/folder/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver=11.6.0',
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/net/route-domain/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver=11.6.0',
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/net/fdb/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
@@ -72,46 +75,46 @@ SEG_INDEPENDENT_LB_URIS =\
 
          u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~disconnected_network?ver=11.6.0'])
+         '~disconnected_network?ver='+tmos_version])
 
 SEG_DEPENDENT_LB_URIS =\
     set([u'https://localhost/mgmt/tm/ltm/snat-translation/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~snat-traffic-group-local-only'
-         '-ce69e293-56e7-43b8-b51c-01b91d66af20_0?ver=11.6.0',
+         '-ce69e293-56e7-43b8-b51c-01b91d66af20_0?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/ltm/snatpool/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver=11.6.0',
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/net/fdb/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d~tunnel-vxlan-46?ver=11.5.0',
 
          u'https://localhost/mgmt/tm/net/self/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20?ver=11.6.0',
+         '~local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~tunnel-vxlan-46?ver=11.6.0'])
+         '~tunnel-vxlan-46?ver='+tmos_version])
 
 SEG_LISTENER_URIS = \
     set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~10.2.2.140%251?ver=11.6.0',
+         '~10.2.2.140%251?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/ltm/virtual/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~SAMPLE_LISTENER?ver=11.6.0'])
+         '~SAMPLE_LISTENER?ver='+tmos_version])
 
 NOSEG_LISTENER_URIS =\
     set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~10.2.2.140?ver=11.6.0',
+         '~10.2.2.140?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/ltm/virtual/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~SAMPLE_LISTENER?ver=11.6.0'])
+         '~SAMPLE_LISTENER?ver='+tmos_version])
 
 ERROR_MSG_MISCONFIG = 'Misconfiguration: Segmentation ID is missing'
 ERROR_MSG_VXLAN_TUN = 'Failed to create vxlan tunnel:'
@@ -157,7 +160,7 @@ def bigip():
 
 @pytest.fixture
 def setup_l2adjacent_test(request, bigip, makelogdir):
-    loghandler = setup_neutronless_test(request, bigip, makelogdir)
+    loghandler = setup_neutronless_test(request, bigip, makelogdir, vlan=True)
     LOG.info('Test setup: %s' % request.node.name)
 
     try:
@@ -165,7 +168,8 @@ def setup_l2adjacent_test(request, bigip, makelogdir):
                         SEG_INDEPENDENT_LB_URIS |
                         SEG_DEPENDENT_LB_URIS |
                         SEG_LISTENER_URIS |
-                        AGENT_INIT_URIS)
+                        AGENT_INIT_URIS,
+                        vlan=True)
     finally:
         LOG.info('removing pre-existing config')
 
@@ -483,7 +487,7 @@ def test_nosegid_to_segid(setup_l2adjacent_test, bigip):
     one_list = []
     for rpc_call in rpc.get_service_by_loadbalancer_id.call_args_list:
         one_list.append(str(rpc_call))
-    assert len(one_list) > gtimeout
+    assert len(one_list) >= gtimeout
     # check for the expected number of unique calls to each rpc
     assert len(set(all_list)) == 1
     assert len(set(one_list)) == 1

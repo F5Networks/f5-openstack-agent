@@ -1,7 +1,7 @@
 .PHONY: all systest functest \
 	functest-setup functest-install functest-run functest-teardown \
 
-repo := https://github.com/zancas/f5-openstack-agent.git
+repo := https://github.com/F5Networks/f5-openstack-agent.git
 registry := docker-registry.pdbld.f5net.com
 namespace := openstack
 ssh_conf := testenv_symbols/testenv_ssh_config
