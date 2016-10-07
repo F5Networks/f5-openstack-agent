@@ -79,6 +79,8 @@ class NetworkServiceBuilder(object):
 
         for bigip in self.driver.get_all_bigips():
 
+            bigip.local_ip = None
+
             if not vtep_folder or vtep_folder.lower() == 'none':
                 vtep_folder = 'Common'
 
