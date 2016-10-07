@@ -103,25 +103,17 @@ class LBaaSBuilder(object):
                    "networks": networks}
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
                 if 'old_listener' in service:
-                    # Check if the update includes a name change.
-                    # If it is a name change, delete existing VS and proceed
-                    # with creating VS using new name.
+                    # Delete existing VS and proceed with creating a new VS
+                    # to ensure that name changes, SSL profile changes,
+                    # etc. are handled correctly.
                     old_svc = {"loadbalancer": loadbalancer,
                                "listener": service["old_listener"]}
-                    old_vip = self.service_adapter.get_virtual_name(old_svc)
-                    new_vip = self.service_adapter.get_virtual_name(svc)
-                    if old_vip['name'] != new_vip['name']:
-                        # rename by deleting and creating vs
-                        LOG.debug("Rename vs from %s to %s",
-                                  (old_vip['name'], new_vip['name']))
-                        try:
-                            self.listener_builder.delete_listener(
-                                old_svc, bigips)
-                        except Exception as err:
-                            listener['provisioning_status'] = \
-                                plugin_const.ERROR
-                            raise f5_ex.VirtualServerDeleteException(
-                                err.message)
+                    try:
+                        self.listener_builder.delete_listener(old_svc, bigips)
+                    except Exception as err:
+                        listener['provisioning_status'] = plugin_const.ERROR
+                        raise f5_ex.VirtualServerDeleteException(err.message)
+
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
                     # create_listener() will do an update if VS exists
