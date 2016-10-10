@@ -18,7 +18,7 @@ fi
 source systest/bin/activate
 
 # - run the system tests
-cd ~/f5-openstack-agent/test/functional/neutronless/l2adjacent
+cd ~/f5-openstack-agent/test/functional/neutronless/
 
 py.test \
     -vx \
