@@ -52,8 +52,10 @@ dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip.replace('.', '-')
 icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
 if tmos_version == '12.1.0':
     icontrol_fqdn = 'bigip1'
+neutron_services_filename =\
+    os.path.join(osd(os.path.abspath(__file__)), 'neutron_services.json')
 # Library of services as received from the neutron server
-NEUTRON_SERVICES = json.load(open('neutron_services.json'))
+NEUTRON_SERVICES = json.load(open(neutron_services_filename))
 SEGID_CREATELB = NEUTRON_SERVICES["create_connected_loadbalancer"]
 NOSEGID_CREATELB = NEUTRON_SERVICES["create_disconnected_loadbalancer"]
 SEGID_CREATELISTENER = NEUTRON_SERVICES["create_connected_listener"]
