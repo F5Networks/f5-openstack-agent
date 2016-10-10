@@ -25,6 +25,8 @@ import json
 import logging
 import mock
 from mock import call
+import os
+from os.path import dirname as osd
 import pytest
 import requests
 import time
@@ -33,8 +35,10 @@ requests.packages.urllib3.disable_warnings()
 
 LOG = logging.getLogger(__name__)
 
+oslo_config_filename =\
+    os.path.join(osd(os.path.abspath(__file__)), 'oslo_confs.json')
 # Toggle feature on/off configurations
-OSLO_CONFIGS = json.load(open('oslo_confs.json'))
+OSLO_CONFIGS = json.load(open(oslo_config_filename))
 FEATURE_ON = OSLO_CONFIGS["feature_on"]
 FEATURE_OFF = OSLO_CONFIGS["feature_off"]
 FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
