@@ -18,7 +18,7 @@ fi
 source systest/bin/activate
 
 # - run the system tests
-cd ~/f5-openstack-agent/test/functional/neutronless/
+cd ~/f5-openstack-agent/test/functional/neutronless/disconnected_service
 
 py.test \
     -vx \
