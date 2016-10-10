@@ -19,14 +19,7 @@ func_session := os-agent-neutronless_$(version)
 current_branch := $(shell git rev-parse --abbrev-ref HEAD)
 
 functest:
-	@echo "running unittests tests ..."
-	$(MAKE) -C . unittest-run
-	@echo "unittests done..."
 	$(MAKE) -j -C . functest_all
-
-unittest-run:
-	scp -F $(ssh_conf) ./scripts/run_unittests.sh bastion:~/
-	ssh -tF $(ssh_conf) bastion "~/run_unittests.sh $(func_session)"
 
 functest_all: disconnected_service 
 
@@ -34,8 +27,15 @@ disconnected_service:
 	@echo "automated functional tests..."
 	$(MAKE) -C . disconnected_service-setup
 	$(MAKE) -C . disconnected_service-install
+	@echo "running unittests tests ..."
+	$(MAKE) -C . unittest-run
+	@echo "unittests done..."
 	$(MAKE) -C . disconnected_service-run
 	$(MAKE) -C . disconnected_service-teardown
+
+unittest-run:
+	scp -F $(ssh_conf) ./scripts/run_unittests.sh bastion:~/
+	ssh -tF $(ssh_conf) bastion "~/run_unittests.sh $(func_session)"
 
 disconnected_service-setup:
 	@echo "setting up functional test environment ..."
