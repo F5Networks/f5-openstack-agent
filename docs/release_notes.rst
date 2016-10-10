@@ -11,6 +11,8 @@ Release Highlights
 
 This release introduces the following:
 
+- Differentiated environments
+- `BIG-IP® vCMP® <https://f5.com/resources/white-papers/virtual-clustered-multiprocessing-vcmp>`_
 - Hierarchical port binding
 - Bug fixes
 
@@ -21,9 +23,6 @@ Caveats
 
 The following features are unsupported in v |release|:
 
-* `BIG-IP® vCMP® <https://f5.com/resources/white-papers/virtual-clustered-multiprocessing-vcmp>`_
-* Agent High Availability (HA)
-* Differentiated environments
 * Unattached pools
 * L7 routing
 * Loadbalancer statistics
