@@ -21,7 +21,7 @@ source systest/bin/activate
 cd ~/f5-openstack-agent/test/functional/neutronless/disconnected_service
 
 py.test \
-    -vx \
+    -vsx \
     --symbols ~/testenv_symbols/testenv_symbols.json \
     --exclude incomplete no_regression \
     --autolog-outputdir $results_dir \
