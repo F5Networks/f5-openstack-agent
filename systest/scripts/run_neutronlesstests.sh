@@ -18,10 +18,10 @@ fi
 source systest/bin/activate
 
 # - run the system tests
-cd ~/f5-openstack-agent/test/functional/neutronless/l2adjacent
+cd ~/f5-openstack-agent/test/functional/neutronless/disconnected_service
 
 py.test \
-    -vx \
+    -vsx \
     --symbols ~/testenv_symbols/testenv_symbols.json \
     --exclude incomplete no_regression \
     --autolog-outputdir $results_dir \
