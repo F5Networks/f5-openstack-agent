@@ -12,11 +12,12 @@ version := $(shell git describe --long)
 export version
 timestamp := $(shell date +"%Y%m%d-%H%M%S")
 export timestamp
-results_dir := test_results/proxy/proxy-$(version)-$(timestamp)
+results_dir := test_results/os-agent-neutronless/os-agent-$(version)-$(timestamp)
 
 func_session := os-agent-neutronless_$(version)
 
 current_branch := $(shell git rev-parse --abbrev-ref HEAD)
+testenv_config := os-agent-neutronless.testenv.yaml
 
 functest:
 	$(MAKE) -j -C . functest_all
@@ -40,10 +41,7 @@ unittest-run:
 disconnected_service-setup:
 	@echo "setting up functional test environment ..."
 	testenv create --name os-agent-neutronless \
-		--config os-agent-neutronless.testenv.yaml
-	echo `date "+%s"`
-	sleep 360
-	echo `date "+%s"`
+		--config $(testenv_config)
 
 disconnected_service-install:
 	@echo "installing system tests ..."
@@ -66,4 +64,4 @@ disconnected_service-teardown:
 		|| true
 
 	@echo "tearing down functional test environment ..."
-	testenv delete --name os-agent-neutronless || true
+	testenv delete --name os-agent-neutronless --config $(testenv_config) || true
