@@ -12,12 +12,14 @@ version := $(shell git describe --long)
 export version
 timestamp := $(shell date +"%Y%m%d-%H%M%S")
 export timestamp
-results_dir := test_results/os-agent-neutronless/os-agent-$(version)-$(timestamp)
+results_dir := test_results/os-agent/disconnected-$(version)-$(timestamp)
 
-func_session := os-agent-neutronless_$(version)
+func_session := functional_$(version)
+unit_session := unit_$(version)
 
-current_branch := $(shell git rev-parse --abbrev-ref HEAD)
-testenv_config := os-agent-neutronless.testenv.yaml
+branch := $(shell git rev-parse --abbrev-ref HEAD)
+session_name := os-agent-disconnected
+testenv_config := $(session_name).testenv.yaml
 
 functest:
 	$(MAKE) -j -C . functest_all
@@ -36,32 +38,29 @@ disconnected_service:
 
 unittest-run:
 	scp -F $(ssh_conf) ./scripts/run_unittests.sh bastion:~/
-	ssh -tF $(ssh_conf) bastion "~/run_unittests.sh $(func_session)"
+	ssh -tF $(ssh_conf) bastion "~/run_unittests.sh $(unit_session)"
 
 disconnected_service-setup:
 	@echo "setting up functional test environment ..."
-	testenv create --name os-agent-neutronless \
-		--config $(testenv_config)
+	testenv create --name $(session_name) --config $(testenv_config)
+	sleep 360
 
 disconnected_service-install:
 	@echo "installing system tests ..."
 	scp -rp -F $(ssh_conf) testenv_symbols/ bastion:~/
 	scp -F $(ssh_conf) ./scripts/install_systests.sh bastion:~/
-	ssh -AF $(ssh_conf) bastion "~/install_systests.sh $(repo) $(current_branch)"
+	ssh -AF $(ssh_conf) bastion "~/install_systests.sh $(repo) $(branch)"
 
 disconnected_service-run:
-	@echo "running neutronless tests ..."
+	@echo "running disconnected tests ..."
 	scp -F $(ssh_conf) ./scripts/run_neutronlesstests.sh bastion:~/
 	ssh -tF $(ssh_conf) bastion \
-		"~/run_neutronlesstests.sh $(func_session)" \
-		|| true
+		"~/run_neutronlesstests.sh $(func_session)" || true
 
 disconnected_service-teardown:
 	@echo "downloading functional test results ..."
 	if [ ! -e $(results_dir) ]; then mkdir -p $(results_dir); fi
 	scp -rp -F $(ssh_conf) \
-		bastion:~/test_results/$(func_session)/* $(results_dir)/ \
-		|| true
+		bastion:~/test_results/$(func_session)/* $(results_dir) || true
 
-	@echo "tearing down functional test environment ..."
-	testenv delete --name os-agent-neutronless --config $(testenv_config) || true
+	testenv delete --name os-agent --config $(testenv_config) || true
