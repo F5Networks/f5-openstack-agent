@@ -63,4 +63,4 @@ disconnected_service-teardown:
 	scp -rp -F $(ssh_conf) \
 		bastion:~/test_results/$(func_session)/* $(results_dir) || true
 
-	testenv delete --name os-agent --config $(testenv_config) || true
+	testenv delete --name $(session_name) --config $(testenv_config) || true
