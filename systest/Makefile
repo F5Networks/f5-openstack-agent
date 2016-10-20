@@ -8,7 +8,9 @@ ssh_conf := testenv_symbols/testenv_ssh_config
 
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
 version := $(shell git describe --long)
+export version
 timestamp := $(shell date +"%Y%m%d-%H%M%S")
+export timestamp
 disconnected_results := test_results/disconnected
 unit_results := test_results/unit
 
