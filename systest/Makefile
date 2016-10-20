@@ -2,21 +2,20 @@
 disconnected_service-install disconnected_service-run \
 disconnected_service-teardown
 
-repo := https://github.com/F5Networks/f5-openstack-agent.git
-registry := docker-registry.pdbld.f5net.com
+PROJECT := f5-openstack-agent
+repo := https://github.com/F5Networks/$(PROJECT).git
 ssh_conf := testenv_symbols/testenv_ssh_config
 
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
 version := $(shell git describe --long)
-export version
 timestamp := $(shell date +"%Y%m%d-%H%M%S")
-export timestamp
-disconnected_results := test_results/disconnected
-unit_results := test_results/unit
+RESULTSDIR := test_results/$(PROJECT)
+disconnected_results := $(RESULTSDIR)/disconnected
+unit_results := $(RESULTSDIR)/unit
 
-unit_session := unit_$(version)
-tempest_session := tempest_$(version)
-disconnected_session := disconnected_$(version)
+unit_session := unit_$(version)_$(timestamp)
+tempest_session := tempest_$(version)_$(timestamp)
+disconnected_session := disconnected_$(version)_$(timestamp)
 
 branch := $(shell git rev-parse --abbrev-ref HEAD)
 testenv_config := os-agent-disconnected.testenv.yaml
