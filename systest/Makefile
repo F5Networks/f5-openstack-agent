@@ -4,7 +4,6 @@ disconnected_service-teardown
 
 repo := https://github.com/F5Networks/f5-openstack-agent.git
 registry := docker-registry.pdbld.f5net.com
-namespace := openstack
 ssh_conf := testenv_symbols/testenv_ssh_config
 
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
@@ -12,14 +11,15 @@ version := $(shell git describe --long)
 export version
 timestamp := $(shell date +"%Y%m%d-%H%M%S")
 export timestamp
-results_dir := test_results/os-agent/disconnected-$(version)-$(timestamp)
+disconnected_results := test_results/disconnected
+unit_results := test_results/unit
 
-func_session := functional_$(version)
 unit_session := unit_$(version)
+tempest_session := tempest_$(version)
+disconnected_session := disconnected_$(version)
 
 branch := $(shell git rev-parse --abbrev-ref HEAD)
-session_name := os-agent-disconnected
-testenv_config := $(session_name).testenv.yaml
+testenv_config := os-agent-disconnected.testenv.yaml
 
 functest:
 	$(MAKE) -j -C . functest_all
@@ -42,7 +42,7 @@ unittest-run:
 
 disconnected_service-setup:
 	@echo "setting up functional test environment ..."
-	testenv create --name $(session_name) --config $(testenv_config)
+	testenv create --name $(disconnected_session) --config $(testenv_config)
 	sleep 360
 
 disconnected_service-install:
@@ -55,12 +55,14 @@ disconnected_service-run:
 	@echo "running disconnected tests ..."
 	scp -F $(ssh_conf) ./scripts/run_neutronlesstests.sh bastion:~/
 	ssh -tF $(ssh_conf) bastion \
-		"~/run_neutronlesstests.sh $(func_session)" || true
+		"~/run_neutronlesstests.sh $(disconnected_session)" || true
 
 disconnected_service-teardown:
 	@echo "downloading functional test results ..."
-	if [ ! -e $(results_dir) ]; then mkdir -p $(results_dir); fi
+	if [ ! -e $(disconnected_results) ]; then mkdir -p $(disconnected_results); fi
+	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
 	scp -rp -F $(ssh_conf) \
-		bastion:~/test_results/$(func_session)/* $(results_dir) || true
-
-	testenv delete --name $(session_name) --config $(testenv_config) || true
+		bastion:~/test_results/$(disconnected_session)/* $(disconnected_results) || true
+	scp -rp -F $(ssh_conf) \
+		bastion:~/test_results/$(unit_session)/* $(unit_results) || true
+	testenv delete --name $(disconnected_session) --config $(testenv_config) || true
