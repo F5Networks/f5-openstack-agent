@@ -8,14 +8,16 @@ ssh_conf := testenv_symbols/testenv_ssh_config
 
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
 version := $(shell git describe --long)
-timestamp := $(shell date +"%Y%m%d-%H%M%S")
+timestamp ?= $(shell date +"%Y%m%d-%H%M%S")
+export timestamp   # Only eval timestamp in the top make.
 RESULTSDIR := test_results/$(PROJECT)
-disconnected_results := $(RESULTSDIR)/disconnected
-unit_results := $(RESULTSDIR)/unit
 
 unit_session := unit_$(version)_$(timestamp)
 tempest_session := tempest_$(version)_$(timestamp)
 disconnected_session := disconnected_$(version)_$(timestamp)
+
+unit_results := $(RESULTSDIR)/$(unit_session)
+disconnected_results := $(RESULTSDIR)/$(disconnected_session)
 
 branch := $(shell git rev-parse --abbrev-ref HEAD)
 testenv_config := os-agent-disconnected.testenv.yaml
@@ -42,7 +44,6 @@ unittest-run:
 disconnected_service-setup:
 	@echo "setting up functional test environment ..."
 	testenv create --name $(disconnected_session) --config $(testenv_config)
-	sleep 360
 
 disconnected_service-install:
 	@echo "installing system tests ..."
@@ -61,7 +62,7 @@ disconnected_service-teardown:
 	if [ ! -e $(disconnected_results) ]; then mkdir -p $(disconnected_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
 	scp -rp -F $(ssh_conf) \
-		bastion:~/test_results/$(disconnected_session)/* $(disconnected_results) || true
+		bastion:~/test_results/$(disconnected_session)/* $(disconnected_results)
 	scp -rp -F $(ssh_conf) \
-		bastion:~/test_results/$(unit_session)/* $(unit_results) || true
-	testenv delete --name $(disconnected_session) --config $(testenv_config) || true
+		bastion:~/test_results/$(unit_session)/* $(unit_results)
+	testenv delete --name $(disconnected_session) --config $(testenv_config)
