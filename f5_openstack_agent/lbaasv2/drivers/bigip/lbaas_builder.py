@@ -121,6 +121,7 @@ class LBaaSBuilder(object):
                     listener['operating_status'] = \
                         svc['listener']['operating_status']
                 except Exception as err:
+                    loadbalancer['provisioning_status'] = plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerCreationException(err.message)
 
