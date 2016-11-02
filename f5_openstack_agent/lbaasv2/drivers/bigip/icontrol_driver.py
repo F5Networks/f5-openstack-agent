@@ -1280,6 +1280,8 @@ class iControlDriver(LBaaSBaseDriver):
                 loadbalancer['id'],
                 provisioning_status,
                 lb_const.OFFLINE)
+        elif provisioning_status == plugin_const.ACTIVE:
+            LOG.debug('Loadbalancer provisioning status is active')
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
 
