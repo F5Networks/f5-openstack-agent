@@ -58,13 +58,25 @@ class ServiceModelAdapter(object):
         return self.conf.f5_snat_addresses_per_subnet
 
     def init_pool_name(self, loadbalancer, pool):
-        if "name" not in pool or not pool["name"]:
-            name = self.prefix + pool["id"]
-        else:
-            name = pool["name"]
+        name = self.prefix + pool["id"]
 
         return {"name": name,
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}
+
+    def get_resource_description(self, resource):
+        if type(resource) != type(dict()):
+            raise ValueError
+
+        full_description = resource.get('name', "")
+        description = resource.get('description', "")
+        if len(full_description):
+            full_description += ":"
+            if len(description):
+                full_description += (" %s" % (description))
+        else:
+            full_description += description
+
+        return full_description
 
     def get_virtual(self, service):
         listener = service["listener"]
@@ -90,10 +102,7 @@ class ServiceModelAdapter(object):
         return self._init_virtual_name(loadbalancer, listener)
 
     def _init_virtual_name(self, loadbalancer, listener):
-        if "name" not in listener or not listener["name"]:
-            name = self.prefix + listener["id"]
-        else:
-            name = listener["name"]
+        name = self.prefix + listener["id"]
 
         return {"name": name,
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}
@@ -266,8 +275,9 @@ class ServiceModelAdapter(object):
     def _map_pool(self, loadbalancer, lbaas_pool, lbaas_hm):
         pool = self.init_pool_name(loadbalancer, lbaas_pool)
 
-        if "description" in lbaas_pool:
-            pool["description"] = lbaas_pool["description"]
+        name = lbaas_pool.get('name', "")
+
+        pool["description"] = self.get_resource_description(pool)
 
         if "lb_algorithm" in lbaas_pool:
             pool["loadBalancingMode"] = self._get_lb_method(
@@ -300,8 +310,7 @@ class ServiceModelAdapter(object):
     def _map_virtual(self, loadbalancer, listener):
         vip = self._init_virtual_name(loadbalancer, listener)
 
-        if "description" in listener:
-            vip["description"] = listener["description"]
+        vip["description"] = self.get_resource_description(listener)
 
         if "protocol" in listener:
             if not (listener["protocol"] == "HTTP" or
