@@ -162,9 +162,14 @@ class LBaaSBuilder(object):
                     # update virtual sever pool name, session persistence
                     self.listener_builder.update_session_persistence(
                         svc, bigips)
-
+                except HTTPError as err:
+                    if err.response.status_code != 409:
+                        pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = plugin_const.ERROR
+                        raise f5_ex.PoolCreationException(err.message)
                 except Exception as err:
                     pool['provisioning_status'] = plugin_const.ERROR
+                    loadbalancer['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
 
     def _update_listener_pool(self, service, listener_id, pool_name, bigips):
@@ -201,6 +206,13 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_healthmonitor(svc, bigips)
+                except HTTPError as err:
+                    if err.response.status_code != 409:
+                        pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = plugin_const.ERROR
+                        raise f5_ex.MonitorCreationException(err.message)
+                    else:
+                        self.pool_builder.update_healthmonitor(svc, bigips)
                 except Exception as err:
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorCreationException(err.message)
@@ -226,9 +238,16 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_member(svc, bigips)
+                except HTTPError as err:
+                    if err.response.status_code != 409:
+                        pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = plugin_const.ERROR
+                        raise f5_ex.MemberCreationException(err.message)
+                    else:
+                        self.pool_builder.update_member(svc, bigips)
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MemberDeleteException(err.message)
+                    raise f5_ex.MemberCreateException(err.message)
 
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
@@ -241,11 +260,20 @@ class LBaaSBuilder(object):
                 plugin_const.PENDING_DELETE):
             return
 
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_config_bigips()
+
         if self.driver.l3_binding:
-            loadbalancer = service["loadbalancer"]
             self.driver.l3_binding.unbind_address(
                 subnet_id=loadbalancer["vip_subnet_id"],
                 ip_address=loadbalancer["vip_address"])
+
+        vip_address = virtual_address.VirtualAddress(
+            self.service_adapter,
+            loadbalancer)
+
+        for bigip in bigips:
+            vip_address.assure(bigip, delete=True)
 
     def _assure_pools_deleted(self, service):
         if 'pools' not in service:
@@ -364,13 +392,13 @@ class LBaaSBuilder(object):
                          'subnet_id': subnet_id,
                          'is_for_member': is_member}
 
-    def listener_exists(self, service, bigip):
+    def listener_exists(self, bigip, service):
         """Test the existence of the listener defined by service."""
         try:
             # Throw an exception if the listener does not exist.
             self.listener_builder.get_listener(service, bigip)
         except HTTPError as err:
-            LOG.debug("Virtual service service discovery error.", err.msg)
+            LOG.debug("Virtual service service discovery error.", err.message)
             return False
 
         return True
