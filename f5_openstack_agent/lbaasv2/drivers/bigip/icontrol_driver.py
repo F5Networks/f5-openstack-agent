@@ -582,7 +582,8 @@ class iControlDriver(LBaaSBaseDriver):
 
         if self.network_builder:
             for network in self.conf.common_network_ids.values():
-                if not self.network_builder.vlan_exists(network,
+                if not self.network_builder.vlan_exists(bigip,
+                                                        network,
                                                         folder='Common'):
                     raise f5ex.MissingNetwork(
                         'Common network %s on %s does not exist'
