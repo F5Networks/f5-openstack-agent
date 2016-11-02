@@ -114,8 +114,13 @@ class PoolServiceBuilder(object):
     def update_healthmonitor(self, service, bigips):
         hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
+        pool = self.service_adapter.get_pool(service)
+
         for bigip in bigips:
             hm_helper.update(bigip, hm)
+
+            # update pool with new health monitor
+            self.pool_helper.update(bigip, pool)
 
     # Note: can't use BigIPResourceHelper class because members
     # are created within pool objects. Following member methods
