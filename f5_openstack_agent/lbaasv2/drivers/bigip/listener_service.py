@@ -85,23 +85,6 @@ class ListenerServiceBuilder(object):
             if tls:
                 self.add_ssl_profile(tls, bigip)
 
-        # Traffic group is added after create in order to take adavantage
-        # of BIG-IP® defaults.
-        traffic_group = self.service_adapter.get_traffic_group(service)
-        if traffic_group:
-            ip_address = service['loadbalancer']['vip_address']
-            if str(ip_address).endswith('%0'):
-                ip_address = ip_address[:-2]
-            else:
-                ip_address = urllib.quote(ip_address)
-
-            for bigip in bigips:
-                virtual_address = \
-                    bigip.tm.ltm.virtual_address_s.virtual_address
-                obj = virtual_address.load(name=ip_address,
-                                           partition=vip['partition'])
-                obj.modify(trafficGroup=traffic_group)
-
     def get_listener(self, service, bigip):
         """Retrieve BIG-IP® virtual from a single BIG-IP® system.
 

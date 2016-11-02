@@ -23,6 +23,7 @@ from neutron.plugins.common import constants as plugin_const
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import listener_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
+from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
 from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
@@ -73,8 +74,14 @@ class LBaaSBuilder(object):
     def _assure_loadbalancer_created(self, service, all_subnet_hints):
         if 'loadbalancer' not in service:
             return
-
+        bigips = self.driver.get_config_bigips()
         loadbalancer = service["loadbalancer"]
+
+        vip_address = virtual_address.VirtualAddress(
+            self.service_adapter,
+            loadbalancer)
+        for bigip in bigips:
+            vip_address.assure(bigip)
 
         if self.driver.l3_binding:
             loadbalancer = service["loadbalancer"]
