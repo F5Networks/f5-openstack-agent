@@ -69,8 +69,7 @@ class BigIPResourceHelper(object):
         u"""Create/update resource (e.g., pool) on a BIG-IP® system.
 
         First checks to see if resource has been created and creates
-        it if not. If the resource is already created, updates resource
-        with model attributes.
+        it if not.
 
         :param bigip: BigIP instance to use for creating resource.
         :param model: Dictionary of BIG-IP® attributes to add resource. Must
@@ -78,13 +77,7 @@ class BigIPResourceHelper(object):
         :returns: created or updated resource object.
         """
         resource = self._resource(bigip)
-        partition = None
-        if "partition" in model:
-            partition = model["partition"]
-        if resource.exists(name=model["name"], partition=partition):
-            obj = self.update(bigip, model)
-        else:
-            obj = resource.create(**model)
+        obj = resource.create(**model)
 
         return obj
 
