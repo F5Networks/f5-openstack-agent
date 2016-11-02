@@ -534,10 +534,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 lb_id
             )
             self.cache.put(service, self.agent_host)
-            if not self.lbdriver.exists(service):
+            if not self.lbdriver.service_exists(service):
                 LOG.error('active loadbalancer %s is not on BIG-IP...syncing'
                           % lb_id)
+
+                if self.lbdriver.service_rename_required(service):
+                    LOG.error('active loadbalancer %s is configured with '
+                              'non-unique names on BIG-IP...rename in progress.'
+                              % lb_id)
+                    LOG.error('removing the service objects that are incorrectly named')
+                else:
+                    LOG.debug('service rename not required')
+
                 self.lbdriver.sync(service)
+            else:
+                LOG.debug("Found service definition for %s" % (lb_id))
         except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception:

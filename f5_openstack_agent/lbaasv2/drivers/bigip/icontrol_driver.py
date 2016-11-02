@@ -34,6 +34,7 @@ from oslo_log import log as logging
 from oslo_utils import importutils
 
 from f5.bigip import ManagementRoot
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
@@ -60,6 +61,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import OBJ_PREFIX
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
+from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
+    VirtualAddress
 
 LOG = logging.getLogger(__name__)
 
@@ -338,6 +341,10 @@ class iControlDriver(LBaaSBaseDriver):
         self.network_helper = network_helper.NetworkHelper()
         self.disconnected_service = None
         self.disconnected_service_polling = None
+        self.vs_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual)
+        self.pool_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.pool)
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -726,9 +733,8 @@ class iControlDriver(LBaaSBaseDriver):
         if self.network_builder:
             self.network_builder.set_l2pop_rpc(l2pop_rpc)
 
-    def exists(self, service):
-        # Check that service exists"""
-        return True
+    def service_exists(self, service):
+        return self._service_exists(service)
 
     def flush_cache(self):
         # Remove cached objects so they can be created if necessary
@@ -1036,31 +1042,98 @@ class iControlDriver(LBaaSBaseDriver):
                       % bigip.hostname)
             self.cluster_manager.save_config(bigip)
 
+    def service_rename_required(self, service):
+        rename_required = False
+
+        vs_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual)
+        pool_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.pool)
+
+        # Returns whether the bigip has a pool for the service
+        if not service['loadbalancer']:
+            return False
+
+        bigips = self.get_config_bigips()
+        loadbalancer = service['loadbalancer']
+        folder_name = self.service_adapter.get_folder_name(
+            loadbalancer['tenant_id']
+        )
+
+        for bigip in self.get_config_bigips():
+            # Check the names of each virtual service.
+            for listener in service['listeners']:
+                l_name = listener.get("name", "")
+                if vs_manager.exists(bigip, name=l_name, partition=folder_name):
+                    rename_required = True
+                    LOG.warn("Deleting listener: /%s/%s" % (folder_name, l_name))
+                    vs_manager.delete(bigip, name=l_name, partition=folder_name)
+                else:
+                    LOG.error("listener does not exist: /%s/%s" % (folder_name, l_name))
+
+            # Check the names of each pool.
+            for pool in service['pools']:
+                p_name = pool.get('name', "")
+                if pool_manager.exists(bigip, name=p_name, partition=folder_name):
+                    rename_required = True
+                    LOG.warn("Deleting pool: /%s/%s" % (folder_name, p_name))
+                    pool_manager.delete(bigip, name=p_name, partition=folder_name)
+
+        return rename_required
+
     def _service_exists(self, service):
         # Returns whether the bigip has a pool for the service
         if not service['loadbalancer']:
             return False
         loadbalancer = service['loadbalancer']
 
-        bigip = self.get_bigip()
         folder_name = self.service_adapter.get_folder_name(
             loadbalancer['tenant_id']
         )
 
-        # Does the tenant folder exist?
-        if not self.system_helper.folder_exists(bigip, folder_name):
-            return False
-
-        # Ensure that each virtual service exists.
-        # TODO(Rich Browne): check the listener status instead, this can be
-        # used to detemine the health of the service.
-        for listener in service['listeners']:
-            svc = {'loadbalancer': loadbalancer,
-                   'listener': listener}
-            if not self.lbaas_builder.listener_exists(svc, bigip):
+        # Foreach bigip in the cluster:
+        for bigip in self.get_config_bigips():
+            # Does the tenant folder exist?
+            if not self.system_helper.folder_exists(bigip, folder_name):
+                LOG.debug("Folder %s does not exists on bigip: %s" %
+                          (folder_name, bigip))
                 return False
 
+            # Get the virtual address
+            virtual_address = VirtualAddress(self.service_adapter, loadbalancer)
+            if not virtual_address.exists(bigip):
+                LOG.debug("Virtual address %s(%s) does not exists on bigip: %s" %
+                          (virtual_address.name, virtual_address.address, bigip))
+                return False
+
+            # Ensure that each virtual service exists.
+            v = bigip.tm.ltm.virtuals.virtual
+            for listener in service['listeners']:
+
+                svc = {"loadbalancer": loadbalancer,
+                       "listener": listener}
+                virtual_server = self.service_adapter.get_virtual_name(svc)
+                if not v.exists(name=virtual_server['name'], partition=folder_name):
+                    LOG.debug("Virtual /%s/%s not found on bigip: %s" %
+                              (virtual_server['name'], folder_name, bigip))
+                    return False
+
+            # Ensure that each virtual service exists.
+            p = bigip.tm.ltm.pools.pool
+            for pool in service['pools']:
+                svc = {"loadbalancer": loadbalancer,
+                       "pool": pool}
+                bigip_pool = self.service_adapter.get_pool(svc)
+                if not p.exists(name=bigip_pool['name'], partition=folder_name):
+                    return False
+
         return True
+
+    def get_loadbalancers_in_tenant(self, tenant_id):
+        loadbalancers = self.plugin_rpc.get_all_loadbalancers()
+
+        return [lb['lb_id'] for lb in loadbalancers
+                if lb['tenant_id'] == tenant_id]
 
     def _common_service_handler(self, service, delete_partition=False):
         # Assure that the service is configured on bigip(s)
@@ -1077,8 +1150,6 @@ class iControlDriver(LBaaSBaseDriver):
 
             traffic_group = self.service_to_traffic_group(service)
             service['loadbalancer']['traffic_group'] = traffic_group
-
-            LOG.debug("XXXXXXXXXX: traffic group created ")
 
             # This loop will only run once.  Using while as a control-flow
             # mechanism to flatten out the code by allowing breaks.
@@ -1116,7 +1187,6 @@ class iControlDriver(LBaaSBaseDriver):
                 break
 
             all_subnet_hints = {}
-            LOG.debug("XXXXXXXXXX: getting bigip configs")
             for bigip in self.get_config_bigips():
                 # check_for_delete_subnets:
                 #     keep track of which subnets we should check to delete
@@ -1142,8 +1212,14 @@ class iControlDriver(LBaaSBaseDriver):
 
             # only delete partition if loadbalancer is being deleted
             if delete_partition:
-                self.tenant_manager.assure_tenant_cleanup(service,
-                                                          all_subnet_hints)
+                tenant_id = service['loadbalancer']['tenant_id']
+                lb_id = service['loadbalancer']['id']
+                tenant_lbs = self.get_loadbalancers_in_tenant(tenant_id)
+                if len(tenant_lbs) == 1 and (tenant_lbs[0] == lb_id):
+                    LOG.debug("Deleting partition for tenant: %s" % tenant_id)
+                    self.tenant_manager.assure_tenant_cleanup(service,
+                                                              all_subnet_hints)
+
         except Exception as err:
             LOG.exception(err)
 
