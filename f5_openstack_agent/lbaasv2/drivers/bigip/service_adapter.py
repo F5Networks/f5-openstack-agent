@@ -187,6 +187,9 @@ class ServiceModelAdapter(object):
         healthmonitor = self.init_monitor_name(loadbalancer,
                                                lbaas_healthmonitor)
 
+        healthmonitor["description"] = self.get_resource_description(
+            lbaas_healthmonitor)
+
         # type
         if "type" in lbaas_healthmonitor:
             # healthmonitor["type"] = lbaas_healthmonitor["type"].lower()
@@ -219,10 +222,7 @@ class ServiceModelAdapter(object):
         return healthmonitor
 
     def init_monitor_name(self, loadbalancer, monitor):
-        if "name" not in monitor or not monitor["name"]:
-            name = self.prefix + monitor["id"]
-        else:
-            name = monitor["name"]
+        name = self.prefix + monitor["id"]
 
         return {"name": name,
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}

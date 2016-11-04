@@ -73,7 +73,6 @@ class VirtualAddress(object):
         return va
 
     def exists(self, bigip):
-        LOG.debug("XXXXXX Calling virtual exists")
         return self.virtual_address.exists(
             bigip,
             name=self.name,

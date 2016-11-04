@@ -409,6 +409,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         endpoints = [started_by.manager]
         started_by.conn.create_consumer(
             node_topic, endpoints, fanout=False)
+        self.sync_state()
 
     @periodic_task.periodic_task
     def periodic_resync(self, context):
@@ -551,9 +552,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Found service definition for %s" % (lb_id))
         except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
-        except Exception:
-            LOG.error("Exception caught: validate_service, unable to validate",
-                      " service for loadbalancer: %s" % lb_id)
+        except Exception as exc:
+            LOG.exception("Service validation error: %s" % exc.message)
 
     @log_helpers.log_method_call
     def refresh_service(self, lb_id):
