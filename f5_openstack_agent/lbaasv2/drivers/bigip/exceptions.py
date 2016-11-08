@@ -356,3 +356,11 @@ class VXLANDeleteException(F5AgentException):
 
 class BigIPNotLicensedForVcmp(F5AgentException):
     pass
+
+
+class NoActionFoundForPolicy(F5AgentException):
+    pass
+
+
+class PolicyHasNoRules(F5AgentException):
+    pass
