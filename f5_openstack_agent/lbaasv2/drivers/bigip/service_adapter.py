@@ -85,9 +85,12 @@ class ServiceModelAdapter(object):
         return vip
 
     def get_virtual_name(self, service):
-        listener = service["listener"]
-        loadbalancer = service["loadbalancer"]
-        return self._init_virtual_name(loadbalancer, listener)
+        vs_name = None
+        if "listener" in service:
+            listener = service["listener"]
+            loadbalancer = service["loadbalancer"]
+            vs_name = self._init_virtual_name(loadbalancer, listener)
+        return vs_name
 
     def _init_virtual_name(self, loadbalancer, listener):
         if "name" not in listener or not listener["name"]:

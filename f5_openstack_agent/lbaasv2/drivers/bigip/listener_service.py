@@ -202,12 +202,13 @@ class ListenerServiceBuilder(object):
         :param bigips: Array of BigIP class instances to update.
         """
         vip = self.service_adapter.get_virtual_name(service)
-        vip["pool"] = name
-        for bigip in bigips:
-            v = bigip.tm.ltm.virtuals.virtual
-            if v.exists(name=vip["name"], partition=vip["partition"]):
-                obj = v.load(name=vip["name"], partition=vip["partition"])
-                obj.modify(**vip)
+        if vip:
+            vip["pool"] = name
+            for bigip in bigips:
+                v = bigip.tm.ltm.virtuals.virtual
+                if v.exists(name=vip["name"], partition=vip["partition"]):
+                    obj = v.load(name=vip["name"], partition=vip["partition"])
+                    obj.modify(**vip)
 
     def update_session_persistence(self, service, bigips):
         """Update session persistence for virtual server.
