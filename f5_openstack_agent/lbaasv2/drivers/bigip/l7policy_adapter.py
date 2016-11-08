@@ -24,7 +24,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter \
 
 class Action(object):
     '''Describes a single action for a rule.'''
-
     def __init__(
             self, action, action_name, partition, env_prefix, action_val=None):
         action_map = {
@@ -41,9 +40,7 @@ class Action(object):
 
     def _get_pool_name(self, partition, env_prefix, action_value):
         '''Construct pool name from partition and OpenStack pool name.'''
-
         return '/{0}/{1}{2}'.format(partition, env_prefix, action_value)
-
 
 class Condition(object):
     '''Describes a single condition for a rule.'''
@@ -75,7 +72,6 @@ class Condition(object):
 
 class Rule(object):
     '''Describes a single rule for a policy.'''
-
     def __init__(self, policy, service, partition, env_prefix):
         self._set_name(policy)
         self.ordinal = policy['position']
