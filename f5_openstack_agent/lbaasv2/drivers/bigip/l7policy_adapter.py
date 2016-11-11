@@ -59,8 +59,8 @@ class Condition(object):
             'HEADER': {'httpHeader': True, 'tmName': key, 'values': [val]},
             'COOKIE': {'httpCookie': True, 'tmName': key, 'values': [val]}
         }
-        if condition['invert'].lower() == 'true':
-            setattr(self, 'not', True)
+        if condition['invert']:
+            setattr(self, 'not', condition['invert'])
         self.__dict__.update(cond_type_map[condition['type']])
         setattr(self, self.cond_comp_type_map[condition['compare_type']], True)
 

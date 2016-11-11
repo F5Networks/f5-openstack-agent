@@ -21,7 +21,7 @@ install:
     - pip install -r requirements.test.txt
 script:
     - flake8 f5_openstack_agent
-    - py.test --cov=f5_openstack_agent/ f5_openstack_agent/
+    - py.test --cov=f5_openstack_agent/ --ignore=f5_openstack_agent/tests/functional f5_openstack_agent/
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "7"
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "6"
     - f5-openstack-agent-dist/scripts/package_agent.sh "ubuntu" "14.04"
