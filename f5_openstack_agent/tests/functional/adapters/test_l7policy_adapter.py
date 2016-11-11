@@ -40,7 +40,18 @@ def fake_conf():
 
 
 @pytest.fixture
-def policy_setup(request, bigip):
+def partition_setup(request, bigip):
+    def teardown():
+        if bigip.tm.sys.folders.folder.exists(name='Project_test'):
+            partition = bigip.tm.sys.folders.folder.load(name='Project_test')
+            partition.delete()
+    request.addfinalizer(teardown)
+    bigip.tm.sys.folders.folder.create(name='Project_test', subPath='/')
+
+
+@pytest.fixture
+def policy_setup(request, bigip, partition_setup):
+    partition_setup
     pool = bigip.tm.ltm.pools.pool
     pol = bigip.tm.ltm.policys.policy
     pool_kwargs = {'name': 'test_pool', 'partition': 'Project_test'}
