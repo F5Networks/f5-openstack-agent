@@ -1161,7 +1161,7 @@ class iControlDriver(LBaaSBaseDriver):
                             loadbalancer,
                             remaining_pools[m_pool_id],
                             folder_name)
-                    LOG.error("Deleting monitor: /%s/%s" % (folder_name, m_name))
+                    LOG.warn("Deleting monitor: /%s/%s" % (folder_name, m_name))
                     m_obj.delete()
 
         return rename_required
