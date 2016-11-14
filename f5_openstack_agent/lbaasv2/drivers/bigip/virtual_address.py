@@ -57,6 +57,7 @@ class VirtualAddress(object):
         return model
 
     def create(self, bigip, model=None):
+        va = None
 
         if not model:
             model = self.model()
@@ -69,6 +70,7 @@ class VirtualAddress(object):
             # If this object already exists
             if err.response.status_code == 409:
                 LOG.debug("Virtual address already exists")
+                va = self.load(bigip)
 
         return va
 

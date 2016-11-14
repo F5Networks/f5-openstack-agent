@@ -1092,77 +1092,20 @@ class iControlDriver(LBaaSBaseDriver):
 
         bigips = self.get_config_bigips()
         loadbalancer = service['loadbalancer']
+        listeners = service['listeners']
         folder_name = self.service_adapter.get_folder_name(
             loadbalancer['tenant_id']
         )
 
         # For each bigip in the cluster
         for bigip in self.get_config_bigips():
+            rename_required = True
 
-            # Check the names of each virtual service to see if
-            # they are named by the OpenStack object name.
-            remaining_listeners = {}
-            v = bigip.tm.ltm.virtuals.virtual
-            for listener in service['listeners']:
-                l_name = listener.get("name", "")
-                if v.exists(name=l_name, partition=folder_name):
-                    # Found a virtual that is named by the OS object,
-                    # delete it.
-                    rename_required = True
-                    obj = v.load(name=l_name, partition=folder_name)
-                    LOG.warn("Deleting listener: /%s/%s" %
-                             (folder_name, l_name))
-                    obj.delete(name=l_name, partition=folder_name)
-                else:
-                    # We might have to update later so save a
-                    # reference to listener object.
-                    remaining_listeners[listener['id']] = listener
-
-            # Check the names of each pool to check if it is
-            # named after the OS object name.
-            remaining_pools = {}
-            p = bigip.tm.ltm.pools.pool
-            for pool in service['pools']:
-                p_name = pool.get('name', "")
-                p_listener_id = pool.get('listener_id', "")
-                if p.exists(name=p_name, partition=folder_name):
-                    # Found a pool that is named by the OS object,
-                    # delete it.
-                    rename_required = True
-                    p_obj = p.load(name=p_name, partition=folder_name)
-
-                    # If the listener is referenced by a virtual that
-                    # still exists, disassociate the pool from the
-                    # listener.
-                    if p_listener_id in remaining_listeners:
-                        # Update or delete the listener.
-                        self.disassociate_listener_pool(
-                            loadbalancer,
-                            remaining_listeners[p_listener_id],
-                            folder_name)
-                    LOG.warn("Deleting pool: /%s/%s" % (folder_name, p_name))
-                    p_obj.delete(name=p_name, partition=folder_name)
-                else:
-                    remaining_pools[pool['id']] = pool
-
-            for healthmonitor in service['healthmonitors']:
-                m_name = healthmonitor.get('name', "")
-                m_pool_id = healthmonitor.get('pool_id', "")
-
-                svc = {'loadbalancer': loadbalancer,
-                       'healthmonitor': healthmonitor}
-                monitor_ep = self._get_monitor_endpoint(bigip, svc)
-
-                if monitor_ep.exists(name=m_name, partition=folder_name):
-                    rename_required = True
-                    m_obj = monitor_ep.load(name=m_name, partition=folder_name)
-                    if m_pool_id in remaining_pools:
-                        self.disassociate_pool_monitor(
-                            loadbalancer,
-                            remaining_pools[m_pool_id],
-                            folder_name)
-                    LOG.warn("Deleting monitor: /%s/%s" % (folder_name, m_name))
-                    m_obj.delete()
+            # Does the virtual address exist?  If not, teardown the service,
+            # and recreate objects with the correct names
+            virtual_address = VirtualAddress(self.service_adapter, loadbalancer)
+            if not virtual_address.exists(bigip):
+                self.system_helper.purge_folder_contents(bigip, folder_name)
 
         return rename_required
 
