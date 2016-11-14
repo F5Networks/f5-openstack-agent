@@ -25,9 +25,11 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter \
 class Action(object):
     '''Describes a single action for a rule.'''
 
-    def __init__(self, action, action_name, action_val=None):
+    def __init__(self, action, action_name, partition, action_val=None):
         action_map = {
-            'REDIRECT_TO_POOL': {'forward': True, 'pool': action_val},
+            'REDIRECT_TO_POOL': {'forward': True,
+                                 'pool': self._get_pool_name(
+                                     partition, action_val)},
             'REDIRECT_TO_URL': {
                 'redirect': True, 'location': action_val, 'httpReply': True},
             'REJECT': {'reset': True, 'forward': True}
@@ -35,6 +37,11 @@ class Action(object):
         self.request = True
         self.name = action_name
         self.__dict__.update(action_map[action])
+
+    def _get_pool_name(self, partition, action_value):
+        '''Construct pool name from partition and OpenStack pool name.'''
+
+        return '/{0}/{1}'.format(partition, action_value)
 
 
 class Condition(object):
@@ -68,14 +75,15 @@ class Condition(object):
 class Rule(object):
     '''Describes a single rule for a policy.'''
 
-    def __init__(self, policy, service):
+    def __init__(self, policy, service, partition):
         self._set_name(policy)
         self.ordinal = policy['position']
         self.actions = []
         self.conditions = []
-        self._adapt_rule_to_conditions_and_actions(policy, service)
+        self._adapt_rule_to_conditions_and_actions(policy, service, partition)
 
-    def _adapt_rule_to_conditions_and_actions(self, policy, service):
+    def _adapt_rule_to_conditions_and_actions(
+            self, policy, service, partition):
         '''Adapt OpenStack rules into conditions and actions.'''
 
         for idx, os_rule_dict in enumerate(policy['rules']):
@@ -83,7 +91,7 @@ class Rule(object):
             cond = Condition(os_rule, str(idx))
             self.conditions.append(cond.__dict__)
         act_type, act_val = self._get_action_and_value(policy['id'], service)
-        action = Action(act_type, '0', act_val)
+        action = Action(act_type, '0', partition, act_val)
         self.actions.append(action.__dict__)
 
     def _get_l7rule(self, rule_id, service):
@@ -128,7 +136,7 @@ class L7PolicyServiceAdapter(ServiceModelAdapter):
         '''OS Policies are translated into Rules on the device.'''
 
         for policy in self.service['l7policies']:
-            bigip_rule = Rule(policy, self.service)
+            bigip_rule = Rule(policy, self.service, self.folder)
             self.policy_dict['rules'].append(bigip_rule.__dict__)
 
     def _adapt_policy(self):
