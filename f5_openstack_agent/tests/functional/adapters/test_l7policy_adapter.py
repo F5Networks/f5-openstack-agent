@@ -66,6 +66,7 @@ def policy_setup(request, bigip, partition_setup):
     request.addfinalizer(teardown)
     pool.create(**pool_kwargs)
 
+
 def test_adapter_reject_beginswith(bigip, fake_conf, policy_setup):
     adapter = l7policy_adapter.L7PolicyServiceAdapter(fake_conf)
     pol = adapter.translate(POL_CONFIGS['reject_path'])
