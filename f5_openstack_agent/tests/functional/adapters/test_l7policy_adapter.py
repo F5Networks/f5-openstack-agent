@@ -49,9 +49,8 @@ def partition_setup(request, bigip):
     bigip.tm.sys.folders.folder.create(name='Project_test', subPath='/')
 
 
-@pytest.fixture
+@pytest.fixture()
 def policy_setup(request, bigip, partition_setup):
-    partition_setup
     pool = bigip.tm.ltm.pools.pool
     pol = bigip.tm.ltm.policys.policy
     pool_kwargs = {'name': 'test_pool', 'partition': 'Project_test'}
@@ -64,8 +63,8 @@ def policy_setup(request, bigip, partition_setup):
         if pool.exists(**pool_kwargs):
             test_pool = pool.load(**pool_kwargs)
             test_pool.delete()
-    pool.create(**pool_kwargs)
     request.addfinalizer(teardown)
+    pool.create(**pool_kwargs)
 
 
 def test_adapter_reject_beginswith(bigip, fake_conf, policy_setup):
@@ -84,8 +83,8 @@ def test_adapter_reject_beginswith(bigip, fake_conf, policy_setup):
                 ],
                 'name': u'reject_1', 'actions': [
                     {
-                        'request': True, 'name': '0',
-                        'reset': True, 'request': True, 'forward': True
+                        'request': True, 'name': '0', 'reset': True,
+                        'forward': True
                     }
                 ]
             }],
@@ -108,7 +107,7 @@ def test_adapter_redirect_to_pool_file_type_beginswith(
                     {
                         'forward': True, 'name': 0, 'request': True,
                         'name': '0',
-                        'pool': u'test_pool'
+                        'pool': u'/Project_test/test_pool'
                     }
                 ],
                 'conditions': [
@@ -197,8 +196,8 @@ def test_adapter_redirect_to_pool_hostname_equal_to(
             {
                 'actions': [
                     {
-                        'request': True, 'name': '0', 'pool': 'test_pool',
-                        'forward': True
+                        'request': True, 'name': '0', 'forward': True,
+                        'pool': '/Project_test/test_pool'
                     }
                 ],
                 'conditions': [
@@ -230,7 +229,7 @@ def test_adapter_redirect_to_pool_many_rules(
                 "actions": [{
                     "forward": True,
                     "name": "0",
-                    "pool": "test_pool",
+                    "pool": "/Project_test/test_pool",
                     "request": True
                 }],
                 "conditions": [{
@@ -280,7 +279,7 @@ def test_adapter_many_policies_rules(
                 "actions": [{
                     "forward": True,
                     "name": "0",
-                    "pool": "test_pool",
+                    "pool": "/Project_test/test_pool",
                     "request": True
                 }],
                 "conditions": [{
@@ -355,8 +354,8 @@ def test_adapter_redirect_to_pool_hostname_not_equal_to(
             {
                 'actions': [
                     {
-                        'request': True, 'name': '0', 'pool': 'test_pool',
-                        'forward': True
+                        'request': True, 'name': '0', 'forward': True,
+                        'pool': '/Project_test/test_pool'
                     }
                 ],
                 'conditions': [
@@ -414,8 +413,7 @@ def test_adapter_redirect_to_pool_file_type_not_beginswith(
                 'actions': [
                     {
                         'forward': True, 'name': 0, 'request': True,
-                        'name': '0',
-                        'pool': u'test_pool'
+                        'name': '0', 'pool': u'/Project_test/test_pool'
                     }
                 ],
                 'conditions': [
