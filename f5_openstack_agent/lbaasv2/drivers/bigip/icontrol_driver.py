@@ -1092,22 +1092,81 @@ class iControlDriver(LBaaSBaseDriver):
 
         bigips = self.get_config_bigips()
         loadbalancer = service['loadbalancer']
-        listeners = service['listeners']
         folder_name = self.service_adapter.get_folder_name(
             loadbalancer['tenant_id']
         )
 
-        # For each bigip in the cluster
-        for bigip in self.get_config_bigips():
-            rename_required = True
-
-            # Does the virtual address exist?  If not, teardown the service,
-            # and recreate objects with the correct names
+        # Does the correctly named virtual address exist?
+        for bigip in bigips:
             virtual_address = VirtualAddress(self.service_adapter, loadbalancer)
             if not virtual_address.exists(bigip):
-                self.system_helper.purge_folder_contents(bigip, folder_name)
+                rename_required = True
+                break
 
         return rename_required
+
+    def service_object_teardown(self, service):
+
+        # Returns whether the bigip has a pool for the service
+        if not service['loadbalancer']:
+            return False
+
+        bigips = self.get_config_bigips()
+        loadbalancer = service['loadbalancer']
+        folder_name = self.service_adapter.get_folder_name(
+            loadbalancer['tenant_id']
+        )
+
+        # Change to bigips
+        for bigip in bigips:
+
+            # Delete all virtuals
+            v = bigip.tm.ltm.virtuals.virtual
+            for listener in service['listeners']:
+                l_name = listener.get("name", "")
+                if not l_name:
+                    svc = {"loadbalancer": loadbalancer,
+                           "listener": listener}
+                    vip = self.service_adapter.get_virtual(svc)
+                    l_name = vip['name']
+                if v.exists(name=l_name, partition=folder_name):
+                    # Found a virtual that is named by the OS object,
+                    # delete it.
+                    l_obj = v.load(name=l_name, partition=folder_name)
+                    LOG.warn("Deleting listener: /%s/%s" %
+                             (folder_name, l_name))
+                    l_obj.delete(name=l_name, partition=folder_name)
+
+            # Delete all pools
+            p = bigip.tm.ltm.pools.pool
+            for os_pool in service['pools']:
+                p_name = os_pool.get('name', "")
+                if not p_name:
+                    svc = {"loadbalancer": loadbalancer,
+                           "pool": os_pool}
+                    pool = self.service_adapter.get_pool(svc)
+                    p_name = pool['name']
+
+                if p.exists(name=p_name, partition=folder_name):
+                    p_obj = p.load(name=p_name, partition=folder_name)
+                    LOG.warn("Deleting pool: /%s/%s" % (folder_name, p_name))
+                    p_obj.delete(name=p_name, partition=folder_name)
+
+            # Delete all healthmonitors
+            for healthmonitor in service['healthmonitors']:
+                svc = {'loadbalancer': loadbalancer,
+                       'healthmonitor': healthmonitor}
+                monitor_ep = self._get_monitor_endpoint(bigip, svc)
+
+                m_name = healthmonitor.get('name', "")
+                if not m_name:
+                    hm = self.service_adapter.get_healthmonitor(svc)
+                    m_name = hm['name']
+
+                if monitor_ep.exists(name=m_name, partition=folder_name):
+                    m_obj = monitor_ep.load(name=m_name, partition=folder_name)
+                    LOG.warn("Deleting monitor: /%s/%s" % (folder_name, m_name))
+                    m_obj.delete()
 
     def _service_exists(self, service):
         # Returns whether the bigip has a pool for the service

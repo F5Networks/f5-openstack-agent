@@ -67,6 +67,13 @@ def prepare_service(service):
     lb_net_seg_id = pytest.symbols.vip_vxlan_segid
     service['networks'][lb_network_id]['provider:segmentation_id'] = lb_net_seg_id
 
+    for member in service['members']:
+        member_network_id = member['network_id']
+        service['networks'][member_network_id]['provider:segmentation_id'] = (
+            pytest.symbols.server_vxlan_segid
+        )
+
+
 @pytest.fixture
 def service(request, bigip, service_name, service_adapter, system_helper):
     print "Creating service for %s" % service_name
@@ -123,25 +130,21 @@ def handle_init_registry(bigip, icd_configuration,
 
     return icontroldriver, start_registry
 
-def test_create_config(setup_test_wrapper, bigip, service_name):
-    print "Creating service for %s" % service_name
-
+def deploy_service(bigip, service_name):
     icontroldriver, start_registry = handle_init_registry(bigip, TEST_CONFIG)
 
     service = deepcopy(LBAAS_SERVICES[service_name])
 
     prepare_service(service)
 
-    for member in service['members']:
-        member_network_id = member['network_id']
-        service['networks'][member_network_id]['provider:segmentation_id'] = (
-            pytest.symbols.server_vxlan_segid
-        )
-
     logcall(setup_test_wrapper,
             icontroldriver._common_service_handler,
             service)
     
+def test_create_config(setup_test_wrapper, bigip, service_name):
+    print "Creating service for %s" % service_name
+    deploy_service(bigip, service_name)
+
 def test_cleanup_config(bigip, service_name, service_adapter, system_helper):
     print "Teardown service for %s" % service_name
 
@@ -163,8 +166,20 @@ def test_rename_service_objects(bigip, service):
     assert(icontroldriver.service_exists(service) == False)
     assert(icontroldriver.service_rename_required(service) == True)
 
+    icontroldriver.service_object_teardown(service)
+
     logcall(setup_test_wrapper,
             icontroldriver._common_service_handler,
             service)
 
     assert(icontroldriver.service_exists(service) == True)
+
+def test_no_rename_service_objects(bigip, service, service_name):
+
+    deploy_service(bigip, service_name)
+
+    icontroldriver, start_registry = handle_init_registry(bigip, TEST_CONFIG)
+
+    assert(icontroldriver.service_exists(service) == True)
+    assert(icontroldriver.service_rename_required(service) == False)
+
