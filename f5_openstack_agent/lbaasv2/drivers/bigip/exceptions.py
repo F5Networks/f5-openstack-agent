@@ -364,3 +364,19 @@ class NoActionFoundForPolicy(F5AgentException):
 
 class PolicyHasNoRules(F5AgentException):
     pass
+
+
+class L7PolicyCreationException(F5AgentException):
+    pass
+
+
+class L7PolicyQueryException(F5AgentException):
+    pass
+
+
+class L7PolicyUpdateException(F5AgentException):
+    pass
+
+
+class L7PolicyDeleteException(F5AgentException):
+    pass

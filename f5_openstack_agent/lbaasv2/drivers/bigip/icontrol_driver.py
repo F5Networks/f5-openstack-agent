@@ -1310,6 +1310,9 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _update_service_status(self, service):
         """Update status of objects in OpenStack """
+
+        LOG.debug("_update_service_status")
+
         if not self.plugin_rpc:
             LOG.error("Cannot update status in Neutron without "
                       "RPC handler.")
@@ -1331,6 +1334,11 @@ class iControlDriver(LBaaSBaseDriver):
         if 'listeners' in service:
             # Call update_listener_status
             self._update_listener_status(service)
+        if 'l7policy_rules' in service:
+            self._update_l7rule_status(service['l7policy_rules'])
+        if 'l7policies' in service:
+            self._update_l7policy_status(service['l7policies'])
+
         self._update_loadbalancer_status(service)
 
     def _update_member_status(self, members):
@@ -1411,6 +1419,46 @@ class iControlDriver(LBaaSBaseDriver):
                         listener['id'],
                         provisioning_status,
                         lb_const.OFFLINE)
+
+    @log_helpers.log_method_call
+    def _update_l7rule_status(self, l7rules):
+        """Update l7rule status in OpenStack """
+        for l7rule in l7rules:
+            if 'provisioning_status' in l7rule:
+                provisioning_status = l7rule['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_l7rule_status(
+                            l7rule['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    self.plugin_rpc.l7rule_destroyed(
+                        l7rule['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_l7rule_status(l7rule['id'])
+
+    @log_helpers.log_method_call
+    def _update_l7policy_status(self, l7policies):
+        LOG.debug("_update_l7policy_status")
+        """Update l7policy status in OpenStack """
+        for l7policy in l7policies:
+            if 'provisioning_status' in l7policy:
+                provisioning_status = l7policy['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_l7policy_status(
+                            l7policy['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    LOG.debug("calling l7policy_destroyed")
+                    self.plugin_rpc.l7policy_destroyed(
+                        l7policy['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_l7policy_status(l7policy['id'])
 
     @log_helpers.log_method_call
     def _update_loadbalancer_status(self, service):
@@ -1540,3 +1588,45 @@ class iControlDriver(LBaaSBaseDriver):
                 % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
                    f5const.MIN_TMOS_MINOR_VERSION))
         return major_version, minor_version
+
+    @serialized('create_l7policy')
+    @is_connected
+    def create_l7policy(self, l7policy, service):
+        """Create lb l7policy"""
+        LOG.debug("Creating l7policy")
+        self._common_service_handler(service)
+
+    @serialized('update_l7policy')
+    @is_connected
+    def update_l7policy(self, old_l7policy, l7policy, service):
+        """Update lb l7policy"""
+        LOG.debug("Updating l7policy")
+        self._common_service_handler(service)
+
+    @serialized('delete_l7policy')
+    @is_connected
+    def delete_l7policy(self, l7policy, service):
+        """Delete lb l7policy"""
+        LOG.debug("Deleting l7policy")
+        self._common_service_handler(service)
+
+    @serialized('create_l7rule')
+    @is_connected
+    def create_l7rule(self, pool, service):
+        """Create lb l7rule"""
+        LOG.debug("Creating l7rule")
+        self._common_service_handler(service)
+
+    @serialized('update_l7rule')
+    @is_connected
+    def update_l7rule(self, old_l7rule, l7rule, service):
+        """Update lb l7rule"""
+        LOG.debug("Updating l7rule")
+        self._common_service_handler(service)
+
+    @serialized('delete_l7rule')
+    @is_connected
+    def delete_l7rule(self, l7rule, service):
+        """Delete lb l7rule"""
+        LOG.debug("Deleting l7rule")
+        self._common_service_handler(service)
