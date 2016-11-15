@@ -1,0 +1,30 @@
+#!/bin/bash
+
+test_root="test/functional/neutronless/service_object_rename"
+test_name="test_service_object_rename.py"
+symbols_file="$test_root/conf_symbols.json"
+service_def=$2
+
+if [[ ${service_def} != "" ]]; then
+	opt_arg=" --service-name=${service_def}"
+fi
+
+case $1 in
+"setup")
+	echo "Setting up service rename tests..."
+	py.test -sv --symbols=${symbols_file} ${opt_arg} "${test_root}/${test_name}::test_create_config"
+	;;
+"teardown")
+	echo "Teardown service rename tests..."
+	py.test -sv --symbols=${symbols_file} ${opt_arg} "${test_root}/${test_name}::test_cleanup_config"
+	;;
+"basic_test")
+	echo "Teardown service rename tests..."
+	py.test -sv --symbols=${symbols_file} ${opt_arg} "${test_root}/${test_name}::test_rename_service_objects_basic"
+	;;
+*)
+	echo "Unknown option"
+	exit 1
+esac
+
+exit 0
