@@ -42,6 +42,7 @@ class Action(object):
         '''Construct pool name from partition and OpenStack pool name.'''
         return '/{0}/{1}{2}'.format(partition, env_prefix, action_value)
 
+
 class Condition(object):
     '''Describes a single condition for a rule.'''
 
@@ -156,8 +157,13 @@ class L7PolicyServiceAdapter(ServiceModelAdapter):
         self._adapt_policies_to_rules()
 
     def translate(self, service):
+
         self.service = service
         self.folder = self.get_folder_name(
             self.service['l7policies'][0]['tenant_id'])
         self._adapt_policy()
         return self.policy_dict
+
+    def translate_name(self, l7policy):
+        return {'name': 'wrapper_policy',
+                'partition': self.get_folder_name(l7policy['tenant_id'])}

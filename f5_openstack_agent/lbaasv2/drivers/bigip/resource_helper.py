@@ -45,6 +45,7 @@ class ResourceType(Enum):
     route_domain = 19
     tunnel = 20
     virtual_address = 21
+    l7policy = 22
 
 
 class BigIPResourceHelper(object):
@@ -196,7 +197,9 @@ class BigIPResourceHelper(object):
             ResourceType.tunnel:
                 lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel,
             ResourceType.virtual_address:
-                lambda bigip: bigip.tm.ltm.virtual_address_s.virtual_address
+                lambda bigip: bigip.tm.ltm.virtual_address_s.virtual_address,
+            ResourceType.l7policy:
+                lambda bigip: bigip.tm.ltm.policys.policy
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -235,6 +238,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.net.tunnels.tunnels,
             ResourceType.virtual_address:
                 lambda bigip: bigip.tm.ltm.virtual_address_s,
+            ResourceType.l7policy:
+                lambda bigip: bigip.tm.ltm.policys
         }
 
         if self.resource_type in collection_map:
