@@ -240,7 +240,7 @@ class LBaaSBuilder(object):
                     self.pool_builder.create_member(svc, bigips)
                 except HTTPError as err:
                     if err.response.status_code != 409:
-                        pool['provisioning_status'] = plugin_const.ERROR
+                        #pool['provisioning_status'] = plugin_const.ERROR
                         loadbalancer['provisioning_status'] = plugin_const.ERROR
                         raise f5_ex.MemberCreationException(err.message)
                     else:
