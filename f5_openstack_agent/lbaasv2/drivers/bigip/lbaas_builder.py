@@ -138,9 +138,6 @@ class LBaaSBuilder(object):
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
 
-                # get associated listener for pool
-                self.add_listener_pool(service, svc)
-
                 try:
                     # create pool
                     self.pool_builder.create_pool(svc, bigips)
@@ -148,29 +145,21 @@ class LBaaSBuilder(object):
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
                         loadbalancer, pool)
-                    self.listener_builder.update_listener_pool(
-                        svc, pool_name["name"], bigips)
 
-                    # update virtual sever pool name, session persistence
-                    self.listener_builder.update_session_persistence(
-                        svc, bigips)
+                    # get associated listeners for pool
+                    for listener in pool['listeners']:
+                        svc['listener'] = \
+                            self.get_listener_by_id(service, listener['id'])
+                        self.listener_builder.update_listener_pool(
+                            svc, pool_name["name"], bigips)
+
+                        # update virtual sever pool name, session persistence
+                        self.listener_builder.update_session_persistence(
+                            svc, bigips)
 
                 except Exception as err:
                     pool['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
-
-    def _update_listener_pool(self, service, listener_id, pool_name, bigips):
-        listener = self.get_listener_by_id(service, listener_id)
-        if listener is not None:
-            try:
-                listener["pool"] = pool_name
-                svc = {"loadbalancer": service["loadbalancer"],
-                       "listener": listener}
-                self.listener_builder.update_listener(svc, bigips)
-
-            except Exception as err:
-                listener['provisioning_status'] = plugin_const.ERROR
-                raise f5_ex.VirtualServerUpdateException(err.message)
 
     def _assure_monitors(self, service):
         if not (("pools" in service) and ("healthmonitors" in service)):
@@ -206,10 +195,13 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
 
         for member in members:
+            pool = self.get_pool_by_id(service, member["pool_id"])
             svc = {"loadbalancer": loadbalancer,
                    "member": member,
-                   "pool": self.get_pool_by_id(service, member["pool_id"])}
-            if member['provisioning_status'] == plugin_const.PENDING_DELETE:
+                   "pool": pool}
+            # delete member if pool is being deleted
+            if member['provisioning_status'] == plugin_const.PENDING_DELETE or\
+                    pool['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.delete_member(svc, bigips)
                 except Exception as err:
@@ -253,19 +245,22 @@ class LBaaSBuilder(object):
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
 
-                # get associated listener for pool
-                self.add_listener_pool(service, svc)
-
                 try:
-                    # remove pool name from virtual before deleting pool
-                    self.listener_builder.update_listener_pool(
-                        svc, "", bigips)
+
+                    # update listeners for pool
+                    for listener in pool['listeners']:
+                        svc['listener'] = \
+                            self.get_listener_by_id(service, listener['id'])
+
+                        # remove pool name from virtual before deleting pool
+                        self.listener_builder.update_listener_pool(
+                            svc, "", bigips)
+
+                        self.listener_builder.remove_session_persistence(
+                            svc, bigips)
 
                     # delete pool
                     self.pool_builder.delete_pool(svc, bigips)
-
-                    self.listener_builder.remove_session_persistence(
-                        svc, bigips)
 
                 except Exception as err:
                     pool['provisioning_status'] = plugin_const.ERROR
@@ -289,7 +284,8 @@ class LBaaSBuilder(object):
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerDeleteException(err.message)
 
-    def _check_monitor_delete(self, service):
+    @staticmethod
+    def _check_monitor_delete(service):
         # If the pool is being deleted, then delete related objects
         if service['pool']['status'] == plugin_const.PENDING_DELETE:
             # Everything needs to be go with the pool, so overwrite
@@ -318,24 +314,6 @@ class LBaaSBuilder(object):
                     return listener
         return None
 
-    @staticmethod
-    def add_listener_pool(service, svc):
-        pool = svc["pool"]
-        if "listeners" in pool and len(pool["listeners"]) > 0:
-            l = pool["listeners"][0]
-            listener = LBaaSBuilder.get_listener_by_id(service, l["id"])
-            if listener is not None:
-                svc["listener"] = listener
-
-    @staticmethod
-    def get_listener(service, pool):
-        listener = None
-        if "listeners" in pool and len(pool["listeners"]) > 0:
-            l = pool["listeners"][0]
-            listener = LBaaSBuilder.get_listener_by_id(service, l["id"])
-
-        return listener
-
     def _update_subnet_hints(self, status, subnet_id,
                              network_id, all_subnet_hints, is_member):
         bigips = self.driver.get_config_bigips()
@@ -362,7 +340,8 @@ class LBaaSBuilder(object):
             # Throw an exception if the listener does not exist.
             self.listener_builder.get_listener(service, bigip)
         except HTTPError as err:
-            LOG.debug("Virtual service service discovery error.", err.msg)
+            LOG.debug("Virtual service service discovery error, %s." %
+                      err.message)
             return False
 
         return True
