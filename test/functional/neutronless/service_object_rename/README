@@ -1,0 +1,41 @@
+To run the service object rename upgrade tests, you must first deploy a service using
+the legacy naming algorithm.  This can be done by executing the container described
+by Dockerfiles/Dockerfile.oldname_agent.  To build this container:
+
+$ docker build -t setup_rename_upgrade -f Dockerfiles/Dockerfile.oldnames_agent ./Dockerfiles
+
+You can see a list of available options by running this container with the help option:
+
+$ docker run setup_rename_upgrade --help
+
+usage: run_tests.py [-h] [--action action] [--service-name service_name]
+                    [--icontrol-hostname icontrol_hostname]
+                    [--member-ip member_ip] [--bigip-selfip bigip_selfip]
+                    [--vni vxlan_vni]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --action action		
+  --service-name service_name
+  --icontrol-hostname icontrol_hostname
+  --member-ip member_ip
+  --bigip-selfip bigip_selfip
+  --vni vxlan_vni
+
+The action default is setup, which is what this currently runs.
+
+--service-name: this is one of the services that are in the lbaas_services.json file:
+	"full_service" -- This is the default.
+    "listener_noname"
+    "pool_noname"	
+    "healthmonitor_noname"
+    "listener_hm_noname"
+    "pool_hm_noname"
+    "list_pool_hm_noname"
+    "list_pool_noname"
+
+--member-ip: the IP address of the backend pool member.
+--icontrol-hostname: The IP address of the BIG-IP device to use for testing
+--bigip-selfip: The IP address to use for the BIP-IP device on the test
+				network
+--vni: This is the VXLAN segmentation Id of the OpenStack network.
