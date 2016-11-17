@@ -31,4 +31,4 @@ WORKDIR /root/devenv/f5-openstack-agent
 RUN pip install --upgrade git+https://github.com/F5Networks/f5-common-python.git@development
 
 # This script should only be called to setup the BigIP with old names.
-#ENTRYPOINT [ "/root/devenv/f5-openstack-agent/test/functional/neutronless/service_object_rename/run_tests.py" ]
+ENTRYPOINT [ "/root/devenv/f5-openstack-agent/test/functional/neutronless/service_object_rename/run_tests.py" ]
