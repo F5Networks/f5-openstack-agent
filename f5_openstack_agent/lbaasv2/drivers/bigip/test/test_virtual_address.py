@@ -15,7 +15,7 @@
 #
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
-ServiceModelAdapter
+    ServiceModelAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
 
@@ -51,7 +51,7 @@ class TestVirtualAddress(object):
     def test_create_va(self, bigip, adapter, loadbalancer):
         va = VirtualAddress(adapter, loadbalancer)
 
-        assert(va != None)
+        assert(va is not None)
         assert(va.name == "Project_loadbalancer_id")
         assert(va.partition == "Project_123456789")
         assert(va.address == "192.168.100.5")
