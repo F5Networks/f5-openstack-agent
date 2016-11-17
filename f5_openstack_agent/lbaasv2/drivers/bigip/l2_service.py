@@ -139,15 +139,15 @@ class L2ServiceBuilder(object):
     def get_vlan_name(self, network, hostname):
         # Construct a consistent vlan name
         net_key = network['provider:physical_network']
+        net_type = network['provider:network_type']
+
         # look for host specific interface mapping
         if net_key + ':' + hostname in self.interface_mapping:
             interface = self.interface_mapping[net_key + ':' + hostname]
             tagged = self.tagging_mapping[net_key + ':' + hostname]
-        # look for specific interface mapping
         elif net_key in self.interface_mapping:
             interface = self.interface_mapping[net_key]
             tagged = self.tagging_mapping[net_key]
-        # use default mapping
         else:
             interface = self.interface_mapping['default']
             tagged = self.tagging_mapping['default']
@@ -157,11 +157,15 @@ class L2ServiceBuilder(object):
         else:
             vlanid = 0
 
-        vlan_name = "vlan-" + \
-                    str(interface).replace(".", "-") + \
-                    "-" + str(vlanid)
-        if len(vlan_name) > 15:
-            vlan_name = 'vlan-tr-' + str(vlanid)
+        if net_type == "flat":
+            interface_name = str(interface).replace(".", "-")
+            if (len(interface_name) > 15):
+                LOG.warn(
+                    "Interface name is greater than 15 chars in length")
+            vlan_name = "flat-%s" % (interface_name)
+        else:
+            vlan_name = "vlan-%d" % (vlanid)
+
         return vlan_name
 
     def assure_bigip_network(self, bigip, network):

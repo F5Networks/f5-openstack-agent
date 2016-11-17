@@ -139,6 +139,7 @@ class SystemHelper(object):
             # First remove all LTM resources.
             ltm_types = [
                 ResourceType.virtual,
+                ResourceType.virtual_address,
                 ResourceType.pool,
                 ResourceType.http_monitor,
                 ResourceType.https_monitor,
