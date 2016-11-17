@@ -169,7 +169,13 @@ class DisconnectedService(object):
     def is_service_connected(self, service):
         networks = service['networks']
         network_id = service['loadbalancer']['network_id']
-        segmentation_id = networks[network_id]['provider:segmentation_id']
+        network = networks.get(network_id, {})
+
+        if network.get('provider:network_type', "") == "flat":
+            return True
+
+        segmentation_id = network.get('provider:segmentation_id', 0)
+
         return (segmentation_id)
 
     def is_virtual_connected(self, virtual, bigips):

@@ -37,4 +37,4 @@ WORKDIR /root/devenv/f5-openstack-agent
 RUN pip install -r /root/devenv/f5-openstack-agent/requirements.sa-test.txt
 
 RUN pip install --upgrade git+https://github.com/F5Networks/f5-common-python.git@development
-ENTRYPOINT [ "/root/devenv/f5-openstack-agent/test/functional/neutronless/service_object_rename/manage_rename_test" ]
+ENTRYPOINT [ "/root/devenv/f5-openstack-agent/test/functional/neutronless/service_object_rename/run_tests.py" ]

@@ -44,6 +44,7 @@ class ResourceType(Enum):
     arp = 18
     route_domain = 19
     tunnel = 20
+    virtual_address = 21
 
 
 class BigIPResourceHelper(object):
@@ -68,8 +69,7 @@ class BigIPResourceHelper(object):
         u"""Create/update resource (e.g., pool) on a BIG-IP® system.
 
         First checks to see if resource has been created and creates
-        it if not. If the resource is already created, updates resource
-        with model attributes.
+        it if not.
 
         :param bigip: BigIP instance to use for creating resource.
         :param model: Dictionary of BIG-IP® attributes to add resource. Must
@@ -77,13 +77,7 @@ class BigIPResourceHelper(object):
         :returns: created or updated resource object.
         """
         resource = self._resource(bigip)
-        partition = None
-        if "partition" in model:
-            partition = model["partition"]
-        if resource.exists(name=model["name"], partition=partition):
-            obj = self.update(bigip, model)
-        else:
-            obj = resource.create(**model)
+        obj = resource.create(**model)
 
         return obj
 
@@ -200,7 +194,9 @@ class BigIPResourceHelper(object):
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains.route_domain,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel
+                lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel,
+            ResourceType.virtual_address:
+                lambda bigip: bigip.tm.ltm.virtual_address_s.virtual_address
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -237,6 +233,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.net.arps,
             ResourceType.tunnel:
                 lambda bigip: bigip.tm.net.tunnels.tunnels,
+            ResourceType.virtual_address:
+                lambda bigip: bigip.tm.ltm.virtual_address_s,
         }
 
         if self.resource_type in collection_map:
