@@ -34,7 +34,6 @@ from oslo_log import log as logging
 from oslo_utils import importutils
 
 from f5.bigip import ManagementRoot
-from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
@@ -50,6 +49,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import \
 from f5_openstack_agent.lbaasv2.drivers.bigip import network_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_service import \
     NetworkServiceBuilder
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
     ServiceModelAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
@@ -1042,13 +1042,43 @@ class iControlDriver(LBaaSBaseDriver):
                       % bigip.hostname)
             self.cluster_manager.save_config(bigip)
 
+    def _get_monitor_endpoint(self, bigip, service):
+        monitor_type = self.service_adapter.get_monitor_type(service)
+        if not monitor_type:
+            monitor_type = ""
+
+        if monitor_type == "HTTPS":
+            hm = bigip.tm.ltm.monitor.https_s.https
+        elif monitor_type == "TCP":
+            hm = bigip.tm.ltm.monitor.tcps.tcp
+        elif monitor_type == "PING":
+            hm = bigip.tm.ltm.monitor.gateway_icmps.gateway_icmp
+        else:
+            hm = bigip.tm.ltm.monitor.https.http
+
+        return hm
+
     def service_rename_required(self, service):
         rename_required = False
 
-        vs_manager = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.virtual)
-        pool_manager = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.pool)
+        # Returns whether the bigip has a pool for the service
+        if not service['loadbalancer']:
+            return False
+
+        bigips = self.get_config_bigips()
+        loadbalancer = service['loadbalancer']
+
+        # Does the correctly named virtual address exist?
+        for bigip in bigips:
+            virtual_address = VirtualAddress(self.service_adapter,
+                                             loadbalancer)
+            if not virtual_address.exists(bigip):
+                rename_required = True
+                break
+
+        return rename_required
+
+    def service_object_teardown(self, service):
 
         # Returns whether the bigip has a pool for the service
         if not service['loadbalancer']:
@@ -1060,26 +1090,57 @@ class iControlDriver(LBaaSBaseDriver):
             loadbalancer['tenant_id']
         )
 
-        for bigip in self.get_config_bigips():
-            # Check the names of each virtual service.
+        # Change to bigips
+        for bigip in bigips:
+
+            # Delete all virtuals
+            v = bigip.tm.ltm.virtuals.virtual
             for listener in service['listeners']:
                 l_name = listener.get("name", "")
-                if vs_manager.exists(bigip, name=l_name, partition=folder_name):
-                    rename_required = True
-                    LOG.warn("Deleting listener: /%s/%s" % (folder_name, l_name))
-                    vs_manager.delete(bigip, name=l_name, partition=folder_name)
-                else:
-                    LOG.error("listener does not exist: /%s/%s" % (folder_name, l_name))
+                if not l_name:
+                    svc = {"loadbalancer": loadbalancer,
+                           "listener": listener}
+                    vip = self.service_adapter.get_virtual(svc)
+                    l_name = vip['name']
+                if v.exists(name=l_name, partition=folder_name):
+                    # Found a virtual that is named by the OS object,
+                    # delete it.
+                    l_obj = v.load(name=l_name, partition=folder_name)
+                    LOG.warn("Deleting listener: /%s/%s" %
+                             (folder_name, l_name))
+                    l_obj.delete(name=l_name, partition=folder_name)
 
-            # Check the names of each pool.
-            for pool in service['pools']:
-                p_name = pool.get('name', "")
-                if pool_manager.exists(bigip, name=p_name, partition=folder_name):
-                    rename_required = True
+            # Delete all pools
+            p = bigip.tm.ltm.pools.pool
+            for os_pool in service['pools']:
+                p_name = os_pool.get('name', "")
+                if not p_name:
+                    svc = {"loadbalancer": loadbalancer,
+                           "pool": os_pool}
+                    pool = self.service_adapter.get_pool(svc)
+                    p_name = pool['name']
+
+                if p.exists(name=p_name, partition=folder_name):
+                    p_obj = p.load(name=p_name, partition=folder_name)
                     LOG.warn("Deleting pool: /%s/%s" % (folder_name, p_name))
-                    pool_manager.delete(bigip, name=p_name, partition=folder_name)
+                    p_obj.delete(name=p_name, partition=folder_name)
 
-        return rename_required
+            # Delete all healthmonitors
+            for healthmonitor in service['healthmonitors']:
+                svc = {'loadbalancer': loadbalancer,
+                       'healthmonitor': healthmonitor}
+                monitor_ep = self._get_monitor_endpoint(bigip, svc)
+
+                m_name = healthmonitor.get('name', "")
+                if not m_name:
+                    hm = self.service_adapter.get_healthmonitor(svc)
+                    m_name = hm['name']
+
+                if monitor_ep.exists(name=m_name, partition=folder_name):
+                    m_obj = monitor_ep.load(name=m_name, partition=folder_name)
+                    LOG.warn("Deleting monitor: /%s/%s" % (
+                        folder_name, m_name))
+                    m_obj.delete()
 
     def _service_exists(self, service):
         # Returns whether the bigip has a pool for the service
@@ -1095,36 +1156,57 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in self.get_config_bigips():
             # Does the tenant folder exist?
             if not self.system_helper.folder_exists(bigip, folder_name):
-                LOG.debug("Folder %s does not exists on bigip: %s" %
-                          (folder_name, bigip))
+                LOG.error("Folder %s does not exists on bigip: %s" %
+                          (folder_name, bigip.hostname))
                 return False
 
             # Get the virtual address
-            virtual_address = VirtualAddress(self.service_adapter, loadbalancer)
+            virtual_address = VirtualAddress(self.service_adapter,
+                                             loadbalancer)
             if not virtual_address.exists(bigip):
-                LOG.debug("Virtual address %s(%s) does not exists on bigip: %s" %
-                          (virtual_address.name, virtual_address.address, bigip))
+                LOG.error("Virtual address %s(%s) does not "
+                          "exists on bigip: %s" % (virtual_address.name,
+                                                   virtual_address.address,
+                                                   bigip.hostname))
                 return False
 
             # Ensure that each virtual service exists.
-            v = bigip.tm.ltm.virtuals.virtual
             for listener in service['listeners']:
 
                 svc = {"loadbalancer": loadbalancer,
                        "listener": listener}
                 virtual_server = self.service_adapter.get_virtual_name(svc)
-                if not v.exists(name=virtual_server['name'], partition=folder_name):
-                    LOG.debug("Virtual /%s/%s not found on bigip: %s" %
-                              (virtual_server['name'], folder_name, bigip))
+                if not self.vs_manager.exists(bigip,
+                                              name=virtual_server['name'],
+                                              partition=folder_name):
+                    LOG.error("Virtual /%s/%s not found on bigip: %s" %
+                              (virtual_server['name'], folder_name,
+                               bigip.hostname))
                     return False
 
             # Ensure that each virtual service exists.
-            p = bigip.tm.ltm.pools.pool
             for pool in service['pools']:
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
                 bigip_pool = self.service_adapter.get_pool(svc)
-                if not p.exists(name=bigip_pool['name'], partition=folder_name):
+                if not self.pool_manager.exists(
+                        bigip,
+                        name=bigip_pool['name'],
+                        partition=folder_name):
+                    LOG.error("Pool /%s/%s not found on bigip: %s" %
+                              (bigip_pool['name'], folder_name,
+                               bigip.hostname))
+                    return False
+
+            for healthmonitor in service['healthmonitors']:
+                svc = {"loadbalancer": loadbalancer,
+                       "healthmonitor": healthmonitor}
+                monitor = self.service_adapter.get_healthmonitor(svc)
+                monitor_ep = self._get_monitor_endpoint(bigip, svc)
+                if not monitor_ep.exists(name=monitor['name'],
+                                         partition=folder_name):
+                    LOG.error("Monitor /%s/%s not found on bigip: %s" %
+                              (monitor['name'], folder_name, bigip.hostname))
                     return False
 
         return True
