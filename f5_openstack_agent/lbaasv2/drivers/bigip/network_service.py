@@ -25,6 +25,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
     L2ServiceBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.snats import BigipSnatManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
@@ -46,6 +47,8 @@ class NetworkServiceBuilder(object):
         self.bigip_snat_manager = BigipSnatManager(
             self.driver, self.l2_service, self.driver.l3_binding)
 
+        self.vlan_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.vlan)
         self.rds_cache = {}
         self.interface_mapping = self.l2_service.interface_mapping
         self.network_helper = NetworkHelper()
@@ -78,6 +81,8 @@ class NetworkServiceBuilder(object):
         local_ips = []
 
         for bigip in self.driver.get_all_bigips():
+
+            bigip.local_ip = None
 
             if not vtep_folder or vtep_folder.lower() == 'none':
                 vtep_folder = 'Common'
@@ -897,8 +902,8 @@ class NetworkServiceBuilder(object):
     def set_context(self, context):
         self.l2_service.set_context(context)
 
-    def vlan_exists(self, network, folder='Common'):
-        return False
+    def vlan_exists(self, bigip, network, folder='Common'):
+        return self.vlan_manager.exists(bigip, name=network, partition=folder)
 
     def _get_subnets_to_assure(self, service):
         # Examine service and return active networks

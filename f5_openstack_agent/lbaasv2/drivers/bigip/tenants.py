@@ -139,7 +139,7 @@ class BigipTenantManager(object):
 
         try:
             self.system_helper.delete_folder(bigip, partition)
-        except Exception:
+        except Exception as err:
             LOG.error(
                 "Folder deletion exception for tenant partition %s occurred."
                 % tenant_id)
