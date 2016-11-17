@@ -195,10 +195,13 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
 
         for member in members:
+            pool = self.get_pool_by_id(service, member["pool_id"])
             svc = {"loadbalancer": loadbalancer,
                    "member": member,
-                   "pool": self.get_pool_by_id(service, member["pool_id"])}
-            if member['provisioning_status'] == plugin_const.PENDING_DELETE:
+                   "pool": pool}
+            # delete member if pool is being deleted
+            if member['provisioning_status'] == plugin_const.PENDING_DELETE or\
+                    pool['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.delete_member(svc, bigips)
                 except Exception as err:
