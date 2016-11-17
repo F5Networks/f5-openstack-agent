@@ -1,10 +1,10 @@
-To run the service object rename upgrade tests, you must first deploy a service using
+1) To run the service object rename upgrade tests, you must first deploy a service using
 the legacy naming algorithm.  This can be done by executing the container described
 by Dockerfiles/Dockerfile.oldname_agent.  To build this container:
 
 $ docker build -t setup_rename_upgrade -f Dockerfiles/Dockerfile.oldnames_agent ./Dockerfiles
 
-You can see a list of available options by running this container with the help option:
+2) You can see a list of available options by running this container with the help option:
 
 $ docker run setup_rename_upgrade --help
 
@@ -22,7 +22,9 @@ optional arguments:
   --bigip-selfip bigip_selfip
   --vni vxlan_vni
 
-The action default is setup, which is what this currently runs.
+3) The action default is setup, which is what this currently create a full service
+object that has loadbalancer, listener, pool, member, and healthmonitor.  This is
+full service.  You can change the deployed service by using the --service-name option
 
 --service-name: this is one of the services that are in the lbaas_services.json file:
 	"full_service" -- This is the default.
@@ -39,3 +41,25 @@ The action default is setup, which is what this currently runs.
 --bigip-selfip: The IP address to use for the BIP-IP device on the test
 				network
 --vni: This is the VXLAN segmentation Id of the OpenStack network.
+
+
+4) To run the test you need to create a container with the updated code.
+
+$ docker build -t test_rename_upgrade -f Dockerfile.trusty_liberty .
+
+
+5) Execute the test
+
+$ docker run --rm test_rename_upgrade --action run_test
+
+6) The test should perform a teardown but if for some reason there is a failure, you can
+manually reset:
+
+$ docker run --rm test_rename_upgrade --action teardown
+
+
+7) The default test service is one where the object names all use OS names, full-service.
+The tests services can vary though by using the --service-name.  If the setup uses the
+--service-name option, then the test execution needs to use the same option.
+
+

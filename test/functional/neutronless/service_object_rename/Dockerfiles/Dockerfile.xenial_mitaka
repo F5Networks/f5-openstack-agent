@@ -34,7 +34,7 @@ RUN pip install --upgrade git+https://github.com/F5Networks/pytest-symbols.git
 RUN mkdir -p /root/devenv
 RUN git clone -b issue-329 https://github.com/richbrowne/f5-openstack-agent.git /root/devenv/f5-openstack-agent
 WORKDIR /root/devenv/f5-openstack-agent
-RUN pip install -r /root/devenv/f5-openstack-agent/requirements.sa-test.txt
+#RUN pip install -r /root/devenv/f5-openstack-agent/requirements.sa-test.txt
 
 RUN pip install --upgrade git+https://github.com/F5Networks/f5-common-python.git@development
 # ENTRYPOINT [ "/root/devenv/f5-openstack-agent/test/functional/neutronless/service_object_rename/manage_rename_test" ]
