@@ -26,7 +26,7 @@ RUN mkdir -p /root/devenv
 
 # This needs to be pinned to some tagged version that existed prior to the code that goes in to fix
 # resource names on BigIP.  This will need to change to a F5Networks tagged branch after initial commit.
-RUN git clone -b feature.rename_service_objects https://github.com/richbrowne/f5-openstack-agent.git /root/devenv/f5-openstack-agent
+RUN git clone -b feature.rename_service_objects https://github.com/F5Networks/f5-openstack-agent.git /root/devenv/f5-openstack-agent
 WORKDIR /root/devenv/f5-openstack-agent
 RUN pip install --upgrade git+https://github.com/F5Networks/f5-common-python.git@development
 
