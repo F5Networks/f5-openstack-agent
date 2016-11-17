@@ -62,7 +62,8 @@ disconnected_service-teardown:
 	if [ ! -e $(disconnected_results) ]; then mkdir -p $(disconnected_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
 	scp -rp -F $(ssh_conf) \
-		bastion:~/test_results/$(disconnected_session)/* $(disconnected_results)
+		bastion:~/test_results/$(disconnected_session)/* \
+            $(disconnected_results) || true
 	scp -rp -F $(ssh_conf) \
-		bastion:~/test_results/$(unit_session)/* $(unit_results)
+		bastion:~/test_results/$(unit_session)/* $(unit_results) || true
 	testenv delete --name $(disconnected_session) --config $(testenv_config)
