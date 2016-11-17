@@ -236,7 +236,7 @@ def test_rename_service_objects(bigip, service, service_adapter):
             icontroldriver._common_service_handler,
             service)
 
-    time.sleep(1)
+    time.sleep(10)
 
     assert(icontroldriver.service_exists(service))
 

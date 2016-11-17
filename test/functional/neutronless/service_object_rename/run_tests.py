@@ -30,14 +30,16 @@ def parse_args():
         '--service-name', metavar="service_name", default="full_service")
     parser.add_argument(
         '--icontrol-hostname', metavar="icontrol_hostname",
-        default=os.getenv('icontrol_hostname', ""))
+        default=os.getenv('icontrol_hostname', "10.1.0.170"))
     parser.add_argument(
-        '--member-ip', metavar="member_ip", default=os.getenv('member_ip', ""))
+        '--member-ip', metavar="member_ip", default=os.getenv('member_ip', "192.168.101.4"))
     parser.add_argument(
         '--bigip-selfip', metavar="bigip_selfip",
-        default=os.getenv('bigip_selfip', ""))
+        default=os.getenv('bigip_selfip', "192.168.101.5"))
     parser.add_argument(
-        '--vni', metavar="vxlan_vni", default=os.getenv('vxlan_vni', ""))
+        '--vni', metavar="vxlan_vni", default=os.getenv('vxlan_vni', "94"))
+    parser.add_argument(
+        '--test-case', metavar="test_case", default="test_rename_service_objects")
     return parser.parse_args()
 
 
@@ -62,24 +64,38 @@ def main(args):
     test_name = "test_service_object_rename.py"
     symbols_file = "%s/conf_symbols.json" % test_root
 
+    # Initialize symbols file
     setup_symbols(symbols_file, args)
-    cmd = "py.test -sv --symbols=%s --service-name=%s %s/%s::%s" % (
+
+    # Build the command to run.
+    cmd = "py.test -sv --symbols=%s --service-name=%s %s/%s" % (
         symbols_file,
         args.service_name,
         test_root,
-        test_name,
-        "test_create_config")
+        test_name)
 
+    # Get the test to run.
     if args.action == 'setup':
         print("Setting up service rename tests...")
-        subprocess.call(cmd.split())
+        test = "test_create_config"
     elif args.action == 'teardown':
         print("Teardown service rename tests...")
+        test = "test_cleanup_config"
     elif args.action == 'run_test':
         print("Teardown service rename tests...")
+        test = args.test_case
     else:
         print("invalid option")
         sys.exit(1)
+
+    # Build the test case into the command
+    cmd = "%s::%s" % (cmd, test)
+    try:
+        returncode = subprocess.call(cmd.split())
+    except subprocess.CalledProcessError as e:
+        returncode = e.returncode
+
+    sys.exit(returncode)
 
 if __name__ == '__main__':
 
