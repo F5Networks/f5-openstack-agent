@@ -57,5 +57,3 @@ class TestVirtualAddress(object):
         assert(va.address == "192.168.100.5")
         assert(va.traffic_group == "traffic-group-local-only")
         assert(va.description == "lb1:")
-
-

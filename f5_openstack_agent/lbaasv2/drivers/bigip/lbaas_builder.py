@@ -165,7 +165,9 @@ class LBaaSBuilder(object):
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         pool['provisioning_status'] = plugin_const.ERROR
-                        loadbalancer['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = (
+                            plugin_const.ERROR
+                        )
                         raise f5_ex.PoolCreationException(err.message)
                 except Exception as err:
                     pool['provisioning_status'] = plugin_const.ERROR
@@ -208,8 +210,10 @@ class LBaaSBuilder(object):
                     self.pool_builder.create_healthmonitor(svc, bigips)
                 except HTTPError as err:
                     if err.response.status_code != 409:
-                        pool['provisioning_status'] = plugin_const.ERROR
-                        loadbalancer['provisioning_status'] = plugin_const.ERROR
+                        # pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = (
+                            plugin_const.ERROR
+                        )
                         raise f5_ex.MonitorCreationException(err.message)
                     else:
                         self.pool_builder.update_healthmonitor(svc, bigips)
@@ -240,8 +244,11 @@ class LBaaSBuilder(object):
                     self.pool_builder.create_member(svc, bigips)
                 except HTTPError as err:
                     if err.response.status_code != 409:
-                        pool['provisioning_status'] = plugin_const.ERROR
-                        loadbalancer['provisioning_status'] = plugin_const.ERROR
+                        # FIXME(RB)
+                        # pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = (
+                            plugin_const.ERROR
+                        )
                         raise f5_ex.MemberCreationException(err.message)
                     else:
                         self.pool_builder.update_member(svc, bigips)
