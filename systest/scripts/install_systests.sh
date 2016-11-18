@@ -34,7 +34,7 @@ cd f5-openstack-agent
 pip install --upgrade .
 
 # Install openstack deps (if necessary)
-pip install git+https://github.com/openstack/neutron#stable/$branch
+pip install git+https://github.com/openstack/neutron@9.1.0
 pip install git+https://github.com/openstack/oslo.log.git@stable/$branch
 pip install git+https://github.com/openstack/neutron-lbaas.git@stable/$branch
 
