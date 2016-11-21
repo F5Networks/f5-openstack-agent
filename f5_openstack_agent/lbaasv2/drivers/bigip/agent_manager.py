@@ -658,6 +658,17 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("Exception: %s" % exc.message)
 
     @log_helpers.log_method_call
+    def update_loadbalancer_stats(self, context, loadbalancer, service):
+        """Handle RPC cast from plugin to get stats."""
+        try:
+            self.lbdriver.get_stats(service)
+            self.cache.put(service, self.agent_host)
+        except q_exception.NeutronException as exc:
+            LOG.error("q_exception.NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
     def create_listener(self, context, listener, service):
         """Handle RPC cast from plugin to create_listener."""
         try:

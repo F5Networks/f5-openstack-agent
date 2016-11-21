@@ -59,7 +59,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
     BigipTenantManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
 
@@ -871,7 +870,7 @@ class iControlDriver(LBaaSBaseDriver):
                 vs_stats['clientside.totConns']
 
         except Exception as e:
-            LOG.error("Error getting pool stats: %s", e.message)
+            LOG.error("Error getting loadbalancer stats: %s", e.message)
 
         finally:
             return lb_stats

@@ -266,11 +266,21 @@ class BigIPResourceHelper(object):
         if self.exists(bigip, name=name, partition=partition):
             resource = self.load(bigip, name=name, partition=partition)
             resource_stats = resource.stats.load()
+            stat_entries = resource_stats.entries
+
+            # Difference between 11.6 and 12.1. Stats in 12.1 are embedded
+            # in nestedStats. In 11.6, they directly accessible in entries.
+            if stats[0] not in stat_entries:
+                # find nestedStats
+                for key in stat_entries.keys():
+                    value = stat_entries.get(key, None)
+                    if 'nestedStats' in value:
+                        stat_entries = value['nestedStats']['entries']
 
             # add stats defined in input stats array
             for stat in stats:
-                if stat in resource_stats.entries:
+                if stat in stat_entries:
                     collected_stats[stat] = \
-                        resource_stats.entries[stat]['value']
+                        stat_entries[stat]['value']
 
         return collected_stats
