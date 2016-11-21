@@ -526,5 +526,41 @@
                         "value": "test_header"
                     }
                 ]
+        },
+    "redirect_to_url_not_header_remove_rule":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_URL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": "http://www.example.com",
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "ENDS_WITH",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": true,
+                        "key": "X-HEADER",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "PENDING_DELETE",
+                        "tenant_id": "test",
+                        "type": "HEADER",
+                        "value": "test_header"
+                    }
+                ]
         }
 }
