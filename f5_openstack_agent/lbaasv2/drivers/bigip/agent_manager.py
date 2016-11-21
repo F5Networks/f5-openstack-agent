@@ -539,7 +539,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.error('active loadbalancer %s is not on BIG-IP...syncing'
                           % lb_id)
 
-                if self.lbdriver.rename_required(service):
+                if self.lbdriver.service_rename_required(service):
                     self.lbdriver.service_object_teardown(service)
                     LOG.error('active loadbalancer %s is configured with '
                               'non-unique names on BIG-IP...rename in '
