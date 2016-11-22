@@ -409,7 +409,7 @@ def test_nosegid_listener(setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert not rpc.update_listener_status.called
-    assert not rpc.update_loadbalancer_status.called    
+    assert not rpc.update_loadbalancer_status.called
 
 
 @pytest.mark.skip(reason="The polling will occur in the agent")
@@ -583,7 +583,7 @@ def test_featureoff_grm_lb(setup_l2adjacent_test, bigip):
             icontroldriver._common_service_handler,
             service, True)
 
-    after_destroy_registry = register_device(bigip)    
+    after_destroy_registry = register_device(bigip)
     post_destroy_uris = (set(after_destroy_registry.keys()) -
                    set(start_registry.keys()))
 
