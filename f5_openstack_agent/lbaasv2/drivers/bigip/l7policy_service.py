@@ -56,16 +56,21 @@ class L7PolicyService(object):
         # create L7 policy
         try:
             l7policy_adapter = L7PolicyServiceAdapter(self.conf)
-            f5_l7policy = l7policy_adapter.translate(
-                self.build_policy(l7policy, lbaas_service))
-            stack.append(L7PolicyBuilder(event, f5_l7policy))
+            policies = self.build_policy(l7policy, lbaas_service)
+            if policies['l7policies']:
+                f5_l7policy = l7policy_adapter.translate(policies)
+                stack.append(L7PolicyBuilder(event, f5_l7policy))
+            else:
+                # empty policy -- delete wrapper policy on BIG-IPs
+                self.delete_l7policy(l7policy, service_object, bigips)
+                return
 
         except PolicyHasNoRules as exc:
             # For OpenStack, creating policies and rules are independent
-            # commands, so this exception is valid. Return without doing
-            # anything and expect user will also create a rule which will
-            # then allow the policy to be created.
+            # commands, so this exception is valid. Delete policy because
+            # it has no rules.
             LOG.debug(exc.message)
+            self.delete_l7policy(l7policy, service_object, bigips)
             return
 
         self._process_stack(stack, bigips)
@@ -101,9 +106,14 @@ class L7PolicyService(object):
 
         try:
             l7policy_adapter = L7PolicyServiceAdapter(self.conf)
-            f5_l7policy = l7policy_adapter.translate(
-                self.build_policy(l7policy, lbaas_service))
-            stack.append(L7PolicyBuilder(event, f5_l7policy))
+            policies = self.build_policy(l7policy, lbaas_service)
+            if policies['l7policies']:
+                f5_l7policy = l7policy_adapter.translate(policies)
+                stack.append(L7PolicyBuilder(event, f5_l7policy))
+            else:
+                # empty policy -- delete wrapper policy on BIG-IPs
+                self.delete_l7policy(l7policy, service_object, bigips)
+                return
         except PolicyHasNoRules:
             # Because this is an update, assume an existing policy
             # and if the update results in a policy without rules,
