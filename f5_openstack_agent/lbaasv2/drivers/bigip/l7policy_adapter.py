@@ -90,8 +90,9 @@ class Rule(object):
 
         for idx, os_rule_dict in enumerate(policy['rules']):
             os_rule = self._get_l7rule(os_rule_dict['id'], service)
-            cond = Condition(os_rule, str(idx))
-            self.conditions.append(cond.__dict__)
+            if os_rule['provisioning_status'] != 'PENDING_DELETE':
+                cond = Condition(os_rule, str(idx))
+                self.conditions.append(cond.__dict__)
         act_type, act_val = self._get_action_and_value(policy['id'], service)
         action = Action(act_type, '0', partition, env_prefix, act_val)
         self.actions.append(action.__dict__)

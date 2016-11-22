@@ -53,7 +53,7 @@ def partition_setup(request, bigip):
 def policy_setup(request, bigip, partition_setup):
     pool = bigip.tm.ltm.pools.pool
     pol = bigip.tm.ltm.policys.policy
-    pool_kwargs = {'name': 'test_pool', 'partition': 'Project_test'}
+    pool_kwargs = {'name': 'Project_test_pool', 'partition': 'Project_test'}
     pol_kwargs = {'name': 'wrapper_policy', 'partition': 'Project_test'}
 
     def teardown():
@@ -107,7 +107,7 @@ def test_adapter_redirect_to_pool_file_type_beginswith(
                     {
                         'forward': True, 'name': 0, 'request': True,
                         'name': '0',
-                        'pool': u'/Project_test/test_pool'
+                        'pool': u'/Project_test/Project_test_pool'
                     }
                 ],
                 'conditions': [
@@ -197,7 +197,7 @@ def test_adapter_redirect_to_pool_hostname_equal_to(
                 'actions': [
                     {
                         'request': True, 'name': '0', 'forward': True,
-                        'pool': '/Project_test/test_pool'
+                        'pool': '/Project_test/Project_test_pool'
                     }
                 ],
                 'conditions': [
@@ -229,7 +229,7 @@ def test_adapter_redirect_to_pool_many_rules(
                 "actions": [{
                     "forward": True,
                     "name": "0",
-                    "pool": "/Project_test/test_pool",
+                    "pool": "/Project_test/Project_test_pool",
                     "request": True
                 }],
                 "conditions": [{
@@ -279,7 +279,7 @@ def test_adapter_many_policies_rules(
                 "actions": [{
                     "forward": True,
                     "name": "0",
-                    "pool": "/Project_test/test_pool",
+                    "pool": "/Project_test/Project_test_pool",
                     "request": True
                 }],
                 "conditions": [{
@@ -355,7 +355,7 @@ def test_adapter_redirect_to_pool_hostname_not_equal_to(
                 'actions': [
                     {
                         'request': True, 'name': '0', 'forward': True,
-                        'pool': '/Project_test/test_pool'
+                        'pool': '/Project_test/Project_test_pool'
                     }
                 ],
                 'conditions': [
@@ -413,7 +413,7 @@ def test_adapter_redirect_to_pool_file_type_not_beginswith(
                 'actions': [
                     {
                         'forward': True, 'name': 0, 'request': True,
-                        'name': '0', 'pool': u'/Project_test/test_pool'
+                        'name': '0', 'pool': u'/Project_test/Project_test_pool'
                     }
                 ],
                 'conditions': [
@@ -484,6 +484,30 @@ def test_adapter_redirect_to_url_header_not_ends_with(
                         'tmName': 'X-HEADER', 'not': True
                     }
                 ],
+                'name': u'redirect_to_url_1', 'ordinal': 1
+            }
+        ],
+        'strategy': 'first-match'
+    }
+    bigip.tm.ltm.policys.policy.create(**pol)
+
+
+def test_adapter_remove_rule(bigip, fake_conf, policy_setup):
+    adapter = l7policy_adapter.L7PolicyServiceAdapter(fake_conf)
+    pol = adapter.translate(
+        POL_CONFIGS['redirect_to_url_not_header_remove_rule'])
+    assert pol == {
+        'name': 'wrapper_policy', 'partition': u'Project_test', 'legacy': True,
+        'requires': ['http'], 'controls': ['forwarding'],
+        'rules': [
+            {
+                'actions': [
+                    {
+                        'request': True, 'name': '0', 'httpReply': True,
+                        'redirect': True, 'location': 'http://www.example.com'
+                    }
+                ],
+                'conditions': [],
                 'name': u'redirect_to_url_1', 'ordinal': 1
             }
         ],
