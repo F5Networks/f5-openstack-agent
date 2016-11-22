@@ -103,11 +103,10 @@ class VirtualServerBuilder(object):
         policies = p.get_collection()
 
         # find policy and remove from virtual server
-        if policies:
-            for policy in policies:
-                if policy.name == policy_name:
-                    l7 = p.policies.load(name=policy_name,
-                                         partition=policy_partition)
-                    l7.delete()
-                    LOG.debug("Removed L7 policy {0} for virtual sever {1}".
-                              format(policy_name, vs_name))
+        for policy in policies:
+            if policy.name == policy_name:
+                l7 = p.policies.load(name=policy_name,
+                                     partition=policy_partition)
+                l7.delete()
+                LOG.debug("Removed L7 policy {0} for virtual sever {1}".
+                          format(policy_name, vs_name))

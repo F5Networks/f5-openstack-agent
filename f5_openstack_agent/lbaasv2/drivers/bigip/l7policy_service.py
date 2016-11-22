@@ -160,7 +160,8 @@ class L7PolicyService(object):
         listener = lbaas_service.get_listener(l7policy['listener_id'])
         for policy_id in listener['l7_policies']:
             policy = lbaas_service.get_l7policy(policy_id['id'])
-            if policy:
+            if policy and policy['provisioning_status'] != \
+                    plugin_const.PENDING_DELETE:
                 os_policies['l7policies'].append(policy)
                 for rule in policy['rules']:
                     l7rule = lbaas_service.get_l7rule(rule['id'])

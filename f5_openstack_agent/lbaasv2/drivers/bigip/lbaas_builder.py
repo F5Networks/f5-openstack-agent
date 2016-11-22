@@ -407,9 +407,7 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
         l7policies = service['l7policies']
         for l7policy in l7policies:
-            if l7policy['provisioning_status'] == plugin_const.PENDING_CREATE \
-                    or l7policy['provisioning_status'] == \
-                    plugin_const.PENDING_UPDATE:
+            if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
                     self.l7service.create_l7policy(l7policy, service, bigips)
                 except Exception as err:
@@ -425,7 +423,9 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             if l7policy['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
-                    self.l7service.delete_l7policy(l7policy, service, bigips)
+                    # Note: use update_l7policy because a listener can have
+                    # multiple policies
+                    self.l7service.update_l7policy(l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
