@@ -109,20 +109,20 @@ SEG_DEPENDENT_LB_URIS =\
 SEG_LISTENER_URIS = \
     set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~10.2.2.140%251?ver='+tmos_version,
+         '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/ltm/virtual/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~SAMPLE_LISTENER?ver='+tmos_version])
+         '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9?ver='+tmos_version])
 
 NOSEG_LISTENER_URIS =\
     set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~10.2.2.140?ver='+tmos_version,
+         '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/ltm/virtual/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~SAMPLE_LISTENER?ver='+tmos_version])
+         '~105a227a-cdbf-4ce3-844c-9ebedec849e9?ver='+tmos_version])
 
 ERROR_MSG_MISCONFIG = 'Misconfiguration: Segmentation ID is missing'
 ERROR_MSG_VXLAN_TUN = 'Failed to create vxlan tunnel:'
