@@ -409,7 +409,7 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             if l7policy['provisioning_status'] == plugin_const.PENDING_CREATE \
                     or l7policy['provisioning_status'] == \
-                    plugin_const.PENDING_CREATE:
+                    plugin_const.PENDING_UPDATE:
                 try:
                     self.l7service.create_l7policy(l7policy, service, bigips)
                 except Exception as err:
