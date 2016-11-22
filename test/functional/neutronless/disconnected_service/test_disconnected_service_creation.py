@@ -104,25 +104,26 @@ SEG_DEPENDENT_LB_URIS =\
 
          u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~tunnel-vxlan-46?ver='+tmos_version])
+         '~tunnel-vxlan-46?ver='+tmos_version,
+
+         u'https://localhost/mgmt/tm/ltm/virtual-address/'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+         '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?ver='+tmos_version])
 
 SEG_LISTENER_URIS = \
+    set([u'https://localhost/mgmt/tm/ltm/virtual/'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+         '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9?ver='+tmos_version])
+
+NOSEG_LB_URIS =\
     set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~10.2.2.140%251?ver='+tmos_version,
-
-         u'https://localhost/mgmt/tm/ltm/virtual/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~SAMPLE_LISTENER?ver='+tmos_version])
+         '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?ver='+tmos_version])
 
 NOSEG_LISTENER_URIS =\
-    set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
+    set([u'https://localhost/mgmt/tm/ltm/virtual/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~10.2.2.140?ver='+tmos_version,
-
-         u'https://localhost/mgmt/tm/ltm/virtual/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~SAMPLE_LISTENER?ver='+tmos_version])
+         '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9?ver='+tmos_version])
 
 ERROR_MSG_MISCONFIG = 'Misconfiguration: Segmentation ID is missing'
 ERROR_MSG_VXLAN_TUN = 'Failed to create vxlan tunnel:'
@@ -165,6 +166,7 @@ def bigip():
     LOG.debug(pytest.symbols)
     LOG.debug(pytest.symbols.bigip_mgmt_ip)
     return ManagementRoot(pytest.symbols.bigip_mgmt_ip, 'admin', 'admin')
+
 
 @pytest.fixture
 def setup_l2adjacent_test(request, bigip, makelogdir):
@@ -353,7 +355,7 @@ def test_nosegid_lb(setup_l2adjacent_test, bigip):
     after_create_registry = register_device(bigip)
     create_uris = (set(after_create_registry.keys()) -
                    set(start_registry.keys()))
-    assert create_uris == SEG_INDEPENDENT_LB_URIS
+    assert create_uris == SEG_INDEPENDENT_LB_URIS | NOSEG_LB_URIS
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
@@ -375,7 +377,8 @@ def test_nosegid_listener(setup_l2adjacent_test, bigip):
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     create_uris = (set(after_create_registry.keys()) -
                    set(start_registry.keys()))
-    assert create_uris == SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS
+    assert create_uris == (SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS |
+                           NOSEG_LB_URIS)
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert rpc.update_listener_status.call_args_list == [
@@ -416,7 +419,8 @@ def test_nosegid_listener_timeout(setup_l2adjacent_test, bigip):
         time.sleep(poll_interval)
         create_registry = register_device(bigip)
         create_uris = set(create_registry.keys()) - set(start_registry.keys())
-        assert create_uris == SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS
+        assert create_uris == (SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS |
+                               NOSEG_LB_URIS)
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
