@@ -25,7 +25,6 @@ class ListenerAdapter(ServiceModelAdapter):
                      listener.get('tenant_id', ''))}
 
         if l7policy:
-            # Use full path when attaching policy name to virtual server
             f5_vs['l7policy_name'] = "wrapper_policy"
 
         return f5_vs
