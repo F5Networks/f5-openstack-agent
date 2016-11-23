@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -ex
 
+if [ "$1" == "-h" ] || [[ "$1" == "--help" ]]; then
+    echo "Usage: This script expects to be called from the buildbot interface (systest/Makefile or systest/????.yml).  Appropriate arguments are established in that context."
+fi
 if [ "$1" == "" ]; then
     echo "ERROR: no repo value provided!"
     exit 1
@@ -34,7 +37,7 @@ cd f5-openstack-agent
 pip install --upgrade .
 
 # Install openstack deps (if necessary)
-pip install git+https://github.com/openstack/neutron@9.1.0
+pip install git+https://github.com/openstack/neutron@stable/$branch
 pip install git+https://github.com/openstack/oslo.log.git@stable/$branch
 pip install git+https://github.com/openstack/neutron-lbaas.git@stable/$branch
 
