@@ -135,7 +135,7 @@ SEG_INDEPENDENT_LB_URIS_COMMON_NET =\
 SEG_LISTENER_URIS = \
     set([u'https://localhost/mgmt/tm/ltm/virtual/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9?ver='+tmos_version])
+         '~SAMPLE_LISTENER?ver='+tmos_version])
 
 NOSEG_LB_URIS =\
     set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
