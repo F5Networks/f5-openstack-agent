@@ -142,3 +142,27 @@ class LBaaSBaseDriver(object):
     def fdb_update(self, fdb_entries):
         """L2 Population FDB Update """
         raise NotImplementedError()
+
+    def create_l7policy(self, l7policy, service):
+        """LBaaS Create l7policy """
+        raise NotImplementedError()
+
+    def update_l7policy(self, old_l7policy, l7policy, service):
+        """LBaaS Update l7policy """
+        raise NotImplementedError()
+
+    def delete_l7policy(self, l7policy, service):
+        """LBaaS Delete l7policy """
+        raise NotImplementedError()
+
+    def create_l7rule(self, l7rule, service):
+        """LBaaS Create l7rule """
+        raise NotImplementedError()
+
+    def update_l7rule(self, old_l7rule, l7rule, service):
+        """LBaaS Update l7rule """
+        raise NotImplementedError()
+
+    def delete_l7rule(self, l7rule, service):
+        """LBaaS Delete l7rule """
+        raise NotImplementedError()

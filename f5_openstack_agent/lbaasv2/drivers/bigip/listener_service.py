@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import urllib
-
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
@@ -23,12 +21,13 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from neutron_lbaas.services.loadbalancer import constants as lb_const
+from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
 
 class ListenerServiceBuilder(object):
-    """Create LBaaS v2 Listener on BIG-IP®s.
+    u"""Create LBaaS v2 Listener on BIG-IP®s.
 
     Handles requests to create, update, delete LBaaS v2 listener
     objects on one or more BIG-IP® systems. Maps LBaaS listener
@@ -46,9 +45,9 @@ class ListenerServiceBuilder(object):
                   parent_ssl_profile)
 
     def create_listener(self, service, bigips):
-        """Create listener on set of BIG-IP®s.
+        u"""Create listener on set of BIG-IP®s.
 
-        Creates a BIG-IP® virtual server to represent an LBaaS
+        Create a BIG-IP® virtual server to represent an LBaaS
         Listener object.
 
         :param service: Dictionary which contains a both a listener
@@ -80,30 +79,20 @@ class ListenerServiceBuilder(object):
         network_id = service['loadbalancer']['network_id']
         for bigip in bigips:
             self.service_adapter.get_vlan(vip, bigip, network_id)
-            self.vs_helper.create(bigip, vip)
-
+            try:
+                self.vs_helper.create(bigip, vip)
+            except HTTPError as err:
+                if err.response.status_code == 409:
+                    LOG.debug("Virtual server already exists")
+                else:
+                    LOG.exception("Virtual server creation error: %s" %
+                                  err.message)
+                    raise
             if tls:
                 self.add_ssl_profile(tls, bigip)
 
-        # Traffic group is added after create in order to take adavantage
-        # of BIG-IP® defaults.
-        traffic_group = self.service_adapter.get_traffic_group(service)
-        if traffic_group:
-            ip_address = service['loadbalancer']['vip_address']
-            if str(ip_address).endswith('%0'):
-                ip_address = ip_address[:-2]
-            else:
-                ip_address = urllib.quote(ip_address)
-
-            for bigip in bigips:
-                virtual_address = \
-                    bigip.tm.ltm.virtual_address_s.virtual_address
-                obj = virtual_address.load(name=ip_address,
-                                           partition=vip['partition'])
-                obj.modify(trafficGroup=traffic_group)
-
     def get_listener(self, service, bigip):
-        """Retrieve BIG-IP® virtual from a single BIG-IP® system.
+        u"""Retrieve BIG-IP® virtual from a single BIG-IP® system.
 
         :param service: Dictionary which contains a both a listener
         and load balancer definition.
@@ -116,9 +105,9 @@ class ListenerServiceBuilder(object):
         return obj
 
     def delete_listener(self, service, bigips):
-        """Delete Listener from a set of BIG-IP® systems.
+        u"""Delete Listener from a set of BIG-IP® systems.
 
-        Deletes virtual server that represents a Listener object.
+        Delete virtual server that represents a Listener object.
 
         :param service: Dictionary which contains a both a listener
         and load balancer definition.
@@ -176,7 +165,7 @@ class ListenerServiceBuilder(object):
         self._add_profile(vip, name, bigip, context='clientside')
 
     def update_listener(self, service, bigips):
-        """Update Listener from a single BIG-IP® system.
+        u"""Update Listener from a single BIG-IP® system.
 
         Updates virtual servers that represents a Listener object.
 
@@ -202,12 +191,13 @@ class ListenerServiceBuilder(object):
         :param bigips: Array of BigIP class instances to update.
         """
         vip = self.service_adapter.get_virtual_name(service)
-        vip["pool"] = name
-        for bigip in bigips:
-            v = bigip.tm.ltm.virtuals.virtual
-            if v.exists(name=vip["name"], partition=vip["partition"]):
-                obj = v.load(name=vip["name"], partition=vip["partition"])
-                obj.modify(**vip)
+        if vip:
+            vip["pool"] = name
+            for bigip in bigips:
+                v = bigip.tm.ltm.virtuals.virtual
+                if v.exists(name=vip["name"], partition=vip["partition"]):
+                    obj = v.load(name=vip["name"], partition=vip["partition"])
+                    obj.modify(**vip)
 
     def update_session_persistence(self, service, bigips):
         """Update session persistence for virtual server.
@@ -240,7 +230,7 @@ class ListenerServiceBuilder(object):
                 LOG.debug("Set persist %s" % vip["name"])
 
     def _add_profile(self, vip, profile_name, bigip, context='all'):
-        """Adds profile to virtual server instance. Assumes Common.
+        """Add profile to virtual server instance. Assumes Common.
 
         :param vip: Dictionary which contains name and partition of
         virtual server.
@@ -264,7 +254,7 @@ class ListenerServiceBuilder(object):
         LOG.debug("Created profile %s" % profile_name)
 
     def _add_cookie_persist_rule(self, vip, persistence, bigip):
-        """Adds cookie persist rules to virtual server instance.
+        """Add cookie persist rules to virtual server instance.
 
         :param vip: Dictionary which contains name and partition of
         virtual server.
@@ -290,7 +280,7 @@ class ListenerServiceBuilder(object):
             LOG.debug("Created persistence universal %s" % rule_name)
 
     def _create_app_cookie_persist_rule(self, cookiename):
-        """Creates cookie persistence rule.
+        """Create cookie persistence rule.
 
         :param cookiename: Name to substitute in rule.
         """
@@ -358,7 +348,7 @@ class ListenerServiceBuilder(object):
                 self._remove_ssl_profile(name, bigip)
 
     def _remove_ssl_profile(self, name, bigip):
-        """Deletes profile.
+        """Delete profile.
 
         :param name: Name of profile to delete.
         :param bigip: Single BigIP instances to update.
@@ -377,7 +367,7 @@ class ListenerServiceBuilder(object):
                 "Response message: %s." % (name, err.message))
 
     def _remove_profile(self, vip, profile_name, bigip):
-        """Deletes profile.
+        """Delete profile.
 
         :param vip: Dictionary which contains name and partition of
         virtual server.
@@ -405,7 +395,7 @@ class ListenerServiceBuilder(object):
                 "Response message: %s." % (profile_name, err.message))
 
     def _remove_cookie_persist_rule(self, vip, bigip):
-        """Deletes cookie persist rule.
+        """Delete cookie persist rule.
 
         :param vip: Dictionary which contains name and partition of
         virtual server.

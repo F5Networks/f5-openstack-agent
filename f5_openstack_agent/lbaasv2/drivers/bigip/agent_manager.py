@@ -409,6 +409,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         endpoints = [started_by.manager]
         started_by.conn.create_consumer(
             node_topic, endpoints, fanout=False)
+        self.sync_state()
 
     @periodic_task.periodic_task
     def periodic_resync(self, context):
@@ -534,15 +535,28 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 lb_id
             )
             self.cache.put(service, self.agent_host)
-            if not self.lbdriver.exists(service):
+            if not self.lbdriver.service_exists(service):
                 LOG.error('active loadbalancer %s is not on BIG-IP...syncing'
                           % lb_id)
+
+                if self.lbdriver.rename_required(service):
+                    self.lbdriver.service_object_teardown(service)
+                    LOG.error('active loadbalancer %s is configured with '
+                              'non-unique names on BIG-IP...rename in '
+                              'progress.'
+                              % lb_id)
+                    LOG.error('removing the service objects that are '
+                              'incorrectly named')
+                else:
+                    LOG.debug('service rename not required')
+
                 self.lbdriver.sync(service)
+            else:
+                LOG.debug("Found service definition for %s" % (lb_id))
         except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
-        except Exception:
-            LOG.error("Exception caught: validate_service, unable to validate",
-                      " service for loadbalancer: %s" % lb_id)
+        except Exception as exc:
+            LOG.exception("Service validation error: %s" % exc.message)
 
     @log_helpers.log_method_call
     def refresh_service(self, lb_id):
@@ -821,3 +835,69 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("update_fdb_entrie: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("update_fdb_entrie: Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
+    def create_l7policy(self, context, l7policy, service):
+        """Handle RPC cast from plugin to create_l7policy."""
+        try:
+            self.lbdriver.create_l7policy(l7policy, service)
+            self.cache.put(service, self.agent_host)
+        except q_exception.NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
+    def update_l7policy(self, context, old_l7policy, l7policy, service):
+        """Handle RPC cast from plugin to update_l7policy."""
+        try:
+            self.lbdriver.update_l7policy(old_l7policy, l7policy, service)
+            self.cache.put(service, self.agent_host)
+        except q_exception.NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
+    def delete_l7policy(self, context, l7policy, service):
+        """Handle RPC cast from plugin to delete_l7policy."""
+        try:
+            self.lbdriver.delete_l7policy(l7policy, service)
+            self.cache.put(service, self.agent_host)
+        except q_exception.NeutronException as exc:
+            LOG.error("delete_l7policy: NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("delete_l7policy: Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
+    def create_l7rule(self, context, l7rule, service):
+        """Handle RPC cast from plugin to create_l7rule."""
+        try:
+            self.lbdriver.create_l7rule(l7rule, service)
+            self.cache.put(service, self.agent_host)
+        except q_exception.NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
+    def update_l7rule(self, context, old_l7rule, l7rule, service):
+        """Handle RPC cast from plugin to update_l7rule."""
+        try:
+            self.lbdriver.update_l7rule(old_l7rule, l7rule, service)
+            self.cache.put(service, self.agent_host)
+        except q_exception.NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("Exception: %s" % exc.message)
+
+    @log_helpers.log_method_call
+    def delete_l7rule(self, context, l7rule, service):
+        """Handle RPC cast from plugin to delete_l7rule."""
+        try:
+            self.lbdriver.delete_l7rule(l7rule, service)
+            self.cache.put(service, self.agent_host)
+        except q_exception.NeutronException as exc:
+            LOG.error("delete_l7rule: NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.error("delete_l7rule: Exception: %s" % exc.message)
