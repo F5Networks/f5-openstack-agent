@@ -218,12 +218,14 @@ class LBaaSv2PluginRPC(object):
     def update_l7rule_status(
             self,
             l7rule_id,
+            l7policy_id,
             provisioning_status=plugin_const.ERROR,
             operating_status=lb_const.OFFLINE):
         return self._cast(
             self.context,
             self._make_msg('update_l7rule_status',
                            l7rule_id=l7rule_id,
+                           l7policy_id=l7policy_id,
                            provisioning_status=provisioning_status,
                            operating_status=operating_status),
             topic=self.topic

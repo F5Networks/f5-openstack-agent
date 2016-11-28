@@ -72,6 +72,10 @@ class L7PolicyService(object):
             LOG.debug(exc.message)
             self.delete_l7policy(l7policy, service_object, bigips)
             return
+        except Exception:
+            import traceback
+            LOG.error(traceback.format_exc())
+            raise
 
         self._process_stack(stack, bigips)
 
@@ -175,10 +179,10 @@ class L7PolicyService(object):
                 os_policies['l7policies'].append(policy)
                 for rule in policy['rules']:
                     l7rule = lbaas_service.get_l7rule(rule['id'])
-                    if l7rule and l7rule['provisioning_status'] != \
-                            plugin_const.PENDING_DELETE:
+                    if l7rule:
                         os_policies['l7rules'].append(l7rule)
 
+        LOG.debug(pprint.pformat(os_policies, indent=4))
         return os_policies
 
     @staticmethod

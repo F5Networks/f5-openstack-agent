@@ -1430,6 +1430,7 @@ class iControlDriver(LBaaSBaseDriver):
                         provisioning_status == plugin_const.PENDING_UPDATE):
                         self.plugin_rpc.update_l7rule_status(
                             l7rule['id'],
+                            l7rule['policy_id'],
                             plugin_const.ACTIVE,
                             lb_const.ONLINE
                         )
@@ -1437,7 +1438,8 @@ class iControlDriver(LBaaSBaseDriver):
                     self.plugin_rpc.l7rule_destroyed(
                         l7rule['id'])
                 elif provisioning_status == plugin_const.ERROR:
-                    self.plugin_rpc.update_l7rule_status(l7rule['id'])
+                    self.plugin_rpc.update_l7rule_status(
+                        l7rule['id'], l7rule['policy_id'])
 
     @log_helpers.log_method_call
     def _update_l7policy_status(self, l7policies):
