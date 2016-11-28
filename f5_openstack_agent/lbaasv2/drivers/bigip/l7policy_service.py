@@ -56,13 +56,9 @@ class L7PolicyService(object):
         # create L7 policy
         try:
             l7policy_adapter = L7PolicyServiceAdapter(self.conf)
-            LOG.debug("calling build_policy")
             policies = self.build_policy(l7policy, lbaas_service)
-            LOG.debug("return build_policy")
             if policies['l7policies']:
-                LOG.debug("Calling translate")
                 f5_l7policy = l7policy_adapter.translate(policies)
-                LOG.debug("Pushing stack")
                 stack.append(L7PolicyBuilder(event, f5_l7policy))
             else:
                 # empty policy -- delete wrapper policy on BIG-IPs
@@ -81,7 +77,6 @@ class L7PolicyService(object):
             LOG.error(traceback.format_exc())
             raise
 
-        LOG.debug("process create stack")
         self._process_stack(stack, bigips)
 
     def delete_l7policy(self, l7policy, service_object, bigips):
@@ -117,13 +112,10 @@ class L7PolicyService(object):
             l7policy_adapter = L7PolicyServiceAdapter(self.conf)
             policies = self.build_policy(l7policy, lbaas_service)
             if policies['l7policies']:
-                LOG.debug("Calling translate")
                 f5_l7policy = l7policy_adapter.translate(policies)
-                LOG.debug("Pushing stack")
                 stack.append(L7PolicyBuilder(event, f5_l7policy))
             else:
                 # empty policy -- delete wrapper policy on BIG-IPs
-                LOG.debug("No rules for policy, deleting policy.")
                 self.delete_l7policy(l7policy, service_object, bigips)
                 return
         except PolicyHasNoRules:
@@ -134,7 +126,6 @@ class L7PolicyService(object):
             self.delete_l7policy(l7policy, service_object, bigips)
             return
 
-        LOG.debug("No rules for policy, deleting policy.")
         self._process_stack(stack, bigips)
 
     def create_l7rule(self, l7rule, service_object, bigips):
