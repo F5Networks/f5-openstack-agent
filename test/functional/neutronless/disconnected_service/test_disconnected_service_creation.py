@@ -48,7 +48,9 @@ FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
 
 
 tmos_version = ManagementRoot(
-                   pytest.symbols.bigip_mgmt_ip, 'admin', 'admin'
+                   pytest.symbols.bigip_mgmt_ip,
+                   pytest.symbols.bigip_username,
+                   pytest.symbols.bigip_password
                ).tmos_version
 dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip.replace('.', '-')
 icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'

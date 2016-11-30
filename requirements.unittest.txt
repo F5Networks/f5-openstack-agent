@@ -2,7 +2,7 @@
 -e .
 
 # app
-git+https://github.com/openstack/neutron#stable/liberty
+git+https://github.com/openstack/neutron@9.1.0
 git+https://github.com/openstack/oslo.log.git@stable/liberty
 git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@liberty
 git+https://github.com/F5Networks/f5-openstack-test.git

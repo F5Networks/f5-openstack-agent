@@ -108,3 +108,6 @@ target/
 
 test/logs/
 test/functional/neutronless/vcmp/logs
+test_results
+testenv_symbols
+logs
