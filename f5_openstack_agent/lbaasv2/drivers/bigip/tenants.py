@@ -127,15 +127,16 @@ class BigipTenantManager(object):
                 LOG.error("Failed to delete route domain %s. "
                           "%s. Manual intervention might be required."
                           % (domain_name, err.message))
-            if self.driver.disconnected_service.network_exists(
-                    bigip, partition):
-                try:
-                    self.driver.disconnected_service.delete_network(bigip,
-                                                                    partition)
-                except Exception as err:
-                    LOG.error("Failed to delete disconnected network %s. "
-                              "%s. Manual intervention might be required."
-                              % (partition, err.message))
+
+        if self.driver.disconnected_service.network_exists(
+                bigip, partition):
+            try:
+                self.driver.disconnected_service.delete_network(bigip,
+                                                                partition)
+            except Exception as err:
+                LOG.error("Failed to delete disconnected network %s. "
+                          "%s. Manual intervention might be required."
+                          % (partition, err.message))
 
         try:
             self.system_helper.delete_folder(bigip, partition)

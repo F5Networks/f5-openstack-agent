@@ -23,8 +23,6 @@ RUN pip install pytest
 RUN pip install pytest-cov
 RUN pip install paramiko
 RUN pip install decorator
-RUN pip install -e git+https://github.com/openstack/neutron#egg=neutron
-RUN pip install -e git+https://github.com/openstack/neutron-lbaas.git#\
 egg=neutron_lbaas
 COPY ./oslo.log/ /root/devenv/oslo.log/
 RUN pip install --upgrade /root/devenv/oslo.log
