@@ -215,6 +215,4 @@ class DisconnectedService(object):
 
     @log_helpers.log_method_call
     def delete_network(self, bigip, partition):
-        tf = bigip.tm.net.tunnels.tunnels.tunnel
-        if tf.exists(name=self.network_name, partition=partition):
-            tf.load(name=self.network_name, partition=partition).delete()
+        self.network_helper.delete_tunnel(bigip, self.network_name, partition)
