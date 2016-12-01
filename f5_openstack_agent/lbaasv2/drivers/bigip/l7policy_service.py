@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.exceptions import \
@@ -174,8 +173,7 @@ class L7PolicyService(object):
         listener = lbaas_service.get_listener(l7policy['listener_id'])
         for policy_id in listener['l7_policies']:
             policy = lbaas_service.get_l7policy(policy_id['id'])
-            if policy and policy['provisioning_status'] != \
-                    plugin_const.PENDING_DELETE:
+            if policy:
                 os_policies['l7policies'].append(policy)
                 for rule in policy['rules']:
                     l7rule = lbaas_service.get_l7rule(rule['id'])
