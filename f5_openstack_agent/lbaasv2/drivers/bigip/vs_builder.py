@@ -65,11 +65,22 @@ class VirtualServerBuilder(object):
                 LOG.debug("L7Policy found. Not adding.")
                 return
 
-        # not found -- add policy to virtual server
-        p.policies.create(name=policy_name,
-                          partition=policy_partition)
-        LOG.debug("Added L7 policy {0} for virtual sever {1}".
-                  format(policy_name, vs_name))
+        try:
+            # not found -- add policy to virtual server
+            p.policies.create(name=policy_name,
+                              partition=policy_partition)
+        except Exception as exc:
+            # Bug in TMOS 12.1 will return a 404 error, but the request
+            # succeeded. Verify that policy was added, and ignore exception.
+            LOG.debug(exc.message)
+            if not p.policies.exists(name=policy_name,
+                                     partition=policy_partition):
+                # really failed, raise original exception
+                raise
+
+        # success
+        LOG.debug("Added L7 policy {0} for virtual sever {1}".format(
+            policy_name, vs_name))
 
     def add_profile(self, profile_name, bigip, context='all'):
         vs_name = self.f5_vs['name']
