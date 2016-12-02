@@ -217,12 +217,19 @@ class ListenerServiceBuilder(object):
             persistence_type = persistence['type']
             vip_persist = self.service_adapter.get_session_persistence(service)
             for bigip in bigips:
-                if persistence_type == 'HTTP_COOKIE':
-                    self._add_profile(vip, 'http', bigip)
-                elif persistence_type == 'APP_COOKIE':
-                    self._add_profile(vip, 'http', bigip)
-                    if 'cookie_name' in persistence:
-                        self._add_cookie_persist_rule(vip, persistence, bigip)
+                # When adding cookie persistence to a virtual created with
+                # TCP protocol, need to remove fastL4 profile and add http
+                # and oneconnect profiles. The add/remove profile methods
+                # do the right thing (not add twice, only remove when present),
+                # so no harm for HTTP/HTTPS virtuals.
+
+                self._remove_profile(vip, 'fastL4', bigip)
+                self._add_profile(vip, 'http', bigip)
+                self._add_profile(vip, 'oneconnect', bigip)
+
+                if persistence_type == 'APP_COOKIE' and \
+                        'cookie_name' in persistence:
+                    self._add_cookie_persist_rule(vip, persistence, bigip)
 
                 # profiles must be added before setting profile attribute
                 self.vs_helper.update(bigip, vip_persist)
@@ -315,20 +322,23 @@ class ListenerServiceBuilder(object):
             vip["fallbackPersistence"] = ""
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
+            listener = service["listener"]
 
             for bigip in bigips:
                 # remove persistence
                 self.vs_helper.update(bigip, vip)
                 LOG.debug("Cleared session persistence for %s" % vip["name"])
 
+                # for TCP listener, restore back to fastL4
+                if listener['protocol'] == 'TCP':
+                    self._remove_profile(vip, 'http', bigip)
+                    self._remove_profile(vip, 'oneconnect', bigip)
+                    self._add_profile(vip, 'fastL4', bigip)
+
                 # remove profiles and rules
-                if persistence_type == 'HTTP_COOKIE':
-                    self._remove_profile(vip, 'http', bigip)
-                elif persistence_type == 'APP_COOKIE':
-                    self._remove_profile(vip, 'http', bigip)
-                    if 'cookie_name' in persistence:
-                        self._remove_cookie_persist_rule(
-                            vip, bigip)
+                if persistence_type == 'APP_COOKIE' and \
+                        'cookie_name' in persistence:
+                    self._remove_cookie_persist_rule(vip, bigip)
 
     def remove_ssl_profiles(self, tls, bigip):
 
