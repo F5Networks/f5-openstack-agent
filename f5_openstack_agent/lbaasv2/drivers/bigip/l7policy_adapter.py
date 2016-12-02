@@ -136,8 +136,28 @@ class L7PolicyServiceAdapter(ServiceModelAdapter):
         '''OS Policies are translated into Rules on the device.'''
 
         for policy in self.service['l7policies']:
-            bigip_rule = Rule(policy, self.service, self.folder, self.prefix)
-            self.policy_dict['rules'].append(bigip_rule.__dict__)
+            if policy['provisioning_status'] != 'PENDING_DELETE':
+                bigip_rule = Rule(
+                    policy, self.service, self.folder, self.prefix)
+                self.policy_dict['rules'].append(bigip_rule.__dict__)
+        if not self.policy_dict['rules']:
+            msg = 'All policies were in a PENDING_DELETE state. ' \
+                'Deleting wrapper_policy.'
+            raise PolicyHasNoRules(msg)
+        self._check_if_adapted_rules_empty()
+
+    def _check_if_adapted_rules_empty(self):
+        '''Delete wrapper policy if all rules in PENDING_DELETE state.'''
+
+        delete_wrapper_policy = True
+        for os_rule in self.policy_dict['rules']:
+            if os_rule['conditions']:
+                delete_wrapper_policy = False
+                break
+        if delete_wrapper_policy:
+            msg = 'All rules were in a PENDING_DELETE state. Deleting ' \
+                'wrapper_policy.'
+            raise PolicyHasNoRules(msg)
 
     def _adapt_policy(self):
         '''Setup the wrapper policy, which will contain rules.'''
