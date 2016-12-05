@@ -17,11 +17,9 @@ before_install:
     - git config --global user.name "Travis F5 Openstack"
 
 install:
-    - pip install hacking
     - pip install tox
 script:
-    - flake8 f5_openstack_agent
-    - tox -e unit
+    - tox -e style,unit
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "7"
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "6"
     - f5-openstack-agent-dist/scripts/package_agent.sh "ubuntu" "14.04"

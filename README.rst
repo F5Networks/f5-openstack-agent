@@ -69,8 +69,8 @@ Style Checks
 We use the hacking module for our style checks.
 
 ::
-    $ pip install hacking
-    $ flake8 ./f5_openstack_agent
+    $ pip install tox
+    $ tox -e style
 
 Unit Tests
 ==========
