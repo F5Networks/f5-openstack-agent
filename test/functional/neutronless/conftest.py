@@ -88,6 +88,13 @@ def remove_elements(bigip, uris, vlan=False):
                 # If testing VLAN (with vCMP) the fdb tunnel cannot be deleted
                 # directly. It goes away when the net tunnel is deleted
                 continue
+            elif sc == 400\
+              and 'mgmt/tm/net/tunnels/tunnel/' in selfLink\
+              and 'tunnel-vxlan' in selfLink:
+                for t in bigip.tm.net.fdb.tunnels.get_collection():
+                    if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
+                        t.update(records=[])
+                registry[selfLink].delete()
             else:
                 raise
 
