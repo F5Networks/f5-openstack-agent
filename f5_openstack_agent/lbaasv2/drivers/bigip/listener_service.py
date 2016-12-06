@@ -216,15 +216,23 @@ class ListenerServiceBuilder(object):
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
             vip_persist = self.service_adapter.get_session_persistence(service)
+            listener = service['listener']
             for bigip in bigips:
-                if persistence_type == 'HTTP_COOKIE':
-                    self._add_profile(vip, 'http', bigip)
-                elif persistence_type == 'APP_COOKIE':
-                    self._add_profile(vip, 'http', bigip)
-                    if 'cookie_name' in persistence:
-                        self._add_cookie_persist_rule(vip, persistence, bigip)
+                # For TCP listeners, must remove fastL4 profile before adding
+                # adding http/oneconnect profiles.
+                if listener['protocol'] == 'TCP':
+                    self._remove_profile(vip, 'fastL4', bigip)
 
-                # profiles must be added before setting profile attribute
+                # Standard virtual servers should already have these profiles,
+                # but make sure profiles in place for all virtual server types.
+                self._add_profile(vip, 'http', bigip)
+                self._add_profile(vip, 'oneconnect', bigip)
+
+                if persistence_type == 'APP_COOKIE' and \
+                        'cookie_name' in persistence:
+                    self._add_cookie_persist_rule(vip, persistence, bigip)
+
+                # profiles must be added before setting persistence
                 self.vs_helper.update(bigip, vip_persist)
                 LOG.debug("Set persist %s" % vip["name"])
 
@@ -315,20 +323,22 @@ class ListenerServiceBuilder(object):
             vip["fallbackPersistence"] = ""
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
+            listener = service["listener"]
+            if listener['protocol'] == 'TCP':
+                # Revert VS back to fastL4. Must do an update to replace
+                # profiles instead of using add/remove profile. Leave http
+                # profiles in place for non-TCP listeners.
+                vip['profiles'] = ['/Common/fastL4']
 
             for bigip in bigips:
-                # remove persistence
+                # remove persistence (and revert profiles if TCP)
                 self.vs_helper.update(bigip, vip)
                 LOG.debug("Cleared session persistence for %s" % vip["name"])
 
                 # remove profiles and rules
-                if persistence_type == 'HTTP_COOKIE':
-                    self._remove_profile(vip, 'http', bigip)
-                elif persistence_type == 'APP_COOKIE':
-                    self._remove_profile(vip, 'http', bigip)
-                    if 'cookie_name' in persistence:
-                        self._remove_cookie_persist_rule(
-                            vip, bigip)
+                if persistence_type == 'APP_COOKIE' and \
+                        'cookie_name' in persistence:
+                    self._remove_cookie_persist_rule(vip, bigip)
 
     def remove_ssl_profiles(self, tls, bigip):
 

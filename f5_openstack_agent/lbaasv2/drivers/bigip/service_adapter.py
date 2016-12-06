@@ -357,7 +357,6 @@ class ServiceModelAdapter(object):
 
     def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
-
         virtual_type = 'standard'
         if 'protocol' in listener:
             if listener['protocol'] == 'TCP':
@@ -381,6 +380,9 @@ class ServiceModelAdapter(object):
 
         if virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
+        else:
+            # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
+            vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
         # mask
         if "ip_address" in vip:
