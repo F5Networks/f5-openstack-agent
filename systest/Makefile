@@ -1,4 +1,5 @@
-.PHONY: all unit systest functest disconnected_service disconnected_service-setup \
+.PHONY: all clean pre-build unit systest functest disconnected_service \
+disconnected_service-setup \
 disconnected_service-install disconnected_service-run \
 disconnected_service-teardown
 
@@ -24,14 +25,27 @@ disconnected_results := $(RESULTSDIR)/$(disconnected_session)
 branch := $(shell git rev-parse --abbrev-ref HEAD)
 testenv_config := bigip.testenv.yaml
 
-unit:
-	cd $(MAKEFILE_DIR)/../
+VENV := buildbot
+VENV_ACTIVATE := $(MAKEFILE_DIR)/$(VENV)/bin/activate
+
+# Before we run any tests we need a virtualenv and a few packages
+pre-build:
+	virtualenv buildbot; \
+	. $(VENV_ACTIVATE); \
+	pip install tox; \
+	pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/testenv.git; \
+	pip install git+ssh://git@bldr-git.int.lineratesystems.com/velcro/systest-common.git
+
+unit: pre-build
+	. $(VENV_ACTIVATE); \
+	cd $(MAKEFILE_DIR)/../; \
 	tox -e unit-buildbot -- \
 		--exclude incomplete no_regression \
 		--autolog-outputdir $(unit_results) \
 		--autolog-session $(unit_session) \
 
 functest:
+	$(MAKE) -C . unit
 	$(MAKE) -j -C . functest_all
 
 functest_all:
@@ -43,14 +57,13 @@ disconnected_service:
 	$(MAKE) -C . disconnected_service-run
 	$(MAKE) -C . disconnected_service-teardown
 
-disconnected_service-setup:
+disconnected_service-setup: pre-build
 	@echo "setting up functional test environment ..."
-	pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/testenv.git
-	pip install git+ssh://git@bldr-git.int.lineratesystems.com/velcro/systest-common.git
-	testenv create base
-	testenv create --name $(disconnected_session) --config $(testenv_config)
+	. $(VENV_ACTIVATE); \
+	testenv create base; \
+	testenv create --name $(disconnected_session) --config $(testenv_config); \
 
-disconnected_service-run:
+disconnected_service-run: pre-build
 	@echo "running disconnected tests ..."
 	tox -e functest-buildbot -- \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
@@ -63,4 +76,11 @@ disconnected_service-teardown:
 	@echo "tearing down functional test environment..."
 	if [ ! -e $(disconnected_results) ]; then mkdir -p $(disconnected_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
+	. $(VENV_ACTIVATE); \
 	testenv delete --name $(disconnected_session) --config $(testenv_config)
+
+# Remove the buildbot venv directory and any tox venvs we made
+clean:
+	-rm -rf $(MAKEFILE_DIR)/$(VENV)
+	-rm -rf $(MAKEFILE_DIR)/../.tox/functest-buildbot
+	-rm -rf $(MAKEFILE_DIR)/../.tox/unit-buildbot
