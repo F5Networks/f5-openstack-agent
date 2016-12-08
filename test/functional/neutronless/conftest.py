@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import json
 import logging
 import mock
 import os
@@ -150,8 +149,53 @@ def bigip2(request):
 
 @pytest.fixture
 def vcmp_uris(request):
-    dirname = os.path.dirname(request.module.__file__)
-    return json.load(open(os.path.join(dirname, 'vcmp_uris.json')))
+    bigver = pytest.symbols.bigip_version
+    uri_dict = {
+        "vcmp_lb_uris":
+            ["https://localhost/mgmt/tm/sys/folder/~TEST_"
+             "128a63ef33bc4cf891d684fad58e7f2d?ver={}".format(bigver),
+             "https://localhost/mgmt/tm/net/route-domain/~TEST_128a63ef33bc4c"
+             "f891d684fad58e7f2d~TEST_128a63ef33bc4cf8"
+             "91d684fad58e7f2d?ver={}".format(bigver),
+             "https://localhost/mgmt/tm/net/fdb/tunnel/~TEST_128a63ef33bc4cf89"
+             "1d684fad58e7f2d~disconnected_network?ver=11.5.0",
+             "https://localhost/mgmt/tm/net/tunnels/tunnel/~TEST_128a63ef33bc4"
+             "cf891d684fad58e7f2d~disconnected_network?ver={}".format(bigver),
+             "https://localhost/mgmt/tm/net/vlan/~TEST_128a63ef33bc4cf891d684f"
+             "ad58e7f2d~vlan-46?ver={}".format(bigver),
+             "https://localhost/mgmt/tm/ltm/snat-translation/~TEST_128a63ef33b"
+             "c4cf891d684fad58e7f2d~snat-traffic-group-local-only-ce69e293-56e"
+             "7-43b8-b51c-01b91d66af20_0?ver={}".format(bigver),
+             "https://localhost/mgmt/tm/ltm/snatpool/~TEST_128a63ef33bc4cf891d"
+             "684fad58e7f2d~TEST_128a63ef33bc4cf891d684fad58e7f2d?"
+             "ver={}".format(bigver),
+             "https://localhost/mgmt/tm/net/self/~TEST_128a63ef33bc4cf891d684f"
+             "ad58e7f2d~local-localhost.localdomain-ce69e293-56e7-43b8-b51c-01"
+             "b91d66af20?ver={}".format(bigver),
+             "https://localhost/mgmt/tm/ltm/virtual-address/~TEST_128a63ef33bc"
+             "4cf891d684fad58e7f2d~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?"
+             "ver={}".format(bigver)
+             ],
+        "vcmp_listener_uris":
+            ["https://localhost/mgmt/tm/ltm/virtual/~TEST_128a63ef33bc4cf891d6"
+             "84fad58e7f2d~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9?"
+             "ver={}".format(bigver)],
+        "vcmp_cluster_uris":
+        [
+            "https://localhost/mgmt/tm/ltm/snat-translation/~TEST_128a63ef33bc"
+            "4cf891d684fad58e7f2d~snat-traffic-group-1-ce69e293-56e7-43b8-b51c"
+            "-01b91d66af20_0?ver={}".format(bigver),
+            "https://localhost/mgmt/tm/ltm/snatpool/~TEST_128a63ef33bc4cf891d6"
+            "84fad58e7f2d~TEST_128a63ef33bc4cf891d684fad58e7f2d?"
+            "ver={}".format(bigver),
+            "https://localhost/mgmt/tm/net/self/~TEST_128a63ef33bc4cf891d684fa"
+            "d58e7f2d~local-localhost.localdomain-ce69e293-56e7-43b8-b51c-01b9"
+            "1d66af20?ver={}".format(bigver),
+            "https://localhost/mgmt/tm/net/self/~TEST_128a63ef33bc4cf891d684fa"
+            "d58e7f2d~local-localhost.localdomain-ce69e293-56e7-43b8-b51c-01b9"
+            "1d66af20?ver={}".format(bigver)]
+    }
+    return uri_dict
 
 
 @pytest.fixture

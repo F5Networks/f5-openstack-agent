@@ -161,11 +161,11 @@ class VcmpManager(object):
         if hasattr(guest, 'vlans') and full_path_vlan_name in guest.vlans:
             LOG.debug(('VcmpManager::_check_guest_vlans: VLAN {0} is '
                        'associated with guest {1}'.format(
-                           full_path_vlan_name, guest.hostname)))
+                           full_path_vlan_name, guest.name)))
             return True
         LOG.debug(('VcmpManager::_check_guest_vlans: VLAN {0} is '
                    'not associated with guest {1}'.format(
-                       full_path_vlan_name, guest.hostname)))
+                       full_path_vlan_name, guest.name)))
         return False
 
     def _is_vlan_assoc_with_vcmp_guest(self, bigip, vlan):
@@ -209,12 +209,12 @@ class VcmpManager(object):
             guest_vlans.append(vlan['name'])
             vcmp_guest.modify(vlans=guest_vlans)
             LOG.debug(('{0} Associated VLAN {1} with vCMP Guest {2}'.format(
-                       log_prefix, vlan['name'], vcmp_guest.hostname)))
+                       log_prefix, vlan['name'], vcmp_guest.name)))
         except Exception as exc:
             LOG.error(('{0} Exception associating VLAN {1} to vCMP Guest {2}: '
                        '{3}'.format(
                            log_prefix, vlan['name'],
-                           vcmp_guest.hostname, exc)))
+                           vcmp_guest.name, exc)))
         # Wait for the VLAN to propagate to /Common on vCMP Guest
         full_path_vlan_name = '/Common/' + vlan['name']
         vlan_created = False
@@ -227,36 +227,36 @@ class VcmpManager(object):
                     vlan_created = True
                     break
                 LOG.debug(('{0} Wait for VLAN {1} to be created on vCMP '
-                           'Guest {2}.'.format(
+                           'Guest {2}'.format(
                                log_prefix, full_path_vlan_name,
-                               vcmp_guest.hostname)))
+                               vcmp_guest.name)))
 
             if vlan_created:
-                LOG.debug(('{0} VLAN {1} exists on vCMP Guest {2}.'.format(
-                    log_prefix, full_path_vlan_name, vcmp_guest.hostname)))
+                LOG.debug(('{0} VLAN {1} exists on vCMP Guest {2}'.format(
+                    log_prefix, full_path_vlan_name, vcmp_guest.name)))
             else:
                 LOG.error(('{0} VLAN {1} does not exist on vCMP Guest '
-                           '{2}.'.format(
+                           '{2}'.format(
                                log_prefix, full_path_vlan_name,
-                               vcmp_guest.hostname)))
+                               vcmp_guest.name)))
         except Exception as exc:
             LOG.error(('{0} Exception waiting for vCMP Host VLAN {1} to '
                        'be created on vCMP Guest {2}: {3}'.format(
                            log_prefix, vlan['name'],
-                           vcmp_guest.hostname, exc)))
+                           vcmp_guest.name, exc)))
 
         # Delete the VLAN from the /Common folder on the vCMP Guest
         if vlan_created:
             try:
                 v.delete()
                 LOG.debug(('{0} Deleted VLAN {1} from vCMP Guest {2}'.format(
-                    log_prefix, full_path_vlan_name, vcmp_guest.hostname)))
+                    log_prefix, full_path_vlan_name, vcmp_guest.name)))
             except Exception as exc:
                 LOG.error(
                     ('{0} Exception deleting VLAN {1} from vCMP Guest '
                      '{2}: {3}'.format(
                          log_prefix, full_path_vlan_name,
-                         vcmp_guest.hostname, exc)))
+                         vcmp_guest.name, exc)))
 
     def disassoc_vlan_with_vcmp_guest(self, bigip, vlan_name):
         '''Remove VLAN association from vCMP guest.
@@ -270,8 +270,9 @@ class VcmpManager(object):
         vcmp_host = self.get_vcmp_host(bigip)
         vcmp_guest = self.get_vcmp_guest(vcmp_host, bigip)
         try:
-            vcmp_guest.modify(
-                vlans=vcmp_guest.vlans.remove('/Common/' + vlan_name))
+            vlans = vcmp_guest.vlans
+            vlans.remove('/Common/' + vlan_name)
+            vcmp_guest.modify(vlans=vlans)
             LOG.debug(('{0} Removed VLAN {1} association from vCMP '
                        'Guest {2}'.format(
                            log_prefix, vlan_name, vcmp_guest.hostname)))
