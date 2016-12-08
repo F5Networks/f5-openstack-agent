@@ -203,26 +203,32 @@ def setup_bigip_devices(request, bigip, bigip2, vcmp_uris, makelogdir):
     lb_uris = set(vcmp_uris['vcmp_lb_uris'])
     listener_uris = set(vcmp_uris['vcmp_listener_uris'])
     cluster_uris = set(vcmp_uris['vcmp_cluster_uris'])
-    bigips = [bigip, bigip2]
+
+    class test_bigip(object):
+        def __init__(self, device, pretest_snapshot):
+            self.device = device
+            self.pretest_snapshot = frozenset(pretest_snapshot)
+
+    bigips = [test_bigip(bigip, register_device(bigip)),
+              test_bigip(bigip2, register_device(bigip2))]
     logname = os.path.join(makelogdir, request.function.__name__)
     loghandler = _get_nolevel_handler(logname)
 
     def remove_test_created_elements():
-        for device in bigips:
-            pretest_snapshot = frozenset(register_device(device))
-            posttest_registry = register_device(device)
-            created = frozenset(posttest_registry) - pretest_snapshot
-            remove_elements(device, created, vlan=True)
+        for bigip in bigips:
+            posttest_registry = register_device(bigip.device)
+            created = frozenset(posttest_registry) - bigip.pretest_snapshot
+            remove_elements(bigip.device, created, vlan=True)
 
     rootlogger = logging.getLogger()
     rootlogger.removeHandler(loghandler)
-    for device in bigips:
+    for bigip in bigips:
         try:
             remove_elements(
-                device, lb_uris | listener_uris | cluster_uris, vlan=True)
+                bigip.device, lb_uris | listener_uris | cluster_uris,
+                vlan=True)
         finally:
             rootlogger.info('removing pre-existing config on bigip {}'.format(
-                bigip.hostname))
-
+                bigip.device.hostname))
     request.addfinalizer(remove_test_created_elements)
     return loghandler

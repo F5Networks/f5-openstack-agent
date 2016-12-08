@@ -1294,13 +1294,8 @@ class iControlDriver(LBaaSBaseDriver):
 
             # only delete partition if loadbalancer is being deleted
             if delete_partition:
-                tenant_id = service['loadbalancer']['tenant_id']
-                lb_id = service['loadbalancer']['id']
-                tenant_lbs = self.get_loadbalancers_in_tenant(tenant_id)
-                if len(tenant_lbs) == 1 and (tenant_lbs[0] == lb_id):
-                    LOG.debug("Deleting partition for tenant: %s" % tenant_id)
-                    self.tenant_manager.assure_tenant_cleanup(service,
-                                                              all_subnet_hints)
+                self.tenant_manager.assure_tenant_cleanup(service,
+                                                          all_subnet_hints)
 
         except Exception as err:
             LOG.exception(err)
