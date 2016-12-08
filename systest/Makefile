@@ -30,7 +30,7 @@ VENV_ACTIVATE := $(MAKEFILE_DIR)/$(VENV)/bin/activate
 
 # Before we run any tests we need a virtualenv and a few packages
 pre-build:
-	virtualenv buildbot; \
+	virtualenv $(VENV); \
 	. $(VENV_ACTIVATE); \
 	pip install tox; \
 	pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/testenv.git; \
