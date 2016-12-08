@@ -371,8 +371,6 @@ def test_vcmp_clustered_guests(
     logcall(setup_bigip_devices,
             icontroldriver1._common_service_handler,
             service)
-    print('######')
-    print(mock_log.debug.call_args_list)
     # Make sure guests are associated with their respective hosts
     assert call('VcmpManager::_check_vcmp_host_assignments Check registered '
                 'bigips to ensure vCMP Guests have a vCMP host assignment') in \
