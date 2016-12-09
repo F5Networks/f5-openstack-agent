@@ -40,8 +40,8 @@ OSLO_CONFIGS = json.load(open(os.path.join(curdir, 'vcmp_oslo_confs.json')))
 VCMP_CONFIG = OSLO_CONFIGS["vcmp_single_host"]
 VCMP_CLUSTER_CONFIG = OSLO_CONFIGS["vcmp_cluster"]
 
-GUEST_VLAN = '/TEST_128a63ef33bc4cf891d684fad58e7f2d/vlan-1-1-46'
-COMMON_VLAN = '/Common/vlan-1-1-46'
+GUEST_VLAN = '/TEST_128a63ef33bc4cf891d684fad58e7f2d/vlan-46'
+COMMON_VLAN = '/Common/vlan-46'
 
 # Library of services as received from the neutron server
 NEUTRON_SERVICES = json.load(open(os.path.join(
@@ -96,7 +96,7 @@ def vcmp_setup(request):
     def remove_vlan():
         for host in hosts:
             host['guest'].refresh()
-            test_vlan = 'vlan-1-1-46'
+            test_vlan = 'vlan-46'
             # Disassociate VLAN with Guest
             if hasattr(host['guest'], 'vlans') and \
                     COMMON_VLAN in host['guest'].vlans:
@@ -125,7 +125,55 @@ def vcmp_setup(request):
     return hosts
 
 
+@pytest.fixture
+def mgmt_vlan(request, vcmp_setup):
+    hosts = vcmp_setup
+    host1 = hosts[0]['bigip']
+    host1.tm.refresh()
+    guest1 = hosts[0]['guest']
+    guest1.refresh()
+
+    def remove_mgmt_vlan():
+        host1.tm.refresh()
+        guest1.refresh()
+        vlans = guest1.vlans
+        vlans.remove('/Common/mgmt_vlan')
+        guest1.modify(vlans=vlans)
+        mgmt_vlan = host1.tm.net.vlans.vlan.load(
+            name='mgmt_vlan', partition='Common')
+        mgmt_vlan.delete()
+
+    host1.tm.net.vlans.vlan.create(
+        name='mgmt_vlan', partition='Common')
+    guest1.modify(vlans=['/Common/mgmt_vlan'])
+    request.addfinalizer(remove_mgmt_vlan)
+
+
+def check_host_and_guest_vlans_on_delete(vcmp_host, bigip):
+    bigip_vlans = [v.fullPath for v in bigip.tm.net.vlans.get_collection()]
+    assert GUEST_VLAN not in bigip_vlans
+    assert COMMON_VLAN not in bigip_vlans
+    vcmp_host['guest'].refresh()
+    assert not hasattr(vcmp_host['guest'], 'vlans')
+    assert vcmp_host['bigip'].tm.net.vlans.vlan.exists(
+        name='vlan-46', partition='Common') is False
+    assert bigip.tm.sys.folders.folder.exists(
+        name='TEST_128a63ef33bc4cf891d684fad58e7f2d') is False
+
+
+def check_host_and_guest_vlans_on_create(vcmp_host, bigip):
+    bigip_vlans = [v.fullPath for v in bigip.tm.net.vlans.get_collection()]
+    assert GUEST_VLAN in bigip_vlans
+    assert COMMON_VLAN not in bigip_vlans
+    vcmp_host['guest'].refresh()
+    assert COMMON_VLAN in vcmp_host['guest'].vlans
+    assert vcmp_host['bigip'].tm.net.vlans.vlan.exists(
+        name='vlan-46', partition='Common')
+
+
 def test_vcmp_createlb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+    '''Create lb with vcmp turned on.'''
+
     vcmp_host = vcmp_setup
     icontroldriver, start_registry = handle_init_registry(bigip, VCMP_CONFIG)
     service = deepcopy(CREATELB)
@@ -138,8 +186,9 @@ def test_vcmp_createlb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
     assert create_uris == set(vcmp_uris['vcmp_lb_uris'])
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-bigip-12.0.int.lineratesystems.com-ce69e293-'
-              '56e7-43b8-b51c-01b91d66af20'),
+        [call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c'
+              '-01b91d66af20'.format(
+                  pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
          call(port_name=u'snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
@@ -148,16 +197,12 @@ def test_vcmp_createlb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
     # Since the loadbalancer was not deleted via a service object, we should
     # have a leftover VLAN on the vCMP host and the VLAN should be associated
     # with the guest, and the VLAN from within the guest should be there
-    bigip_vlans = [v.fullPath for v in bigip.tm.net.vlans.get_collection()]
-    assert GUEST_VLAN in bigip_vlans
-    assert COMMON_VLAN not in bigip_vlans
-    vcmp_host[0]['guest'].refresh()
-    assert COMMON_VLAN in vcmp_host[0]['guest'].vlans
-    assert vcmp_host[0]['bigip'].tm.net.vlans.vlan.exists(
-        name='vlan-1-1-46', partition='Common')
+    check_host_and_guest_vlans_on_create(vcmp_host[0], bigip)
 
 
 def test_vcmp_deletelb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+    '''Create and delete lb with vcmp turned on.'''
+
     vcmp_host = vcmp_setup
     icontroldriver, start_registry = handle_init_registry(bigip, VCMP_CONFIG)
     service = deepcopy(CREATELB)
@@ -170,8 +215,9 @@ def test_vcmp_deletelb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
     assert create_uris == set(vcmp_uris['vcmp_lb_uris'])
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-bigip-12.0.int.lineratesystems.com-ce69e293-'
-              '56e7-43b8-b51c-01b91d66af20'),
+        [call(port_name=u'local-{}-ce69e293-56e7-43b8-'
+              'b51c-01b91d66af20'.format(
+                  pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
          call(port_name=u'snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
@@ -182,17 +228,53 @@ def test_vcmp_deletelb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
             deepcopy(DELETELB),
             delete_partition=True)
     # After the deletelb is called above, the vcmp guest should no longer
-    bigip_vlans = [v.fullPath for v in bigip.tm.net.vlans.get_collection()]
-    assert GUEST_VLAN not in bigip_vlans
-    assert COMMON_VLAN not in bigip_vlans
-    vcmp_host[0]['guest'].refresh()
-    assert not hasattr(vcmp_host[0]['guest'], 'vlans')
-    assert not vcmp_host[0]['bigip'].tm.net.vlans.vlan.exists(
-        name='vlan-1-1-46', partition='Common')
+    check_host_and_guest_vlans_on_delete(vcmp_host[0], bigip)
+
+
+def test_vcmp_deletelb_with_mgmt_vlan(
+        setup_bigip_devices, bigip, vcmp_setup, vcmp_uris, mgmt_vlan):
+    '''Create and delete lb with vcmp turned on and mgmt vlan exists.
+
+    We need to ensure a pre-existing management vlan, which is associated
+    with the guest outside of the agent's control, actually stays associated
+    once the last loadbalancer is torn down.
+    '''
+
+    vcmp_host = vcmp_setup
+    icontroldriver, start_registry = handle_init_registry(bigip, VCMP_CONFIG)
+    service = deepcopy(CREATELB)
+    logcall(setup_bigip_devices,
+            icontroldriver._common_service_handler,
+            service)
+    after_create_registry = register_device(bigip)
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == set(vcmp_uris['vcmp_lb_uris'])
+    rpc = icontroldriver.plugin_rpc
+    assert rpc.get_port_by_name.call_args_list == \
+        [call(port_name=u'local-{}-ce69e293-56e7-43b8-'
+              'b51c-01b91d66af20'.format(
+                  pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
+         call(port_name=u'snat-traffic-group-local-only-ce69e293-'
+              '56e7-43b8-b51c-01b91d66af20_0')]
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+    ]
+    logcall(setup_bigip_devices,
+            icontroldriver._common_service_handler,
+            deepcopy(DELETELB),
+            delete_partition=True)
+    # After the deletelb is called above, the vcmp guest should no longer
+    # have vlan-46
+    check_host_and_guest_vlans_on_delete(vcmp_host[0], bigip)
+    # mgmt_vlan should remain associated with guest
+    assert vcmp_host[0]['guest'].vlans == ['/Common/mgmt_vlan']
 
 
 def test_vcmp_create_listener(
         setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+    '''Create listener with vcmp turned on.'''
+
     vcmp_host = vcmp_setup
     icontroldriver, start_registry = handle_init_registry(bigip, VCMP_CONFIG)
     service = deepcopy(CREATELISTENER)
@@ -206,8 +288,9 @@ def test_vcmp_create_listener(
         set(vcmp_uris['vcmp_lb_uris']) | set(vcmp_uris['vcmp_listener_uris']))
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-bigip-12.0.int.lineratesystems.com-ce69e293-'
-              '56e7-43b8-b51c-01b91d66af20'),
+        [call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c'
+              '-01b91d66af20'.format(
+                  pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
          call(port_name=u'snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
@@ -216,17 +299,13 @@ def test_vcmp_create_listener(
     assert rpc.update_listener_status.call_args_list == [
         call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     ]
-    bigip_vlans = [v.fullPath for v in bigip.tm.net.vlans.get_collection()]
-    assert GUEST_VLAN in bigip_vlans
-    assert COMMON_VLAN not in bigip_vlans
-    vcmp_host[0]['guest'].refresh()
-    assert COMMON_VLAN in vcmp_host[0]['guest'].vlans
-    assert vcmp_host[0]['bigip'].tm.net.vlans.vlan.exists(
-        name='vlan-1-1-46', partition='Common')
+    check_host_and_guest_vlans_on_create(vcmp_host[0], bigip)
 
 
 def test_vcmp_delete_listener(
         setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+    '''Create and delete listener with vcmp turned on.'''
+
     vcmp_host = vcmp_setup
     icontroldriver, start_registry = handle_init_registry(bigip, VCMP_CONFIG)
     service = deepcopy(CREATELISTENER)
@@ -240,8 +319,9 @@ def test_vcmp_delete_listener(
         set(vcmp_uris['vcmp_lb_uris']) | set(vcmp_uris['vcmp_listener_uris']))
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-bigip-12.0.int.lineratesystems.com-ce69e293-'
-              '56e7-43b8-b51c-01b91d66af20'),
+        [call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c-'
+              '01b91d66af20'.format(
+                  pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
          call(port_name=u'snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
@@ -258,14 +338,7 @@ def test_vcmp_delete_listener(
             icontroldriver._common_service_handler,
             deepcopy(DELETELB),
             delete_partition=True)
-
-    bigip_vlans = [v.fullPath for v in bigip.tm.net.vlans.get_collection()]
-    assert GUEST_VLAN not in bigip_vlans
-    assert COMMON_VLAN not in bigip_vlans
-    vcmp_host[0]['guest'].refresh()
-    assert not hasattr(vcmp_host[0]['guest'], 'vlans')
-    assert vcmp_host[0]['bigip'].tm.net.vlans.vlan.exists(
-        name='vlan-1-1-46', partition='Common') is False
+    check_host_and_guest_vlans_on_delete(vcmp_host[0], bigip)
 
 
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
@@ -274,9 +347,14 @@ def test_vcmp_delete_listener(
 def test_vcmp_clustered_guests(
         mock_log, mock_cm, setup_bigip_devices,
         bigip, bigip2, vcmp_setup, vcmp_uris):
+    '''Test creation of lb with guests clustered across hosts.'''
+
     mock_cm_obj = mock.MagicMock()
     mock_cm_obj.get_traffic_groups.return_value = ['traffic-group-1']
-    mock_cm_obj.get_device_name.side_effect = ['bigip-12.0', 'bigip2-12.0']
+    mock_cm_obj.get_device_name.side_effect = [
+        pytest.symbols.icontrol_vcmp_host1['guest_name'],
+        pytest.symbols.icontrol_vcmp_host2['guest_name']
+    ]
     mock_cm.return_value = mock_cm_obj
     vcmp_hosts = vcmp_setup
     icontroldriver1, before1 = handle_init_registry(
@@ -285,45 +363,61 @@ def test_vcmp_clustered_guests(
     logcall(setup_bigip_devices,
             icontroldriver1._common_service_handler,
             service)
-    # Make sure the calls we expect to see in the log are there for each host
+    # Make sure guests are associated with their respective hosts
     assert call('VcmpManager::_check_vcmp_host_assignments Check registered '
                 'bigips to ensure vCMP Guests have a vCMP host assignment') in \
         mock_log.debug.call_args_list
     assert call('VcmpManager::_check_vcmp_host_assignments vCMP host found for'
-                ' Guest 10.190.5.187') in \
+                ' Guest {}'.format(pytest.symbols.bigip_ip)) in \
         mock_log.debug.call_args_list
     assert call('VcmpManager::_check_vcmp_host_assignments vCMP host found for'
-                ' Guest 10.190.5.184') in \
+                ' Guest {}'.format(pytest.symbols.bigip2_ip)) in \
         mock_log.debug.call_args_list
-    assert call(u'VcmpManager::_init_vcmp_hosts: vCMPHost[10.190.5.185] '
-                'vCMPGuest[bigip-12.0] - mgmt: 10.190.5.187') in \
+    assert call(u'VcmpManager::_init_vcmp_hosts: vCMPHost[{0}] '
+                'vCMPGuest[{1}] - mgmt: {2}'.format(
+                    pytest.symbols.icontrol_vcmp_host1['host_ip'],
+                    pytest.symbols.icontrol_vcmp_host1['guest_name'],
+                    pytest.symbols.bigip_ip)) in \
         mock_log.debug.call_args_list
-    assert call(u'VcmpManager::_init_vcmp_hosts: vCMPHost[10.190.5.186] '
-                'vCMPGuest[bigip2-12.0] - mgmt: 10.190.5.184') in \
+    assert call(u'VcmpManager::_init_vcmp_hosts: vCMPHost[{0}] '
+                'vCMPGuest[{1}] - mgmt: {2}'.format(
+                    pytest.symbols.icontrol_vcmp_host2['host_ip'],
+                    pytest.symbols.icontrol_vcmp_host2['guest_name'],
+                    pytest.symbols.bigip2_ip)) in \
         mock_log.debug.call_args_list
-    assert call('VcmpManager::_check_guest_vlans: VLAN /Common/vlan-1-1-46 is '
-                'not associated with guest bigip-12.0') in \
+    # Check VLAN on first host and guest
+    assert call('VcmpManager::_check_guest_vlans: VLAN /Common/vlan-46 is '
+                'not associated with guest {}'.format(
+                    pytest.symbols.icontrol_vcmp_host1['guest_name'])) in \
         mock_log.debug.call_args_list
     assert call('VcmpManager::assoc_vlan_with_vcmp_guest: Associated VLAN '
-                'vlan-1-1-46 with vCMP Guest bigip-12.0') in \
+                'vlan-46 with vCMP Guest {}'.format(
+                    pytest.symbols.icontrol_vcmp_host1['guest_name'])) in \
         mock_log.debug.call_args_list
     assert call('VcmpManager::assoc_vlan_with_vcmp_guest: VLAN /Common/vlan'
-                '-1-1-46 exists on vCMP Guest bigip-12.0.') in \
+                '-46 exists on vCMP Guest {}'.format(
+                    pytest.symbols.icontrol_vcmp_host1['guest_name'])) in \
         mock_log.debug.call_args_list
     assert call('VcmpManager::assoc_vlan_with_vcmp_guest: Deleted VLAN '
-                '/Common/vlan-1-1-46 from vCMP Guest bigip-12.0') in \
+                '/Common/vlan-46 from vCMP Guest {}'.format(
+                    pytest.symbols.icontrol_vcmp_host1['guest_name'])) in \
         mock_log.debug.call_args_list
-    assert call('VcmpManager::_check_guest_vlans: VLAN /Common/vlan-1-1-46 '
-                'is not associated with guest bigip2-12.0') in \
+    # Check VLAN on second host and guest
+    assert call('VcmpManager::_check_guest_vlans: VLAN /Common/vlan-46 is '
+                'not associated with guest {}'.format(
+                    pytest.symbols.icontrol_vcmp_host2['guest_name'])) in \
         mock_log.debug.call_args_list
     assert call('VcmpManager::assoc_vlan_with_vcmp_guest: Associated VLAN '
-                'vlan-1-1-46 with vCMP Guest bigip2-12.0') in \
+                'vlan-46 with vCMP Guest {}'.format(
+                    pytest.symbols.icontrol_vcmp_host2['guest_name'])) in \
         mock_log.debug.call_args_list
-    assert call('VcmpManager::assoc_vlan_with_vcmp_guest: VLAN /Common/vlan-1'
-                '-1-46 exists on vCMP Guest bigip2-12.0.') in \
+    assert call('VcmpManager::assoc_vlan_with_vcmp_guest: VLAN /Common/vlan'
+                '-46 exists on vCMP Guest {}'.format(
+                    pytest.symbols.icontrol_vcmp_host2['guest_name'])) in \
         mock_log.debug.call_args_list
     assert call('VcmpManager::assoc_vlan_with_vcmp_guest: Deleted VLAN '
-                '/Common/vlan-1-1-46 from vCMP Guest bigip2-12.0') in \
+                '/Common/vlan-46 from vCMP Guest {}'.format(
+                    pytest.symbols.icontrol_vcmp_host2['guest_name'])) in \
         mock_log.debug.call_args_list
     # Before we delete the lb, ensure the hosts and guests have the
     # VLANs needed
@@ -337,7 +431,7 @@ def test_vcmp_clustered_guests(
         host['guest'].refresh()
         assert hasattr(host['guest'], 'vlans')
         assert host['bigip'].tm.net.vlans.vlan.exists(
-            name='vlan-1-1-46', partition='Common')
+            name='vlan-46', partition='Common')
     logcall(setup_bigip_devices,
             icontroldriver1._common_service_handler,
             deepcopy(DELETELB),
@@ -350,7 +444,7 @@ def test_vcmp_clustered_guests(
         host['guest'].refresh()
         assert hasattr(host['guest'], 'vlans') is False
         assert host['bigip'].tm.net.vlans.vlan.exists(
-            name='vlan-1-1-46', partition='Common') is False
+            name='vlan-46', partition='Common') is False
 
 
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
@@ -359,9 +453,14 @@ def test_vcmp_clustered_guests(
 def test_vcmp_clustered_guests_more_hosts_than_guests(
         mock_log, mock_cm, setup_bigip_devices,
         bigip, bigip2, vcmp_setup, vcmp_uris):
+    '''Exception should raise when given host that is not licensed for vcmp.'''
+
     mock_cm_obj = mock.MagicMock()
     mock_cm_obj.get_traffic_groups.return_value = ['traffic-group-1']
-    mock_cm_obj.get_device_name.side_effect = ['bigip-12.0', 'bigip2-12.0']
+    mock_cm_obj.get_device_name.side_effect = [
+        pytest.symbols.icontrol_vcmp_host1['guest_name'],
+        pytest.symbols.icontrol_vcmp_host2['guest_name']
+    ]
     mock_cm.return_value = mock_cm_obj
     copy_config = deepcopy(VCMP_CLUSTER_CONFIG)
     old_vcmp_hosts = copy_config['icontrol_vcmp_hostname']
@@ -373,12 +472,15 @@ def test_vcmp_clustered_guests_more_hosts_than_guests(
     with pytest.raises(BigIPNotLicensedForVcmp) as ex:
         icontroldriver1, before1 = handle_init_registry(
             bigip, copy_config)
-    assert 'VcmpManager::_init_vcmp_hosts: Given vCMP host 10.190.5.187 ' \
-        'is not licensed for vCMP.' in ex.value.message
+    assert 'VcmpManager::_init_vcmp_hosts: Given vCMP host {} ' \
+        'is not licensed for vCMP.'.format(
+            pytest.symbols.bigip_ip) in ex.value.message
 
 
 def test_vcmp_delete_listener_flat(
         setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+    '''Create listener with vcmp turned on and flat as network type.'''
+
     vcmp_host = vcmp_setup
     icontroldriver, start_registry = handle_init_registry(bigip, VCMP_CONFIG)
     service = deepcopy(CREATELISTENER_FLAT)
@@ -392,8 +494,9 @@ def test_vcmp_delete_listener_flat(
         set(vcmp_uris['vcmp_lb_uris']) | set(vcmp_uris['vcmp_listener_uris']))
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-bigip-12.0.int.lineratesystems.com-ce69e293-'
-              '56e7-43b8-b51c-01b91d66af20'),
+        [call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c-'
+              '01b91d66af20'.format(
+                  pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
          call(port_name=u'snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
@@ -410,11 +513,4 @@ def test_vcmp_delete_listener_flat(
             icontroldriver._common_service_handler,
             deepcopy(DELETELB),
             delete_partition=True)
-
-    bigip_vlans = [v.fullPath for v in bigip.tm.net.vlans.get_collection()]
-    assert GUEST_VLAN not in bigip_vlans
-    assert COMMON_VLAN not in bigip_vlans
-    vcmp_host[0]['guest'].refresh()
-    assert not hasattr(vcmp_host[0]['guest'], 'vlans')
-    assert vcmp_host[0]['bigip'].tm.net.vlans.vlan.exists(
-        name='vlan-1-1-46', partition='Common') is False
+    check_host_and_guest_vlans_on_delete(vcmp_host[0], bigip)

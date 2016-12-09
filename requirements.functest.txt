@@ -11,7 +11,7 @@ git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@liberty
 
 # Test utilities
 git+https://github.com/F5Networks/f5-openstack-test.git
-git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-symbols.git
+git+https://github.com/F5Networks/pytest-symbols.git
 
 mock==2.0.0
 pytest==3.0.3
