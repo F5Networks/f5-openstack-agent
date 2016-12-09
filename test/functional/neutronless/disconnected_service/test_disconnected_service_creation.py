@@ -190,6 +190,12 @@ def setup_l2adjacent_test(request, bigip, makelogdir):
     loghandler = setup_neutronless_test(request, bigip, makelogdir, vlan=True)
     LOG.info('Test setup: %s' % request.node.name)
 
+    # FIXME: This is a work around for GH issue #487
+    # https://github.com/F5Networks/f5-openstack-agent/issues/487
+    def kill_icontrol():
+        time.sleep(2)
+    request.addfinalizer(kill_icontrol)
+
     try:
         remove_elements(bigip,
                         SEG_INDEPENDENT_LB_URIS |
