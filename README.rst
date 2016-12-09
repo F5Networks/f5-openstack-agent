@@ -63,34 +63,45 @@ include a set of functional tests written to use a real BIG-IP® device
 for testing. Information on how to run our set of tests is included
 below.
 
-Unit Tests
-==========
-
-We use pytest for our unit tests.
-
-1. If you haven't already, install the required test packages and the
-   requirements.txt in your virtual environment.
-
-::
-
-    $ pip install hacking pytest pytest-cov
-    $ pip install -r requirements.txt
-
-2. Run the tests and produce a coverage report. The ``--cov-report=html`` will create a ``htmlcov/`` directory that you can view in your browser to see the missing lines of code.
-
-::
-
-    $ py.test --cov ./icontrol --cov-report=html
-    $ open htmlcov/index.html
-
 Style Checks
 ============
 
-We use the hacking module for our style checks (installed as part of step 1 in the Unit Test section).
+We use the hacking module for our style checks.
+
+::
+    $ pip install tox
+    $ tox -e style
+
+Unit Tests
+==========
+
+We use tox to run our pytest unit tests. To run the unit tests use the tox
+environment `unit`.
+
+::
+    $ pip install tox
+    $ tox -e unit
+
+Functional Tests
+=================
+
+Functional tests can be run without a full OpenStack deployment, but do require
+access to a BIG-IP device or VE instance.
+
+1. Create a symbol's file that describes the environment that you are running
+   your test in by copying and editing the `symbols.json.example <test/functional/symbols.json.example>`_
+   file to have the values that are correct for your BIG-IP.
+
+2. Run the functional tests by supplying the symbol file that you just created
+   which includes the information relative to your environment using the
+   example file. The example below runs the disconnected services neutronless
+   functional test cases.
 
 ::
 
-    $ flake8 ./
+    $ tox -e functest -- \
+      --symbols ~/path/to/symbols/symbols.json \
+      ./test/functional/neutronless/disconnected_service
 
 Troubleshooting
 ===============

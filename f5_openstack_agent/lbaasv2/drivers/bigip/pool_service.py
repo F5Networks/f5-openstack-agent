@@ -15,6 +15,7 @@
 #
 
 from oslo_log import log as logging
+from requests import HTTPError
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
@@ -157,10 +158,18 @@ class PoolServiceBuilder(object):
                            partition=part)
 
                 m.delete()
-                node = self.service_adapter.get_member_node(service)
-                self.node_helper.delete(bigip,
-                                        name=urllib.quote(node["name"]),
-                                        partition=node["partition"])
+                try:
+                    node = self.service_adapter.get_member_node(service)
+                    self.node_helper.delete(bigip,
+                                            name=urllib.quote(node["name"]),
+                                            partition=node["partition"])
+                except HTTPError as err:
+                    # Possilbe error if node is shared with another member.
+                    # If so, ignore the error.
+                    if err.response.status_code == 400:
+                        LOG.debug(err.message)
+                    else:
+                        raise
 
     def update_member(self, service, bigips):
         # TODO(jl) handle state -- SDK enforces at least state=None

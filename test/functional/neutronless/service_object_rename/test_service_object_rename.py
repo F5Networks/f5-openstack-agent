@@ -22,7 +22,7 @@ from conftest import setup_neutronless_test
 requests.packages.urllib3.disable_warnings()
 
 LOG = logging.getLogger(__name__)
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 
 # Get the Oslo Config File
 curdir = os.path.dirname(os.path.realpath(__file__))

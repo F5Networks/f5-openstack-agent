@@ -41,12 +41,16 @@ oslo_config_filename =\
 OSLO_CONFIGS = json.load(open(oslo_config_filename))
 FEATURE_ON = OSLO_CONFIGS["feature_on"]
 FEATURE_OFF = OSLO_CONFIGS["feature_off"]
+FEATURE_OFF_GRM = OSLO_CONFIGS["feature_off_grm"]
 FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
 FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
+FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
 
 
 tmos_version = ManagementRoot(
-                   pytest.symbols.bigip_mgmt_ip, 'admin', 'admin'
+                   pytest.symbols.bigip_mgmt_ip,
+                   pytest.symbols.bigip_username,
+                   pytest.symbols.bigip_password
                ).tmos_version
 dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip.replace('.', '-')
 icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
@@ -57,6 +61,7 @@ neutron_services_filename =\
 # Library of services as received from the neutron server
 NEUTRON_SERVICES = json.load(open(neutron_services_filename))
 SEGID_CREATELB = NEUTRON_SERVICES["create_connected_loadbalancer"]
+SEGID_DELETELB = NEUTRON_SERVICES["delete_loadbalancer"]
 NOSEGID_CREATELB = NEUTRON_SERVICES["create_disconnected_loadbalancer"]
 SEGID_CREATELISTENER = NEUTRON_SERVICES["create_connected_listener"]
 NOSEGID_CREATELISTENER = NEUTRON_SERVICES["create_disconnected_listener"]
@@ -75,6 +80,18 @@ SEG_INDEPENDENT_LB_URIS =\
 
          u'https://localhost/mgmt/tm/net/route-domain/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
+
+         u'https://localhost/mgmt/tm/net/fdb/tunnel/'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+         '~disconnected_network?ver=11.5.0',
+
+         u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+         '~disconnected_network?ver='+tmos_version])
+
+SEG_INDEPENDENT_LB_URIS_GRM =\
+    set([u'https://localhost/mgmt/tm/sys/folder/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/net/fdb/tunnel/'
@@ -193,8 +210,9 @@ def handle_init_registry(bigip, icd_configuration,
     icontroldriver = configure_icd(icd_configuration, create_mock_rpc)
     LOG.debug(bigip.raw)
     start_registry = register_device(bigip)
-    assert set(start_registry.keys()) - set(init_registry.keys()) == \
-        AGENT_INIT_URIS
+    if icd_configuration['f5_global_routed_mode'] == False:
+        assert set(start_registry.keys()) - set(init_registry.keys()) == \
+            AGENT_INIT_URIS
     return icontroldriver, start_registry
 
 
@@ -517,3 +535,50 @@ def test_nosegid_to_segid(setup_l2adjacent_test, bigip):
     assert rpc.update_listener_status.call_args_list[-1] == (
         call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     )
+
+def test_featureoff_grm_lb(setup_l2adjacent_test, bigip):
+    def create_mock_rpc_plugin():
+        mock_rpc_plugin = mock.MagicMock(name='mock_rpc_plugin')
+        mock_rpc_plugin.get_port_by_name.return_value = [
+            {'fixed_ips': [{'ip_address': '10.2.2.134'}]}
+        ]
+        mock_rpc_plugin.get_all_loadbalancers.return_value = [
+            {'lb_id': u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
+             'tenant_id': u'128a63ef33bc4cf891d684fad58e7f2d'
+            }
+        ]
+        return mock_rpc_plugin
+
+    icontroldriver, start_registry = handle_init_registry(bigip,
+                                                          FEATURE_OFF_GRM,
+                                                          create_mock_rpc_plugin)
+
+    service = deepcopy(SEGID_CREATELB)
+    logcall(setup_l2adjacent_test,
+            icontroldriver._common_service_handler,
+            service)
+    after_create_registry = register_device(bigip)
+    empty_set = set()
+
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == SEG_INDEPENDENT_LB_URIS_GRM | NOSEG_LB_URIS
+
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
+
+    rpc = icontroldriver.plugin_rpc
+
+    service = deepcopy(SEGID_DELETELB)
+
+    logcall(setup_l2adjacent_test,
+            icontroldriver._common_service_handler,
+            service, True)
+
+    after_destroy_registry = register_device(bigip)    
+    post_destroy_uris = (set(after_destroy_registry.keys()) -
+                   set(start_registry.keys()))
+
+    assert post_destroy_uris == empty_set
+

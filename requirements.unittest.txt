@@ -1,5 +1,6 @@
 #Install the agent
-.
+-e .
+
 # app
 git+https://github.com/openstack/neutron#stable/mitaka
 git+https://github.com/openstack/oslo.log.git@stable/mitaka

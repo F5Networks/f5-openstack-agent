@@ -72,9 +72,9 @@ def _get_nolevel_handler(logname):
     rootlogger = logging.getLogger()
     for h in rootlogger.handlers:
         rootlogger.removeHandler(h)
-    rootlogger.setLevel(logging.DEBUG)
+    rootlogger.setLevel(logging.INFO)
     fh = logging.FileHandler(logname)
-    fh.setLevel(logging.DEBUG)
+    fh.setLevel(logging.INFO)
     rootlogger.addHandler(fh)
     return fh
 

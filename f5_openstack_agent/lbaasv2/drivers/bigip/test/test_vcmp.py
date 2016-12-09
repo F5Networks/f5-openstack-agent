@@ -289,7 +289,7 @@ def test_assoc_vlan_with_vcmp_guest_assoc_exception(setup_vcmp_method_test):
         vlans=['/Common/test_vlan', 'test_vlan'])
     assert mock_log.error.call_args == mock.call(
         'VcmpManager::assoc_vlan_with_vcmp_guest: Exception associating VLAN '
-        'test_vlan to vCMP Guest 192.168.1.1: test')
+        'test_vlan to vCMP Guest guest1: test')
 
 
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG', mock_log)
@@ -310,7 +310,7 @@ def test_assoc_vlan_with_vcmp_guest_create_exception(setup_vcmp_method_test):
         vlans=['/Common/test_vlan', 'test_vlan'])
     assert mock_log.error.call_args == mock.call(
         'VcmpManager::assoc_vlan_with_vcmp_guest: Exception waiting for vCMP '
-        'Host VLAN test_vlan to be created on vCMP Guest 192.168.1.1: test')
+        'Host VLAN test_vlan to be created on vCMP Guest guest1: test')
 
 
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG', mock_log)
@@ -325,7 +325,7 @@ def test_assoc_vlan_with_vcmp_guest_vlan_not_created(
         vlans=['/Common/test_vlan', 'test_vlan'])
     assert mock_log.error.call_args == mock.call(
         'VcmpManager::assoc_vlan_with_vcmp_guest: VLAN /Common/test_vlan '
-        'does not exist on vCMP Guest 192.168.1.1.')
+        'does not exist on vCMP Guest guest1')
 
 
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG', mock_log)
@@ -339,7 +339,7 @@ def test_assoc_vlan_with_vcmp_guest_vlan_delete_exception(
         vlans=['/Common/test_vlan', 'test_vlan'])
     assert mock_log.error.call_args == mock.call(
         'VcmpManager::assoc_vlan_with_vcmp_guest: Exception deleting VLAN '
-        '/Common/test_vlan from vCMP Guest 192.168.1.1: test')
+        '/Common/test_vlan from vCMP Guest guest1: test')
 
 
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG', mock_log)
@@ -354,7 +354,7 @@ def test_assoc_vlan_with_vcmp_no_vlan_attr(
         vlans=['test_vlan'])
     assert mock_log.error.call_args == mock.call(
         'VcmpManager::assoc_vlan_with_vcmp_guest: Exception deleting VLAN '
-        '/Common/test_vlan from vCMP Guest 192.168.1.1: test')
+        '/Common/test_vlan from vCMP Guest guest1: test')
 
 
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG', mock_log)
