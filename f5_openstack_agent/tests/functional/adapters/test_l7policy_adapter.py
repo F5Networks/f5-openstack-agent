@@ -106,7 +106,6 @@ def test_adapter_redirect_to_pool_file_type_beginswith(
                 'actions': [
                     {
                         'forward': True, 'name': 0, 'request': True,
-                        'name': '0',
                         'pool': u'/Project_test/Project_test_pool'
                     }
                 ],
@@ -413,7 +412,7 @@ def test_adapter_redirect_to_pool_file_type_not_beginswith(
                 'actions': [
                     {
                         'forward': True, 'name': 0, 'request': True,
-                        'name': '0', 'pool': u'/Project_test/Project_test_pool'
+                        'pool': u'/Project_test/Project_test_pool'
                     }
                 ],
                 'conditions': [
