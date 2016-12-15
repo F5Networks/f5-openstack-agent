@@ -854,6 +854,7 @@ class iControlDriver(LBaaSBaseDriver):
                  'clientside.bitsOut',
                  'clientside.curConns',
                  'clientside.totConns']
+        loadbalancer = service['loadbalancer']
 
         try:
             # sum virtual server stats for all BIG-IPs
@@ -869,6 +870,9 @@ class iControlDriver(LBaaSBaseDriver):
             lb_stats[lb_const.STATS_TOTAL_CONNECTIONS] = \
                 vs_stats['clientside.totConns']
 
+            # update Neutron
+            self.plugin_rpc.update_loadbalancer_stats(
+                loadbalancer['id'], lb_stats)
         except Exception as e:
             LOG.error("Error getting loadbalancer stats: %s", e.message)
 

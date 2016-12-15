@@ -424,7 +424,7 @@ class ListenerServiceBuilder(object):
             obj.delete()
             LOG.debug("Deleted rule %s" % rule_name)
 
-    def get_stats(self, service, bigips, stats):
+    def get_stats(self, service, bigips, stat_keys):
         """Return stat values for a single virtual.
 
         Stats to collect are defined as an array of strings in input stats.
@@ -432,23 +432,26 @@ class ListenerServiceBuilder(object):
 
         :param service: Has listener name/partition
         :param bigips: One or more BIG-IPs to get listener stats from.
-        :param stats: Array of strings that define which stats to collect.
+        :param stat_keys: Array of strings that define which stats to collect.
         :return: A dict with key/value pairs for each stat defined in
         input stats.
         """
         collected_stats = {}
-        for stat in stats:
-            collected_stats[stat] = 0
+        for stat_key in stat_keys:
+            collected_stats[stat_key] = 0
 
         virtual = self.service_adapter.get_virtual(service)
         part = virtual["partition"]
         for bigip in bigips:
             try:
                 vs_stats = self.vs_helper.get_stats(
-                    bigip, name=virtual["name"], partition=part, stats=stats)
-                for stat in stats:
-                    if stat in vs_stats:
-                        collected_stats[stat] += vs_stats[stat]
+                    bigip,
+                    name=virtual["name"],
+                    partition=part,
+                    stat_keys=stat_keys)
+                for stat_key in stat_keys:
+                    if stat_key in vs_stats:
+                        collected_stats[stat_key] += vs_stats[stat_key]
 
             except Exception as e:
                 # log error but continue on

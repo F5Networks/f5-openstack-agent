@@ -245,7 +245,7 @@ class BigIPResourceHelper(object):
             raise KeyError("No collection available for %s" %
                            (self.resource_type))
 
-    def get_stats(self, bigip,  name=None, partition=None, stats=[]):
+    def get_stats(self, bigip,  name=None, partition=None, stat_keys=[]):
         """Returns dictionary of stats.
 
         Use by calling with an array of stats to get from resource. Return
@@ -255,7 +255,7 @@ class BigIPResourceHelper(object):
         :param bigip: BIG-IP to get stats from.
         :param name: name of resource object.
         :param partition: partition where to get resource.
-        :param stats: Array of strings that define stats to collect.
+        :param stat_keys: Array of strings that define stats to collect.
         :return: dictionary with key/value pairs where key is string
         defined in input array, if present in resource stats, and value
         as the value of resource stats 'value' key.
@@ -269,8 +269,8 @@ class BigIPResourceHelper(object):
             stat_entries = resource_stats.entries
 
             # Difference between 11.6 and 12.1. Stats in 12.1 are embedded
-            # in nestedStats. In 11.6, they directly accessible in entries.
-            if stats[0] not in stat_entries:
+            # in nestedStats. In 11.6, they are directly accessible in entries.
+            if stat_keys[0] not in stat_entries:
                 # find nestedStats
                 for key in stat_entries.keys():
                     value = stat_entries.get(key, None)
@@ -278,9 +278,9 @@ class BigIPResourceHelper(object):
                         stat_entries = value['nestedStats']['entries']
 
             # add stats defined in input stats array
-            for stat in stats:
-                if stat in stat_entries:
-                    collected_stats[stat] = \
-                        stat_entries[stat]['value']
+            for stat_key in stat_keys:
+                if stat_key in stat_entries:
+                    collected_stats[stat_key] = \
+                        stat_entries[stat_key]['value']
 
         return collected_stats
