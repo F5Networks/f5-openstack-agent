@@ -104,6 +104,19 @@ class LBaaSv2PluginRPC(object):
         )
 
     @log_helpers.log_method_call
+    def update_loadbalancer_stats(self,
+                                  lb_id,
+                                  stats):
+        """Update the database with loadbalancer stats."""
+        return self._cast(
+            self.context,
+            self._make_msg('update_loadbalancer_stats',
+                           loadbalancer_id=lb_id,
+                           stats=stats),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
     def loadbalancer_destroyed(self, loadbalancer_id):
         """Delete the loadbalancer from the database."""
         return self._cast(

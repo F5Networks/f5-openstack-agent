@@ -30,16 +30,19 @@ VENV_ACTIVATE := $(MAKEFILE_DIR)/$(VENV)/bin/activate
 
 # Before we run any tests we need a virtualenv and a few packages
 pre-build:
-	virtualenv $(VENV); \
-	. $(VENV_ACTIVATE); \
-	pip install tox; \
-	pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/testenv.git; \
-	pip install git+ssh://git@bldr-git.int.lineratesystems.com/velcro/systest-common.git
+	sudo apt-get update; \
+	sudo apt-get install -y libssl-dev; \
+	sudo apt-get install -y libffi-dev; \
+	sudo -H pip install tox; \
+	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/testenv.git; \
+	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/velcro/systest-common.git; \
+	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-meta.git; \
+	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-autolog.git; \
+	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-symbols.git;
 
 unit: pre-build
-	. $(VENV_ACTIVATE); \
 	cd $(MAKEFILE_DIR)/../; \
-	tox -e unit-buildbot -- \
+	tox -e unit --sitepackages -- \
 		--exclude incomplete no_regression \
 		--autolog-outputdir $(unit_results) \
 		--autolog-session $(unit_session) \
@@ -59,13 +62,12 @@ disconnected_service:
 
 disconnected_service-setup: pre-build
 	@echo "setting up functional test environment ..."
-	. $(VENV_ACTIVATE); \
 	testenv create base; \
 	testenv create --name $(disconnected_session) --config $(testenv_config); \
 
 disconnected_service-run: pre-build
 	@echo "running disconnected tests ..."
-	tox -e functest-buildbot -- \
+	tox -e functest --sitepackage -- \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--exclude incomplete no_regression \
 		--autolog-outputdir $(disconnected_results) \
@@ -76,11 +78,9 @@ disconnected_service-teardown:
 	@echo "tearing down functional test environment..."
 	if [ ! -e $(disconnected_results) ]; then mkdir -p $(disconnected_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
-	. $(VENV_ACTIVATE); \
 	testenv delete --name $(disconnected_session) --config $(testenv_config)
 
 # Remove the buildbot venv directory and any tox venvs we made
 clean:
-	-rm -rf $(MAKEFILE_DIR)/$(VENV)
 	-rm -rf $(MAKEFILE_DIR)/../.tox/functest-buildbot
 	-rm -rf $(MAKEFILE_DIR)/../.tox/unit-buildbot

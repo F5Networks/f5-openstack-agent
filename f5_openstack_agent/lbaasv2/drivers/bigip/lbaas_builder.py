@@ -458,3 +458,37 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     l7rule['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
+
+    def get_listener_stats(self, service, stats):
+        """Get statistics for a loadbalancer service.
+
+        Sums values for stats defined in stats dictionary for all listeners
+        defined in service object. For example, if loadbalancer has two
+        listeners and stats defines a stat 'clientside.bitsIn' as a key, the
+        sum of all pools' clientside.bitsIn will be returned in stats.
+
+        Provisioning status is ignored -- PENDING_DELETE objects are
+        included.
+
+        :param service: defines loadbalancer and set of pools.
+        :param stats: a dictionary that defines which stats to get.
+        Should be initialized by caller with 0 values.
+        :return: stats are appended to input stats dict (i.e., contains
+        the sum of given stats for all BIG-IPs).
+        """
+
+        listeners = service["listeners"]
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_config_bigips()
+
+        collected_stats = {}
+        for stat in stats:
+            collected_stats[stat] = 0
+
+        for listener in listeners:
+            svc = {"loadbalancer": loadbalancer, "listener": listener}
+            vs_stats = self.listener_builder.get_stats(svc, bigips, stats)
+            for stat in stats:
+                collected_stats[stat] += vs_stats[stat]
+
+        return collected_stats

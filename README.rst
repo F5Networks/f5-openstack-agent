@@ -95,13 +95,14 @@ access to a BIG-IP device or VE instance.
 2. Run the functional tests by supplying the symbol file that you just created
    which includes the information relative to your environment using the
    example file. The example below runs the disconnected services neutronless
-   functional test cases.
+   functional test cases (the tox target changes to the [test/functional](test/functional)
+   directory before running.
 
 ::
 
     $ tox -e functest -- \
       --symbols ~/path/to/symbols/symbols.json \
-      ./test/functional/neutronless/disconnected_service
+      neutronless/disconnected_service
 
 Troubleshooting
 ===============
