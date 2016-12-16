@@ -1,3 +1,8 @@
+''' Test utilities for creation and deletion of pools via the sdk.
+
+This fixture should be promoted to a more general library.  Probably
+f5_os_test.
+'''
 # Copyright 2015-2016 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,6 +61,7 @@ def NAT(bigip):
 
 
 def _delete_pools_members(bigip, pool_records):
+    '''Get the members for the pool --> delete pool --> delete members'''
     for pr in pool_records:
         if bigip.ltm.pools.pool.exists(partition=pr.partition, name=pr.name):
             pool_inst = bigip.ltm.pools.pool.load(partition=pr.partition,
@@ -68,6 +74,7 @@ def _delete_pools_members(bigip, pool_records):
 
 @pytest.fixture
 def pool_factory():
+    '''Given pool record objects, set up and teardown tests for that pool.'''
     def _setup_boilerplate(bigip, request, pool_records):
         _delete_pools_members(bigip, pool_records)
         pool_registry = {}
