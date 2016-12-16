@@ -244,3 +244,43 @@ class BigIPResourceHelper(object):
                       "resource %s", self.resource_type)
             raise KeyError("No collection available for %s" %
                            (self.resource_type))
+
+    def get_stats(self, bigip,  name=None, partition=None, stat_keys=[]):
+        """Returns dictionary of stats.
+
+        Use by calling with an array of stats to get from resource. Return
+        value will be a dict with key/value pairs. The stat key will only
+        be included in the return dict if the resource includes that stat.
+
+        :param bigip: BIG-IP to get stats from.
+        :param name: name of resource object.
+        :param partition: partition where to get resource.
+        :param stat_keys: Array of strings that define stats to collect.
+        :return: dictionary with key/value pairs where key is string
+        defined in input array, if present in resource stats, and value
+        as the value of resource stats 'value' key.
+        """
+        collected_stats = {}
+
+        # get resource, then its stats
+        if self.exists(bigip, name=name, partition=partition):
+            resource = self.load(bigip, name=name, partition=partition)
+            resource_stats = resource.stats.load()
+            stat_entries = resource_stats.entries
+
+            # Difference between 11.6 and 12.1. Stats in 12.1 are embedded
+            # in nestedStats. In 11.6, they are directly accessible in entries.
+            if stat_keys[0] not in stat_entries:
+                # find nestedStats
+                for key in stat_entries.keys():
+                    value = stat_entries.get(key, None)
+                    if 'nestedStats' in value:
+                        stat_entries = value['nestedStats']['entries']
+
+            # add stats defined in input stats array
+            for stat_key in stat_keys:
+                if stat_key in stat_entries:
+                    collected_stats[stat_key] = \
+                        stat_entries[stat_key]['value']
+
+        return collected_stats
