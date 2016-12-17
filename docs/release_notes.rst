@@ -11,29 +11,20 @@ Release Highlights
 
 This release introduces the following:
 
-- Hierarchical port binding
-- Agent redundancy and capacity-based scale out
-- Differentiated Service Environments
-- BIG-IP® vCMP® compatibility
+- Loadbalancer statistics
 - Bug fixes
 
-See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v8.0.8...v8.1.0>`_ for the full list of changes in this release.
+See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v8.1.0...v8.2.0.b1>`_ for the full list of changes in this release.
 
 Caveats
 -------
-
-The following features are unsupported in v |release|:
-
-* Unattached pools
-* L7 routing
-* Loadbalancer statistics
 
 Open Issues
 -----------
 
 See the `project issues page <https://github.com/F5Networks/f5-openstack-agent/issues>`_ for a full list of open issues in this release.
 
-Documentation can be found on `Read the Docs <http://f5-openstack-lbaasv2-driver.readthedocs.io/en/latest/release_notes.html>`_.
+Documentation can be found on `Read the Docs <http://f5-openstack-agent.readthedocs.io/en/latest/release_notes.html>`_.
 
 
 
