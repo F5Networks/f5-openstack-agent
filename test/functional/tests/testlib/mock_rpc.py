@@ -1,8 +1,11 @@
 import netaddr
 
+
+class InvalidArgumentError(ValueError):
+    pass
+
+
 class MockRPCPlugin(object):
-    class InvalidArgumentError(ValueError):
-        pass
 
     def __init__(self, services):
         self._subnets = {}
@@ -50,10 +53,8 @@ class MockRPCPlugin(object):
                               mac_address=None,
                               name=None,
                               fixed_address_count=1):
-        port_list = []
-        fixed_ips = {}
-        port = {}
 
+        # Enforce specific call parameters
         if not subnet_id:
             raise InvalidArgumentError
         if mac_address:
@@ -62,7 +63,7 @@ class MockRPCPlugin(object):
             raise InvalidArgumentError
         if fixed_address_count != 1:
             raise InvalidArgumentError
-        
+
         ip_address = next(self._subnets[subnet_id])
 
         retval = {'fixed_ips': [{'ip_address': ip_address}]}
@@ -97,13 +98,13 @@ class MockRPCPlugin(object):
         pass
 
     def update_member_status(self, member_id,
-                                    provisioning_status,
-                                    operating_status):
+                             provisioning_status,
+                             operating_status):
         pass
 
     def update_health_monitor_status(self, health_monitor_id,
-                                    provisioning_status,
-                                    operating_status):
+                                     provisioning_status,
+                                     operating_status):
         pass
 
     def loadbalancer_destroyed(self, lb_id):
@@ -117,4 +118,3 @@ class MockRPCPlugin(object):
 
     def get_service_by_loadbalancer_id(self, lb_id):
         return self._services[self._current_service]
-
