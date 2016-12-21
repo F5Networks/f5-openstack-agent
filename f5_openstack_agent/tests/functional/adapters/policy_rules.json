@@ -1,0 +1,566 @@
+{
+    "reject_path":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REJECT",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": null,
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "STARTS_WITH",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": null,
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "PATH",
+                        "value": "/api"
+                    }
+                ]
+        },
+    "redirect_to_pool_file_type":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_POOL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": "test_pool",
+                        "redirect_url": null,
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "STARTS_WITH",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": null,
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "FILE_TYPE",
+                        "value": "txt"
+                    }
+                ]
+        },
+    "redirect_to_url_cookie":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_URL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": "http://www.example.com",
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "CONTAINS",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": "cookie",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "COOKIE",
+                        "value": "test_cookie"
+                    }
+                ]
+        },
+    "redirect_to_url_header":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_URL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": "http://www.example.com",
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "ENDS_WITH",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": "X-HEADER",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "HEADER",
+                        "value": "test_header"
+                    }
+                ]
+        },
+    "redirect_to_pool_hostname":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_POOL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": "test_pool",
+                        "redirect_url": null,
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "EQUAL_TO",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": null,
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "HOST_NAME",
+                        "value": "10.10.10.10"
+                    }
+                ]
+        },
+    "redirect_to_pool_many_rules":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_POOL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": "test_pool",
+                        "redirect_url": null,
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"},
+                            {"id": "g7e45215-d254-455d-b6be-737ed4393eaa"},
+                            {"id": "h7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "EQUAL_TO",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": "X-HEADER",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "HEADER",
+                        "value": "test_header"
+                    },
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "CONTAINS",
+                        "id": "g7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": "cookie",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "COOKIE",
+                        "value": "test_cookie"
+                    },
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "STARTS_WITH",
+                        "id": "h7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": null,
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "PATH",
+                        "value": "/api/cool/site"
+                    }
+                ]
+        },
+    "many_policies_and_rules":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_POOL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "a113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": "test_pool",
+                        "redirect_url": null,
+                        "rules": [{"id": "a7e45215-d254-455d-b6be-737ed4393eaa"}, {"id": "b7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    },
+                    {
+                        "action": "REJECT",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "b113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 2,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": null,
+                        "rules": [{"id": "c7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    },
+                    {
+                        "action": "REJECT",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "c113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 3,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": null,
+                        "rules": [],
+                        "tenant_id": "test"
+                    },
+                    {
+                        "action": "REDIRECT_TO_URL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "d113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 4,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": "http://www.example.com",
+                        "rules": [],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "EQUAL_TO",
+                        "id": "a7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": "X-HEADER",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "a113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "HEADER",
+                        "value": "test_header"
+                    },
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "CONTAINS",
+                        "id": "b7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": "cookie",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "a113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "COOKIE",
+                        "value": "test_cookie"
+                    },
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "STARTS_WITH",
+                        "id": "c7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": false,
+                        "key": null,
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "b113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "PATH",
+                        "value": "/api/cool/site"
+                    }
+                ]
+        },
+    "redirect_to_pool_hostname_invert":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_POOL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": "test_pool",
+                        "redirect_url": null,
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "EQUAL_TO",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": true,
+                        "key": null,
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "HOST_NAME",
+                        "value": "10.10.10.10"
+                    }
+                ]
+        },
+    "reject_not_path":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REJECT",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": null,
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "STARTS_WITH",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": true,
+                        "key": null,
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "PATH",
+                        "value": "/api"
+                    }
+                ]
+        },
+    "redirect_to_pool_not_file_type":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_POOL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": "test_pool",
+                        "redirect_url": null,
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "STARTS_WITH",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": true,
+                        "key": null,
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "FILE_TYPE",
+                        "value": "txt"
+                    }
+                ]
+        },
+    "redirect_to_url_not_cookie":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_URL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": "http://www.example.com",
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "CONTAINS",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": true,
+                        "key": "cookie",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "COOKIE",
+                        "value": "test_cookie"
+                    }
+                ]
+        },
+    "redirect_to_url_not_header":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_URL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": "http://www.example.com",
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "ENDS_WITH",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": true,
+                        "key": "X-HEADER",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "ACTIVE",
+                        "tenant_id": "test",
+                        "type": "HEADER",
+                        "value": "test_header"
+                    }
+                ]
+        },
+    "redirect_to_url_not_header_remove_rule":
+        {
+            "l7policies": 
+                [
+                    {
+                        "action": "REDIRECT_TO_URL",
+                        "admin_state_up": true,
+                        "description": "",
+                        "id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "listener_id": "95a59425-d144-4710-ae0c-3750763df0c1",
+                        "name": "",
+                        "position": 1,
+                        "provisioning_status": "ACTIVE",
+                        "redirect_pool_id": null,
+                        "redirect_url": "http://www.example.com",
+                        "rules": [{"id": "f7e45215-d254-455d-b6be-737ed4393eaa"}],
+                        "tenant_id": "test"
+                    }
+                ],
+         "l7rules":
+                [
+                    {
+                        "admin_state_up": true,
+                        "compare_type": "ENDS_WITH",
+                        "id": "f7e45215-d254-455d-b6be-737ed4393eaa",
+                        "invert": true,
+                        "key": "X-HEADER",
+                        "policies": [{"id": "5113fb9d-054f-4494-976d-84bfeb14c42a"}],
+                        "policy_id": "5113fb9d-054f-4494-976d-84bfeb14c42a",
+                        "provisioning_status": "PENDING_DELETE",
+                        "tenant_id": "test",
+                        "type": "HEADER",
+                        "value": "test_header"
+                    }
+                ]
+        }
+}

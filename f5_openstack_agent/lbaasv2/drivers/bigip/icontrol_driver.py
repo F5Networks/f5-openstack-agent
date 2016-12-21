@@ -58,9 +58,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
     BigipTenantManager
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import OBJ_PREFIX
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
 
@@ -851,105 +849,35 @@ class iControlDriver(LBaaSBaseDriver):
 
     @is_connected
     def get_stats(self, service):
-        """Get service stats"""
-        # use pool stats because the pool_id is the
-        # the service definition...
-        stats = {}
-        stats[lb_const.STATS_IN_BYTES] = 0
-        stats[lb_const.STATS_OUT_BYTES] = 0
-        stats[lb_const.STATS_ACTIVE_CONNECTIONS] = 0
-        stats[lb_const.STATS_TOTAL_CONNECTIONS] = 0
-        # add a members stats return dictionary
-        members = {}
-        for hostbigip in self.get_all_bigips():
-            # It appears that stats are collected for pools in a pending delete
-            # state which means that if those messages are queued (or delayed)
-            # it can result in the process of a stats request after the pool
-            # and tenant are long gone. Check if the tenant exists.
-            if not service['pool'] or not hostbigip.system.folder_exists(
-                    OBJ_PREFIX + service['pool']['tenant_id']):
-                return None
-            pool = service['pool']
-            pool_stats = hostbigip.pool.get_statistics(
-                name=pool['id'],
-                folder=pool['tenant_id'],
-                config_mode=self.conf.icontrol_config_mode)
-            if 'STATISTIC_SERVER_SIDE_BYTES_IN' in pool_stats:
-                stats[lb_const.STATS_IN_BYTES] += \
-                    pool_stats['STATISTIC_SERVER_SIDE_BYTES_IN']
-                stats[lb_const.STATS_OUT_BYTES] += \
-                    pool_stats['STATISTIC_SERVER_SIDE_BYTES_OUT']
-                stats[lb_const.STATS_ACTIVE_CONNECTIONS] += \
-                    pool_stats['STATISTIC_SERVER_SIDE_CURRENT_CONNECTIONS']
-                stats[lb_const.STATS_TOTAL_CONNECTIONS] += \
-                    pool_stats['STATISTIC_SERVER_SIDE_TOTAL_CONNECTIONS']
-                # are there members to update status
-                if 'members' in service:
-                    # only query BIG-IP® pool members if they
-                    # not in a state indicating provisioning or error
-                    # provisioning the pool member
-                    some_members_require_status_update = False
-                    update_if_status = [plugin_const.ACTIVE,
-                                        plugin_const.DOWN,
-                                        plugin_const.INACTIVE]
-                    if plugin_const.ACTIVE not in update_if_status:
-                        update_if_status.append(plugin_const.ACTIVE)
+        lb_stats = {}
+        stats = ['clientside.bitsIn',
+                 'clientside.bitsOut',
+                 'clientside.curConns',
+                 'clientside.totConns']
+        loadbalancer = service['loadbalancer']
 
-                    for member in service['members']:
-                        if member['status'] in update_if_status:
-                            some_members_require_status_update = True
-                    # are we have members who are in a
-                    # state to update there status
-                    if some_members_require_status_update:
-                        # query pool members on each BIG-IP
-                        monitor_states = \
-                            hostbigip.pool.get_members_monitor_status(
-                                name=pool['id'],
-                                folder=pool['tenant_id'],
-                                config_mode=self.conf.icontrol_config_mode
-                            )
-                        for member in service['members']:
-                            if member['status'] in update_if_status:
-                                # create the entry for this
-                                # member in the return status
-                                # dictionary set to ACTIVE
-                                if not member['id'] in members:
-                                    members[member['id']] = \
-                                        {'status': plugin_const.INACTIVE}
-                                # check if it down or up by monitor
-                                # and update the status
-                                for state in monitor_states:
-                                    # matched the pool member
-                                    # by address and port number
-                                    if member['address'] == \
-                                            strip_domain_address(
-                                            state['addr']) and \
-                                            int(member['protocol_port']) == \
-                                            int(state['port']):
-                                        # if the monitor says member is up
-                                        if state['state'] == \
-                                                'MONITOR_STATUS_UP' or \
-                                           state['state'] == \
-                                                'MONITOR_STATUS_UNCHECKED':
-                                            # set ACTIVE as long as the
-                                            # status was not set to 'DOWN'
-                                            # on another BIG-IP
-                                            if members[
-                                                member['id']]['status'] != \
-                                                    'DOWN':
-                                                if member['admin_state_up']:
-                                                    members[member['id']][
-                                                        'status'] = \
-                                                        plugin_const.ACTIVE
-                                                else:
-                                                    members[member['id']][
-                                                        'status'] = \
-                                                        plugin_const.INACTIVE
-                                        else:
-                                            members[member['id']]['status'] = \
-                                                plugin_const.DOWN
-        stats['members'] = members
-        return stats
+        try:
+            # sum virtual server stats for all BIG-IPs
+            vs_stats = self.lbaas_builder.get_listener_stats(service, stats)
+
+            # convert to bytes
+            lb_stats[lb_const.STATS_IN_BYTES] = \
+                vs_stats['clientside.bitsIn']/8
+            lb_stats[lb_const.STATS_OUT_BYTES] = \
+                vs_stats['clientside.bitsOut']/8
+            lb_stats[lb_const.STATS_ACTIVE_CONNECTIONS] = \
+                vs_stats['clientside.curConns']
+            lb_stats[lb_const.STATS_TOTAL_CONNECTIONS] = \
+                vs_stats['clientside.totConns']
+
+            # update Neutron
+            self.plugin_rpc.update_loadbalancer_stats(
+                loadbalancer['id'], lb_stats)
+        except Exception as e:
+            LOG.error("Error getting loadbalancer stats: %s", e.message)
+
+        finally:
+            return lb_stats
 
     @serialized('remove_orphans')
     def remove_orphans(self, all_loadbalancers):
@@ -1294,13 +1222,8 @@ class iControlDriver(LBaaSBaseDriver):
 
             # only delete partition if loadbalancer is being deleted
             if delete_partition:
-                tenant_id = service['loadbalancer']['tenant_id']
-                lb_id = service['loadbalancer']['id']
-                tenant_lbs = self.get_loadbalancers_in_tenant(tenant_id)
-                if len(tenant_lbs) == 1 and (tenant_lbs[0] == lb_id):
-                    LOG.debug("Deleting partition for tenant: %s" % tenant_id)
-                    self.tenant_manager.assure_tenant_cleanup(service,
-                                                              all_subnet_hints)
+                self.tenant_manager.assure_tenant_cleanup(service,
+                                                          all_subnet_hints)
 
         except Exception as err:
             LOG.exception(err)
@@ -1310,6 +1233,9 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _update_service_status(self, service):
         """Update status of objects in OpenStack """
+
+        LOG.debug("_update_service_status")
+
         if not self.plugin_rpc:
             LOG.error("Cannot update status in Neutron without "
                       "RPC handler.")
@@ -1331,6 +1257,11 @@ class iControlDriver(LBaaSBaseDriver):
         if 'listeners' in service:
             # Call update_listener_status
             self._update_listener_status(service)
+        if 'l7policy_rules' in service:
+            self._update_l7rule_status(service['l7policy_rules'])
+        if 'l7policies' in service:
+            self._update_l7policy_status(service['l7policies'])
+
         self._update_loadbalancer_status(service)
 
     def _update_member_status(self, members):
@@ -1411,6 +1342,48 @@ class iControlDriver(LBaaSBaseDriver):
                         listener['id'],
                         provisioning_status,
                         lb_const.OFFLINE)
+
+    @log_helpers.log_method_call
+    def _update_l7rule_status(self, l7rules):
+        """Update l7rule status in OpenStack """
+        for l7rule in l7rules:
+            if 'provisioning_status' in l7rule:
+                provisioning_status = l7rule['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_l7rule_status(
+                            l7rule['id'],
+                            l7rule['policy_id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    self.plugin_rpc.l7rule_destroyed(
+                        l7rule['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_l7rule_status(
+                        l7rule['id'], l7rule['policy_id'])
+
+    @log_helpers.log_method_call
+    def _update_l7policy_status(self, l7policies):
+        LOG.debug("_update_l7policy_status")
+        """Update l7policy status in OpenStack """
+        for l7policy in l7policies:
+            if 'provisioning_status' in l7policy:
+                provisioning_status = l7policy['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_l7policy_status(
+                            l7policy['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    LOG.debug("calling l7policy_destroyed")
+                    self.plugin_rpc.l7policy_destroyed(
+                        l7policy['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_l7policy_status(l7policy['id'])
 
     @log_helpers.log_method_call
     def _update_loadbalancer_status(self, service):
@@ -1540,3 +1513,45 @@ class iControlDriver(LBaaSBaseDriver):
                 % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
                    f5const.MIN_TMOS_MINOR_VERSION))
         return major_version, minor_version
+
+    @serialized('create_l7policy')
+    @is_connected
+    def create_l7policy(self, l7policy, service):
+        """Create lb l7policy"""
+        LOG.debug("Creating l7policy")
+        self._common_service_handler(service)
+
+    @serialized('update_l7policy')
+    @is_connected
+    def update_l7policy(self, old_l7policy, l7policy, service):
+        """Update lb l7policy"""
+        LOG.debug("Updating l7policy")
+        self._common_service_handler(service)
+
+    @serialized('delete_l7policy')
+    @is_connected
+    def delete_l7policy(self, l7policy, service):
+        """Delete lb l7policy"""
+        LOG.debug("Deleting l7policy")
+        self._common_service_handler(service)
+
+    @serialized('create_l7rule')
+    @is_connected
+    def create_l7rule(self, pool, service):
+        """Create lb l7rule"""
+        LOG.debug("Creating l7rule")
+        self._common_service_handler(service)
+
+    @serialized('update_l7rule')
+    @is_connected
+    def update_l7rule(self, old_l7rule, l7rule, service):
+        """Update lb l7rule"""
+        LOG.debug("Updating l7rule")
+        self._common_service_handler(service)
+
+    @serialized('delete_l7rule')
+    @is_connected
+    def delete_l7rule(self, l7rule, service):
+        """Delete lb l7rule"""
+        LOG.debug("Deleting l7rule")
+        self._common_service_handler(service)

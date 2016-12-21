@@ -1,0 +1,17 @@
+#Install the agent
+-e .
+
+# app
+git+https://github.com/openstack/neutron#stable/mitaka
+git+https://github.com/openstack/oslo.log.git@stable/mitaka
+git+https://github.com/openstack/neutron-lbaas.git@stable/mitaka
+git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@mitaka
+git+https://github.com/F5Networks/f5-openstack-test.git@mitaka
+git+https://github.com/F5Networks/pytest-symbols.git
+
+mock==2.0.0
+pytest==3.0.3
+pytest-cov==2.3.1
+responses==0.5.1
+coverage==4.2
+python-coveralls==2.8.0

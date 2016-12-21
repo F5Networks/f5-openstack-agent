@@ -1,4 +1,4 @@
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2014-2016 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,18 @@
 # limitations under the License.
 #
 
-From test_base:latest
+from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
+    ServiceModelAdapter
 
-RUN py.test -v ./
 
+class ListenerAdapter(ServiceModelAdapter):
+
+    def translate(self, service, listener, l7policy=None):
+        f5_vs = {'name': self.get_name(listener.get('id', '')),
+                 'partition': self.get_folder_name(
+                     listener.get('tenant_id', ''))}
+
+        if l7policy:
+            f5_vs['l7policy_name'] = "wrapper_policy"
+
+        return f5_vs

@@ -97,9 +97,12 @@ class ServiceModelAdapter(object):
         return vip
 
     def get_virtual_name(self, service):
-        listener = service["listener"]
-        loadbalancer = service["loadbalancer"]
-        return self._init_virtual_name(loadbalancer, listener)
+        vs_name = None
+        if "listener" in service:
+            listener = service["listener"]
+            loadbalancer = service["loadbalancer"]
+            vs_name = self._init_virtual_name(loadbalancer, listener)
+        return vs_name
 
     def _init_virtual_name(self, loadbalancer, listener):
         name = self.prefix + listener["id"]
@@ -357,7 +360,6 @@ class ServiceModelAdapter(object):
 
     def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
-
         virtual_type = 'standard'
         if 'protocol' in listener:
             if listener['protocol'] == 'TCP':
@@ -381,6 +383,9 @@ class ServiceModelAdapter(object):
 
         if virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
+        else:
+            # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
+            vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
         # mask
         if "ip_address" in vip:
@@ -467,3 +472,6 @@ class ServiceModelAdapter(object):
                 tls['sni_containers'] = listener['sni_containers']
 
         return tls
+
+    def get_name(self, uuid):
+        return self.prefix + str(uuid)

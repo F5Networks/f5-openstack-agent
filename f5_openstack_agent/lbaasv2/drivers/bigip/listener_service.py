@@ -191,12 +191,13 @@ class ListenerServiceBuilder(object):
         :param bigips: Array of BigIP class instances to update.
         """
         vip = self.service_adapter.get_virtual_name(service)
-        vip["pool"] = name
-        for bigip in bigips:
-            v = bigip.tm.ltm.virtuals.virtual
-            if v.exists(name=vip["name"], partition=vip["partition"]):
-                obj = v.load(name=vip["name"], partition=vip["partition"])
-                obj.modify(**vip)
+        if vip:
+            vip["pool"] = name
+            for bigip in bigips:
+                v = bigip.tm.ltm.virtuals.virtual
+                if v.exists(name=vip["name"], partition=vip["partition"]):
+                    obj = v.load(name=vip["name"], partition=vip["partition"])
+                    obj.modify(**vip)
 
     def update_session_persistence(self, service, bigips):
         """Update session persistence for virtual server.
@@ -216,15 +217,23 @@ class ListenerServiceBuilder(object):
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
             vip_persist = self.service_adapter.get_session_persistence(service)
+            listener = service['listener']
             for bigip in bigips:
-                if persistence_type == 'HTTP_COOKIE':
-                    self._add_profile(vip, 'http', bigip)
-                elif persistence_type == 'APP_COOKIE':
-                    self._add_profile(vip, 'http', bigip)
-                    if 'cookie_name' in persistence:
-                        self._add_cookie_persist_rule(vip, persistence, bigip)
+                # For TCP listeners, must remove fastL4 profile before adding
+                # adding http/oneconnect profiles.
+                if listener['protocol'] == 'TCP':
+                    self._remove_profile(vip, 'fastL4', bigip)
 
-                # profiles must be added before setting profile attribute
+                # Standard virtual servers should already have these profiles,
+                # but make sure profiles in place for all virtual server types.
+                self._add_profile(vip, 'http', bigip)
+                self._add_profile(vip, 'oneconnect', bigip)
+
+                if persistence_type == 'APP_COOKIE' and \
+                        'cookie_name' in persistence:
+                    self._add_cookie_persist_rule(vip, persistence, bigip)
+
+                # profiles must be added before setting persistence
                 self.vs_helper.update(bigip, vip_persist)
                 LOG.debug("Set persist %s" % vip["name"])
 
@@ -315,20 +324,22 @@ class ListenerServiceBuilder(object):
             vip["fallbackPersistence"] = ""
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
+            listener = service["listener"]
+            if listener['protocol'] == 'TCP':
+                # Revert VS back to fastL4. Must do an update to replace
+                # profiles instead of using add/remove profile. Leave http
+                # profiles in place for non-TCP listeners.
+                vip['profiles'] = ['/Common/fastL4']
 
             for bigip in bigips:
-                # remove persistence
+                # remove persistence (and revert profiles if TCP)
                 self.vs_helper.update(bigip, vip)
                 LOG.debug("Cleared session persistence for %s" % vip["name"])
 
                 # remove profiles and rules
-                if persistence_type == 'HTTP_COOKIE':
-                    self._remove_profile(vip, 'http', bigip)
-                elif persistence_type == 'APP_COOKIE':
-                    self._remove_profile(vip, 'http', bigip)
-                    if 'cookie_name' in persistence:
-                        self._remove_cookie_persist_rule(
-                            vip, bigip)
+                if persistence_type == 'APP_COOKIE' and \
+                        'cookie_name' in persistence:
+                    self._remove_cookie_persist_rule(vip, bigip)
 
     def remove_ssl_profiles(self, tls, bigip):
 
@@ -413,3 +424,38 @@ class ListenerServiceBuilder(object):
             obj = r.load(name=rule_name, partition=vip["partition"])
             obj.delete()
             LOG.debug("Deleted rule %s" % rule_name)
+
+    def get_stats(self, service, bigips, stat_keys):
+        """Return stat values for a single virtual.
+
+        Stats to collect are defined as an array of strings in input stats.
+        Values are summed across one or more BIG-IPs defined in input bigips.
+
+        :param service: Has listener name/partition
+        :param bigips: One or more BIG-IPs to get listener stats from.
+        :param stat_keys: Array of strings that define which stats to collect.
+        :return: A dict with key/value pairs for each stat defined in
+        input stats.
+        """
+        collected_stats = {}
+        for stat_key in stat_keys:
+            collected_stats[stat_key] = 0
+
+        virtual = self.service_adapter.get_virtual(service)
+        part = virtual["partition"]
+        for bigip in bigips:
+            try:
+                vs_stats = self.vs_helper.get_stats(
+                    bigip,
+                    name=virtual["name"],
+                    partition=part,
+                    stat_keys=stat_keys)
+                for stat_key in stat_keys:
+                    if stat_key in vs_stats:
+                        collected_stats[stat_key] += vs_stats[stat_key]
+
+            except Exception as e:
+                # log error but continue on
+                LOG.error("Error getting virtual server stats: %s", e.message)
+
+        return collected_stats

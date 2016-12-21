@@ -104,6 +104,19 @@ class LBaaSv2PluginRPC(object):
         )
 
     @log_helpers.log_method_call
+    def update_loadbalancer_stats(self,
+                                  lb_id,
+                                  stats):
+        """Update the database with loadbalancer stats."""
+        return self._cast(
+            self.context,
+            self._make_msg('update_loadbalancer_stats',
+                           loadbalancer_id=lb_id,
+                           stats=stats),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
     def loadbalancer_destroyed(self, loadbalancer_id):
         """Delete the loadbalancer from the database."""
         return self._cast(
@@ -211,6 +224,57 @@ class LBaaSv2PluginRPC(object):
             self.context,
             self._make_msg('healthmonitor_destroyed',
                            healthmonitor_id=healthmonitor_id),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def update_l7rule_status(
+            self,
+            l7rule_id,
+            l7policy_id,
+            provisioning_status=plugin_const.ERROR,
+            operating_status=lb_const.OFFLINE):
+        return self._cast(
+            self.context,
+            self._make_msg('update_l7rule_status',
+                           l7rule_id=l7rule_id,
+                           l7policy_id=l7policy_id,
+                           provisioning_status=provisioning_status,
+                           operating_status=operating_status),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def l7rule_destroyed(self, l7rule_id):
+        """Delete health_monitor from database."""
+        return self._cast(
+            self.context,
+            self._make_msg('l7rule_destroyed',
+                           l7rule_id=l7rule_id),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def update_l7policy_status(
+            self,
+            l7policy_id,
+            provisioning_status=plugin_const.ERROR,
+            operating_status=lb_const.OFFLINE):
+        return self._cast(
+            self.context,
+            self._make_msg('update_l7policy_status',
+                           l7policy_id=l7policy_id,
+                           provisioning_status=provisioning_status,
+                           operating_status=operating_status),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def l7policy_destroyed(self, l7policy_id):
+        return self._cast(
+            self.context,
+            self._make_msg('l7policy_destroyed',
+                           l7policy_id=l7policy_id),
             topic=self.topic
         )
 
