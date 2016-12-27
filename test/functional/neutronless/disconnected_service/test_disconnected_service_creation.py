@@ -58,7 +58,6 @@ dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip_public.replace('.', '-')
 icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
 if tmos_version == '12.1.0':
     icontrol_fqdn = 'bigip1'
-icontrol_fqdn = pytest.symbols.bigip_fqdn
 neutron_services_filename =\
     os.path.join(osd(os.path.abspath(__file__)), 'neutron_services.json')
 # Library of services as received from the neutron server
