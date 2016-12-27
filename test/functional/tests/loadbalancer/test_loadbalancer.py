@@ -9,7 +9,9 @@ import os
 import pytest
 import requests
 from ..testlib.mock_rpc import MockRPCPlugin
+from ..testlib.bigip_client import BigIpClient
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import ResourceType
 
 requests.packages.urllib3.disable_warnings()
 
@@ -45,7 +47,7 @@ def icd_config():
 def bigip():
     LOG.debug(pytest.symbols)
     LOG.debug(pytest.symbols.bigip_mgmt_ip)
-    return ManagementRoot(pytest.symbols.bigip_mgmt_ip, 'admin', 'admin')
+    return BigIpClient(pytest.symbols.bigip_mgmt_ip, 'admin', 'admin')
 
 
 @pytest.fixture
@@ -85,6 +87,35 @@ def test_create_delete_lb(bigip, services, icontrol_driver):
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
 
+    folder = OSLO_CONFIGS['environment_prefix'] + '_' + \
+             service['loadbalancer']['tenant_id']
+
+    assert bigip.folder_exists(folder)
+
+    if not OSLO_CONFIGS['f5_global_routed_mode']:
+        tunnel = 'tunnel-' + OSLO_CONFIGS['advertised_tunnel_types'][0]
+        assert bigip.folder_exists(folder)
+        assert bigip.resource_exists(ResourceType.snat_translation,
+                                     '^snat-traffic-group-local-only')
+        assert bigip.resource_exists(ResourceType.selfip,
+                                     '^local-bigip')
+        assert bigip.resource_exists(ResourceType.tunnel, tunnel)
+        assert bigip.resource_exists(ResourceType.route_domain, folder)
+
     # Delete the loadbalancer
     service = service_iter.next()
     icontrol_driver._common_service_handler(service, delete_partition=True)
+
+    # folder should be deleted; error if not
+    if bigip.folder_exists(folder):
+        if not OSLO_CONFIGS['f5_global_routed_mode']:
+            # see which config item still exists
+            tunnel = 'tunnel-' + OSLO_CONFIGS['advertised_tunnel_types'][0]
+            assert not bigip.resource_exists(ResourceType.snat_translation,
+                                         '^snat-traffic-group-local-only')
+            assert not bigip.resource_exists(ResourceType.selfip,
+                                         '^local-bigip')
+            assert not bigip.resource_exists(ResourceType.tunnel, tunnel)
+            assert not bigip.resource_exists(ResourceType.route_domain, folder)
+        else:
+            raise Exception('Folder not deleted.')
