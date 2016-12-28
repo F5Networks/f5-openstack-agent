@@ -37,6 +37,11 @@ class BigIpClient(object):
 
         return False
 
+    def get_resource(self, resource_type, resource_name, partition=None):
+        helper = resource_helper.BigIPResourceHelper(resource_type)
+        obj = helper.load(self.bigip, name=resource_name, partition=partition)
+        return obj
+
     def get_nodes(self, partition):
         return self.bigip.tm.ltm.nodes.get_collection(partition=partition)
 

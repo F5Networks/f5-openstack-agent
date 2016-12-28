@@ -5,7 +5,7 @@ class InvalidArgumentError(ValueError):
     pass
 
 
-class MockRPCPlugin(object):
+class FakeRPCPlugin(object):
 
     def __init__(self, services):
         self._subnets = {}
