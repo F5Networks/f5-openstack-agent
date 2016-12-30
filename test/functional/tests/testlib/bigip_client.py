@@ -19,11 +19,33 @@ import urllib
 
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip import system_helper
 
 
 class BigIpClient(object):
     def __init__(self, hostname, username, password):
         self.bigip = ManagementRoot(hostname, username, password)
+        self.syshelper = system_helper.SystemHelper()
+
+    def purge_folder_contents(self, folder):
+        self.syshelper.purge_folder_contents(self.bigip, folder)
+
+    def delete_folder(self, folder):
+        self.purge_folder_contents(folder)
+        self.syshelper.purge_folder(self.bigip, folder)
+
+    def delete_folders(self):
+        folders = [
+            folder.name for folder in
+            self.bigip.tm.sys.folders.get_collection()]
+
+        folders.remove('/')
+        folders.remove('Common')
+
+        # for folder in folders:
+        for folder in folders:
+            print ("\nDeleting folder on test exit: %s" % folder)
+            self.delete_folder(folder)
 
     def folder_exists(self, folder):
         return self.bigip.tm.sys.folders.folder.exists(name=folder)
