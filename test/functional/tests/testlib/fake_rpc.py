@@ -158,7 +158,19 @@ class FakeRPCPlugin(object):
         pass
 
     @track_call
+    def health_monitor_destroyed(self, id):
+        pass
+
+    @track_call
     def loadbalancer_destroyed(self, lb_id):
+        pass
+
+    @track_call
+    def listener_destroyed(self, id):
+        pass
+
+    @track_call
+    def pool_destroyed(self, id):
         pass
 
     @track_call
