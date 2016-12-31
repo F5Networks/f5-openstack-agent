@@ -70,3 +70,14 @@ class BigIpClient(object):
     def node_exists(self, node_name, partition):
         return self.bigip.tm.ltm.nodes.node.exists(
             name=urllib.quote(node_name), partition=partition)
+
+    def member_exists(self, pool_name, member_name, partition=None):
+        helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.pool)
+        if helper.exists(self.bigip, pool_name, partition=partition):
+            p = helper.load(self.bigip, name=pool_name, partition=partition)
+            m = p.members_s.members
+            return m.exists(name=urllib.quote(member_name),
+                            partition=partition)
+
+        return False
