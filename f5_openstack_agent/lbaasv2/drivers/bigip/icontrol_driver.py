@@ -288,7 +288,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     ),
     cfg.BoolOpt(
         'log_service',
-        default=True,
+        default=False,
         help='Log service object.'
     )
 ]

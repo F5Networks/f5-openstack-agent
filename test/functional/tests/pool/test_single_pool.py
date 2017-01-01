@@ -1,3 +1,22 @@
+# coding=utf-8
+# Copyright 2016 F5 Networks Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+
+from ..testlib.resource_validator import ResourceValidator
+from ..testlib.service_reader import LoadbalancerReader
+
 from copy import deepcopy
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
@@ -7,16 +26,12 @@ import os
 import pytest
 import requests
 
-from ..testlib.bigip_client import BigIpClient
-from ..testlib.fake_rpc import FakeRPCPlugin
-from ..testlib.service_reader import LoadbalancerReader
-from ..testlib.resource_validator import ResourceValidator
-
 requests.packages.urllib3.disable_warnings()
 
 LOG = logging.getLogger(__name__)
 
-@pytest.fixture(scope="module")
+
+@pytest.fixture()
 def services():
     neutron_services_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -40,22 +55,6 @@ def icd_config():
     config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
 
     return config
-
-
-@pytest.fixture(scope="module")
-def bigip():
-
-    return BigIpClient(pytest.symbols.bigip_mgmt_ip,
-                       pytest.symbols.bigip_username,
-                       pytest.symbols.bigip_password)
-
-
-@pytest.fixture
-def fake_plugin_rpc(services):
-
-    rpcObj = FakeRPCPlugin(services)
-
-    return rpcObj
 
 
 @pytest.fixture

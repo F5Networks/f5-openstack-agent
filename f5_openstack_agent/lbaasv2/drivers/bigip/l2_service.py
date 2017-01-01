@@ -250,7 +250,7 @@ class L2ServiceBuilder(object):
                      'interface': interface,
                      'partition': network_folder,
                      'description': network['id'],
-                     'route_domain_id': network['route_domain_id']}
+                     'route_domain_id': network.get('route_domain_id', 0)}
             self.network_helper.create_vlan(bigip, model)
         except Exception as err:
             LOG.exception("%s", err.message)
@@ -302,7 +302,7 @@ class L2ServiceBuilder(object):
                      'tag': vlanid,
                      'partition': network_folder,
                      'description': network['id'],
-                     'route_domain_id': network['route_domain_id']}
+                     'route_domain_id': network.get('route_domain_id', 0)}
             self.network_helper.create_vlan(bigip, model)
         except Exception as err:
             LOG.exception("%s", err.message)
@@ -338,7 +338,7 @@ class L2ServiceBuilder(object):
                    'key': network['provider:segmentation_id'],
                    'localAddress': bigip.local_ip,
                    'description': network['id'],
-                   'route_domain_id': network['route_domain_id']}
+                   'route_domain_id': network.get('route_domain_id', 0)}
         try:
             self.network_helper.create_multipoint_tunnel(bigip, payload)
         except Exception as err:
@@ -370,7 +370,7 @@ class L2ServiceBuilder(object):
                    'key': network['provider:segmentation_id'],
                    'localAddress': bigip.local_ip,
                    'description': network['id'],
-                   'route_domain_id': network['route_domain_id']}
+                   'route_domain_id': network.get('route_domain_id', 0)}
         try:
             self.network_helper.create_multipoint_tunnel(bigip, payload)
         except Exception as err:

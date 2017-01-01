@@ -57,7 +57,7 @@ def icd_config():
     return config
 
 
-def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
+def test_create_delete_basic_lb_no_namespace(bigip, services, icd_config, icontrol_driver):
 
     service_iter = iter(services)
     service = service_iter.next()
@@ -65,6 +65,7 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
     hostname = pytest.symbols.bigip_hostname
+    icd_config['use_namespaces'] = False
 
     folder = '%s_%s' % (env_prefix, lb_reader.tenant_id())
 
@@ -95,15 +96,15 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
 
     # Assert route domain created
     rd_name = folder
-    assert bigip.resource_exists(ResourceType.route_domain, rd_name)
+    assert not bigip.resource_exists(ResourceType.route_domain, rd_name)
     rd = bigip.get_resource(ResourceType.route_domain,
-                            rd_name,
-                            partition=folder)
+                            "0",
+                            partition="Common")
 
     # Assert route domain properties
     assert rd
-    assert rd.id == 1
-    assert rd.strict == "disabled"
+    assert rd.id == 0
+    assert rd.strict == "enabled"
     assert fq_tunnel_name in rd.vlans
 
     # Assert disconnected network created.
@@ -118,7 +119,7 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
                                 partition=folder)
     assert selfip
     assert selfip.vlan == fq_tunnel_name
-    assert selfip.address == "10.2.2.100%1/24"
+    assert selfip.address == "10.2.2.100/24"
 
     # Assert that a snat pool was created.
     snatpool_name = folder
@@ -144,7 +145,7 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
         assert snat_member
         assert snat_member.trafficGroup == "/Common/traffic-group-local-only"
         # Another test for mult snats should be more configurable
-        assert snat_member.address == "10.2.2.101%1"
+        assert snat_member.address == "10.2.2.101"
 
     # Assert virtual address
     virtual_addr_name = "%s_%s" % (env_prefix, lb_reader.id())
@@ -154,7 +155,7 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
                                       virtual_addr_name,
                                       partition=folder)
     assert virtual_addr
-    assert virtual_addr.address == "10.2.2.112%1"
+    assert virtual_addr.address == "10.2.2.112"
     assert virtual_addr.trafficGroup == "/Common/traffic-group-1"
     assert virtual_addr.autoDelete == "false"
 

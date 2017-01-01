@@ -125,15 +125,14 @@ class NetworkServiceBuilder(object):
         if self.conf.f5_global_routed_mode or not service['loadbalancer']:
             return
 
-        if self.conf.use_namespaces:
-            try:
-                LOG.debug("Annotating the service definition networks "
-                          "with route domain ID.")
-                self._annotate_service_route_domains(service)
-            except Exception as err:
-                LOG.exception(err)
-                raise f5_ex.RouteDomainCreationException(
-                    "Route domain annotation error")
+        try:
+            LOG.debug("Annotating the service definition networks "
+                      "with route domain ID.")
+            self._annotate_service_route_domains(service)
+        except Exception as err:
+            LOG.exception(err)
+            raise f5_ex.RouteDomainCreationException(
+                "Route domain annotation error")
 
         # Per Device Network Connectivity (VLANs or Tunnels)
         subnetsinfo = self._get_subnets_to_assure(service)
@@ -220,7 +219,7 @@ class NetworkServiceBuilder(object):
 
     def assign_route_domain(self, tenant_id, network, subnet):
         # Assign route domain for a network
-        if self.l2_service.is_common_network(network):
+        if self.l2_service.is_common_network(network) or not self.conf.use_namespaces:
             network['route_domain_id'] = 0
             return
 
