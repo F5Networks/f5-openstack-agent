@@ -31,6 +31,7 @@ requests.packages.urllib3.disable_warnings()
 LOG = logging.getLogger(__name__)
 
 
+@pytest.fixture()
 def services():
     neutron_services_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),

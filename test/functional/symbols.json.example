@@ -1,5 +1,7 @@
 {
     "bigip_mgmt_ip": "192.168.1.1",
     "bigip_username": "admin",
-    "bigip_password": "admin"
+    "bigip_password": "admin",
+    "bigip_hostname": "bigip1",
+    "f5_vtep_selfip_name": "selfip.client"
 }
