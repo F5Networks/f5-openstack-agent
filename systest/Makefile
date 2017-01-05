@@ -13,16 +13,14 @@ MAKEFILE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 version := $(shell git describe --long)
 timestamp ?= $(shell date +"%Y%m%d-%H%M%S")
 export timestamp   # Only eval timestamp in the top make.
-RESULTSDIR := $(MAKEFILE_DIR)/test_results/$(PROJECT)
+branch := $(shell git rev-parse --abbrev-ref HEAD)
+
+RESULTSDIR := $(MAKEFILE_DIR)/test_results/$(PROJECT)/$(PROJECT)_$(branch)
 
 unit_session := unit_$(version)_$(timestamp)
-tempest_session := tempest_$(version)_$(timestamp)
 disconnected_session := disconnected_$(version)_$(timestamp)
 
-unit_results := $(RESULTSDIR)/$(unit_session)
-disconnected_results := $(RESULTSDIR)/$(disconnected_session)
 
-branch := $(shell git rev-parse --abbrev-ref HEAD)
 testenv_config := bigip.testenv.yaml
 
 VENV := buildbot
@@ -44,7 +42,7 @@ unit: pre-build
 	cd $(MAKEFILE_DIR)/../; \
 	tox -e unit --sitepackages -- \
 		--exclude incomplete no_regression \
-		--autolog-outputdir $(unit_results) \
+		--autolog-outputdir $(RESULTSDIR) \
 		--autolog-session $(unit_session) \
 
 functest:
@@ -70,7 +68,7 @@ disconnected_service-run: pre-build
 	tox -e functest --sitepackage -- \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--exclude incomplete no_regression \
-		--autolog-outputdir $(disconnected_results) \
+		--autolog-outputdir $(RESULTSDIR) \
 		--autolog-session $(disconnected_session) \
 		neutronless/disconnected_service || $(MAKE) -C . disconnected_service-teardown
 

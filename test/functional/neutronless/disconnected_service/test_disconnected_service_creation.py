@@ -42,17 +42,17 @@ OSLO_CONFIGS = json.load(open(oslo_config_filename))
 FEATURE_ON = OSLO_CONFIGS["feature_on"]
 FEATURE_OFF = OSLO_CONFIGS["feature_off"]
 FEATURE_OFF_GRM = OSLO_CONFIGS["feature_off_grm"]
-FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
-FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
-FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip
+FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
 
 
 tmos_version = ManagementRoot(
-                   pytest.symbols.bigip_mgmt_ip,
+                   pytest.symbols.bigip_mgmt_ip_public,
                    pytest.symbols.bigip_username,
                    pytest.symbols.bigip_password
                ).tmos_version
-dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip.replace('.', '-')
+dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip_public.replace('.', '-')
 icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
 if tmos_version == '12.1.0':
     icontrol_fqdn = 'bigip1'
@@ -181,8 +181,8 @@ def logcall(lh, call, *cargs, **ckwargs):
 @pytest.fixture
 def bigip():
     LOG.debug(pytest.symbols)
-    LOG.debug(pytest.symbols.bigip_mgmt_ip)
-    return ManagementRoot(pytest.symbols.bigip_mgmt_ip, 'admin', 'admin')
+    LOG.debug(pytest.symbols.bigip_mgmt_ip_public)
+    return ManagementRoot(pytest.symbols.bigip_mgmt_ip_public, 'admin', 'admin')
 
 
 @pytest.fixture
