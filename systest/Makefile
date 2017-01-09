@@ -18,7 +18,11 @@ branch := $(shell git rev-parse --abbrev-ref HEAD)
 RESULTSDIR := $(MAKEFILE_DIR)/test_results/$(PROJECT)/$(PROJECT)_$(branch)
 
 unit_session := unit_$(version)_$(timestamp)
+unit_results := $(RESULTSDIR)/$(unit_session)
 disconnected_session := disconnected_$(version)_$(timestamp)
+disconnected_results := $(RESULTSDIR)/$(disconnected_session)
+singleve_session := singleve_$(version)_$(timestamp)
+singleve_results := $(RESULTSDIR)/$(singleve_session)
 
 
 testenv_config := bigip.testenv.yaml
@@ -96,12 +100,12 @@ singleve-run: pre-build
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--exclude incomplete no_regression \
 		--autolog-outputdir $(RESULTSDIR) \
-		--autolog-session singleve \
+		--autolog-session $(singleve_session) \
 		singleve || $(MAKE) -C . singleve-teardown
 
 singleve-teardown:
 	@echo "tearing down functional test environment..."
-	if [ ! -e singleve_results ]; then mkdir -p singleve_results; fi
+	if [ ! -e $(singleve_results) ]; then mkdir -p $(singleve_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
 	TESTENV_PATH=/usr/local/share/testenv testenv delete --name singleve --config $(testenv_config)
 
