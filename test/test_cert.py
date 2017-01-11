@@ -39,7 +39,9 @@ class Config(object):
         self.os_project_domain_name = 'default'
 
 
-def test_cert_manager():
+def test_cert_manager(symbols):
+    from pprint import pprint as pp
+    pp(symbols)
     conf = Config()
     cert_payload = read_file('server.crt')
     key_payload = read_file('server.key')
