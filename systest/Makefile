@@ -8,6 +8,7 @@ repo := https://github.com/F5Networks/$(PROJECT).git
 ssh_conf := testenv_symbols/testenv_ssh_config
 
 MAKEFILE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+PROJECT_DIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
 
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
 version := $(shell git describe --long)
@@ -23,6 +24,8 @@ disconnected_session := disconnected_$(version)_$(timestamp)
 disconnected_results := $(RESULTSDIR)/$(disconnected_session)
 singlebigip_session := singlebigip_$(version)_$(timestamp)
 singlebigip_results := $(RESULTSDIR)/$(singlebigip_session)
+ifaceonly_session := ifaceonly_$(version)_$(timestamp)
+ifaceonly_results := $(RESULTSDIR)/$(ifaceonly_session)
 
 
 testenv_config := bigip.testenv.yaml
@@ -58,6 +61,7 @@ functest_all:
 	@echo "automated functional tests..."
 	$(MAKE) -C . disconnected_service
 	$(MAKE) -C . singlebigip
+	$(MAKE) -C . ifaceonly
 
 disconnected_service:
 	$(MAKE) -C . disconnected_service-setup
@@ -101,13 +105,32 @@ singlebigip-run: pre-build
 		--exclude incomplete no_regression \
 		--autolog-outputdir $(RESULTSDIR) \
 		--autolog-session $(singlebigip_session) \
-		./test/functional/singlebigip || $(MAKE) -C . singlebigip-teardown
+		$(PROJECT_DIR)/test/functional/singlebigip || $(MAKE) -C . singlebigip-teardown
 
 singlebigip-teardown:
 	@echo "tearing down singlebigip test environment..."
 	if [ ! -e $(singlebigip_results) ]; then mkdir -p $(singlebigip_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
-	testenv delete --name singlebigip --config $(testenv_config)
+	#testenv delete --name $(singlebigip_session) --config $(testenv_config)
+
+ifaceonly:
+	$(MAKE) -C . ifaceonly-run
+	$(MAKE) -C . ifaceonly-teardown
+
+ifaceonly-run: pre-build
+	@echo "running ifaceonly tests ..."
+	tox -e ifaceonly --sitepackage -- \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--exclude incomplete no_regression \
+		--autolog-outputdir $(RESULTSDIR) \
+		--autolog-session $(ifaceonly_session) \
+		$(PROJECT_DIR)/test/functional/ifaceonly || \
+        $(MAKE) -C . ifaceonly-teardown
+
+ifaceonly-teardown:
+	@echo "tearing down functional test environment..."
+	if [ ! -e $(ifaceonly_results) ]; then mkdir -p $(ifaceonly_results); fi
+	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
 
 # Remove the buildbot venv directory and any tox venvs we made
 clean:

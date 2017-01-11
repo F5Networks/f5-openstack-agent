@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 '''
 test_requirements = {'devices':         [UNDERCLOUD],
                      'openstack_infra': []}

@@ -1,5 +1,4 @@
 -e .
-
 # OpenStack dependancies
 git+https://github.com/openstack/neutron@stable/liberty
 git+https://github.com/openstack/oslo.log.git@liberty-eol
@@ -12,8 +11,8 @@ git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@liberty
 git+https://github.com/F5Networks/pytest-symbols.git
 
 mock==2.0.0
-pytest==3.0.3
-pytest-cov==2.3.1
+pytest>=3.0.5,<4
+pytest-cov==2.4.0,<3
 responses==0.5.1
 coverage==4.2
 python-coveralls==2.8.0
