@@ -218,6 +218,10 @@ class NetworkServiceBuilder(object):
                 service['loadbalancer']['vip_address'] += '%0'
         LOG.debug("Service after route domains: %s" % service)
 
+    def is_common_network(self, network):
+        if self.l2_service.is_common_network(network):
+            return True
+
     def assign_route_domain(self, tenant_id, network, subnet):
         # Assign route domain for a network
         if self.l2_service.is_common_network(network):
