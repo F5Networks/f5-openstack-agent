@@ -15,8 +15,9 @@
 #
 
 from oslo_log import log as logging
-from os import listdir
+import glob
 import json
+
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 
 
@@ -28,12 +29,8 @@ class EsdJSONFileRead(object):
 
     It looks for the json file under /etc/neutron/services/f5/esd
     """
-    def __init__(self):
-        self.esdJSONFileList = []
-        esdFileList = listdir("/etc/neutron/services/f5/esd")
-        for fileList in esdFileList:
-            if fileList.endswith(".json"):
-               self.esdJSONFileList.append(fileList)
+    def __init__(self, esddir):
+        self.esdJSONFileList = glob.glob(esddir+'*.json')
 
 
 class EsdJSONValidation(EsdJSONFileRead):
@@ -41,9 +38,8 @@ class EsdJSONValidation(EsdJSONFileRead):
 
     It checks and parses the content of json file(s) to a dictionary
     """
-    def __init__(self):
-        super(EsdJSONFileRead, self).__init__()
-        self.fileJSONDict = {}
+    def __init__(self, esddir):
+        super(EsdJSONFileRead, self).__init__(esddir)
         self.esdJSONDict = {}
 
     def readJson(self):
@@ -51,14 +47,12 @@ class EsdJSONValidation(EsdJSONFileRead):
             try:
                 with open(fileList) as json_file:
                     # Reading each file to a dictionary
-                    self.fileJSONDict = json.load(json_file)
+                    fileJSONDict = json.load(json_file)
+                    # Combine all dictionaries to one
+                    self.esdJSONDict.update(fileJSONDict)
+
             except ValueError as err:
                     LOG.error('ESD JSON File is invalid: %s', err)
                     raise f5_ex.esdJSONFileInvalidException()
 
-                # Combine all dictionaries to one
-            self.esdJSONDict.update(self.fileJSONDict)
-
-        # If the combined JSON dict is empty
-        if not self.esdJSONDict:
-           raise f5_ex.esdJSONFileEmptyException('ESD JSON File is empty')
+        return self.esdJSONDict
