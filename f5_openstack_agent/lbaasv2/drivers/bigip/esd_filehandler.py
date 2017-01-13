@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 
-from oslo_log import log as logging
 import glob
 import json
+
+from oslo_log import log as logging
+
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 
