@@ -380,3 +380,11 @@ class L7PolicyUpdateException(F5AgentException):
 
 class L7PolicyDeleteException(F5AgentException):
     pass
+
+
+class esdJSONFileEmptyException(F5AgentException):
+    pass
+
+
+class esdJSONFileInvalidException(F5AgentException):
+    pass
