@@ -154,7 +154,6 @@ def check_host_and_guest_vlans_on_delete(vcmp_host, bigip):
     assert GUEST_VLAN not in bigip_vlans
     assert COMMON_VLAN not in bigip_vlans
     vcmp_host['guest'].refresh()
-    assert not hasattr(vcmp_host['guest'], 'vlans')
     assert vcmp_host['bigip'].tm.net.vlans.vlan.exists(
         name='vlan-46', partition='Common') is False
     assert bigip.tm.sys.folders.folder.exists(
@@ -228,7 +227,9 @@ def test_vcmp_deletelb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
             deepcopy(DELETELB),
             delete_partition=True)
     # After the deletelb is called above, the vcmp guest should no longer
+    # have the vlan attached
     check_host_and_guest_vlans_on_delete(vcmp_host[0], bigip)
+    assert not hasattr(vcmp_host[0]['guest'], 'vlans')
 
 
 def test_vcmp_deletelb_with_mgmt_vlan(
@@ -339,6 +340,7 @@ def test_vcmp_delete_listener(
             deepcopy(DELETELB),
             delete_partition=True)
     check_host_and_guest_vlans_on_delete(vcmp_host[0], bigip)
+    assert not hasattr(vcmp_host[0]['guest'], 'vlans')
 
 
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
@@ -514,3 +516,4 @@ def test_vcmp_delete_listener_flat(
             deepcopy(DELETELB),
             delete_partition=True)
     check_host_and_guest_vlans_on_delete(vcmp_host[0], bigip)
+    assert not hasattr(vcmp_host[0]['guest'], 'vlans')

@@ -42,9 +42,11 @@ OSLO_CONFIGS = json.load(open(oslo_config_filename))
 FEATURE_ON = OSLO_CONFIGS["feature_on"]
 FEATURE_OFF = OSLO_CONFIGS["feature_off"]
 FEATURE_OFF_GRM = OSLO_CONFIGS["feature_off_grm"]
+FEATURE_OFF_COMMON_NET = OSLO_CONFIGS["feature_off_common_net"]
 FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
 FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
 FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+FEATURE_OFF_COMMON_NET['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
 
 
 tmos_version = ManagementRoot(
@@ -122,6 +124,24 @@ SEG_DEPENDENT_LB_URIS =\
          u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~tunnel-vxlan-46?ver='+tmos_version,
+
+         u'https://localhost/mgmt/tm/ltm/virtual-address/'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+         '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?ver='+tmos_version])
+
+SEG_INDEPENDENT_LB_URIS_COMMON_NET =\
+    set([u'https://localhost/mgmt/tm/ltm/snat-translation/'
+         '~Common'
+         '~snat-traffic-group-local-only'
+         '-ce69e293-56e7-43b8-b51c-01b91d66af20_0?ver='+tmos_version,
+
+         u'https://localhost/mgmt/tm/ltm/snatpool/'
+         '~Common'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
+
+         u'https://localhost/mgmt/tm/net/self/'
+         '~Common'
+         '~local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/ltm/virtual-address/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
@@ -588,3 +608,22 @@ def test_featureoff_grm_lb(setup_l2adjacent_test, bigip):
 
     assert post_destroy_uris == empty_set
 
+def test_featureoff_nosegid_common_lb_net(setup_l2adjacent_test, bigip):
+    icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_OFF_COMMON_NET)
+    service = deepcopy(NOSEGID_CREATELB)
+    logcall(setup_l2adjacent_test,
+            icontroldriver._common_service_handler,
+            service)
+    after_create_registry = register_device(bigip)
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == SEG_INDEPENDENT_LB_URIS_COMMON_NET | \
+        SEG_INDEPENDENT_LB_URIS | \
+        NOSEG_LB_URIS
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert not ERROR_MSG_MISCONFIG in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+    LOG.debug(rpc.method_calls)
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+    ]
