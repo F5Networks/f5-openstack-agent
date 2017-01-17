@@ -40,8 +40,6 @@ except ImportError:
 from oslo_log import log as logging
 import time
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import cert_manager
-
 
 LOG = logging.getLogger(__name__)
 
@@ -50,7 +48,7 @@ class InvalidBarbicanConfig(Exception):
     pass
 
 
-class BarbicanCertManager(cert_manager.CertManagerBase):
+class BarbicanCertManager(object):
     """Concrete class for retrieving certs/keys from Barbican service."""
 
     def __init__(self, conf):
@@ -133,6 +131,7 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
         :param string container_ref: Reference to certificate stored in a
         certificate manager.
         :returns string: Certificate data.
+        This method MUST be implemented, in agent-compliant cert managers.
         """
         container = self.barbican.containers.get(container_ref)
         return container.certificate.payload
@@ -143,6 +142,7 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
         :param string container_ref: Reference to key stored in a
         certificate manager.
         :returns string: Key data.
+        This method MUST be implemented, in agent-compliant cert managers.
         """
         container = self.barbican.containers.get(container_ref)
         return container.private_key.payload
@@ -160,6 +160,7 @@ class BarbicanCertManager(cert_manager.CertManagerBase):
         :param string prefix: The environment prefix. Can be optionally
         used to
         :returns string: Name. Unique name with prefix.
+        This method MUST be implemented, in agent-compliant cert managers.
         """
 
         i = container_ref.rindex("/") + 1
