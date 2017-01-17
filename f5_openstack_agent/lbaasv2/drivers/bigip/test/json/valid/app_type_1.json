@@ -1,0 +1,22 @@
+{
+  "app_type_1": {
+    "lbaas_ctcp": "tcp-mobile-optimzed",
+    "lbaas_stcp": "tcp-lan-optimzed",
+    "lbaas_cssl_profile": "www.example.com",
+    "lbaas_cssl_parent": "clientssl_corp",
+    "lbaas_cssl_chain_cert": "ica2-ca-bundle",
+    "lbaas_sssl_profile": "serverssl",
+    "lbaas_irule": [
+      "base_sorry_page",
+      "base_80_443_redirect"
+    ],
+    "lbaas_persist": "hash_full_uri",
+    "lbaas_fallback_persist": "source_addr"
+  },
+  "app_type_2": {
+    "lbaas_sssl_profile": "clientssl"
+  },
+  "app_type_3": {
+    "lbaas_sssl_profile": "serverssl"
+  }
+}
