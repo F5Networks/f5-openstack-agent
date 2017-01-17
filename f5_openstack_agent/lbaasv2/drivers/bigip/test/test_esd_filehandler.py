@@ -68,7 +68,8 @@ class TestEsdFileHanlder(unittest.TestCase):
 
     def test_empty_json(self):
         # verify empty file is read
-        handler = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/empty_file/')
+        handler = EsdJSONValidation(
+            'lbaasv2/drivers/bigip/test/json/empty_file/')
         self.assertEqual(1, len(handler.esdJSONFileList))
 
         # verify empty dict is returned
