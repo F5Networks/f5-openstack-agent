@@ -11,9 +11,10 @@ Release Highlights
 
 This release introduces the following:
 
+- Loadbalancer statistics
 - Bug fixes
 
-See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v8.1.0...v8.2.0.b2>`_ for the full list of changes in this release.
+See the `changelog <https://github.com/F5Networks/f5-openstack-agent/compare/v8.1.0...v8.2.0>`_ for the full list of changes in this release.
 
 Caveats
 -------
