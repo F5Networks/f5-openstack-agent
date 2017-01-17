@@ -32,33 +32,33 @@ class TestEsdFileHanlder(unittest.TestCase):
 
     def test_no_files(self):
         # verify no files in empty directory
-        reader = EsdJSONFileRead('./json/empty_dir')
+        reader = EsdJSONFileRead('lbaasv2/drivers/bigip/test/json/empty_dir')
         assert not reader.esdJSONFileList
 
     def test_no_json_files(self):
         # verify no files are read in dir that contains non-JSON files
-        reader = EsdJSONFileRead('./json/no_json')
+        reader = EsdJSONFileRead('lbaasv2/drivers/bigip/test/json/no_json')
         assert not reader.esdJSONFileList
 
     def test_mix_json_files(self):
         # verify single JSON file
-        reader = EsdJSONFileRead('./json/mix_json/')
+        reader = EsdJSONFileRead('lbaasv2/drivers/bigip/test/json/mix_json/')
         self.assertEqual(1, len(reader.esdJSONFileList))
 
     def test_json_only_files(self):
         # expect three files
-        reader = EsdJSONFileRead('./json/valid')
+        reader = EsdJSONFileRead('lbaasv2/drivers/bigip/test/json/valid')
         self.assertEqual(3, len(reader.esdJSONFileList))
 
     def test_invalid_json(self):
-        handler = EsdJSONValidation('./json/invalid')
+        handler = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/invalid')
 
         # verify exception raised
         with self.assertRaises(f5_ex.esdJSONFileInvalidException):
             handler.readJson()
 
     def test_valid_json(self):
-        handler = EsdJSONValidation('./json/valid/')
+        handler = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/valid/')
         dict = handler.readJson()
 
         # verify keys in the final dictionary
@@ -68,7 +68,7 @@ class TestEsdFileHanlder(unittest.TestCase):
 
     def test_empty_json(self):
         # verify empty file is read
-        handler = EsdJSONValidation('./json/empty_file/')
+        handler = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/empty_file/')
         self.assertEqual(1, len(handler.esdJSONFileList))
 
         # verify empty dict is returned
