@@ -8,7 +8,7 @@ Quick Start
 
 .. code-block:: text
 
-    $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v9.2.0.b1
+    $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v9.2.0
 
 .. tip::
 
@@ -38,8 +38,9 @@ The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
 
 .. code-block:: bash
 
-    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.2.0.b1/python-f5-openstack-agent_9.2.0.b1-1_1404_all.deb
-    $ sudo dpkg –i python-f5-openstack-agent_9.2.0.b1-1_1404_all.deb
+    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.2.0/python-f5-openstack-agent_9.2.0-1_1404_all.deb
+    $ sudo dpkg –i python-f5-openstack-agent_9.2.0-1_1404_all.deb
+
 
 RPM Package
 ```````````
@@ -59,8 +60,8 @@ The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
 
 .. code-block:: bash
 
-    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.2.0.b1/f5-openstack-agent-9.2.0.b1-1.el7.noarch.rpm
-    $ sudo rpm –ivh f5-openstack-agent-9.2.0.b1-1.el7.noarch.rpm
+    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.2.0/f5-openstack-agent-9.2.0-1.el7.noarch.rpm
+    $ sudo rpm –ivh f5-openstack-agent-9.2.0-1.el7.noarch.rpm
 
 
 Next Steps

@@ -57,6 +57,11 @@ class ServiceModelAdapter(object):
     def snat_count(self):
         return self.conf.f5_snat_addresses_per_subnet
 
+    def vip_on_common_network(self, service):
+        loadbalancer = service.get('loadbalancer', {})
+        network_id = loadbalancer.get('network_id', "")
+        return (network_id in self.conf.common_network_ids)
+
     def init_pool_name(self, loadbalancer, pool):
         name = self.prefix + pool["id"]
 
@@ -355,6 +360,11 @@ class ServiceModelAdapter(object):
         if network_id in bigip.assured_networks:
             vip['vlans'].append(
                 bigip.assured_networks[network_id])
+            vip['vlansEnabled'] = True
+            vip.pop('vlansDisabled', None)
+        elif network_id in self.conf.common_network_ids:
+            vip['vlans'].append(
+                self.conf.common_network_ids[network_id])
             vip['vlansEnabled'] = True
             vip.pop('vlansDisabled', None)
 

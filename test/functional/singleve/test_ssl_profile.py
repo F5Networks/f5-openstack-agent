@@ -1,3 +1,8 @@
+'''
+test_requirements = {'devices':         [VE],
+                     'openstack_infra': []}
+
+'''
 # Copyright 2016 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,8 +52,7 @@ JbZPlUsnZV6Xo/b7StCfDd0ODLugbxq87lHx/RN2WC3/M223gLx7S0Py0ZEdHWDm
 GpmzRO2r9gpv/VEMlKsCQQCV+EffCQ4wKBIYeCchdntop1/A9PWWCS+pjUNdIJNR
 CKxlxUfEZw9yNfLw9g0FKxrdSZiHCAw7fwN7s+CszjT4
 -----END RSA PRIVATE KEY-----"""
-
-def test_create_client_ssl_profile():
+def test_create_client_ssl_profile(symbols):
 
     # set of valid and invalid parent profile names
     test_parents = [None,
@@ -57,7 +61,7 @@ def test_create_client_ssl_profile():
                     "clientssl",
                     "clientssl-insecure-compatible"]
 
-    bigip = ManagementRoot('10.190.7.235', 'admin', 'admin')
+    bigip = ManagementRoot(symbols.bigip_mgmt_ip_public, 'admin', 'admin')
 
     for parent in test_parents:
         name = random_name('Project_', 16)

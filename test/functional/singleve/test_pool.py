@@ -1,3 +1,8 @@
+'''
+test_requirements = {'devices':         [VE],
+                     'openstack_infra': [Neutron or Neutronless]}
+
+'''
 # Copyright 2015-2106 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,17 +27,17 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.loadbalancer_service import \
     LoadBalancerServiceBuilder
 
 
-def test_create_listener():
+def test_create_listener(symbols):
     lb_service = LoadBalancerServiceBuilder()
     pool_builder = PoolServiceBuilder()
-    bigips = [BigIP('10.190.5.7', 'admin', 'admin')]
+    bigips = [BigIP(symbols.bigip_mgmt_ip_public, 'admin', 'admin')]
     service = json.load(open("service.json"))["service"]
 
     try:
         # create partition
         lb_service.prep_service(service, bigips)
 
-        # create BIG-IP® virtual servers
+        # create BIG-IP virtual servers
         pools = service["pools"]
         loadbalancer = service["loadbalancer"]
 
