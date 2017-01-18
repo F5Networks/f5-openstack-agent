@@ -1164,11 +1164,9 @@ class iControlDriver(LBaaSBaseDriver):
             # This loop will only run once.  Using while as a control-flow
             # mechanism to flatten out the code by allowing breaks.
             while (self.network_builder):
-                networks = service['networks']
-                network_id = service['loadbalancer']['network_id']
-                network = networks.get(network_id, {})
 
-                if not self.network_builder.is_common_network(network) and \
+                if not self.service_adapter.vip_on_common_network(service) \
+                     and \
                    not self.disconnected_service.is_service_connected(service):
                     if self.disconnected_service_polling.enabled:
                         # Hierarchical port-binding mode:
