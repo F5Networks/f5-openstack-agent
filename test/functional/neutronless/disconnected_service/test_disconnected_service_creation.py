@@ -627,3 +627,27 @@ def test_featureoff_nosegid_common_lb_net(setup_l2adjacent_test, bigip):
     assert rpc.update_loadbalancer_status.call_args_list == [
         call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
+
+def test_featureoff_nosegid_create_listener_common_lb_net(setup_l2adjacent_test, bigip):
+    icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_OFF_COMMON_NET)
+    service = deepcopy(NOSEGID_CREATELISTENER)
+    logcall(setup_l2adjacent_test,
+            icontroldriver._common_service_handler,
+            service)
+    after_create_registry = register_device(bigip)
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == SEG_INDEPENDENT_LB_URIS_COMMON_NET | \
+        SEG_INDEPENDENT_LB_URIS | \
+        NOSEG_LB_URIS | NOSEG_LISTENER_URIS
+
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert not ERROR_MSG_MISCONFIG in open(logfilename).read()
+    rpc = icontroldriver.plugin_rpc
+
+    assert rpc.update_loadbalancer_status.call_args_list == [
+        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+    ]
+    assert rpc.update_listener_status.call_args_list == [
+        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+    ]

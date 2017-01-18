@@ -62,7 +62,10 @@ class ListenerServiceBuilder(object):
 
         service['listener']['operating_status'] = lb_const.ONLINE
         # Hierarchical Port Binding mode adjustments
-        if not self.disconnected_service.is_service_connected(service):
+        if not self.disconnected_service.is_service_connected(service) \
+           and \
+           not self.service_adapter.vip_on_common_network(service):
+
             # start the virtual server on a disconnected network if the neutron
             # network does not yet exist
             network_name = DisconnectedService.network_name
