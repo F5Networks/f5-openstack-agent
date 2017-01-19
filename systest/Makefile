@@ -8,6 +8,7 @@ repo := https://github.com/F5Networks/$(PROJECT).git
 ssh_conf := testenv_symbols/testenv_ssh_config
 
 MAKEFILE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+PROJECT_DIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
 
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
 version := $(shell git describe --long)
@@ -21,8 +22,10 @@ unit_session := unit_$(version)_$(timestamp)
 unit_results := $(RESULTSDIR)/$(unit_session)
 disconnected_session := disconnected_$(version)_$(timestamp)
 disconnected_results := $(RESULTSDIR)/$(disconnected_session)
-singleve_session := singleve_$(version)_$(timestamp)
-singleve_results := $(RESULTSDIR)/$(singleve_session)
+singlebigip_session := singlebigip_$(version)_$(timestamp)
+singlebigip_results := $(RESULTSDIR)/$(singlebigip_session)
+ifaceonly_session := ifaceonly_$(version)_$(timestamp)
+ifaceonly_results := $(RESULTSDIR)/$(ifaceonly_session)
 
 
 testenv_config := bigip.testenv.yaml
@@ -57,7 +60,8 @@ functest:
 functest_all:
 	@echo "automated functional tests..."
 	$(MAKE) -C . disconnected_service
-	$(MAKE) -C . singleve
+	$(MAKE) -C . singlebigip
+	$(MAKE) -C . ifaceonly
 
 disconnected_service:
 	$(MAKE) -C . disconnected_service-setup
@@ -66,8 +70,8 @@ disconnected_service:
 
 disconnected_service-setup: pre-build
 	@echo "setting up functional test environment ..."
-	TESTENV_PATH=/usr/local/share/testenv testenv create base; \
-	TESTENV_PATH=/usr/local/share/testenv testenv create --name $(disconnected_session) --config $(testenv_config); \
+	testenv create base; \
+	testenv create --name $(disconnected_session) --config $(testenv_config); \
 
 disconnected_service-run: pre-build
 	@echo "running disconnected tests ..."
@@ -82,32 +86,51 @@ disconnected_service-teardown:
 	@echo "tearing down functional test environment..."
 	if [ ! -e $(disconnected_results) ]; then mkdir -p $(disconnected_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
-	TESTENV_PATH=/usr/local/share/testenv testenv delete --name $(disconnected_session) --config $(testenv_config)
+	testenv delete --name $(disconnected_session) --config $(testenv_config)
 
-singleve:
-	$(MAKE) -C . singleve-setup
-	$(MAKE) -C . singleve-run
-	$(MAKE) -C . singleve-teardown
+singlebigip:
+	$(MAKE) -C . singlebigip-setup
+	$(MAKE) -C . singlebigip-run
+	$(MAKE) -C . singlebigip-teardown
 
-singleve-setup: pre-build
-	@echo "setting up functional test environment ..."
-	TESTENV_PATH=/usr/local/share/testenv testenv create base; \
-	TESTENV_PATH=/usr/local/share/testenv testenv create --name singleve --config $(testenv_config); \
+singlebigip-setup: pre-build
+	@echo "setting up singlebigip test environment ..."
+	testenv create base; \
+	testenv create --name singlebigip --config $(testenv_config); \
 
-singleve-run: pre-build
-	@echo "running disconnected tests ..."
-	tox -e functest --sitepackage -- \
+singlebigip-run: pre-build
+	@echo "running singlebigip tests ..."
+	tox -e singlebigip --sitepackage -- \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--exclude incomplete no_regression \
 		--autolog-outputdir $(RESULTSDIR) \
-		--autolog-session $(singleve_session) \
-		singleve || $(MAKE) -C . singleve-teardown
+		--autolog-session $(singlebigip_session) \
+		$(PROJECT_DIR)/test/functional/singlebigip || $(MAKE) -C . singlebigip-teardown
 
-singleve-teardown:
-	@echo "tearing down functional test environment..."
-	if [ ! -e $(singleve_results) ]; then mkdir -p $(singleve_results); fi
+singlebigip-teardown:
+	@echo "tearing down singlebigip test environment..."
+	if [ ! -e $(singlebigip_results) ]; then mkdir -p $(singlebigip_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
-	TESTENV_PATH=/usr/local/share/testenv testenv delete --name singleve --config $(testenv_config)
+	#testenv delete --name $(singlebigip_session) --config $(testenv_config)
+
+ifaceonly:
+	$(MAKE) -C . ifaceonly-run
+	$(MAKE) -C . ifaceonly-teardown
+
+ifaceonly-run: pre-build
+	@echo "running ifaceonly tests ..."
+	tox -e ifaceonly --sitepackage -- \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--exclude incomplete no_regression \
+		--autolog-outputdir $(RESULTSDIR) \
+		--autolog-session $(ifaceonly_session) \
+		$(PROJECT_DIR)/test/functional/ifaceonly || \
+        $(MAKE) -C . ifaceonly-teardown
+
+ifaceonly-teardown:
+	@echo "tearing down functional test environment..."
+	if [ ! -e $(ifaceonly_results) ]; then mkdir -p $(ifaceonly_results); fi
+	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
 
 # Remove the buildbot venv directory and any tox venvs we made
 clean:
