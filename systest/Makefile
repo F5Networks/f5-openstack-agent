@@ -18,7 +18,11 @@ branch := $(shell git rev-parse --abbrev-ref HEAD)
 RESULTSDIR := $(MAKEFILE_DIR)/test_results/$(PROJECT)/$(PROJECT)_$(branch)
 
 unit_session := unit_$(version)_$(timestamp)
+unit_results := $(RESULTSDIR)/$(unit_session)
 disconnected_session := disconnected_$(version)_$(timestamp)
+disconnected_results := $(RESULTSDIR)/$(disconnected_session)
+singleve_session := singleve_$(version)_$(timestamp)
+singleve_results := $(RESULTSDIR)/$(singleve_session)
 
 
 testenv_config := bigip.testenv.yaml
@@ -28,15 +32,16 @@ VENV_ACTIVATE := $(MAKEFILE_DIR)/$(VENV)/bin/activate
 
 # Before we run any tests we need a virtualenv and a few packages
 pre-build:
-	sudo apt-get update; \
-	sudo apt-get install -y libssl-dev; \
-	sudo apt-get install -y libffi-dev; \
-	sudo -H pip install tox; \
-	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/testenv.git; \
-	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/velcro/systest-common.git; \
-	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-meta.git; \
-	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-autolog.git; \
-	sudo -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-symbols.git;
+	sudo -E apt-get update; \
+	sudo -E apt-get install -y libssl-dev; \
+	sudo -E apt-get install -y libffi-dev; \
+	sudo -E -H pip install --upgrade pip; \
+	sudo -E -H pip install tox; \
+	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/testenv.git; \
+	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/velcro/systest-common.git; \
+	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-meta.git; \
+	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-autolog.git; \
+	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-symbols.git;
 
 unit: pre-build
 	cd $(MAKEFILE_DIR)/../; \
@@ -52,6 +57,7 @@ functest:
 functest_all:
 	@echo "automated functional tests..."
 	$(MAKE) -C . disconnected_service
+	$(MAKE) -C . singleve
 
 disconnected_service:
 	$(MAKE) -C . disconnected_service-setup
@@ -60,8 +66,8 @@ disconnected_service:
 
 disconnected_service-setup: pre-build
 	@echo "setting up functional test environment ..."
-	testenv create base; \
-	testenv create --name $(disconnected_session) --config $(testenv_config); \
+	TESTENV_PATH=/usr/local/share/testenv testenv create base; \
+	TESTENV_PATH=/usr/local/share/testenv testenv create --name $(disconnected_session) --config $(testenv_config); \
 
 disconnected_service-run: pre-build
 	@echo "running disconnected tests ..."
@@ -76,7 +82,32 @@ disconnected_service-teardown:
 	@echo "tearing down functional test environment..."
 	if [ ! -e $(disconnected_results) ]; then mkdir -p $(disconnected_results); fi
 	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
-	testenv delete --name $(disconnected_session) --config $(testenv_config)
+	TESTENV_PATH=/usr/local/share/testenv testenv delete --name $(disconnected_session) --config $(testenv_config)
+
+singleve:
+	$(MAKE) -C . singleve-setup
+	$(MAKE) -C . singleve-run
+	$(MAKE) -C . singleve-teardown
+
+singleve-setup: pre-build
+	@echo "setting up functional test environment ..."
+	TESTENV_PATH=/usr/local/share/testenv testenv create base; \
+	TESTENV_PATH=/usr/local/share/testenv testenv create --name singleve --config $(testenv_config); \
+
+singleve-run: pre-build
+	@echo "running disconnected tests ..."
+	tox -e functest --sitepackage -- \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--exclude incomplete no_regression \
+		--autolog-outputdir $(RESULTSDIR) \
+		--autolog-session $(singleve_session) \
+		singleve || $(MAKE) -C . singleve-teardown
+
+singleve-teardown:
+	@echo "tearing down functional test environment..."
+	if [ ! -e $(singleve_results) ]; then mkdir -p $(singleve_results); fi
+	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
+	TESTENV_PATH=/usr/local/share/testenv testenv delete --name singleve --config $(testenv_config)
 
 # Remove the buildbot venv directory and any tox venvs we made
 clean:
