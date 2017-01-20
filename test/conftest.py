@@ -1,7 +1,6 @@
 ''' Test utilities for creation and deletion of pools via the sdk.
 
-This fixture should be promoted to a more general library.  Probably
-f5_os_test.
+This fixture should be promoted to a more general library.
 '''
 # Copyright 2015-2016 F5 Networks Inc.
 #

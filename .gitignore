@@ -55,6 +55,7 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+.containenv
 .Python
 env/
 build/
