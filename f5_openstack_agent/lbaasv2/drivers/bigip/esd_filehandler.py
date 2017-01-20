@@ -16,6 +16,7 @@
 
 import glob
 import json
+import os
 
 from oslo_log import log as logging
 
@@ -32,7 +33,7 @@ class EsdJSONFileRead(object):
     It looks for the json file under /etc/neutron/services/f5/esd
     """
     def __init__(self, esddir):
-        self.esdJSONFileList = glob.glob(esddir+'*.json')
+        self.esdJSONFileList = glob.glob(os.path.join(esddir, '*.json'))
 
 
 class EsdJSONValidation(EsdJSONFileRead):
@@ -41,7 +42,7 @@ class EsdJSONValidation(EsdJSONFileRead):
     It checks and parses the content of json file(s) to a dictionary
     """
     def __init__(self, esddir):
-        super(EsdJSONFileRead, self).__init__(esddir)
+        super(EsdJSONValidation, self).__init__(esddir)
         self.esdJSONDict = {}
 
     def readJson(self):
