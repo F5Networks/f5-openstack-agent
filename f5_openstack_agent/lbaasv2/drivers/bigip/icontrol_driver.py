@@ -1166,8 +1166,8 @@ class iControlDriver(LBaaSBaseDriver):
             while (self.network_builder):
 
                 if not self.service_adapter.vip_on_common_network(service) \
-                     and \
-                   not self.disconnected_service.is_service_connected(service):
+                    and not self.disconnected_service.\
+                        is_service_connected(service):
                     if self.disconnected_service_polling.enabled:
                         # Hierarchical port-binding mode:
                         # Skip network setup if the service is not connected.
@@ -1267,23 +1267,21 @@ class iControlDriver(LBaaSBaseDriver):
 
         self._update_loadbalancer_status(service)
 
+    @log_helpers.log_method_call
     def _update_member_status(self, members):
         """Update member status in OpenStack """
         for member in members:
-            if 'provisioning_status' in member:
-                provisioning_status = member['provisioning_status']
-                if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
-                        self.plugin_rpc.update_member_status(
-                            member['id'],
-                            plugin_const.ACTIVE,
-                            lb_const.ONLINE
-                        )
-                elif provisioning_status == plugin_const.PENDING_DELETE:
-                    self.plugin_rpc.member_destroyed(
-                        member['id'])
-                elif provisioning_status == plugin_const.ERROR:
-                    self.plugin_rpc.update_member_status(member['id'])
+            # update both provisioning and operating status
+            provisioning_status = member.get('provisioning_status', None)
+            operating_status = member.get('operating_status', None)
+
+            if provisioning_status == plugin_const.PENDING_DELETE:
+                self.plugin_rpc.member_destroyed(member['id'])
+            else:
+                self.plugin_rpc.update_member_status(
+                    member['id'],
+                    provisioning_status=provisioning_status,
+                    operating_status=operating_status)
 
     def _update_health_monitor_status(self, health_monitors):
         """Update pool monitor status in OpenStack """
@@ -1419,6 +1417,28 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.debug('Loadbalancer provisioning status is active')
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
+
+    @is_connected
+    def update_operating_status(self, service):
+        if 'members' in service:
+            if self.network_builder:
+                # append route domain to member address
+                self.network_builder._annotate_service_route_domains(service)
+            self.lbaas_builder.update_operating_status(service)
+            self._update_member_status(service['members'])
+
+    def get_active_bigip(self):
+        bigips = self.get_all_bigips()
+
+        if len(bigips) == 1:
+            return bigips[0]
+
+        for bigip in bigips:
+            if self.cluster_manager.is_device_active(bigip):
+                return bigip
+
+        # if can't determine active, default to first one
+        return bigips[0]
 
     def service_to_traffic_group(self, service):
         # Hash service tenant id to index of traffic group
