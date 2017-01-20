@@ -307,6 +307,8 @@ class LBaaSBuilder(object):
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberCreationException(err.message)
 
+                member['provisioning_status'] = plugin_const.ACTIVE
+
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
                                       member["network_id"],
@@ -637,6 +639,7 @@ class LBaaSBuilder(object):
             op_status = lb_const.NO_MONITOR
 
         return op_status
+<<<<<<< HEAD
 
     def get_l7policy_for_rule(self, l7policies, l7rule):
         policy_id = l7rule['policy_id']
@@ -657,3 +660,5 @@ class LBaaSBuilder(object):
 
     def is_esd(self, name):
         return self.esd.get_esd(name) is not None
+=======
+>>>>>>> Neutron Pool member's status attribute not reflecting BIG-IP Pool member state
