@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 '''
-test_requirements = {'devices':         [],
+test_requirements = {'devices':         [VE],
                      'openstack_infra': []}
 
 '''
@@ -20,18 +21,17 @@ test_requirements = {'devices':         [],
 
 import json
 
-from f5.bigip import BigIP
 from f5_openstack_agent.lbaasv2.drivers.bigip.listener_service import \
     ListenerServiceBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.loadbalancer_service import \
     LoadBalancerServiceBuilder
 
 
-def test_create_listener():
+def test_create_listener(bigip):
+    bigips = [bigip]
     lb_service = LoadBalancerServiceBuilder()
     listener_builder = ListenerServiceBuilder()
-    bigips = [BigIP('10.190.5.7', 'admin', 'admin')]
-    service = json.load(open("service.json"))["service"]
+    service = json.load(open("../../service.json"))["service"]
 
     try:
         # create partition
