@@ -25,7 +25,6 @@ RUN pip install decorator
 RUN pip install git+https://github.com/openstack/neutron@stable/$BRANCH
 RUN pip install git+https://github.com/openstack/neutron-lbaas.git@stable/$BRANCH
 RUN pip install git+https://github.com/openstack/oslo.log.git@stable/$BRANCH
-RUN pip install git+https://github.com/F5Networks/f5-openstack-test.git@liberty
 RUN pip install git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@$BRANCH
 RUN pip install git+https://github.com/F5Networks/pytest-symbols.git
 # Enter your fork and branch below
