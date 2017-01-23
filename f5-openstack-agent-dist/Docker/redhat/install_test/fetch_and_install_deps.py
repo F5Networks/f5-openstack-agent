@@ -1,17 +1,22 @@
 #!/usr/bin/python
 
+import glob
 import os
 import re
 import subprocess
 import sys
 
+from collections import deque, namedtuple
+
 f5_sdk_pattern = re.compile("^f5-sdk\s*=\s*(\d+\.\d+\.\d+)$")
 f5_icontrol_rest_pattern = re.compile(
     "^f5-icontrol-rest\s*=\s*(\d+\.\d+\.\d+)$")
+dep_match_re = re.compile('^((python|f5-sdk)[\w\-]*)\s([<>=]{1,2})\s(\S+)')
 
 
 def usage():
     print "fetch_dependencies.py working_dir"
+
 
 def runCommand(cmd):
     output = ""
@@ -22,15 +27,16 @@ def runCommand(cmd):
                              stderr=subprocess.PIPE)
         (output) = p.communicate()[0]
     except OSError, e:
-        print >>sys.stderr, "Execution failed: ",e
-
+        print >>sys.stderr, "Execution failed: ", e
     return (output, p.returncode)
 
-def fetch_agent_dependencies(dist_dir, version, release):
-    agent_pkg = "f5-openstack-agent-%s-%s.el7.noarch.rpm" % (version, release)
 
+def fetch_agent_dependencies(dist_dir, version, release, agent_pkg):
+    # agent_pkg = "f5-openstack-agent-%s-%s.el7.noarch.rpm" % (version, release)
+    ReqDetails = namedtuple('ReqDetails', 'name, oper, version')
+    requires = deque()
     # Copy agent package to /tmp
-    cpCmd = "cp %s/rpms/build/%s /tmp" % (dist_dir, agent_pkg)
+    cpCmd = "cp %s /tmp" % agent_pkg
     print "Copying agent package to /tmp install directory"
     (output, status) = runCommand(cpCmd)
     if status != 0:
@@ -39,35 +45,43 @@ def fetch_agent_dependencies(dist_dir, version, release):
         print "Success"
 
     # Get the sdk requirement.
-    requiresCmd = "rpm -qRp %s/rpms/build/%s" % (dist_dir, agent_pkg)
-    print "Getting dependencies for %s." % (agent_pkg)
+    requiresCmd = "rpm -qRp %s" % agent_pkg
+    agent_pkg_base = os.path.basename(agent_pkg)
+    print "Getting dependencies for %s." % agent_pkg_base
     (output, status) = runCommand(requiresCmd)
 
     if status != 0:
-        print "Can't get package dependencies for %s" % (agent_pkg)
+        print "Can't get package dependencies for %s" % agent_pkg_base
         return 1
     else:
         print "Success"
-    
-    for line in output.split('\n'):
-        m = f5_sdk_pattern.match(line)
-        if m:
-            f5_sdk_version = m.group(1)
-            break
 
+    for line in output.split('\n'):
+        print line, dep_match_re.pattern
+        match = dep_match_re.match(line)
+        if match:
+            groups = list(match.groups())
+            my_dep = ReqDetails(groups[0], groups[2], groups[3])
+            if 'f5-sdk' in my_dep.name:
+                f5_sdk_version = my_dep.version
+            else:
+                requires.append(my_dep)
+
+    # we know we will always need this...
+    print requires
     if not f5_sdk_version:
         print "Can't find f5-sdk dependency for %s" % (agent_pkg)
         return 1
 
-    # Fetch the sdk package
-    github_sdk_url = (
-        "https://github.com/F5Networks/f5-common-python/releases/download/v%s" % (
-            f5_sdk_version)
-    )
+    # Check if the required packages are present, then install the ones we are
+    # aware of...
+    # grab the sdk's:
+    sdk_github_addr = \
+        "https://github.com/F5Networks/f5-common-python/releases/download/v%s"
+    github_sdk_url = (sdk_github_addr % f5_sdk_version)
     f5_sdk_pkg = "f5-sdk-%s-1.el7.noarch.rpm" % (f5_sdk_version)
-    curlCmd = (
-        "curl -L -o /tmp/%s %s/f5-sdk-%s-1.el7.noarch.rpm" % (
-            f5_sdk_pkg, github_sdk_url, f5_sdk_version) )
+    curlCmd = ("curl -L -o /tmp/%s %s/f5-sdk-%s-1.el7.noarch.rpm" %
+               (f5_sdk_pkg, github_sdk_url, f5_sdk_version))
 
     print "Fetching f5-sdk package from github"
     (output, status) = runCommand(curlCmd)
@@ -92,14 +106,12 @@ def fetch_agent_dependencies(dist_dir, version, release):
         return 1
 
     # Fectch the icontrol rest package
-    github_icr_url = (
-        "https://github.com/F5Networks/f5-icontrol-rest/releases/download/v%s" % (
-            f5_icr_version)
-    )
+    github_icr_url = \
+        ("https://github.com/F5Networks/f5-icontrol-rest/releases/download/v%s"
+         % f5_icr_version)
     f5_icr_pkg = "f5-icontrol-rest-%s-1.el7.noarch.rpm" % (f5_icr_version)
-    curlCmd = (
-        "curl -L -o /tmp/%s %s/%s" % (
-            f5_icr_pkg, github_icr_url, f5_icr_pkg) )
+    curlCmd = ("curl -L -o /tmp/%s %s/%s" %
+               (f5_icr_pkg, github_icr_url, f5_icr_pkg))
 
     print "Fetching f5-icontrol-reset package from github"
     (output, status) = runCommand(curlCmd)
@@ -108,7 +120,42 @@ def fetch_agent_dependencies(dist_dir, version, release):
         print "Failed to to fetch f5-icontrol-rest package."
         return 1
     else:
-        print "Success"
+        print "Success on F5 Libraries"
+    return check_other_dependencies(requires, dist_dir, agent_pkg)
+
+
+def check_other_dependencies(requires, dist_dir, agent_pkg):
+    # triage the packages already installed
+    rpm_list_cmd = "rpm -qa"
+    print "Collecting a list of already-install pkgs"
+    (output, status) = runCommand(rpm_list_cmd)
+    to_get = deque()
+    ignore = []
+    while requires:
+        my_dep = requires.popleft()
+        if my_dep.name not in output and my_dep.name not in ignore:
+            to_get.append(my_dep)
+    # install the repo-stored rpm's
+    print "Grabbing the ones we have copies of"
+    to_install = glob.glob(dist_dir + "/Docker/redhat/7/*.rpm")
+    for rpm_file in to_install:
+        for rpm_dep in to_get:
+            if rpm_dep.name in rpm_file:
+                to_get.remove(rpm_dep)
+        rpm_install_cmd = "rpm -i %s" % rpm_file
+        runCommand(rpm_install_cmd)
+    if to_get:
+        print "WARNING: there are missing dependencies!"
+        while to_get:
+            dep = to_get.popleft()
+            print "%s %s %s" % (dep.name, dep.oper, dep.version)
+    else:
+        print """Succsess!
+All dependencies search satisfied!  However, by-version check may still fail...
+"""
+    # change to be dynamic if we decide to be more rigorous at this stage...
+    return 0
+
 
 def install_agent_pkgs(repo):
     installCmd = "rpm -ivh /tmp/*.rpm"
@@ -116,18 +163,20 @@ def install_agent_pkgs(repo):
     if status != 0:
         print "Agent install failed"
         sys.exit(1)
-    
+
 
 def main(args):
-    if len(args) != 2:
+    if len(args) != 3:
         usage()
         sys.exit(1)
 
     working_dir = os.path.normpath(args[1])
+    pkg_fullname = args[2]
     try:
         os.chdir("/var/wdir")
     except OSError, e:
-        print >>sys.stderr, "Can't change to directory %s (%s)" %  (working_dir, e)
+        print >>sys.stderr, "Can't change to directory %s (%s)" % (working_dir,
+                                                                   e)
 
     dist_dir = os.path.join(working_dir, "f5-openstack-agent-dist")
     version_tool = os.path.join(dist_dir, "scripts/get-version-release.py")
@@ -138,7 +187,7 @@ def main(args):
         (version, release) = output.rstrip().split()
 
     # Get all files for the f5-openstack agent.
-    fetch_agent_dependencies(dist_dir, version, release)
+    fetch_agent_dependencies(dist_dir, version, release, pkg_fullname)
 
     # Instal from the tmp directory.
     install_agent_pkgs("/tmp")

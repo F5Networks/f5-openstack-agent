@@ -2,6 +2,7 @@
 
 OS_TYPE=$1
 OS_VERSION=$2
+PKG_FULLNAME=$3
 PKG_NAME="f5-openstack-agent"
 DIST_DIR="${PKG_NAME}-dist"
 
@@ -27,6 +28,6 @@ DOCKER_FILE="${DOCKER_DIR}/Dockerfile.${CONTAINER_TYPE}"
 
 docker build -t ${BUILD_CONTAINER} -f ${DOCKER_FILE} ${DOCKER_DIR}
 docker run --privileged --rm -v $(pwd):${WORKING_DIR} ${BUILD_CONTAINER} /usr/bin/python \
-	   /fetch_and_install_deps.py ${WORKING_DIR}
+	   /fetch_and_install_deps.py ${WORKING_DIR} ${PKG_FULLNAME}
 
 exit 0

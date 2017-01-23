@@ -4,7 +4,10 @@ FROM ubuntu:trusty
 RUN apt-get update -y && apt-get install software-properties-common -y
 RUN apt-add-repository cloud-archive:liberty
 RUN apt-get update -y && apt-get dist-upgrade -y --force-yes
+RUN apt-add-repository cloud-archive:mitaka
+RUN apt-get update -y
 RUN apt-get install python-requests git curl -y --force-yes
+RUN apt-get install python-six
 
 COPY ./fetch_and_install_deps.py /
 
