@@ -130,6 +130,7 @@ class L2ServiceBuilder(object):
 
     def is_common_network(self, network):
         # Does this network belong in the /Common folder?
+        return True
         return network['shared'] or \
             (network['id'] in self.conf.common_network_ids) or \
             ('router:external' in network and

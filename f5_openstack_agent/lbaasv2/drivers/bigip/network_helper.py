@@ -59,6 +59,11 @@ class NetworkHelper(object):
         'strict': 'disabled',
     }
 
+    route_defaults = {
+        'name': None,
+        'partition': '/' + const.DEFAULT_PARTITION,
+    }
+
     @log_helpers.log_method_call
     def create_l2gre_multipoint_profile(self, bigip, name,
                                         partition=const.DEFAULT_PARTITION):
@@ -174,24 +179,31 @@ class NetworkHelper(object):
                                         err.message))
         return None
 
-    def route_domain_exists(self, bigip, partition=const.DEFAULT_PARTITION,
+    def route_domain_exists(self, bigip, partition=const.DEFAULT_PARTITION, name=None,
                             domain_id=None):
-        if partition == 'Common':
-            return True
+        # if partition == 'Common':
+        #     return True
+
+        if name:
+            name = self._get_route_domain_name(name)
+
         r = bigip.tm.net.route_domains.route_domain
-        name = partition
+
         if domain_id:
             name += '_aux_' + str(domain_id)
+
         return r.exists(name=name, partition=partition)
 
     @log_helpers.log_method_call
-    def get_route_domain(self, bigip, partition=const.DEFAULT_PARTITION):
+    def get_route_domain(self, bigip, partition=const.DEFAULT_PARTITION, name=None):
         # this only works when the domain was created with is_aux=False,
         # same as the original code.
-        if partition == 'Common':
-            name = '0'
+
+        if name:
+            name = self._get_route_domain_name(name)
         else:
             name = partition
+
         r = bigip.tm.net.route_domains.route_domain
         return r.load(name=name, partition=partition)
 
@@ -231,11 +243,16 @@ class NetworkHelper(object):
         return lowest_available_index
 
     @log_helpers.log_method_call
-    def create_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
+    def create_route_domain(self, bigip, partition=const.DEFAULT_PARTITION, name=None,
                             strictness=False, is_aux=False):
+
+        name = self._get_route_domain_name(name)
+
         rd = bigip.tm.net.route_domains.route_domain
-        name = partition
+        if not name:
+            name = partition
         id = self._get_next_domain_id(bigip)
+
         if is_aux:
             name += '_aux_' + str(id)
         payload = NetworkHelper.route_domain_defaults
@@ -252,8 +269,11 @@ class NetworkHelper(object):
     def delete_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
                             name=None):
         r = bigip.tm.net.route_domains.route_domain
-        if not name:
+        if name:
+            name = self._get_route_domain_name(name)
+        else:
             name = partition
+
         obj = r.load(name=name, partition=partition)
         obj.delete()
 
@@ -285,6 +305,60 @@ class NetworkHelper(object):
             rd_names_list.append(rd.name)
         return rd_names_list
 
+
+    @log_helpers.log_method_call
+    def route_exists(self, bigip, partition=const.DEFAULT_PARTITION, name=None):
+        rc = bigip.tm.net.routes.route
+
+        if name:
+            name = self._get_route_name(name)
+
+        return rc.exists(name=name, partition=partition)
+
+
+
+    @log_helpers.log_method_call
+    def get_route(self, bigip, partition=const.DEFAULT_PARTITION, name=None):
+        rc = bigip.tm.net.routes.route
+
+        if name:
+            name = self._get_route_name(name)
+
+        return rc.load(name=name, partition=partition)
+
+    @log_helpers.log_method_call
+    def create_route(self, bigip, partition=const.DEFAULT_PARTITION, name=None, gateway_ip='0.0.0.0', rd_id=0, destination_ip='0.0.0.0',netmask=0):
+        if self.route_exists(bigip, name=name, partition=partition):
+            LOG.info("Skipping create of route %s route already exists" % name)
+            return
+
+        rc = bigip.tm.net.routes.route
+
+        if name:
+            name = self._get_route_name(name)
+
+        destination_ip+= '%' + str(rd_id)+ '/'+str(netmask)
+        gateway_ip+= '%' + str(rd_id)
+
+        payload = NetworkHelper.route_defaults
+
+
+
+        payload['name'] = name
+        payload['partition'] = partition
+        payload['gw'] = gateway_ip
+        payload['network'] = destination_ip
+
+
+        rc.create(**payload)
+
+    @log_helpers.log_method_call
+    def delete_route(self ,bigip, partition=const.DEFAULT_PARTITION, name=None):
+
+        if self.route_exists(bigip, partition=partition, name=name):
+            obj = self.get_route(bigip, partition, name)
+            obj.delete()
+
     @log_helpers.log_method_call
     def get_vlans_in_route_domain(self,
                                   bigip,
@@ -292,6 +366,21 @@ class NetworkHelper(object):
         """Get VLANs in Domain """
         rd = self.get_route_domain(bigip, partition)
         return getattr(rd, 'vlans', [])
+
+    @log_helpers.log_method_call
+    def _get_route_domain_name(self, name):
+        if not name or name.startswith('rd-'):
+            return name
+
+        return "rd-%s" % (name)
+
+    @log_helpers.log_method_call
+    def _get_route_name(self, name):
+        if not name or name.startswith('rt-'):
+            return name
+
+        return "rt-%s" % name
+
 
     @log_helpers.log_method_call
     def create_vlan(self, bigip, model):
@@ -354,9 +443,15 @@ class NetworkHelper(object):
             self,
             bigip,
             name,
-            partition=const.DEFAULT_PARTITION):
+            partition=const.DEFAULT_PARTITION, rd_name=None):
+
+        if rd_name:
+            rd_name = self._get_route_domain_name(rd_name)
+        else:
+            rd_name = partition
+
         """Add VLANs to Domain."""
-        rd = self.get_route_domain(bigip, partition)
+        rd = self.get_route_domain(bigip, partition, rd_name)
         existing_vlans = getattr(rd, 'vlans', [])
         if name in existing_vlans:
             return False
