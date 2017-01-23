@@ -1,8 +1,27 @@
 #!/bin/bash -ex
 
 OS_TYPE=$1
+
+# We should have at least an argument $1...
+if [ ${OS_TYPE} == "--help"  ] || [ ${OS_TYPE} == "-h" ] || \
+        [ "${OS_TYPE}" == "" ] || [ "$2" == "" ] || [ "$3" == "" ]; then
+    echo "Standard Usage:
+    $0 <os type> <os version> <./path/to/package>
+Debug Usage:
+    $0 <os type> <os version> <./path/to/package> --debug
+Optional --debug operation:
+    The results from the test python script will pipe into:
+        /tmp/test_install.o"
+    exit 1
+fi
+
 OS_VERSION=$2
 PKG_FULLNAME=$3
+if [ '--debug' == "$4" ]; then
+    DEBUG=1
+else
+    DEBUG=0
+fi
 PKG_NAME="f5-openstack-agent"
 DIST_DIR="${PKG_NAME}-dist"
 
@@ -27,7 +46,14 @@ DOCKER_DIR="${DIST_DIR}/Docker/${OS_TYPE}/install_test"
 DOCKER_FILE="${DOCKER_DIR}/Dockerfile.${CONTAINER_TYPE}"
 
 docker build -t ${BUILD_CONTAINER} -f ${DOCKER_FILE} ${DOCKER_DIR}
-docker run --privileged --rm -v $(pwd):${WORKING_DIR} ${BUILD_CONTAINER} /usr/bin/python \
-	   /fetch_and_install_deps.py ${WORKING_DIR} ${PKG_FULLNAME}
+if [ ${DEBUG} == 0 ]; then
+   docker run --privileged --rm -v $(pwd):${WORKING_DIR} ${BUILD_CONTAINER} \
+        ${PKG_FULLNAME}
+else
+   docker run --privileged --rm -v $(pwd):${WORKING_DIR} ${BUILD_CONTAINER} \
+        ${PKG_FULLNAME} > /tmp/test_instal.o
+fi
+# NOTE: contrary to documentation, the '-d' flag is not required, and 
+# ${PKG_FULLNAME} is passed.
 
-exit 0
+exit $?

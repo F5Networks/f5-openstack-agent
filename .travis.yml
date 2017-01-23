@@ -18,8 +18,6 @@ before_install:
 
 install:
     - pip install tox
-    - pip install ordereddict
-    - pip install six
 script:
     - tox -e style,unit
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "7"

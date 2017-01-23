@@ -8,14 +8,13 @@ import sys
 
 from collections import deque, namedtuple
 
-f5_sdk_rest_pattern = re.compile("^f5-sdk\s*=\s*(\d+\.\d+\.\d+)$")
-f5_sdk_rest_pattern = re.compile(
-    "^f5-sdk-rest\s*=\s*(\d+\.\d+\.\d+)$")
 dep_match_re = re.compile('^\s*([\w\-]+)\s\(([=<>]+)\s([^\)]+)')
 
 
 def usage():
-    print "fetch_dependencies.py working_dir"
+    print sys.argv
+    print "fetch_dependencies.py working_dir pkg.deb"
+
 
 
 def runCommand(cmd):
