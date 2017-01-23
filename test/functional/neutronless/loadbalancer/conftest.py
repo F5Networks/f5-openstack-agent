@@ -14,33 +14,9 @@
 #   limitations under the License.
 
 
-from .testlib.bigip_client import BigIpClient
-from .testlib.fake_rpc import FakeRPCPlugin
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
 import pytest
-
-
-@pytest.fixture
-def bigip(request):
-
-    bigip = BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
-                        pytest.symbols.bigip_username,
-                        pytest.symbols.bigip_password)
-
-    def fin():
-        bigip.delete_folders()
-    request.addfinalizer(fin)
-
-    return bigip
-
-
-@pytest.fixture
-def fake_plugin_rpc(services):
-
-    rpcObj = FakeRPCPlugin(services)
-
-    return rpcObj
 
 
 @pytest.fixture
