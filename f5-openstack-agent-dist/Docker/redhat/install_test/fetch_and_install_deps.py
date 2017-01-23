@@ -10,7 +10,9 @@ import sys
 
 from collections import deque, namedtuple
 
-dep_match_re = re.compile('^((python|f5-sdk)[\w\-]*)\s([<>=]{1,2})\s(\S+)')
+dep_match_re = \
+    re.compile('^((python|f5-sdk|f5-icontrol-rest)[\w\-]*)' +
+               '\s([<>=]{1,2})\s(\S+)')
 
 
 def usage():
@@ -94,15 +96,18 @@ def fetch_agent_dependencies(dist_dir, version, release, agent_pkg):
     else:
         print("Success")
 
+    sdk_reqs = deque()  # can use later in a loop-through to validate compliance
     for line in output.split('\n'):
         m = dep_match_re.search(line)
         if m:
-            my_dep = ReqDetails(*m.groups())
-            if 'f5-icontrol-rest' in my_dep.name and \
-                    re.search('^>?=', my_dep.oper):
-                f5_icr_version = my_dep.version
-                break
-    if not f5_sdk_version:
+            groups = m.groups()
+            my_dep = ReqDetails(groups[0], groups[2], groups[3])
+            if 'f5-icontrol-rest' in my_dep.name:
+                if re.search('^>?=', my_dep.oper):
+                    f5_icr_version = my_dep.version
+            else:
+                sdk_reqs.append(my_dep)
+    if not f5_icr_version:
         print("Can't find f5-sdk dependency for %s" % (f5_sdk_pkg))
         return 1
 
