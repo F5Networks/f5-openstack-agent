@@ -8,7 +8,6 @@ import sys
 
 from collections import deque, namedtuple
 
-f5_sdk_pattern = re.compile("^f5-sdk\s*=\s*(\d+\.\d+\.\d+)$")
 f5_icontrol_rest_pattern = re.compile(
     "^f5-icontrol-rest\s*=\s*(\d+\.\d+\.\d+)$")
 dep_match_re = re.compile('^((python|f5-sdk)[\w\-]*)\s([<>=]{1,2})\s(\S+)')
