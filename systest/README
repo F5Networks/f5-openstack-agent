@@ -9,3 +9,9 @@ the tests for this repo with the following commands:
 $> make unit
 
 $> make functest
+
+Sub-sets of tests can be run with:
+
+$> make ifaceonly
+
+$> make singlebigip
