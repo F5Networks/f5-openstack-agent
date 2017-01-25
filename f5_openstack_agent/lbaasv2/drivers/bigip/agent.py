@@ -14,21 +14,42 @@
 # limitations under the License.
 #
 
+import errno
+import inspect
 import sys
+import logging
 
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_service import service
+try:
+    from oslo_config import cfg
+    from oslo_log import log as oslo_logging
+    from oslo_service import service
+except ImportError as CriticalError:
+    frame = inspect.getframeinfo(inspect.currentframe())
+    project = "f5-oslbaasv2-agent"
+    default_lbaasv2_log = "/var/log/neutron/%s.log" % project
+    logger = logging.getLogger('neutron:f5-oslbaasv2-agent.log')
+    fh = logging.FileHandler(default_lbaasv2_log)
+    fh.setLevel(logging.DEBUG)
+    logger.addHandler(fh)
+    reason = "f5-openstack-agent cannot start due to missing dependency"
+    msg = "(%d) %s: %s [%s:%s]" % (errno.ENOSYS, reason, str(CriticalError),
+                                   frame.filename, str(frame.lineno))
+    logger.exception(msg)
+    sys.exit(errno.ENOSYS)
 
-from neutron.agent.common import config
-from neutron.agent.linux import interface
-from neutron.common import config as common_config
-from neutron.common import rpc as n_rpc
+
+try:
+    from neutron.agent.common import config
+    from neutron.agent.linux import interface
+    from neutron.common import config as common_config
+    from neutron.common import rpc as n_rpc
+except ImportError as Error:
+    pass
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as manager
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as f5constants
 
-LOG = logging.getLogger(__name__)
+LOG = oslo_logging.getLogger(__name__)
 
 OPTS = [
     cfg.IntOpt(
@@ -77,4 +98,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # Handle any missing dependency errors via oslo:
+    try:
+        Error
+    except NameError:
+        sys.exc_clear()
+    else:
+        # We already had an exception, ABORT!
+        LOG.exception(str(Error))
+        sys.exit(errno.ENOSYS)
     main()
