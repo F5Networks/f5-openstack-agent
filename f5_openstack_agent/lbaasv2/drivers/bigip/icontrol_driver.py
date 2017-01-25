@@ -1278,21 +1278,23 @@ class iControlDriver(LBaaSBaseDriver):
             self._update_listener_status(service)
         self._update_loadbalancer_status(service)
 
-    @log_helpers.log_method_call
     def _update_member_status(self, members):
         """Update member status in OpenStack """
         for member in members:
-            # update both provisioning and operating status
-            provisioning_status = member.get('provisioning_status', None)
-            operating_status = member.get('operating_status', None)
-
-            if provisioning_status == plugin_const.PENDING_DELETE:
-                self.plugin_rpc.member_destroyed(member['id'])
-            else:
-                self.plugin_rpc.update_member_status(
-                    member['id'],
-                    provisioning_status=provisioning_status,
-                    operating_status=operating_status)
+            if 'provisioning_status' in member:
+                provisioning_status = member['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_member_status(
+                            member['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    self.plugin_rpc.member_destroyed(
+                        member['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_member_status(member['id'])
 
     def _update_health_monitor_status(self, health_monitors):
         """Update pool monitor status in OpenStack """
@@ -1393,8 +1395,18 @@ class iControlDriver(LBaaSBaseDriver):
             if self.network_builder:
                 # append route domain to member address
                 self.network_builder._annotate_service_route_domains(service)
+
+            # get currrent member status
             self.lbaas_builder.update_operating_status(service)
-            self._update_member_status(service['members'])
+
+            # udpate Neutron
+            for member in service['members']:
+                if member['provisioning_status'] == plugin_const.ACTIVE:
+                    operating_status = member.get('operating_status', None)
+                    self.plugin_rpc.update_member_status(
+                        member['id'],
+                        provisioning_status=None,
+                        operating_status=operating_status)
 
     def get_active_bigip(self):
         bigips = self.get_all_bigips()
