@@ -17,10 +17,13 @@
 
 import datetime
 import hashlib
+import json
 import logging as std_logging
+import os
 import urllib2
 
 from eventlet import greenthread
+from time import strftime
 from time import time
 
 from neutron.common.exceptions import InvalidConfigurationOption
@@ -282,6 +285,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'os_tenant_name',
         default=None,
         help='OpenStack tenant name for Keystone authentication (v2 only).'
+    ),
+    cfg.BoolOpt(
+        'trace_service_requests',
+        default=False,
+        help='Log service object.'
     )
 ]
 
@@ -343,6 +351,14 @@ class iControlDriver(LBaaSBaseDriver):
             resource_helper.ResourceType.virtual)
         self.pool_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
+
+        if self.conf.trace_service_requests:
+            path = '/var/log/neutron/service/'
+            if not os.path.exists(path):
+                os.makedirs(path)
+            self.file_name = path + strftime("%H%M%S-%m%d%Y") + '.json'
+            with open(self.file_name, 'w') as fp:
+                fp.write('[{}] ')
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -1149,6 +1165,9 @@ class iControlDriver(LBaaSBaseDriver):
         # Assure that the service is configured on bigip(s)
         start_time = time()
 
+        if self.conf.trace_service_requests:
+            self.trace_service_requests(service)
+
         if not service['loadbalancer']:
             LOG.error("_common_service_handler: Service loadbalancer is None")
             return
@@ -1466,3 +1485,10 @@ class iControlDriver(LBaaSBaseDriver):
                 % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
                    f5const.MIN_TMOS_MINOR_VERSION))
         return major_version, minor_version
+
+    def trace_service_requests(self, service):
+        with open(self.file_name, 'r+') as fp:
+            fp.seek(-1, 2)
+            fp.write(',')
+            json.dump(service, fp, sort_keys=True, indent=2)
+            fp.write(']')
