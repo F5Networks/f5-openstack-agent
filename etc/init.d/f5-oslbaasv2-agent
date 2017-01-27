@@ -18,6 +18,8 @@ SCRIPTNAME="/etc/init.d/${NAME}"
 NEUTRON_CONF="/etc/neutron/neutron.conf"
 F5_AGENT_CONF="/etc/neutron/services/f5/f5-openstack-agent.ini"
 STARTDAEMON_ARGS=""
+DEPEND_RETURN=''
+DEPEND_EXIT=''
 
 [ -r "${F5_AGENT_CONF}" ] && DAEMON_ARGS="${DAEMON_ARGS} --config-file ${F5_AGENT_CONF}"
 [ -r "${NEUTRON_CONF}" ] && DAEMON_ARGS="${DAEMON_ARGS} --config-file ${NEUTRON_CONF}"
@@ -66,14 +68,111 @@ LOGFILE="/var/log/${PROJECT_NAME}/${NAME}.log"
 [ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
 [ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
 
+function log_initializing_msg() {
+    msg="Initializing ${ACTION} on ${NAME}..."
+    logger "${msg}"
+    echo "${msg}"
+}
+
+function log_failure_msg() {
+    msg="Failed in action to ${ACTION} ${NAME}!"
+    if [ "$1" != "" ]; then
+        msg="${msg} ($1)"
+    fi
+    logger "${msg}"
+    echo "${msg}"
+}
+
+function log_success_msg() {
+    msg="Succeeded in action to ${ACTION} ${NAME}!"
+    logger "${msg}"
+    echo "${msg}"
+}
+
+function log_error_msg() {
+    msg="$@"
+    logger "${msg}"
+    echo "${msg}"
+}
+
+function log_exit_status() {
+    case "$1" in
+    0)
+        log_error_msg "(0) Service ${NAME} is in an OK Status!"
+        ;;
+    1)
+        log_error_msg "(1) Service ${NAME} is dead and /var/run pid file exists!"
+        ;;
+    2)
+        log_error_msg "(2) Service ${NAME} is dead and /var/lock lock file exists!"
+        ;;
+    3)
+        log_error_msg "(3) Service ${NAME} is not running!"
+        ;;
+    *) # 4 is unknown status and above is not specified!
+        log_error_msg "(4) Service ${NAME} status is unknown!"
+        ;;
+    esac
+    exit $1
+}
+
+function log_exit_non_status() {
+    if [ $1 -eq 0 ]; then
+        log_success_msg
+        exit $1
+    fi
+    case "$1" in
+    1)
+        log_error_msg "(1) An Unknown Error has occurred!"
+        ;;
+    2)
+        log_error_msg "(2) Invalid or excess argument(s)!"
+        ;;
+    3)
+        log_error_msg "(3) Unimplemented feature ($ACTION)!"
+        ;;
+    4)
+        log_error_msg "(4) User had insufficient priviledges!"
+        ;;
+    5)
+        log_error_msg "(5) Program is not installed!"
+        ;;
+    6)
+        log_error_msg "(6) Program is not configured!"
+        ;;
+    7)
+        log_error_msg "(7) Program is not running!"
+        ;;
+    *)
+        log_error_msg "($1) An unspecified error type has occurred!"
+        ;;
+    esac
+    log_failure_msg
+    exit $1
+}
+
+function depend() {
+    python_require="import f5_openstack_agent.lbaas.drivers.bigip.setup"
+    DEPEND_RETURN=$(/usr/bin/env python -c ${python_require})
+    DEPEND_EXIT=$?
+    if [ "$?" -eq 0 ]; then
+        log_error_msg "All python dependencies for ${NAME} met"
+    else
+        log_error_smg "${DEPEND_RETURN}"
+    fi
+}
+
 agent_start() {
-    start_cmd="start-stop-daemon ${STARTDAEMON_ARGS} --exec ${DAEMON}  -- ${DAEMON_ARGS}"
-    eval $start_cmd
-    retval=$?
+    depend
+    if [ "${DEPEND_EXIT}" ==  0 ]; then
+        start_cmd="start-stop-daemon ${STARTDAEMON_ARGS} --exec ${DAEMON}  -- ${DAEMON_ARGS}"
+        eval $start_cmd
+        retval=$?
 
-    [ $retval -eq 0 ] && touch $LOCKFILE
-
-    return $retval
+        [ $retval -eq 0 ] && touch $LOCKFILE
+    else
+        retval=$DEPEND_EXIT
+    fi
 }
 
 agent_stop() {
@@ -82,7 +181,6 @@ agent_stop() {
 
     [ $retval -eq 0 ] && rm -f $lockfile
     rm -rf $PIDFILE
-    return $retval
 }
 
 agent_restart() {
@@ -110,98 +208,44 @@ rh_status() {
 
     start-stop-daemon --status -p $PIDFILE
     retval=$?
-
-    return $retval
 }
 
 rh_status_q() {
     rh_status >/dev/null 2>&1
 }
 
-
+log_initializing_msg
 case "$1" in
     start)
-	log_daemon_msg "Starting f5-oslbaasv2-agent" "f5-oslbaasv2-agent"
-	agent_start
-	ret=$?
-	case $ret in
-	0)
-		log_end_msg 0
-		;;
-	1)
-		log_end_msg 1
-		echo "pid file '$PIDFILE' found, f5-oslbaasv2-agent not started"
-		;;
-	*)
-		log_end_msg 1
-		;;
-	esac
-	exit $ret
+        agent_start
+        log_exit_non_status ${retval}
         ;;
     stop)
-	log_daemon_msg "Stopping f5-oslbaasv2-agent" "fa-oslbaasv2-agent"
-	agent_stop
-	ret=$?
-	case $ret in
-	0)
-		log_end_msg 0
-		;;
-	1)
-		log_end_msg 1
-		echo "pid file '$PIDFILE' found, f5-oslbaasv2-agent not started"
-		;;
-	*)
-		log_end_msg 1
-		;;
-	esac
-	exit $ret
+        agent_stop
+        log_exit_non_status ${retval}
         ;;
     restart)
-	log_daemon_msg "Restarting f5-oslbaasv2-agent" "fa-oslbaasv2-agent"
         agent_restart
-	ret=$?
-	case $ret in
-	    0)
-		log_end_msg 0
-		;;
-	    *)
-		log_end_msg 1
-		;;
-	esac
-	exit $ret
+        log_exit_non_status ${retval}
         ;;
     reload)
-        rh_status_q || exit 7
-        $1
+        reload
+        log_exit_non_status ${retval}
         ;;
     force-reload)
         force_reload
+        log_exit_non_status ${retval}
         ;;
     status)
-	rh_status
-	ret=$?
-	case $ret in
-	0)
-		log_daemon_msg "f5-oslbaasv2-agent running"
-		;;
-	1)
-		log_daemon_msg "pid file '$PIDFILE' found, f5-oslbaasv2-agent not started"
-		;;
-	3)
-		log_daemon_msg "f5-oslbaasv2-agent is not running"
-		;;
-	4)
-		log_daemon_msg "f5-oslbaasv2-agent status unknown"
-		;;
-	esac
-	exit $ret
+	    rh_status
+        log_exit_status ${retvalval}
         ;;
     condrestart|try-restart)
         rh_status_q || exit 0
-        restart
+        agent_restart
         ;;
     *)
         log_daemon_msg $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
-        exit 2
+        log_exit_non_status 4
 esac
 exit $?
