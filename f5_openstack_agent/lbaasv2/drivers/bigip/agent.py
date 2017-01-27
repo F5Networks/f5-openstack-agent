@@ -17,7 +17,8 @@
 import errno
 import inspect
 import sys
-import logging
+
+import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as exceptions
 
 try:
     from oslo_config import cfg
@@ -25,17 +26,10 @@ try:
     from oslo_service import service
 except ImportError as CriticalError:
     frame = inspect.getframeinfo(inspect.currentframe())
-    project = "f5-oslbaasv2-agent"
-    default_lbaasv2_log = "/var/log/neutron/%s.log" % project
-    logger = logging.getLogger('neutron:f5-oslbaasv2-agent.log')
-    fh = logging.FileHandler(default_lbaasv2_log)
-    fh.setLevel(logging.DEBUG)
-    logger.addHandler(fh)
-    reason = "f5-openstack-agent cannot start due to missing dependency"
-    msg = "(%d) %s: %s [%s:%s]" % (errno.ENOSYS, reason, str(CriticalError),
-                                   frame.filename, str(frame.lineno))
-    logger.exception(msg)
-    sys.exit(errno.ENOSYS)
+    CriticalError = \
+        exceptions.F5MissingDependencies(message=str(CriticalError),
+                                         frame=frame)
+    sys.exit(CriticalError.errno)
 
 
 try:
