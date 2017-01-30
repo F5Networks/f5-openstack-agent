@@ -46,6 +46,18 @@ class ResourceType(Enum):
     tunnel = 20
     virtual_address = 21
     l7policy = 22
+    client_ssl_profile = 23
+    server_ssl_profile = 24
+    tcp_profile = 25
+    persistence = 26
+    cookie_persistence = 27
+    dest_addr_persistence = 28
+    hash_persistence = 29
+    msrdp_persistence = 30
+    sip_persistence = 31
+    source_addr_persistence = 32
+    ssl_persistence = 33
+    universal_persistence = 34
 
 
 class BigIPResourceHelper(object):
@@ -162,6 +174,14 @@ class BigIPResourceHelper(object):
 
         return resources
 
+    def exists_in_collection(self, bigip, name, partition=None):
+        collection = self.get_resources(bigip, partition='Common')
+        for item in collection:
+            if item.name == name:
+                return True
+
+        return False
+
     def _resource(self, bigip):
         return {
             ResourceType.nat: lambda bigip: bigip.tm.ltm.nats.nat,
@@ -199,8 +219,32 @@ class BigIPResourceHelper(object):
             ResourceType.virtual_address:
                 lambda bigip: bigip.tm.ltm.virtual_address_s.virtual_address,
             ResourceType.l7policy:
-                lambda bigip: bigip.tm.ltm.policys.policy
-        }[self.resource_type](bigip)
+                lambda bigip: bigip.tm.ltm.policys.policy,
+            ResourceType.client_ssl_profile:
+                lambda bigip: bigip.tm.ltm.profile.client_ssls.client_ssl,
+            ResourceType.server_ssl_profile:
+                lambda bigip: bigip.tm.ltm.profile.server_ssls.server_ssl,
+            ResourceType.tcp_profile:
+                lambda bigip: bigip.tm.ltm.profile.tcps.tcp,
+            ResourceType.persistence:
+                lambda bigip: bigip.tm.ltm.persistence,
+            ResourceType.cookie_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.cookies.cookie,
+            ResourceType.dest_addr_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.dest_addrs.dest_addr,
+            ResourceType.hash_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.hashs.hash,
+            ResourceType.msrdp_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.msrdp,
+            ResourceType.sip_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.sips,
+            ResourceType.source_addr_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.source_addr,
+            ResourceType.ssl_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.ssl,
+            ResourceType.universal_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.universal
+        }
 
     def _collection(self, bigip):
         collection_map = {
@@ -239,7 +283,31 @@ class BigIPResourceHelper(object):
             ResourceType.virtual_address:
                 lambda bigip: bigip.tm.ltm.virtual_address_s,
             ResourceType.l7policy:
-                lambda bigip: bigip.tm.ltm.policys
+                lambda bigip: bigip.tm.ltm.policys,
+            ResourceType.client_ssl_profile:
+                lambda bigip: bigip.tm.ltm.profile.client_ssls,
+            ResourceType.server_ssl_profile:
+                lambda bigip: bigip.tm.ltm.profile.server_ssls,
+            ResourceType.tcp_profile:
+                lambda bigip: bigip.tm.ltm.profile.tcps,
+            ResourceType.persistence:
+                lambda bigip: bigip.tm.ltm.persistence,
+            ResourceType.cookie_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.cookies,
+            ResourceType.dest_addr_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.dest_addrs,
+            ResourceType.hash_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.hashs,
+            ResourceType.msrdp_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.msrdps,
+            ResourceType.sip_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.sips,
+            ResourceType.source_addr_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.source_addrs,
+            ResourceType.ssl_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.ssls,
+            ResourceType.universal_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.universals
         }
 
         if self.resource_type in collection_map:
