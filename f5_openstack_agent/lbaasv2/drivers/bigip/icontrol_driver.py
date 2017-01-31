@@ -1166,8 +1166,8 @@ class iControlDriver(LBaaSBaseDriver):
             while (self.network_builder):
 
                 if not self.service_adapter.vip_on_common_network(service) \
-                     and \
-                   not self.disconnected_service.is_service_connected(service):
+                    and not self.disconnected_service.\
+                        is_service_connected(service):
                     if self.disconnected_service_polling.enabled:
                         # Hierarchical port-binding mode:
                         # Skip network setup if the service is not connected.
@@ -1419,6 +1419,38 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.debug('Loadbalancer provisioning status is active')
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
+
+    @is_connected
+    def update_operating_status(self, service):
+        if 'members' in service:
+            if self.network_builder:
+                # append route domain to member address
+                self.network_builder._annotate_service_route_domains(service)
+
+            # get currrent member status
+            self.lbaas_builder.update_operating_status(service)
+
+            # udpate Neutron
+            for member in service['members']:
+                if member['provisioning_status'] == plugin_const.ACTIVE:
+                    operating_status = member.get('operating_status', None)
+                    self.plugin_rpc.update_member_status(
+                        member['id'],
+                        provisioning_status=None,
+                        operating_status=operating_status)
+
+    def get_active_bigip(self):
+        bigips = self.get_all_bigips()
+
+        if len(bigips) == 1:
+            return bigips[0]
+
+        for bigip in bigips:
+            if self.cluster_manager.is_device_active(bigip):
+                return bigip
+
+        # if can't determine active, default to first one
+        return bigips[0]
 
     def service_to_traffic_group(self, service):
         # Hash service tenant id to index of traffic group

@@ -19,6 +19,7 @@ from time import time
 from oslo_log import log as logging
 
 from neutron.plugins.common import constants as plugin_const
+from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import l7policy_service
@@ -257,7 +258,9 @@ class LBaaSBuilder(object):
                         self.pool_builder.update_member(svc, bigips)
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MemberCreateException(err.message)
+                    raise f5_ex.MemberCreationException(err.message)
+
+                member['provisioning_status'] = plugin_const.ACTIVE
 
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
@@ -492,3 +495,50 @@ class LBaaSBuilder(object):
                 collected_stats[stat] += vs_stats[stat]
 
         return collected_stats
+
+    def update_operating_status(self, service):
+        bigip = self.driver.get_active_bigip()
+        loadbalancer = service["loadbalancer"]
+        status_keys = ['status.availabilityState',
+                       'status.enabledState']
+
+        members = service["members"]
+        for member in members:
+            if member['provisioning_status'] == plugin_const.ACTIVE:
+                pool = self.get_pool_by_id(service, member["pool_id"])
+                svc = {"loadbalancer": loadbalancer,
+                       "member": member,
+                       "pool": pool}
+                status = self.pool_builder.get_member_status(
+                    svc, bigip, status_keys)
+                member['operating_status'] = self.convert_operating_status(
+                    status)
+
+    @staticmethod
+    def convert_operating_status(status):
+        """Convert object status to LBaaS operating status.
+
+        status.availabilityState and  status.enabledState = Operating Status
+
+        available                     enabled                 ONLINE
+        available                     disabled                DISABLED
+        offline                       -                       OFFLINE
+        unknown                       -                       NO_MONITOR
+        """
+        op_status = None
+        available = status.get('status.availabilityState', '')
+        if available == 'available':
+            enabled = status.get('status.enabledState', '')
+            if enabled == 'enabled':
+                op_status = lb_const.ONLINE
+            elif enabled == 'disabled':
+                op_status = lb_const.DISABLED
+            else:
+                LOG.warning('Unexpected value %s for status.enabledState',
+                            enabled)
+        elif available == 'offline':
+            op_status = lb_const.OFFLINE
+        elif available == 'unknown':
+            op_status = lb_const.NO_MONITOR
+
+        return op_status
