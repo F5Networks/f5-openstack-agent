@@ -1,6 +1,6 @@
 # coding=utf-8
 #
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
+from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
+    EsdTagProcessor
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
@@ -60,6 +62,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
+
 
 LOG = logging.getLogger(__name__)
 
@@ -397,6 +400,14 @@ class iControlDriver(LBaaSBaseDriver):
                  % (len(self.__bigips), self.conf.icontrol_username))
         LOG.info('iControlDriver dynamic agent configurations:%s'
                  % self.agent_configurations)
+
+        # read enhance services definitions
+        self.esd = EsdTagProcessor('/etc/neutron/services/f5/esd/')
+        try:
+            self.esd.process_esd(self.get_all_bigips())
+        except f5ex.esdJSONFileInvalidException as err:
+            LOG.error("Unable to initialize ESD. Error: %s.", err.message)
+
         self.initialized = True
 
     def connect_bigips(self):
@@ -1666,3 +1677,9 @@ class iControlDriver(LBaaSBaseDriver):
             fp.write(',')
             json.dump(service, fp, sort_keys=True, indent=2)
             fp.write(']')
+
+    def get_esd(self, name):
+        return self.esd.get_esd(name)
+
+    def is_esd(self, name):
+        return self.esd.get_esd(name) is not None

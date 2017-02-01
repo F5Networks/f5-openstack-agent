@@ -442,3 +442,201 @@ class ListenerServiceBuilder(object):
                 LOG.error("Error getting virtual server stats: %s", e.message)
 
         return collected_stats
+
+    def _add_policy(self, vs, policy_name, bigip):
+        vs_name = vs['name']
+        vs_partition = vs['partition']
+        policy_partition = 'Common'
+
+        v = bigip.tm.ltm.virtuals.virtual
+        obj = v.load(name=vs_name,
+                     partition=vs_partition)
+        p = obj.policies_s
+        policies = p.get_collection()
+
+        # see if policy already added to virtual server
+        for policy in policies:
+            if policy.name == policy_name:
+                LOG.debug("L7Policy found. Not adding.")
+                return
+
+        try:
+            # not found -- add policy to virtual server
+            p.policies.create(name=policy_name,
+                              partition=policy_partition)
+        except Exception as exc:
+            # Bug in TMOS 12.1 will return a 404 error, but the request
+            # succeeded. Verify that policy was added, and ignore exception.
+            LOG.debug(exc.message)
+            if not p.policies.exists(name=policy_name,
+                                     partition=policy_partition):
+                # really failed, raise original exception
+                raise
+
+        # success
+        LOG.debug("Added L7 policy {0} for virtual sever {1}".format(
+            policy_name, vs_name))
+
+    def _remove_policy(self, vs, policy_name, bigip):
+        vs_name = vs['name']
+        vs_partition = vs['partition']
+        policy_partition = 'Common'
+
+        v = bigip.tm.ltm.virtuals.virtual
+        obj = v.load(name=vs_name,
+                     partition=vs_partition)
+        p = obj.policies_s
+        policies = p.get_collection()
+
+        # find policy and remove from virtual server
+        for policy in policies:
+            if policy.name == policy_name:
+                l7 = p.policies.load(name=policy_name,
+                                     partition=policy_partition)
+                l7.delete()
+                LOG.debug("Removed L7 policy {0} for virtual sever {1}".
+                          format(policy_name, vs_name))
+
+    def _add_irule(self, vs, irule_name, bigip, rule_partition='Common'):
+        vs_name = vs['name']
+        vs_partition = vs['partition']
+
+        v = bigip.tm.ltm.virtuals.virtual
+        obj = v.load(name=vs_name,
+                     partition=vs_partition)
+        r = obj.rules
+        rules = r.get_collection()
+
+        # see if iRule already added to virtual server
+        for rule in rules:
+            if rule.name == irule_name:
+                LOG.debug("iRule found. Not adding.")
+                return
+
+        try:
+            # not found -- add policy to virtual server
+            r.rules.create(name=irule_name,
+                           partition=rule_partition)
+        except Exception as exc:
+            # Bug in TMOS 12.1 will return a 404 error, but the request
+            # succeeded. Verify that policy was added, and ignore exception.
+            LOG.debug(exc.message)
+            if not r.rule.exists(name=irule_name,
+                                 partition=rule_partition):
+                # really failed, raise original exception
+                raise
+
+        # success
+        LOG.debug("Added iRule {0} for virtual sever {1}".format(
+            irule_name, vs_name))
+
+    def _remove_irule(self, vs, irule_name, bigip, rule_partition='Common'):
+        vs_name = vs['name']
+        vs_partition = vs['partition']
+
+        v = bigip.tm.ltm.virtuals.virtual
+        obj = v.load(name=vs_name,
+                     partition=vs_partition)
+        r = obj.rules_s
+        rules = r.get_collection()
+
+        # find iRule and remove from virtual server
+        for rule in rules:
+            if rule.name == irule_name:
+                irule = r.rules.load(name=irule_name,
+                                     partition=rule_partition)
+                irule.delete()
+                LOG.debug("Removed iRule {0} for virtual sever {1}".
+                          format(irule_name, vs_name))
+
+    def apply_esd(self, svc, esd, bigips):
+        update_attrs = {}
+        profiles = []
+
+        # get virtual server name
+        vs = self.service_adapter.get_virtual_name(svc)
+        update_attrs.update(vs)
+
+        # start with server tcp profile
+        if 'lbaas_stcp' in esd:
+            # set serverside tcp profile
+            profiles.append({'name': esd['lbaas_stcp'],
+                             'partition': 'Common',
+                             'context': 'serverside'})
+            # restrict client profile
+            ctcp_context = 'clientside'
+        else:
+            # no serverside profile; use client profile for both
+            ctcp_context = 'all'
+
+        # must define client profile; default to tcp if not in ESD
+        if 'lbaas_ctcp' in esd:
+            ctcp_profile = esd['lbaas_ctcp']
+        else:
+            ctcp_profile = 'tcp'
+        profiles.append({'name':  ctcp_profile,
+                         'partition': 'Common',
+                         'context': ctcp_context})
+
+        # SSL profiles
+        if 'lbaas_cssl_profile' in esd:
+            profiles.append({'name': esd['lbaas_cssl_profile'],
+                             'partition': 'Common',
+                             'context': 'clientside'})
+        if 'lbaas_sssl_profile' in esd:
+            profiles.append({'name': esd['lbaas_sssl_profile'],
+                             'partition': 'Common',
+                             'context': 'serverside'})
+
+        # persistence
+        if 'lbaas_persist' in esd:
+            update_attrs['persist'] = [{'name': esd['lbaas_persist']}]
+        if 'lbaas_fallback_persist' in esd:
+            update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
+
+        if profiles:
+            # always use http and oneconnect
+            profiles.append({'name': 'http',
+                             'partition': 'Common',
+                             'context': 'all'})
+            profiles.append({'name': 'oneconnect',
+                             'partition': 'Common',
+                             'context': 'all'})
+            update_attrs['profiles'] = profiles
+
+        # iRules
+        if 'lbaas_irule' in esd:
+            irules = []
+            for irule in esd['lbaas_irule']:
+                irules.append('/Common/' + irule)
+            update_attrs['rules'] = irules
+
+        # L7 policies
+        if 'lbaas_policy' in esd:
+            policies = []
+            for policy in esd['lbaas_policy']:
+                policies.append({'name': policy, 'partition': 'Common'})
+            update_attrs['policies'] = policies
+
+        # udpate BIG-IPs
+        for bigip in bigips:
+            self.vs_helper.update(bigip, update_attrs)
+
+    def remove_esd(self, svc, esd, bigips):
+        tls = None
+        vip = self.service_adapter.get_virtual(svc)
+
+        # if ESD replaced client SSL profile, set back to TLS if defined
+        if 'lbaas_cssl_profile' in esd:
+            tls = self.service_adapter.get_tls(svc)
+
+        for bigip in bigips:
+            try:
+                self.vs_helper.update(bigip, vip)
+                if tls:
+                    tls['name'] = vip['name']
+                    tls['partition'] = vip['partition']
+                    self.add_ssl_profile(tls, bigip)
+            except Exception as err:
+                LOG.exception("Virtual server update error: %s" % err.message)
+                raise

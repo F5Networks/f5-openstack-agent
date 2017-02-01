@@ -1,0 +1,12 @@
+{
+  "demo_esd": {
+    "lbaas_ctcp": "tcp-mobile-optimized",
+    "lbaas_stcp": "tcp-lan-optimized",
+    "lbaas_cssl_profile": "clientssl",
+    "lbaas_sssl_profile": "serverssl",
+    "lbaas_irule": [],
+    "lbaas_policy": [],
+    "lbaas_persist": "hash",
+    "lbaas_fallback_persist": "source_addr"
+  }
+}

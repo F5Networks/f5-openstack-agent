@@ -55,11 +55,11 @@ class TestEsdFileHanlder(unittest.TestCase):
 
         # verify exception raised
         with self.assertRaises(f5_ex.esdJSONFileInvalidException):
-            handler.readJson()
+            handler.read_json()
 
     def test_valid_json(self):
         handler = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/valid/')
-        dict = handler.readJson()
+        dict = handler.read_json()
 
         # verify keys in the final dictionary
         self.assertIn('app_type_1', dict)
@@ -73,5 +73,5 @@ class TestEsdFileHanlder(unittest.TestCase):
         self.assertEqual(1, len(handler.esdJSONFileList))
 
         # verify empty dict is returned
-        dict = handler.readJson()
+        dict = handler.read_json()
         assert not dict

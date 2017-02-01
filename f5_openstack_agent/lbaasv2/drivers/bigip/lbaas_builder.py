@@ -413,7 +413,17 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
-                    self.l7service.create_l7policy(l7policy, service, bigips)
+                    name = l7policy.get('name', None)
+                    if name and self.driver.is_esd(name):
+                        listener = self.get_listener_by_id(
+                            service, l7policy.get('listener_id', ''))
+                        svc = {"loadbalancer": service["loadbalancer"],
+                               "listener": listener}
+                        esd = self.driver.get_esd(name)
+                        self.listener_builder.apply_esd(svc, esd, bigips)
+                    else:
+                        self.l7service.create_l7policy(
+                            l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
@@ -427,9 +437,19 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             if l7policy['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
-                    # Note: use update_l7policy because a listener can have
-                    # multiple policies
-                    self.l7service.update_l7policy(l7policy, service, bigips)
+                    name = l7policy.get('name', None)
+                    if name and self.driver.is_esd(name):
+                        listener = self.get_listener_by_id(
+                            service, l7policy.get('listener_id', ''))
+                        svc = {"loadbalancer": service["loadbalancer"],
+                               "listener": listener}
+                        esd = self.driver.get_esd(name)
+                        self.listener_builder.remove_esd(svc, esd, bigips)
+                    else:
+                        # Note: use update_l7policy because a listener can have
+                        # multiple policies
+                        self.l7service.update_l7policy(
+                            l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
@@ -443,6 +463,13 @@ class LBaaSBuilder(object):
         for l7rule in l7rules:
             if l7rule['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
+                    # ignore L7 rule if its policy is really an ESD
+                    l7policy = self.get_l7policy_for_rule(
+                        service['l7policies'], l7rule)
+                    name = l7policy.get('name', None)
+                    if name and self.driver.is_esd(name):
+                        continue
+
                     self.l7service.create_l7rule(l7rule, service, bigips)
                 except Exception as err:
                     l7rule['provisioning_status'] = plugin_const.ERROR
@@ -457,6 +484,12 @@ class LBaaSBuilder(object):
         for l7rule in l7rules:
             if l7rule['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
+                    # ignore L7 rule if its policy is really an ESD
+                    l7policy = self.get_l7policy_for_rule(
+                        service['l7policies'], l7rule)
+                    name = l7policy.get('name', None)
+                    if name and self.driver.is_esd(name):
+                        continue
                     self.l7service.bigips = self.driver.get_config_bigips()
                     self.l7service.delete_l7rule(l7rule, service, bigips)
                 except Exception as err:
@@ -543,3 +576,11 @@ class LBaaSBuilder(object):
             op_status = lb_const.NO_MONITOR
 
         return op_status
+
+    def get_l7policy_for_rule(self, l7policies, l7rule):
+        policy_id = l7rule['l7policy_id']
+        for policy in l7policies:
+            if policy_id == policy['id']:
+                return policy
+
+        return None
