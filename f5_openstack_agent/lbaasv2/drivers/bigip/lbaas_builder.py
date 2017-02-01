@@ -409,7 +409,13 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
-                    self.l7service.create_l7policy(l7policy, service, bigips)
+                    name = l7policy.get('name', None)
+                    if name and self.driver.is_esd(name):
+                        esd = self.driver.get_esd(name)
+                        self.listener_builder.apply_esd(l7policy, bigips, esd)
+                    else:
+                        self.l7service.create_l7policy(
+                            l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
@@ -423,9 +429,15 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             if l7policy['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
-                    # Note: use update_l7policy because a listener can have
-                    # multiple policies
-                    self.l7service.update_l7policy(l7policy, service, bigips)
+                    name = l7policy.get('name', None)
+                    if name and self.driver.is_esd(name):
+                        esd = self.driver.get_esd(name)
+                        self.listener_builder.remove_esd(l7policy, bigips, esd)
+                    else:
+                        # Note: use update_l7policy because a listener can have
+                        # multiple policies
+                        self.l7service.update_l7policy(
+                            l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)

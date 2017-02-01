@@ -459,3 +459,9 @@ class ListenerServiceBuilder(object):
                 LOG.error("Error getting virtual server stats: %s", e.message)
 
         return collected_stats
+
+    def apply_esd(self, service, bigips, esd):
+        pass
+
+    def remove_esd(self, service, bigips, esd):
+        pass

@@ -58,6 +58,7 @@ class ResourceType(Enum):
     source_addr_persistence = 32
     ssl_persistence = 33
     universal_persistence = 34
+    ssl_cert_file = 35
 
 
 class BigIPResourceHelper(object):
@@ -174,7 +175,7 @@ class BigIPResourceHelper(object):
 
         return resources
 
-    def exists_in_collection(self, bigip, name, partition=None):
+    def exists_in_collection(self, bigip, name, partition='Common'):
         collection = self.get_resources(bigip, partition='Common')
         for item in collection:
             if item.name == name:
@@ -243,7 +244,9 @@ class BigIPResourceHelper(object):
             ResourceType.ssl_persistence:
                 lambda bigip: bigip.tm.ltm.persistence.ssl,
             ResourceType.universal_persistence:
-                lambda bigip: bigip.tm.ltm.persistence.universal
+                lambda bigip: bigip.tm.ltm.persistence.universal,
+            ResourceType.ssl_cert_file:
+                lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert
         }
 
     def _collection(self, bigip):
@@ -307,7 +310,9 @@ class BigIPResourceHelper(object):
             ResourceType.ssl_persistence:
                 lambda bigip: bigip.tm.ltm.persistence.ssls,
             ResourceType.universal_persistence:
-                lambda bigip: bigip.tm.ltm.persistence.universals
+                lambda bigip: bigip.tm.ltm.persistence.universals,
+            ResourceType.ssl_cert_file:
+                lambda bigip: bigip.tm.sys.file.ssl_certs
         }
 
         if self.resource_type in collection_map:

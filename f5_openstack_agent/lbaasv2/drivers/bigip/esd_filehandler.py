@@ -48,7 +48,7 @@ class EsdJSONValidation(EsdJSONFileRead):
         super(EsdJSONValidation, self).__init__(esddir)
         self.esdJSONDict = {}
 
-    def readjson(self):
+    def read_json(self):
         for fileList in self.esdJSONFileList:
             try:
                 with open(fileList) as json_file:
@@ -69,24 +69,40 @@ class EsdTagProcessor(EsdJSONValidation):
 
     It checks compares the tags from esdjson dictionary to list of valid tags
     """
-    def __init__(self, bigip):
-        super(EsdTagProcessor).__init__(bigip)
-        self.validtags = []
+    def __init__(self, esddir):
+        super(EsdTagProcessor, self).__init__(esddir)
 
     # this function will return intersection of known valid esd tags
     # and the ones that user provided
     def valid_tag_key_subset(self):
         self.validtags = list(set(self.esdJSONDict.keys()) &
-                              set(valid_esd_tags.keys()))
+                              set(self.valid_esd_tags.keys()))
         if not self.validtags:
             LOG.error("Intersect of valid esd tags and user esd tags is empty")
 
-        if set(self.validtag) != set(self.esdJSONDict.keys()):
+        if set(self.validtags) != set(self.esdJSONDict.keys()):
             LOG.error("invalid tags in the user esd tags")
+
+    def process_esd(self, bigips):
+        try:
+            dict = self.read_json()
+            self.esd_dict = self.verify_esd_dict(bigips, dict)
+        except f5_ex.esdJSONFileInvalidException:
+            self.esd_dict = {}
+            raise
+
+    def get_esd(self, name):
+        return self.esd_dict.get(name, None)
 
     def resource_exists(self, bigip, tag_name, resource_type):
         helper = BigIPResourceHelper(resource_type)
-        return helper.exists_in_collection(bigip, tag_name)
+        name = tag_name
+
+        # allow user to define chain cert name with or without '.crt'
+        if resource_type == ResourceType.ssl_cert_file and not \
+                name.endswith('.crt'):
+            name += '.crt'
+        return helper.exists_in_collection(bigip, name)
 
     def get_resource_type(self, bigip, resource_type, value):
         if resource_type == ResourceType.persistence:
@@ -111,10 +127,15 @@ class EsdTagProcessor(EsdJSONValidation):
         return None
 
     def is_valid_tag(self, tag):
-        return (valid_esd_tags.get(tag, None) is not None)
+        return self.valid_esd_tags.get(tag, None) is not None
 
     def is_valid_value_type(self, value, value_type):
-        return isinstance(value, value_type)
+        if value_type == str:
+            return isinstance(value, str)
+        elif value_type == list:
+            return isinstance(value, str) or isinstance(value, list)
+
+        return False
 
     def is_valid_value(self, bigip, value, resource_type):
         return self.resource_exists(bigip, value, resource_type)
@@ -125,49 +146,115 @@ class EsdTagProcessor(EsdJSONValidation):
                 return False
         return True
 
-# this dictionary contains all the tags
-# that are listed in the esd confluence page:
-# https://docs.f5net.com/display/F5OPENSTACKPROJ/Enhanced+Service+Definition
-# we are implementing the tags that can be applied only to listeners
+    def verify_esd_dict(self, bigips, esd_dict):
+        valid_esd_dict = {}
+        for esd in esd_dict:
+            # check that ESD is valid for every BIG-IP
+            valid_esd = True
+            for bigip in bigips:
+                valid_esd = self.verify_esd(bigip, esd, esd_dict[esd])
+                if not valid_esd:
+                    break
 
-valid_esd_tags = {
-    'lbaas_ctcp': {
-        'resource_type': ResourceType.tcp_profile,
-        'value_type': str},
+            if valid_esd:
+                # add non-empty valid ESD to return dict
+                valid_esd_dict[esd] = valid_esd
 
-    'lbaas_stcp': {
-        'resource_type': ResourceType.tcp_profile,
-        'value_type': str},
+        return valid_esd_dict
 
-    'lbaas_cssl_profile': {
-        'resource_type': ResourceType.client_ssl_profile,
-        'value_type': str},
+    def verify_esd(self, bigip, name, esd):
+        valid_esd = {}
+        for tag in esd:
+            try:
+                self.verify_tag(tag)
+                self.verify_value(bigip, tag, esd[tag])
 
-    'lbaas_cssl_parent': {
-        'resource_type': ResourceType.client_ssl_profile,
-        'value_type': str},
+                # add tag to valid ESD
+                valid_esd[tag] = esd[tag]
+                LOG.debug("Tag {0} is valid for ESD {1}.".format(tag, name))
+            except f5_ex.esdJSONFileInvalidException as err:
+                LOG.error('Tag {0} failed validation for ESD {1} and was not '
+                          'added to ESD. Error: {2}'.
+                          format(tag, name, err.message))
 
-    'lbaas_cssl_chain_cert': {
-        'resource_type': ResourceType.tcp_profile,
-        'value_type': str},
+        return valid_esd
 
-    'lbaas_sssl_profile': {
-        'resource_type': ResourceType.server_ssl_profile,
-        'value_type': str},
+    def verify_value(self, bigip, tag, value):
+        tag_def = self.valid_esd_tags.get(tag)
 
-    'lbaas_irule': {
-        'resource_type': ResourceType.rule,
-        'value_type': list},
+        # verify resource type
+        resource_type = self.get_resource_type(
+            bigip, tag_def['resource_type'], value)
+        if not resource_type:
+            msg = 'Unable to determine resource type for tag {0} and ' \
+                  'value {1}'.format(tag, value)
+            raise f5_ex.esdJSONFileInvalidException(msg)
 
-    'lbaas_policy ': {
-        'resource_type': ResourceType.l7policy,
-        'value_type': list},
+        # verify value type
+        value_type = tag_def['value_type']
+        if self.is_valid_value_type(value, value_type):
+            msg = 'Invalid value {0} for tag {1}. ' \
+                  'Type must be {2}.'.format(value, tag, value_type)
+            raise f5_ex.esdJSONFileInvalidException(msg)
 
-    'lbaas_persist': {
-        'resource_type': ResourceType.persistence,
-        'value_type': str},
+        # verify value exists on BIG-IP
+        if isinstance(value, list):
+            is_valid = self.is_valid_value_list(bigip, value, resource_type)
+        else:
+            is_valid = self.is_valid_value(bigip, value, resource_type)
 
-    'lbaas_fallback_persist': {
-        'resource_type': ResourceType.persistence,
-        'value_type': str}
-}
+        if not is_valid:
+            msg = ("Invalid value {0} for tag {1}".format(value, tag))
+            raise f5_ex.esdJSONFileInvalidException(msg)
+
+    def verify_tag(self, tag):
+        if not self.is_valid_tag(tag):
+            msg = 'Tag {0} is not valid.'.format(tag)
+            raise f5_ex.esdJSONFileInvalidException(msg)
+
+    # this dictionary contains all the tags
+    # that are listed in the esd confluence page:
+    # https://docs.f5net.com/display/F5OPENSTACKPROJ/Enhanced+Service+Definition
+    # we are implementing the tags that can be applied only to listeners
+
+    valid_esd_tags = {
+        'lbaas_ctcp': {
+            'resource_type': ResourceType.tcp_profile,
+            'value_type': str},
+
+        'lbaas_stcp': {
+            'resource_type': ResourceType.tcp_profile,
+            'value_type': str},
+
+        'lbaas_cssl_profile': {
+            'resource_type': ResourceType.client_ssl_profile,
+            'value_type': str},
+
+        'lbaas_cssl_parent': {
+            'resource_type': ResourceType.client_ssl_profile,
+            'value_type': str},
+
+        'lbaas_cssl_chain_cert': {
+            'resource_type': ResourceType.ssl_cert_file,
+            'value_type': str},
+
+        'lbaas_sssl_profile': {
+            'resource_type': ResourceType.server_ssl_profile,
+            'value_type': str},
+
+        'lbaas_irule': {
+            'resource_type': ResourceType.rule,
+            'value_type': list},
+
+        'lbaas_policy ': {
+            'resource_type': ResourceType.l7policy,
+            'value_type': list},
+
+        'lbaas_persist': {
+            'resource_type': ResourceType.persistence,
+            'value_type': str},
+
+        'lbaas_fallback_persist': {
+            'resource_type': ResourceType.persistence,
+            'value_type': str}
+    }
