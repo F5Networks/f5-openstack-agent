@@ -418,6 +418,12 @@ class ServiceModelAdapter(object):
         member = {}
         port = lbaas_member["protocol_port"]
         ip_address = lbaas_member["address"]
+
+        if lbaas_member["admin_state_up"]:
+            member["session"] = "user-enabled"
+        else:
+            member["session"] = "user-disabled"
+
         if ':' in ip_address:
             member['name'] = ip_address + '.' + str(port)
         else:
