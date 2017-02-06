@@ -424,6 +424,12 @@ class ServiceModelAdapter(object):
         else:
             member["session"] = "user-disabled"
 
+        if lbaas_member["weight"] == 0:
+            member["ratio"] = 1
+            member["session"] = "user-disabled"
+        else:
+            member["ratio"] = lbaas_member["weight"]
+
         if ':' in ip_address:
             member['name'] = ip_address + '.' + str(port)
         else:

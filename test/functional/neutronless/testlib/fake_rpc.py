@@ -174,6 +174,10 @@ class FakeRPCPlugin(object):
         pass
 
     @track_call
+    def member_destroyed(self, id):
+        pass
+
+    @track_call
     def get_all_loadbalancers(self, env=None, group=None, host=None):
         return_value = [
             {'lb_id': u'50c5d54a-5a9e-4a80-9e74-8400a461a077'}
