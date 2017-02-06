@@ -108,20 +108,17 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "listener": listener,
                    "networks": networks}
-            if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
-                if 'old_listener' in service:
-                    # Delete existing VS and proceed with creating a new VS
-                    # to ensure that name changes, SSL profile changes,
-                    # etc. are handled correctly.
-                    old_svc = {"loadbalancer": loadbalancer,
-                               "listener": service["old_listener"]}
-                    try:
-                        self.listener_builder.delete_listener(old_svc, bigips)
-                    except Exception as err:
-                        listener['provisioning_status'] = plugin_const.ERROR
-                        raise f5_ex.VirtualServerDeleteException(err.message)
 
-            if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
+            if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
+                try:
+                    self.listener_builder.update_listener(svc, bigips)
+                except Exception as err:
+                    loadbalancer['provisioning_status'] = plugin_const.ERROR
+                    listener['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.VirtualServerUpdateException(err.message)
+
+            elif listener['provisioning_status'] != \
+                    plugin_const.PENDING_DELETE:
                 try:
                     # create_listener() will do an update if VS exists
                     self.listener_builder.create_listener(svc, bigips)
