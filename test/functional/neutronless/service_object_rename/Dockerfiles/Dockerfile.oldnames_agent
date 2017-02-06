@@ -18,7 +18,6 @@ RUN pip install pytest
 RUN pip install pytest-cov
 
 # Install our test extensions.
-RUN pip install --upgrade git+https://github.com/F5Networks/f5-openstack-test.git@liberty
 RUN pip install --upgrade git+https://github.com/F5Networks/pytest-symbols.git
 
 # Enter your fork and branch below
