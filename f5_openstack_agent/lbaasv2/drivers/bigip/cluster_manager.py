@@ -93,6 +93,18 @@ class ClusterManager(object):
 
         return None
 
+    def is_device_active(self, bigip):
+        active = False
+        try:
+            device_name = self.get_device_name(bigip)
+            act = bigip.tm.cm.devices.device.load(
+                name=device_name, partition='Common')
+            active = act.failoverState.lower() == 'active'
+        except Exception as exc:
+            LOG.error("Unable to get device info. %s", exc.message)
+
+        return active
+
     def sync(self, bigip, name, force_now=False):
         state = ''
         sync_start_time = time.time()

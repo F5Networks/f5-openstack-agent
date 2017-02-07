@@ -440,6 +440,26 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # Resync the next time around.
             self.needs_resync = True
 
+    @periodic_task.periodic_task(spacing=30)
+    def update_operating_status(self, context):
+        if not self.plugin_rpc:
+            return
+
+        active_loadbalancers = \
+            self.plugin_rpc.get_active_loadbalancers(host=self.agent_host)
+        for loadbalancer in active_loadbalancers:
+            if self.agent_host == loadbalancer['agent_host']:
+                try:
+                    lb_id = loadbalancer['lb_id']
+                    LOG.debug(
+                        'getting operating status for loadbalancer %s.', lb_id)
+                    svc = self.plugin_rpc.get_service_by_loadbalancer_id(
+                        lb_id)
+                    self.lbdriver.update_operating_status(svc)
+
+                except Exception as e:
+                    LOG.exception('Error updating status %s.', e.message)
+
     def tunnel_sync(self):
         """Call into driver to advertise tunnels."""
         LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")

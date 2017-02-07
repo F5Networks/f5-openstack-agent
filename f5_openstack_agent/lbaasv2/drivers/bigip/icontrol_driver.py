@@ -17,10 +17,13 @@
 
 import datetime
 import hashlib
+import json
 import logging as std_logging
+import os
 import urllib2
 
 from eventlet import greenthread
+from time import strftime
 from time import time
 
 from neutron.common.exceptions import InvalidConfigurationOption
@@ -282,6 +285,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'os_tenant_name',
         default=None,
         help='OpenStack tenant name for Keystone authentication (v2 only).'
+    ),
+    cfg.BoolOpt(
+        'trace_service_requests',
+        default=False,
+        help='Log service object.'
     )
 ]
 
@@ -343,6 +351,14 @@ class iControlDriver(LBaaSBaseDriver):
             resource_helper.ResourceType.virtual)
         self.pool_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
+
+        if self.conf.trace_service_requests:
+            path = '/var/log/neutron/service/'
+            if not os.path.exists(path):
+                os.makedirs(path)
+            self.file_name = path + strftime("%H%M%S-%m%d%Y") + '.json'
+            with open(self.file_name, 'w') as fp:
+                fp.write('[{}] ')
 
         if self.conf.f5_global_routed_mode:
             LOG.info('WARNING - f5_global_routed_mode enabled.'
@@ -1149,6 +1165,9 @@ class iControlDriver(LBaaSBaseDriver):
         # Assure that the service is configured on bigip(s)
         start_time = time()
 
+        if self.conf.trace_service_requests:
+            self.trace_service_requests(service)
+
         if not service['loadbalancer']:
             LOG.error("_common_service_handler: Service loadbalancer is None")
             return
@@ -1166,8 +1185,8 @@ class iControlDriver(LBaaSBaseDriver):
             while (self.network_builder):
 
                 if not self.service_adapter.vip_on_common_network(service) \
-                     and \
-                   not self.disconnected_service.is_service_connected(service):
+                    and not self.disconnected_service.\
+                        is_service_connected(service):
                     if self.disconnected_service_polling.enabled:
                         # Hierarchical port-binding mode:
                         # Skip network setup if the service is not connected.
@@ -1420,6 +1439,38 @@ class iControlDriver(LBaaSBaseDriver):
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
 
+    @is_connected
+    def update_operating_status(self, service):
+        if 'members' in service:
+            if self.network_builder:
+                # append route domain to member address
+                self.network_builder._annotate_service_route_domains(service)
+
+            # get currrent member status
+            self.lbaas_builder.update_operating_status(service)
+
+            # udpate Neutron
+            for member in service['members']:
+                if member['provisioning_status'] == plugin_const.ACTIVE:
+                    operating_status = member.get('operating_status', None)
+                    self.plugin_rpc.update_member_status(
+                        member['id'],
+                        provisioning_status=None,
+                        operating_status=operating_status)
+
+    def get_active_bigip(self):
+        bigips = self.get_all_bigips()
+
+        if len(bigips) == 1:
+            return bigips[0]
+
+        for bigip in bigips:
+            if self.cluster_manager.is_device_active(bigip):
+                return bigip
+
+        # if can't determine active, default to first one
+        return bigips[0]
+
     def service_to_traffic_group(self, service):
         # Hash service tenant id to index of traffic group
         # return which iControlDriver.__traffic_group that tenant is "in?"
@@ -1558,3 +1609,10 @@ class iControlDriver(LBaaSBaseDriver):
         """Delete lb l7rule"""
         LOG.debug("Deleting l7rule")
         self._common_service_handler(service)
+
+    def trace_service_requests(self, service):
+        with open(self.file_name, 'r+') as fp:
+            fp.seek(-1, 2)
+            fp.write(',')
+            json.dump(service, fp, sort_keys=True, indent=2)
+            fp.write(']')
