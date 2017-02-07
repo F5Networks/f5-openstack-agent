@@ -15,6 +15,7 @@
 #
 
 from oslo_log import log as logging
+
 from requests import HTTPError
 import urllib
 
@@ -168,8 +169,6 @@ class PoolServiceBuilder(object):
                         raise
 
     def update_member(self, service, bigips):
-        # TODO(jl) handle state -- SDK enforces at least state=None
-
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
 
@@ -196,3 +195,40 @@ class PoolServiceBuilder(object):
         else:
             hm = self.http_mon_helper
         return hm
+
+    def get_member_status(self, service, bigip, status_keys):
+        """Return status values for a single pool.
+
+        Status keys to collect are defined as an array of strings in input
+        status_keys.
+
+        :param service: Has pool and member name/partition
+        :param bigip: BIG-IP to get member status from.
+        :param status_keys: Array of strings that define which status keys to
+        collect.
+        :return: A dict with key/value pairs for each status defined in
+        input status_keys.
+        """
+        member_status = {}
+        pool = self.service_adapter.get_pool(service)
+        member = self.service_adapter.get_member(service)
+        part = pool["partition"]
+        try:
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
+
+            m = p.members_s.members
+            if m.exists(name=urllib.quote(member["name"]), partition=part):
+                m = m.load(name=urllib.quote(member["name"]), partition=part)
+                member_status = self.pool_helper.collect_stats(
+                    m, stat_keys=status_keys)
+            else:
+                LOG.error("Unable to get member status. "
+                          "Member %s does not exist.", member["name"])
+
+        except Exception as e:
+            # log error but continue on
+            LOG.error("Error getting member status: %s", e.message)
+
+        return member_status
