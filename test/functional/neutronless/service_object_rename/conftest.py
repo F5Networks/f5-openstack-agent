@@ -22,8 +22,8 @@ import time
 
 from f5.bigip import ManagementRoot
 from f5.utils.testutils.registrytools import register_device
-from f5_os_test.order_utils import AGENT_LB_DEL_ORDER
-from f5_os_test.order_utils import order_by_weights
+from f5.utils.testutils.registrytools import AGENT_LB_DEL_ORDER
+from f5.utils.testutils.registrytools import order_by_weights
 from icontrol.exceptions import iControlUnexpectedHTTPError
 
 class MatchFilter(logging.Filter):

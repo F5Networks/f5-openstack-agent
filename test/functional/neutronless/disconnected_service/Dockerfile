@@ -15,8 +15,6 @@
 
 From test_base:latest
 
-COPY ./f5-openstack-test/ /root/devenv/f5-openstack-test/
-RUN pip install --upgrade /root/devenv/f5-openstack-test
 COPY ./f5-openstack-agent/ /root/devenv/f5-openstack-agent/
 RUN pip install --upgrade /root/devenv/f5-openstack-agent
 WORKDIR /root/devenv/f5-openstack-agent/test/functional/neutronless/l2adjacent

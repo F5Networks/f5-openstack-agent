@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import print_function
+
 import argparse
 import re
 import subprocess
@@ -18,8 +20,8 @@ def runCommand(cmd):
                              stderr=subprocess.PIPE
                              )
         (output) = p.communicate()[0]
-    except OSError, e:
-        print >>sys.stderr, "Execution failed:", e
+    except OSError as e:
+        print("Execution failed:", e, file=sys.stderr)
 
     return (output, p.returncode)
 

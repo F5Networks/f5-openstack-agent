@@ -136,11 +136,7 @@ class PoolServiceBuilder(object):
                                       name=pool["name"],
                                       partition=part)
             m = p.members_s.members
-            member_exists = m.exists(name=urllib.quote(member["name"]),
-                                     partition=part)
-
-            if not member_exists:
-                m.create(**member)
+            m.create(**member)
 
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
@@ -175,6 +171,7 @@ class PoolServiceBuilder(object):
     def update_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
+
         part = pool["partition"]
         for bigip in bigips:
             p = self.pool_helper.load(bigip,

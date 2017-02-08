@@ -14,21 +14,36 @@
 # limitations under the License.
 #
 
+import errno
+import inspect
 import sys
 
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_service import service
+import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as exceptions
 
-from neutron.agent.common import config
-from neutron.agent.linux import interface
-from neutron.common import config as common_config
-from neutron.common import rpc as n_rpc
+try:
+    from oslo_config import cfg
+    from oslo_log import log as oslo_logging
+    from oslo_service import service
+except ImportError as CriticalError:
+    frame = inspect.getframeinfo(inspect.currentframe())
+    CriticalError = \
+        exceptions.F5MissingDependencies(message=str(CriticalError),
+                                         frame=frame)
+    sys.exit(CriticalError.errno)
+
+
+try:
+    from neutron.agent.common import config
+    from neutron.agent.linux import interface
+    from neutron.common import config as common_config
+    from neutron.common import rpc as n_rpc
+except ImportError as Error:
+    pass
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as manager
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as f5constants
 
-LOG = logging.getLogger(__name__)
+LOG = oslo_logging.getLogger(__name__)
 
 OPTS = [
     cfg.IntOpt(
@@ -77,4 +92,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # Handle any missing dependency errors via oslo:
+    try:
+        Error
+    except NameError:
+        sys.exc_clear()
+    else:
+        # We already had an exception, ABORT!
+        LOG.exception(str(Error))
+        sys.exit(errno.ENOSYS)
     main()
