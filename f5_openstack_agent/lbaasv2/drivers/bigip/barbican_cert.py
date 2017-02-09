@@ -103,7 +103,7 @@ class BarbicanCertManager(object):
 
                 # NOTE: Session is deprecated in keystoneclient 2.1.0
                 # and will be removed in a future keystoneclient release.
-                sess = Session(auth=auth)
+                sess = Session(auth=auth, verify=False)
                 self.barbican = Client(session=sess)
 
                 # test barbican service
