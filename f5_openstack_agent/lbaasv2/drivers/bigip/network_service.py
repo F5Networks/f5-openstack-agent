@@ -184,8 +184,11 @@ class NetworkServiceBuilder(object):
             for subnet_id, subnet in service['subnets'].iteritems():
 
                 if not self.network_helper.route_exists(bigip, const.DEFAULT_PARTITION,subnet_id):
-                    self.network_helper.create_route(bigip, const.DEFAULT_PARTITION,subnet_id, subnet['gateway_ip'], rd.id)
-
+                    try:
+                        self.network_helper.create_route(bigip, const.DEFAULT_PARTITION,subnet_id, subnet['gateway_ip'], rd.id)
+                    except Exception as err:
+                        LOG.error("Failed to create default gateway route for network %s subnet %s" % (network_id, subnet_id))
+                        LOG.exception(err)
 
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
