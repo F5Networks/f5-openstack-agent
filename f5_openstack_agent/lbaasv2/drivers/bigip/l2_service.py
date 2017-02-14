@@ -205,6 +205,9 @@ class L2ServiceBuilder(object):
         elif network['provider:network_type'] == 'gre':
             network_name = self._assure_device_network_gre(
                 network, bigip, network_folder)
+        elif network['provider:network_type'] == 'opflex':
+            raise f5_ex.NetworkNotReady(
+                "Opflex network segment definition required")
         else:
             error_message = 'Unsupported network type %s.' \
                             % network['provider:network_type'] + \
@@ -430,6 +433,9 @@ class L2ServiceBuilder(object):
             self._delete_device_vxlan(bigip, network, network_folder)
         elif network['provider:network_type'] == 'gre':
             self._delete_device_gre(bigip, network, network_folder)
+        elif network['provider:network_type'] == 'opflex':
+            raise f5_ex.NetworkNotReady(
+                "Opflex network segment definition required")
         else:
             LOG.error('Unsupported network type %s. Can not delete.'
                       % network['provider:network_type'])

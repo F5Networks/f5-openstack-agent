@@ -70,18 +70,6 @@ class BigipTenantManager(object):
                         "Folder creation error for tenant %s" %
                         (tenant_id))
 
-            if not self.driver.disconnected_service.network_exists(
-                    bigip, folder_name):
-                try:
-                    self.driver.disconnected_service.create_network(
-                        bigip, folder_name)
-                except Exception as err:
-                    LOG.exception("Error creating disconnected network %s." %
-                                  (folder_name))
-                    raise f5ex.SystemCreationException(
-                        "Disconnected network create error for tenant %s" %
-                        (tenant_id))
-
         # create tenant route domain
         if self.conf.use_namespaces:
             for bigip in self.driver.get_all_bigips():
@@ -128,23 +116,11 @@ class BigipTenantManager(object):
                           "%s. Manual intervention might be required."
                           % (domain_name, err.message))
 
-        if self.driver.disconnected_service.network_exists(
-                bigip, partition):
-            try:
-                self.driver.disconnected_service.delete_network(bigip,
-                                                                partition)
-            except Exception as err:
-                LOG.error("Failed to delete disconnected network %s. "
-                          "%s. Manual intervention might be required."
-                          % (partition, err.message))
-
         try:
             self.system_helper.delete_folder(bigip, partition)
         except Exception as err:
             LOG.error(
-                "Folder deletion exception for tenant partition %s occurred."
-                % tenant_id)
+                "Folder deletion exception for tenant partition %s occurred. "
+                "Manual cleanup might be required"
+                "required." % (tenant_id))
             LOG.exception("%s" % err.message)
-            raise f5ex.SystemDeleteException(
-                "Failed to destroy folder %s manual cleanup might be "
-                "required." % partition)
