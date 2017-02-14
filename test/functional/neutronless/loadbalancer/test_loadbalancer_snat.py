@@ -109,10 +109,6 @@ def test_create_delete_lb_autosnat(bigip, services, icd_config, icontrol_driver)
     assert rd.strict == "disabled"
     assert fq_tunnel_name in rd.vlans
 
-    # Assert disconnected network created.
-    assert bigip.resource_exists(ResourceType.tunnel,
-                                 "disconnected_network")
-
     # Assert that a self ip was created.
     selfip_name = "local-%s-%s" % (hostname, lb_reader.subnet_id())
     assert bigip.resource_exists(ResourceType.selfip, selfip_name)
@@ -197,10 +193,6 @@ def test_create_delete_lb_multisnat(bigip, services, icd_config, icontrol_driver
     assert rd.id == 1
     assert rd.strict == "disabled"
     assert fq_tunnel_name in rd.vlans
-
-    # Assert disconnected network created.
-    assert bigip.resource_exists(ResourceType.tunnel,
-                                 "disconnected_network")
 
     # Assert that a self ip was created.
     selfip_name = "local-%s-%s" % (hostname, lb_reader.subnet_id())
@@ -310,10 +302,6 @@ def test_create_delete_lb_snatoff(bigip, services, icd_config, icontrol_driver):
     assert rd.id == 1
     assert rd.strict == "disabled"
     assert fq_tunnel_name in rd.vlans
-
-    # Assert disconnected network created.
-    assert bigip.resource_exists(ResourceType.tunnel,
-                                 "disconnected_network")
 
     # Assert that a self ip was created.
     selfip_name = "local-%s-%s" % (hostname, lb_reader.subnet_id())
