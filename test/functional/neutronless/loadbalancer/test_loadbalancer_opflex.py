@@ -176,10 +176,10 @@ def test_featureoff_create_delete_basic_lb(bigip, services, icd_config, icontrol
 
     # Create the loadbalancer
     retval = icontrol_driver._common_service_handler(service)
-    assert retval
+    assert not retval
 
     # Assert that update loadbalancer status was not called
-    assert fake_rpc.get_call_count('update_loadbalancer_status') == 0
+    assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
 
     # Assert folder created
     assert bigip.folder_exists(folder)
