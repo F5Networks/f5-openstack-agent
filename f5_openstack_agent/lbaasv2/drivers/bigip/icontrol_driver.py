@@ -40,10 +40,6 @@ from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
-from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
-    DisconnectedService
-from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
-    DisconnectedServicePolling
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
@@ -345,8 +341,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.cert_manager = None  # overrides register_OPTS
         self.stat_helper = stat_helper.StatHelper()
         self.network_helper = network_helper.NetworkHelper()
-        self.disconnected_service = None
-        self.disconnected_service_polling = None
+
         self.vs_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
         self.pool_manager = resource_helper.BigIPResourceHelper(
@@ -396,7 +391,7 @@ class iControlDriver(LBaaSBaseDriver):
             self.network_builder.initialize_vcmp()
 
         self.agent_configurations['network_segment_physical_network'] = \
-            self.disconnected_service_polling.get_physical_network()
+            self.conf.f5_network_segment_physical_network
 
         LOG.info('iControlDriver initialized to %d bigips with username:%s'
                  % (len(self.__bigips), self.conf.icontrol_username))
@@ -472,8 +467,6 @@ class iControlDriver(LBaaSBaseDriver):
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
         self.lbaas_builder = LBaaSBuilder(self.conf, self)
-        self.disconnected_service = DisconnectedService()
-        self.disconnected_service_polling = DisconnectedServicePolling(self)
 
         if self.conf.f5_global_routed_mode:
             self.network_builder = None
@@ -761,28 +754,28 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def create_loadbalancer(self, loadbalancer, service):
         """Create virtual server"""
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('update_loadbalancer')
     @is_connected
     def update_loadbalancer(self, old_loadbalancer, loadbalancer, service):
         """Update virtual server"""
         # anti-pattern three args unused.
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('delete_loadbalancer')
     @is_connected
     def delete_loadbalancer(self, loadbalancer, service):
         """Delete loadbalancer"""
         LOG.debug("Deleting loadbalancer")
-        self._common_service_handler(service, True)
+        return self._common_service_handler(service, True)
 
     @serialized('create_listener')
     @is_connected
     def create_listener(self, listener, service):
         """Create virtual server"""
         LOG.debug("Creating listener")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('update_listener')
     @is_connected
@@ -790,63 +783,63 @@ class iControlDriver(LBaaSBaseDriver):
         """Update virtual server"""
         LOG.debug("Updating listener")
         service['old_listener'] = old_listener
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('delete_listener')
     @is_connected
     def delete_listener(self, listener, service):
         """Delete virtual server"""
         LOG.debug("Deleting listener")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('create_pool')
     @is_connected
     def create_pool(self, pool, service):
         """Create lb pool"""
         LOG.debug("Creating pool")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('update_pool')
     @is_connected
     def update_pool(self, old_pool, pool, service):
         """Update lb pool"""
         LOG.debug("Updating pool")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('delete_pool')
     @is_connected
     def delete_pool(self, pool, service):
         """Delete lb pool"""
         LOG.debug("Deleting pool")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('create_member')
     @is_connected
     def create_member(self, member, service):
         """Create pool member"""
         LOG.debug("Creating member")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('update_member')
     @is_connected
     def update_member(self, old_member, member, service):
         """Update pool member"""
         LOG.debug("Updating member")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('delete_member')
     @is_connected
     def delete_member(self, member, service):
         """Delete pool member"""
         LOG.debug("Deleting member")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('create_health_monitor')
     @is_connected
     def create_health_monitor(self, health_monitor, service):
         """Create pool health monitor"""
         LOG.debug("Creating health monitor")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('update_health_monitor')
     @is_connected
@@ -854,14 +847,14 @@ class iControlDriver(LBaaSBaseDriver):
                               health_monitor, service):
         """Update pool health monitor"""
         LOG.debug("Updating health monitor")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @serialized('delete_health_monitor')
     @is_connected
     def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor"""
         LOG.debug("Deleting health monitor")
-        self._common_service_handler(service)
+        return self._common_service_handler(service)
 
     @is_connected
     def get_stats(self, service):
@@ -973,7 +966,7 @@ class iControlDriver(LBaaSBaseDriver):
                 service['loadbalancer']['id']
             )
         if service['loadbalancer']:
-            self._common_service_handler(service)
+            return self._common_service_handler(service)
         else:
             LOG.debug("Attempted sync of deleted pool")
 
@@ -1162,61 +1155,63 @@ class iControlDriver(LBaaSBaseDriver):
                 if lb['tenant_id'] == tenant_id]
 
     def _common_service_handler(self, service, delete_partition=False):
+
         # Assure that the service is configured on bigip(s)
         start_time = time()
+
+        lb_pending = True
+        do_service_update = True
 
         if self.conf.trace_service_requests:
             self.trace_service_requests(service)
 
-        if not service['loadbalancer']:
+        loadbalancer = service.get("loadbalancer", None)
+        if not loadbalancer:
             LOG.error("_common_service_handler: Service loadbalancer is None")
-            return
+            return lb_pending
 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  plugin_const.ERROR)
         try:
-            self.tenant_manager.assure_tenant_created(service)
+            try:
+                self.tenant_manager.assure_tenant_created(service)
+            except Exception as e:
+                LOG.error("Tenant folder creation exception: %s",
+                          e.message)
+                if lb_provisioning_status != plugin_const.PENDING_DELETE:
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ERROR
+                raise e
+
             LOG.debug("    _assure_tenant_created took %.5f secs" %
                       (time() - start_time))
 
             traffic_group = self.service_to_traffic_group(service)
-            service['loadbalancer']['traffic_group'] = traffic_group
+            loadbalancer['traffic_group'] = traffic_group
 
-            # This loop will only run once.  Using while as a control-flow
-            # mechanism to flatten out the code by allowing breaks.
-            while (self.network_builder):
-
-                if not self.service_adapter.vip_on_common_network(service) \
-                    and not self.disconnected_service.\
-                        is_service_connected(service):
-                    if self.disconnected_service_polling.enabled:
-                        # Hierarchical port-binding mode:
-                        # Skip network setup if the service is not connected.
-                        break
-                    else:
-                        LOG.error("Misconfiguration: Segmentation ID is "
-                                  "missing from the service definition. "
-                                  "Please check the setting for "
-                                  "f5_network_segment_physical_network in "
-                                  "f5-openstack-agent.ini in case neutron "
-                                  "is operating in Hierarhical Port Binding "
-                                  "mode.")
-                        service['loadbalancer']['provisioning_status'] = \
-                            plugin_const.ERROR
-                        raise f5ex.MissingNetwork("Missing segmentation id")
-
+            if self.network_builder:
                 start_time = time()
                 try:
                     self.network_builder.prep_service_networking(
                         service, traffic_group)
-                except Exception as exc:
-                    LOG.error("Exception: icontrol_driver: %s", exc.message)
-                    service['loadbalancer']['provisioning_status'] = \
-                        plugin_const.ERROR
-                    raise
-
-                if time() - start_time > .001:
-                    LOG.debug("    _prep_service_networking "
-                              "took %.5f secs" % (time() - start_time))
-                break
+                except f5ex.NetworkNotReady as error:
+                    LOG.debug("Network creation deferred until network"
+                              "definition is completed: %s",
+                              error.message)
+                    if lb_provisioning_status != plugin_const.PENDING_DELETE:
+                        do_service_update = False
+                        raise error
+                except Exception as error:
+                    LOG.error("Prep-network exception: icontrol_driver: %s",
+                              error.message)
+                    if lb_provisioning_status != plugin_const.PENDING_DELETE:
+                        loadbalancer['provisioning_status'] = \
+                            plugin_const.ERROR
+                        raise error
+                finally:
+                    if time() - start_time > .001:
+                        LOG.debug("    _prep_service_networking "
+                                  "took %.5f secs" % (time() - start_time))
 
             all_subnet_hints = {}
             for bigip in self.get_config_bigips():
@@ -1230,6 +1225,7 @@ class iControlDriver(LBaaSBaseDriver):
                      'do_not_delete_subnets': []}
 
             LOG.debug("XXXXXXXXX: Pre assure service")
+            # pdb.set_trace()
             self.lbaas_builder.assure_service(service,
                                               traffic_group,
                                               all_subnet_hints)
@@ -1237,21 +1233,42 @@ class iControlDriver(LBaaSBaseDriver):
 
             if self.network_builder:
                 start_time = time()
-                self.network_builder.post_service_networking(
-                    service, all_subnet_hints)
-                LOG.debug("    _post_service_networking took %.5f secs" %
-                          (time() - start_time))
+                try:
+                    self.network_builder.post_service_networking(
+                        service, all_subnet_hints)
+                except Exception as error:
+                    LOG.error("Post-network exception: icontrol_driver: %s",
+                              error.message)
 
+                    if lb_provisioning_status != plugin_const.PENDING_DELETE:
+                        loadbalancer['provisioning_status'] = \
+                            plugin_const.ERROR
+                        raise error
+
+                if time() - start_time > .001:
+                    LOG.debug("    _post_service_networking "
+                              "took %.5f secs" % (time() - start_time))
+
+        except f5ex.NetworkNotReady as error:
+            pass
+        except Exception as err:
+            LOG.exception(err)
+        finally:
             # only delete partition if loadbalancer is being deleted
-            if delete_partition:
+            if lb_provisioning_status == plugin_const.PENDING_DELETE:
                 self.tenant_manager.assure_tenant_cleanup(service,
                                                           all_subnet_hints)
 
-        except Exception as err:
-            LOG.exception(err)
+            if do_service_update:
+                self._update_service_status(service)
 
-        finally:
-            self._update_service_status(service)
+            lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                      plugin_const.ERROR)
+            lb_pending = \
+                (lb_provisioning_status == plugin_const.PENDING_CREATE or
+                 lb_provisioning_status == plugin_const.PENDING_UPDATE)
+
+        return lb_pending
 
     def _update_service_status(self, service):
         """Update status of objects in OpenStack """
@@ -1298,6 +1315,7 @@ class iControlDriver(LBaaSBaseDriver):
                             plugin_const.ACTIVE,
                             lb_const.ONLINE
                         )
+                        member['provisioning_status'] = plugin_const.ACTIVE
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.member_destroyed(
                         member['id'])
@@ -1316,6 +1334,8 @@ class iControlDriver(LBaaSBaseDriver):
                             plugin_const.ACTIVE,
                             lb_const.ONLINE
                         )
+                        health_monitor['provisioning_status'] = \
+                            plugin_const.ACTIVE
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.health_monitor_destroyed(
                         health_monitor['id'])
@@ -1336,6 +1356,7 @@ class iControlDriver(LBaaSBaseDriver):
                             plugin_const.ACTIVE,
                             lb_const.ONLINE
                         )
+                        pool['provisioning_status'] = plugin_const.ACTIVE
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.pool_destroyed(
                         pool['id'])
@@ -1356,6 +1377,8 @@ class iControlDriver(LBaaSBaseDriver):
                             plugin_const.ACTIVE,
                             listener['operating_status']
                         )
+                        listener['provisioning_status'] = \
+                            plugin_const.ACTIVE
                 elif provisioning_status == plugin_const.PENDING_DELETE:
                     self.plugin_rpc.listener_destroyed(
                         listener['id'])
@@ -1416,16 +1439,11 @@ class iControlDriver(LBaaSBaseDriver):
         if (provisioning_status == plugin_const.PENDING_CREATE or
                 provisioning_status == plugin_const.PENDING_UPDATE):
             operating_status = (lb_const.ONLINE)
-            if (self.disconnected_service_polling.enabled and
-                    not
-                    self.disconnected_service.is_service_connected(service)):
-                # operational status will be set by the disconnected
-                # service polling thread if that mode is enabled
-                operating_status = lb_const.OFFLINE
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 plugin_const.ACTIVE,
                 operating_status)
+            loadbalancer['provisioning_status'] = plugin_const.ACTIVE
         elif provisioning_status == plugin_const.PENDING_DELETE:
             self.plugin_rpc.loadbalancer_destroyed(
                 loadbalancer['id'])

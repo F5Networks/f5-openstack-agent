@@ -71,7 +71,15 @@ class MissingNetwork(F5AgentException):
     pass
 
 
+class NetworkNotReady(F5AgentException):
+    pass
+
+
 class InvalidNetworkType(F5AgentException):
+    pass
+
+
+class InvalidNetworkDefinition(F5AgentException):
     pass
 
 
