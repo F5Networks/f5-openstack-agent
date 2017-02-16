@@ -694,11 +694,15 @@ class NetworkServiceBuilder(object):
                 net_folder = self.service_adapter.get_folder_name(
                     loadbalancer['tenant_id']
                 )
-            fdb_info = {'network': network,
-                        'ip_address': member['address'],
-                        'mac_address': member['port']['mac_address']}
-            self.l2_service.add_bigip_fdbs(
-                bigip, net_folder, fdb_info, member)
+
+            if 'port' in member:
+                fdb_info = {'network': network,
+                            'ip_address': member['address'],
+                            'mac_address': member['port']['mac_address']}
+                self.l2_service.add_bigip_fdbs(
+                    bigip, net_folder, fdb_info, member)
+            else:
+                member['provisioning_status'] = plugin_const.ERROR
 
     def delete_bigip_member_l2(self, bigip, loadbalancer, member):
         # Delete pool member l2 records
