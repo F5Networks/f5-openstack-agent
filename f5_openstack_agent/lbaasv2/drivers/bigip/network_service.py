@@ -148,8 +148,7 @@ class NetworkServiceBuilder(object):
                           "is operating in Hierarchical Port Binding "
                           "mode.")
                 raise f5_ex.InvalidNetworkDefinition(
-                    "Network segment ID %s not defined",
-                    network_id)
+                    "Network segment ID %s not defined" % network_id)
 
         return True
 
