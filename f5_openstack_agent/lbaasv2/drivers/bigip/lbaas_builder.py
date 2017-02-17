@@ -232,6 +232,12 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "member": member,
                    "pool": pool}
+
+            if 'port' not in member and \
+               member['provisioning_status'] != plugin_const.PENDING_DELETE:
+                LOG.error("Member definition does not include Neutron port")
+                continue
+
             # delete member if pool is being deleted
             if member['provisioning_status'] == plugin_const.PENDING_DELETE or\
                     pool['provisioning_status'] == plugin_const.PENDING_DELETE:
