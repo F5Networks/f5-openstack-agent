@@ -1,119 +1,184 @@
-.PHONY: all clean pre-build unit systest functest disconnected_service \
-disconnected_service-setup \
-disconnected_service-install disconnected_service-run \
-disconnected_service-teardown singlebigip \
-singlebigip-setup \
-singlebigip-install singlebigip-run \
-singlebigip-teardown
+# Copyright 2016-2017 F5 Networks Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
 
-PROJECT := f5-openstack-agent
-repo := https://github.com/F5Networks/$(PROJECT).git
-ssh_conf := testenv_symbols/testenv_ssh_config
+#
+# This file is used by the F5 OpenStack team as an interface to the automated
+# test system. It is divided into 4 sections:
+# VARIABLES
+# INITIALIZATION
+# MULTIPLEXING
+# TESTSBYINFRA
 
+#### VARIABLES SECTION:
+#    DEVICES: (See: https://support.f5.com/csp/article/K8986)
+#     A list of MAJOR_MINOR_MAINTENANCE, adding a new triple XX.Y.Z causes
+#     the system to look up the "current actual" image in the
+#     "device_version_maps.sh" file.  For a given XX.Y.Z device the system
+#     tests against a single (OpenStack Ready) image listed in that file.  The
+#     assumption is that the XX.Y.Z triple specifies a hardware platform, and
+#     futher verison info denotes software _for_ that hardware.
+#    DEPLOYS are a list of XX.Y.Z triples combined with other variables,
+#     currently the only specified variable is the (implicit) "CLOUDTYPE" with
+#     the states "overcloud" and "undercloud", therefore elements of DEPLOYS
+#     look like the following: '12_1_1_overcloud' '11_5_4_undercloud'.
+# 
+DEVICES := 11_5_4 11_6_0 11_6_1 12_1_1
+DEPLOYS := $(foreach v, $(DEVICES), $(v)-overcloud $(v)-undercloud)
+
+# Tell make that targets don't map to files
+.PHONY: functest \
+        $(DEPLOYS) \
+        run_overcloud_tests \
+        run_undercloud_tests \
+        singlebigip \
+        setup_singlebigip_tests \
+        run_singlebigip_tests \
+        cleanup_singelbigip \
+        run_disconnected_service_tests \
+        clean
+
+# Don't launch seperate shell proceses on new recipe lines.
+.ONESHELL:
+
+# BASH is required for variable indirection:  ${!FOO}
+SHELL = /bin/bash
+
+# /ABS/PATH/PROJECT/systest
 MAKEFILE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-PROJECT_DIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
+
+# /ABS/PATH/PROJECT/systest/scripts
+SCRIPT_DIR := $(MAKEFILE_DIR)/scripts
+
+# /ABS/PATH/PROJECT
+PROJDIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
+
+# PROJECT
+PROJNAME := $(shell basename $(PROJDIR))
 
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
-version := $(shell git describe --long)
-timestamp ?= $(shell date +"%Y%m%d-%H%M%S")
-export timestamp   # Only eval timestamp in the top make.
-branch := $(shell git rev-parse --abbrev-ref HEAD)
+TAGINFO := $(shell git describe --long)
 
-RESULTSDIR := $(MAKEFILE_DIR)/test_results/$(PROJECT)/$(PROJECT)_$(branch)
+# git branch
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
-unit_session := unit_$(version)_$(timestamp)
-unit_results := $(RESULTSDIR)/$(unit_session)
-disconnected_session := disconnected_$(version)_$(timestamp)
-disconnected_results := $(RESULTSDIR)/$(disconnected_session)
-singlebigip_session := singlebigip_$(version)_$(timestamp)
-singlebigip_results := $(RESULTSDIR)/$(singlebigip_session)
+# /ASB/PATH/systest/test_results: This is where the buildbot system will look
+# for test reuslts.
+RESULTS_DIR := $(MAKEFILE_DIR)/test_results
 
 
-testenv_config := bigip.testenv.yaml
-
-VENV := buildbot
-VENV_ACTIVATE := $(MAKEFILE_DIR)/$(VENV)/bin/activate
-
-# Before we run any tests we need a virtualenv and a few packages
-pre-build:
-	sudo -E apt-get update; \
-	sudo -E apt-get install -y libssl-dev; \
-	sudo -E apt-get install -y libffi-dev; \
-	sudo -E -H pip install --upgrade pip; \
-	sudo -E -H pip install tox; \
-	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/testenv.git; \
-	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/velcro/systest-common.git; \
-	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-meta.git; \
-	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-autolog.git; \
-	sudo -E -H pip install git+ssh://git@bldr-git.int.lineratesystems.com/tools/pytest-symbols.git;
-
-unit: pre-build
-	cd $(MAKEFILE_DIR)/../; \
+#### INITIALIZATION SECTION
+#    Since all tests will run on the same buildbot worker, and we do not (yet)
+#    require different packages for different suites, all packages are
+#    installed.  Each deploy maps to its own GUMBALLS project.  This section
+#    has one because unittests are run in this section.  
+#    Tests use tox for python variants.
+functest: 
+	-@echo executing $@
+	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh &&
+	export GP_SUFFIX=$(PROJNAME)_$(BRANCH)-unit &&
+	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
 		--exclude incomplete no_regression \
-		--autolog-outputdir $(RESULTSDIR) \
-		--autolog-session $(unit_session) \
+		--autolog-outputdir $${GUMBALLS_PROJECT} \
+		--autolog-session $(TAGINFO)_`date +"%Y%m%d-%H%M%S"` \
+	    $(PROJDIR)/f5_openstack_agent &&
+	$(MAKE) -C . $(DEPLOYS)
 
-functest:
-	$(MAKE) -C . unit
-	$(MAKE) -j -C . functest_all
+#### MULTIPLEXING SECTION:
+#    there are (DEVICES * CLOUDTYPES) rules in this section. They have targets
+#    like '12_1_1_overcloud' and '11_6_1_undercloud'.
 
-functest_all:
-	@echo "automated functional tests..."
-	$(MAKE) -C . disconnected_service
+#  This rule sets variables to values specific for a particular deploy. This
+#  is where interfacing software (trtl) names are set.
+#  "GUMBALLS_PROJECT" maps to a raw in gumballs (URL)
+#  "GUMBALLS_SESSION" maps to a column in gumballs" (URL)
+#  NOTE: GUMBALLS SESSIONs are complete here, e.g.:
+#  v8.0.1-435-gab9141e_20170311
+$(DEPLOYS):
+	-@echo executing $@
+	. $(MAKEFILE_DIR)/device_version_maps.sh &&
+	export DEVICEVERSION=BIGIP_`python -c 'print("$@".split("-")[0])'` &&
+	export CLOUD=`python -c 'print("$@".split("-")[1])'` &&
+	export TIMESTAMP=`date +"%Y%m%d-%H%M%S"` &&
+	export GUMBALLS_SESSION=$(TAGINFO)_$${TIMESTAMP} &&
+	export GP_SUFFIX=$(PROJNAME)_$(BRANCH)-$@ &&
+	$(MAKE) -C . run_$${CLOUD}_tests
+
+# Currently does nothing in f5-openstack-agent
+run_undercloud_tests:
+	@echo executing $@
+	echo $${CLOUD}
+
+# This rule is run once per device type XX.Y.Z
+run_overcloud_tests:
+	@echo executing $@
 	$(MAKE) -C . singlebigip
 
-disconnected_service:
-	$(MAKE) -C . disconnected_service-setup
-	$(MAKE) -C . disconnected_service-run
-	$(MAKE) -C . disconnected_service-teardown
-
-disconnected_service-setup: pre-build
-	@echo "setting up functional test environment ..."
-	testenv create base; \
-	testenv create --name $(disconnected_session) --config $(testenv_config); \
-
-disconnected_service-run: pre-build
-	@echo "running disconnected tests ..."
-	tox -e disconnected_service --sitepackage -- \
-		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
-		--exclude incomplete no_regression \
-		--autolog-outputdir $(RESULTSDIR) \
-		--autolog-session $(disconnected_session) \
-		$(PROJECT_DIR)/test/functional/neutronless/disconnected_service || $(MAKE) -C . disconnected_service-teardown
-
-disconnected_service-teardown:
-	@echo "tearing down functional test environment..."
-	if [ ! -e $(disconnected_results) ]; then mkdir -p $(disconnected_results); fi
-	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
-	testenv delete --name $(disconnected_session) --config $(testenv_config)
-
+#### TESTSBYINFRA SECTION
+#    Different test scenarios require different infrastructure.  Currently the
+#    only infrastructure required by any test is a singlebigip.
+#    If a new type of scenario is added that requires a different setup..
+#    e.g. a different number of bigips, or realservers, a new RULE will be
+#    added to this section.   That scenario will then be appropriately run
+#    against all tested DEPLOYS.
+#    NOTE: GUMBALLS PROJECTS are complete here, e.g.:
+#    singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
 singlebigip:
-	$(MAKE) -C . singlebigip-setup
-	$(MAKE) -C . singlebigip-run
-	$(MAKE) -C . singlebigip-teardown
+	@echo executing $@
+	export TESTENV_CONF=bigip.testenv.yaml
+	export GP_SUFFIX=$@_$${GP_SUFFIX} &&
+	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
+	$(MAKE) -C . setup_singlebigip_tests &&
+	$(MAKE) -C . run_singlebigip_tests || \
+	$(MAKE) -C . run_disconnected_service_tests || \
+	$(MAKE) -C . cleanup_singlebigip
 
-singlebigip-setup: pre-build
-	@echo "setting up singlebigip test environment ..."
-	testenv create base; \
-	testenv create --name singlebigip --config $(testenv_config); \
+setup_singlebigip_tests: 
+	@echo executing $@
+	testenv create --name $${!DEVICEVERSION} \
+	               --config $${TESTENV_CONF} \
+	               --params bigip_img:$${!DEVICEVERSION}
 
-singlebigip-run: pre-build
-	@echo "running singlebigip tests ..."
+run_singlebigip_tests: 
+	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--exclude incomplete no_regression \
-		--autolog-outputdir $(RESULTSDIR) \
-		--autolog-session $(singlebigip_session) \
-		$(PROJECT_DIR)/test/functional/singlebigip || $(MAKE) -C . singlebigip-teardown
+		--autolog-outputdir $${GUMBALLS_PROJECT} \
+		--autolog-session $${GUMBALLS_SESSION} \
+		$(PROJDIR)/test/functional/singlebigip
 
-singlebigip-teardown:
-	@echo "tearing down singlebigip test environment..."
-	if [ ! -e $(singlebigip_results) ]; then mkdir -p $(singlebigip_results); fi
-	if [ ! -e $(unit_results) ]; then mkdir -p $(unit_results); fi
-	testenv delete --name $(singlebigip_session) --config $(testenv_config)
+# disconnected_singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
+run_disconnected_service_tests:
+	@echo executing $@
+	export GP_SUFFIX=disconnected_$${GP_SUFFIX} &&
+	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
+	tox -e disconnected_service --sitepackage -- \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--exclude incomplete no_regression \
+		--autolog-outputdir $${GUMBALLS_PROJECT} \
+		--autolog-session $${GUMBALLS_SESSION} \
+		$(PROJDIR)/test/functional/neutronless/disconnected_service
 
+cleanup_singlebigip:
+	@echo executing $@
+	testenv delete --name $${!DEVICEVERSION} --config $${TESTENV_CONF} || \
+	$(MAKE) -C . clean
+
+#### 
 # Remove the buildbot venv directory and any tox venvs we made
 clean:
-	-rm -rf $(MAKEFILE_DIR)/../.tox/functest-buildbot
-	-rm -rf $(MAKEFILE_DIR)/../.tox/unit-buildbot
+	@echo executing $@
+	rm -rf $(PROJDIR)/.tox/functest-buildbot
+	rm -rf $(PROJDIR)/.tox/unit-buildbot
