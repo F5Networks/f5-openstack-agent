@@ -417,6 +417,7 @@ class LBaaSBuilder(object):
                     if name and self.driver.is_esd(name):
                         listener = self.get_listener_by_id(
                             service, l7policy.get('listener_id', ''))
+
                         svc = {"loadbalancer": service["loadbalancer"],
                                "listener": listener}
                         esd = self.driver.get_esd(name)
@@ -443,6 +444,13 @@ class LBaaSBuilder(object):
                             service, l7policy.get('listener_id', ''))
                         svc = {"loadbalancer": service["loadbalancer"],
                                "listener": listener}
+
+                        # pool is needed to reset session persistence
+                        if listener['default_pool_id']:
+                            pool = self.get_pool_by_id(
+                                service, listener.get('default_pool_id', ''))
+                            if pool:
+                                svc['pool'] = pool
                         esd = self.driver.get_esd(name)
                         self.listener_builder.remove_esd(svc, esd, bigips)
                     else:

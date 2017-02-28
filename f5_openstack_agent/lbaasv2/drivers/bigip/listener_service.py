@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -623,19 +623,35 @@ class ListenerServiceBuilder(object):
             self.vs_helper.update(bigip, update_attrs)
 
     def remove_esd(self, svc, esd, bigips):
-        tls = None
+        # original service object definition of listener
         vip = self.service_adapter.get_virtual(svc)
 
-        # if ESD replaced client SSL profile, set back to TLS if defined
-        if 'lbaas_cssl_profile' in esd:
-            tls = self.service_adapter.get_tls(svc)
+        # add back SSL profile for TLS?
+        tls = self.service_adapter.get_tls(svc)
+        if tls:
+            tls['name'] = vip['name']
+            tls['partition'] = vip['partition']
+
+        # remove iRules
+        if 'lbaas_irule' in esd:
+            vip['rules'] = []
+
+        # remove policies
+        if 'lbaas_policy' in esd:
+            vip['policies'] = []
+
+        # reset persistence to original definition
+        if 'pool' in svc:
+            vip_persist = self.service_adapter.get_session_persistence(svc)
+            vip.update(vip_persist)
 
         for bigip in bigips:
             try:
+                # update VS back to original listener definition
                 self.vs_helper.update(bigip, vip)
+
+                # add back SSL profile for TLS
                 if tls:
-                    tls['name'] = vip['name']
-                    tls['partition'] = vip['partition']
                     self.add_ssl_profile(tls, bigip)
             except Exception as err:
                 LOG.exception("Virtual server update error: %s" % err.message)
