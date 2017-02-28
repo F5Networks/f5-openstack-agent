@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ def icd_config():
     return config
 
 
-def test_featureoff_nosegig_lb(bigip, disconnected_service_no_seg,
+def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
                                icd_config, icontrol_driver):
 
     service_iter = iter(disconnected_service_no_seg)
@@ -129,7 +129,7 @@ def test_featureoff_nosegig_lb(bigip, disconnected_service_no_seg,
 
     assert not bigip.folder_exists(folder)
 
-def test_featureon_nosegig_to_segid_lb(bigip, services, icd_config, icontrol_driver):
+def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_driver):
 
     service_iter = iter(services)
     service = service_iter.next()

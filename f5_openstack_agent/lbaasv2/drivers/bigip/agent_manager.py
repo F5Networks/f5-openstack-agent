@@ -110,7 +110,7 @@ OPTS = [
     ),
     cfg.IntOpt(
         'f5_pending_services_timeout',
-        default=300,
+        default=60,
         help=(
             'Amount of time to wait for a pending service to become active')
     ),
@@ -688,10 +688,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def update_loadbalancer_stats(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to get stats."""
         try:
-            service_pending = self.lbdriver.get_stats(service)
+            self.lbdriver.get_stats(service)
             self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
         except q_exception.NeutronException as exc:
             LOG.error("q_exception.NeutronException: %s" % exc.msg)
         except Exception as exc:

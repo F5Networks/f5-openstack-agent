@@ -121,6 +121,5 @@ class BigipTenantManager(object):
         except Exception as err:
             LOG.error(
                 "Folder deletion exception for tenant partition %s occurred. "
-                "Manual cleanup might be required"
-                "required." % (tenant_id))
+                "Manual cleanup might be required." % (tenant_id))
             LOG.exception("%s" % err.message)
