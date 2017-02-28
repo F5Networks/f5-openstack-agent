@@ -504,3 +504,28 @@ class LBaaSv2PluginRPC(object):
                       "get_all_loadbalancers")
 
         return loadbalancers
+
+    @log_helpers.log_method_call
+    def get_loadbalancers_by_network(self, network_id, env=None,group=None,host=None):
+        """Retrieve a list of loadbalancers for a network."""
+        loadbalancers = []
+
+        if not env:
+            env = self.env
+
+        try:
+            loadbalancers = self._call(
+                self.context,
+                self._make_msg('get_loadbalancers_by_network',
+                               env=env,
+                               network_id=network_id,
+                               group=group,
+                               host=host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_loadbalancers_by_network")
+
+        return loadbalancers
+

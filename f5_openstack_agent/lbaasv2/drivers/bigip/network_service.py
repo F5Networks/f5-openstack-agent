@@ -866,18 +866,14 @@ class NetworkServiceBuilder(object):
         return deleted_names
 
     def _is_last_on_network(self, service):
-        # REALLY not effecient - need to add get lb by network method to RPC interface
-
         network_id= service['loadbalancer']['network_id']
 
         lb_id = service['loadbalancer']['id']
 
-        loadbalancers = self.driver.plugin_rpc.get_all_loadbalancers()
+        loadbalancers = self.driver.plugin_rpc.get_loadbalancers_by_network(network_id)
 
         for lb in loadbalancers:
-            lb_service = self.driver.plugin_rpc.get_service_by_loadbalancer_id(lb['lb_id'])
-
-            if lb_service['loadbalancer']['id'] != lb_id and lb_service['loadbalancer']['network_id']==network_id :
+            if lb['lb_id'] != lb_id:
                 return False
 
         return True
