@@ -122,6 +122,7 @@ class NetworkServiceBuilder(object):
 
     def is_service_connected(self, service):
         networks = service.get('networks', {})
+        supported_net_types = ['vlan', 'vxlan', 'gre', 'opflex']
 
         for (network_id, network) in networks.iteritems():
             if network_id in self.conf.common_network_ids:
@@ -133,9 +134,9 @@ class NetworkServiceBuilder(object):
                 continue
 
             segmentation_id = \
-                network.get('provider:segmentation_id', 0)
+                network.get('provider:segmentation_id', None)
             if not segmentation_id:
-                if network_type == 'opflex' or \
+                if network_type in supported_net_types and \
                    self.conf.f5_network_segment_physical_network:
                     return False
 
@@ -144,7 +145,7 @@ class NetworkServiceBuilder(object):
                           "Please check the setting for "
                           "f5_network_segment_physical_network in "
                           "f5-openstack-agent.ini in case neutron "
-                          "is operating in Hierarhical Port Binding "
+                          "is operating in Hierarchical Port Binding "
                           "mode.")
                 raise f5_ex.InvalidNetworkDefinition(
                     "Network segment ID %s not defined" % network_id)
@@ -534,10 +535,10 @@ class NetworkServiceBuilder(object):
     @staticmethod
     def get_neutron_net_short_name(network):
         # Return <network_type>-<seg_id> for neutron network
-        net_type = network.get('provider:network_type', "")
-        if not net_type:
+        net_type = network.get('provider:network_type', None)
+        net_seg_key = network.get('provider:segmentation_id', None)
+        if not net_type or not net_seg_key:
             raise f5_ex.InvalidNetworkType
-        net_seg_key = network.get('provider:segmentation_id', 0)
 
         return net_type + '-' + str(net_seg_key)
 
