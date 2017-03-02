@@ -67,7 +67,7 @@ PROJDIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
 PROJNAME := $(shell basename $(PROJDIR))
 
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
-TAGINFO := $(shell git describe --long)
+TAGINFO := $(shell git describe --long --tags --first-parent)
 
 # git branch
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
