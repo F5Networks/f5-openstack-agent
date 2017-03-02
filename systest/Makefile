@@ -63,11 +63,8 @@ SCRIPT_DIR := $(MAKEFILE_DIR)/scripts
 # /ABS/PATH/PROJECT
 PROJDIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
 
-# PROJECT
-PROJNAME := $(shell basename $(PROJDIR))
-
 # - <nearest reachable tag>-<num commits since>-g<abbreviated commit id>
-TAGINFO := $(shell git describe --long)
+TAGINFO := $(shell git describe --long --tags --first-parent)
 
 # git branch
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
@@ -75,7 +72,6 @@ BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 # /ASB/PATH/systest/test_results: This is where the buildbot system will look
 # for test reuslts.
 RESULTS_DIR := $(MAKEFILE_DIR)/test_results
-
 
 #### INITIALIZATION SECTION
 #    Since all tests will run on the same buildbot worker, and we do not (yet)
@@ -86,7 +82,7 @@ RESULTS_DIR := $(MAKEFILE_DIR)/test_results
 functest: 
 	-@echo executing $@
 	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh &&
-	export GP_SUFFIX=$(PROJNAME)_$(BRANCH)-unit &&
+	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-unit &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
 		--exclude incomplete no_regression \
@@ -112,7 +108,7 @@ $(DEPLOYS):
 	export CLOUD=`python -c 'print("$@".split("-")[1])'` &&
 	export TIMESTAMP=`date +"%Y%m%d-%H%M%S"` &&
 	export GUMBALLS_SESSION=$(TAGINFO)_$${TIMESTAMP} &&
-	export GP_SUFFIX=$(PROJNAME)_$(BRANCH)-$@ &&
+	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-$@ &&
 	$(MAKE) -C . run_$${CLOUD}_tests
 
 # Currently does nothing in f5-openstack-agent
