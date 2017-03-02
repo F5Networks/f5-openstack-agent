@@ -120,7 +120,9 @@ def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
 
     # Delete the loadbalancer
     service = service_iter.next()
-    lb_pending = icontrol_driver._common_service_handler(service)
+    lb_pending = icontrol_driver._common_service_handler(
+        service, delete_partition=True, delete_event=True)
+
     assert not lb_pending
 
     # Assert that update loadbalancer status was called once

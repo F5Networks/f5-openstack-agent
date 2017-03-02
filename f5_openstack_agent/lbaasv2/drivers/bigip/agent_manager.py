@@ -533,10 +533,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
                     if time_expired:
                         lb_pending = False
-                        self.plugin_rpc.update_loadbalancer_status(
-                            lb_id,
-                            provisioning_status=plugin_const.ERROR,
-                            operating_status=lb_const.OFFLINE)
+                        self.service_timeout(lb_id)
 
                 if not lb_pending:
                     del self.pending_services[lb_id]
@@ -607,6 +604,19 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.needs_resync = True
 
         return self.needs_resync
+
+    @log_helpers.log_method_call
+    def service_timeout(self, lb_id):
+        try:
+            service = self.plugin_rpc.get_service_by_loadbalancer_id(
+                lb_id
+            )
+            self.cache.put(service, self.agent_host)
+            self.lbdriver.update_service_status(service, timed_out=True)
+        except q_exception.NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception as e:
+            LOG.error("Exception: %s" % e.message)
 
     @log_helpers.log_method_call
     def destroy_service(self, lb_id):

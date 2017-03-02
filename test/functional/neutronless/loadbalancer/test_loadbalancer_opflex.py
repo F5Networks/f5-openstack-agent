@@ -107,9 +107,9 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
     assert not bigip.resource_exists(ResourceType.virtual_address,
                                      virtual_addr_name)
 
-    # Create the VLAN
     service = service_iter.next()
-    icontrol_driver._common_service_handler(service, delete_partition=True)
+    icontrol_driver._common_service_handler(service)
+
     lb_reader = LoadbalancerReader(service)
 
     # Assert tunnel created.
@@ -156,7 +156,7 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
 
     # Delete the loadbalancer
     service = service_iter.next()
-    icontrol_driver._common_service_handler(service, delete_partition=True)
+    icontrol_driver._common_service_handler(service, delete_partition=True, delete_event=True)
     assert not bigip.folder_exists(folder)
 
 def test_featureoff_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
@@ -259,6 +259,7 @@ def test_featureoff_create_delete_basic_lb(bigip, services, icd_config, icontrol
 
     # Delete the loadbalancer
     service = service_iter.next()
-    icontrol_driver._common_service_handler(service, delete_partition=True)
+    icontrol_driver._common_service_handler(service, delete_partition=True,
+                                            delete_event=True)
     assert not bigip.folder_exists(folder)
     

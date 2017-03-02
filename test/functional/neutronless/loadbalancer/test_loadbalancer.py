@@ -157,7 +157,8 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
 
     # Delete the loadbalancer
     service = service_iter.next()
-    lb_pending = icontrol_driver._common_service_handler(service, delete_partition=True)
+    lb_pending = icontrol_driver._common_service_handler(service, delete_partition=True,
+                                                         delete_event=True)
     assert not lb_pending
     assert not bigip.folder_exists(folder)
 
@@ -262,6 +263,7 @@ def test_create_delete_basic_lb_nodisconnected(bigip, services, icd_config, icon
 
     # Delete the loadbalancer
     service = service_iter.next()
-    lb_pending = icontrol_driver._common_service_handler(service, delete_partition=True)
+    lb_pending = icontrol_driver._common_service_handler(service, delete_partition=True,
+                                                             delete_event=True)
     assert not lb_pending
     assert not bigip.folder_exists(folder)
