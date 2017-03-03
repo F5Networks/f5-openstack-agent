@@ -35,7 +35,7 @@ LOG = logging.getLogger(__name__)
 def services():
     neutron_services_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/create_delete_lb.json')
+                     '../../testdata/service_requests/create_delete_opflex_lb.json')
     )
     return (json.load(open(neutron_services_filename)))
 
@@ -72,27 +72,14 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
     assert not bigip.folder_exists(folder)
 
     # Create the loadbalancer
-    lb_pending = icontrol_driver._common_service_handler(service)
-    assert not lb_pending
+    retval = icontrol_driver._common_service_handler(service)
+    assert retval
 
-    # Assert that update loadbalancer status was called once
-    assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
-    call_record = fake_rpc.get_calls('update_loadbalancer_status')[0]
-    assert call_record.get("operating_status", None) == 'ONLINE'
-    assert call_record.get("provisioning_status", None) == 'ACTIVE'
+    # Assert that update loadbalancer status was not called
+    assert fake_rpc.get_call_count('update_loadbalancer_status') == 0
 
     # Assert folder created
     assert bigip.folder_exists(folder)
-
-    # Assert tunnel created.
-    tunnel_name = 'tunnel-%s-%d' % (lb_reader.network_type(),
-                                    lb_reader.network_seg_id())
-    fq_tunnel_name = '/%s/%s' % (folder, tunnel_name)
-    assert bigip.resource_exists(ResourceType.tunnel, tunnel_name)
-    tunnel = bigip.get_resource(ResourceType.tunnel,
-                                tunnel_name,
-                                partition=folder)
-    assert tunnel
 
     # Assert route domain created
     rd_name = folder
@@ -105,7 +92,48 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
     assert rd
     assert rd.id == 1
     assert rd.strict == "disabled"
-    assert fq_tunnel_name in rd.vlans
+    # assert len(rd.vlans) == 0
+
+    # Assert that a self ip was created.
+    selfip_name = "local-%s-%s" % (hostname, lb_reader.subnet_id())
+    assert not bigip.resource_exists(ResourceType.selfip, selfip_name)
+
+    # Assert that a snat pool was created.
+    snatpool_name = folder
+    assert not bigip.resource_exists(ResourceType.snatpool, snatpool_name)
+
+    # Assert virtual address
+    virtual_addr_name = "%s_%s" % (env_prefix, lb_reader.id())
+    assert not bigip.resource_exists(ResourceType.virtual_address,
+                                     virtual_addr_name)
+
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service)
+
+    lb_reader = LoadbalancerReader(service)
+
+    # Assert tunnel created.
+    vlan_name = 'vlan-%d' % (lb_reader.network_seg_id())
+    fq_vlan_name = '/%s/%s' % (folder, vlan_name)
+    assert bigip.resource_exists(ResourceType.vlan, vlan_name)
+    vlan = bigip.get_resource(ResourceType.vlan,
+                              vlan_name,
+                              partition=folder)
+    assert vlan
+
+
+    # Assert route domain created
+    rd_name = folder
+    assert bigip.resource_exists(ResourceType.route_domain, rd_name)
+    rd = bigip.get_resource(ResourceType.route_domain,
+                            rd_name,
+                            partition=folder)
+
+    # Assert route domain properties
+    assert rd
+    assert rd.id == 1
+    assert rd.strict == "disabled"
+    assert fq_vlan_name in rd.vlans
 
     # Assert that a self ip was created.
     selfip_name = "local-%s-%s" % (hostname, lb_reader.subnet_id())
@@ -114,8 +142,8 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
                                 selfip_name,
                                 partition=folder)
     assert selfip
-    assert selfip.vlan == fq_tunnel_name
-    assert selfip.address == "10.2.2.100%1/24"
+    assert selfip.vlan == fq_vlan_name
+    assert selfip.address == "192.168.101.2%1/24"
 
     # Assert that a snat pool was created.
     snatpool_name = folder
@@ -126,43 +154,12 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
     assert snatpool
     snat_members = snatpool.members
 
-    # Assert snat transtion pool members
-    for i in range(icd_config['f5_snat_addresses_per_subnet']):
-        snat_xlation = "snat-traffic-group-local-only-%s_%s" % (
-            lb_reader.subnet_id(), i)
-        snat_xlation_fq = "/%s/%s" % (folder, snat_xlation)
-        assert bigip.resource_exists(ResourceType.snat_translation,
-                                     snat_xlation)
-        assert snat_xlation_fq in snat_members
-        snat_member = bigip.get_resource(ResourceType.snat_translation,
-                                         snat_xlation,
-                                         partition=folder)
-
-        assert snat_member
-        assert snat_member.trafficGroup == "/Common/traffic-group-local-only"
-        # Another test for mult snats should be more configurable
-        assert snat_member.address == "10.2.2.101%1"
-
-    # Assert virtual address
-    virtual_addr_name = "%s_%s" % (env_prefix, lb_reader.id())
-    assert bigip.resource_exists(ResourceType.virtual_address,
-                                 virtual_addr_name)
-    virtual_addr = bigip.get_resource(ResourceType.virtual_address,
-                                      virtual_addr_name,
-                                      partition=folder)
-    assert virtual_addr
-    assert virtual_addr.address == "10.2.2.112%1"
-    assert virtual_addr.trafficGroup == "/Common/traffic-group-1"
-    assert virtual_addr.autoDelete == "false"
-
     # Delete the loadbalancer
     service = service_iter.next()
-    lb_pending = icontrol_driver._common_service_handler(service, delete_partition=True,
-                                                         delete_event=True)
-    assert not lb_pending
+    icontrol_driver._common_service_handler(service, delete_partition=True, delete_event=True)
     assert not bigip.folder_exists(folder)
 
-def test_create_delete_basic_lb_nodisconnected(bigip, services, icd_config, icontrol_driver):
+def test_featureoff_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
 
     service_iter = iter(services)
     service = service_iter.next()
@@ -178,27 +175,14 @@ def test_create_delete_basic_lb_nodisconnected(bigip, services, icd_config, icon
     assert not bigip.folder_exists(folder)
 
     # Create the loadbalancer
-    lb_pending = icontrol_driver._common_service_handler(service)
-    assert not lb_pending
+    retval = icontrol_driver._common_service_handler(service)
+    assert not retval
 
-    # Assert that update loadbalancer status was called once
+    # Assert that update loadbalancer status was not called
     assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
-    call_record = fake_rpc.get_calls('update_loadbalancer_status')[0]
-    assert call_record.get("operating_status", None) == 'ONLINE'
-    assert call_record.get("provisioning_status", None) == 'ACTIVE'
 
     # Assert folder created
     assert bigip.folder_exists(folder)
-
-    # Assert tunnel created.
-    tunnel_name = 'tunnel-%s-%d' % (lb_reader.network_type(),
-                                    lb_reader.network_seg_id())
-    fq_tunnel_name = '/%s/%s' % (folder, tunnel_name)
-    assert bigip.resource_exists(ResourceType.tunnel, tunnel_name)
-    tunnel = bigip.get_resource(ResourceType.tunnel,
-                                tunnel_name,
-                                partition=folder)
-    assert tunnel
 
     # Assert route domain created
     rd_name = folder
@@ -211,7 +195,48 @@ def test_create_delete_basic_lb_nodisconnected(bigip, services, icd_config, icon
     assert rd
     assert rd.id == 1
     assert rd.strict == "disabled"
-    assert fq_tunnel_name in rd.vlans
+    # assert len(rd.vlans) == 0
+
+    # Assert that a self ip was created.
+    selfip_name = "local-%s-%s" % (hostname, lb_reader.subnet_id())
+    assert not bigip.resource_exists(ResourceType.selfip, selfip_name)
+
+    # Assert that a snat pool was created.
+    snatpool_name = folder
+    assert not bigip.resource_exists(ResourceType.snatpool, snatpool_name)
+
+    # Assert virtual address
+    virtual_addr_name = "%s_%s" % (env_prefix, lb_reader.id())
+    assert not bigip.resource_exists(ResourceType.virtual_address,
+                                     virtual_addr_name)
+
+    # Create the VLAN
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service, delete_partition=True)
+    lb_reader = LoadbalancerReader(service)
+
+    # Assert tunnel created.
+    vlan_name = 'vlan-%d' % (lb_reader.network_seg_id())
+    fq_vlan_name = '/%s/%s' % (folder, vlan_name)
+    assert bigip.resource_exists(ResourceType.vlan, vlan_name)
+    vlan = bigip.get_resource(ResourceType.vlan,
+                              vlan_name,
+                              partition=folder)
+    assert vlan
+
+
+    # Assert route domain created
+    rd_name = folder
+    assert bigip.resource_exists(ResourceType.route_domain, rd_name)
+    rd = bigip.get_resource(ResourceType.route_domain,
+                            rd_name,
+                            partition=folder)
+
+    # Assert route domain properties
+    assert rd
+    assert rd.id == 1
+    assert rd.strict == "disabled"
+    assert fq_vlan_name in rd.vlans
 
     # Assert that a self ip was created.
     selfip_name = "local-%s-%s" % (hostname, lb_reader.subnet_id())
@@ -220,8 +245,8 @@ def test_create_delete_basic_lb_nodisconnected(bigip, services, icd_config, icon
                                 selfip_name,
                                 partition=folder)
     assert selfip
-    assert selfip.vlan == fq_tunnel_name
-    assert selfip.address == "10.2.2.100%1/24"
+    assert selfip.vlan == fq_vlan_name
+    assert selfip.address == "192.168.101.2%1/24"
 
     # Assert that a snat pool was created.
     snatpool_name = folder
@@ -232,38 +257,9 @@ def test_create_delete_basic_lb_nodisconnected(bigip, services, icd_config, icon
     assert snatpool
     snat_members = snatpool.members
 
-    # Assert snat transtion pool members
-    for i in range(icd_config['f5_snat_addresses_per_subnet']):
-        snat_xlation = "snat-traffic-group-local-only-%s_%s" % (
-            lb_reader.subnet_id(), i)
-        snat_xlation_fq = "/%s/%s" % (folder, snat_xlation)
-        assert bigip.resource_exists(ResourceType.snat_translation,
-                                     snat_xlation)
-        assert snat_xlation_fq in snat_members
-        snat_member = bigip.get_resource(ResourceType.snat_translation,
-                                         snat_xlation,
-                                         partition=folder)
-
-        assert snat_member
-        assert snat_member.trafficGroup == "/Common/traffic-group-local-only"
-        # Another test for mult snats should be more configurable
-        assert snat_member.address == "10.2.2.101%1"
-
-    # Assert virtual address
-    virtual_addr_name = "%s_%s" % (env_prefix, lb_reader.id())
-    assert bigip.resource_exists(ResourceType.virtual_address,
-                                 virtual_addr_name)
-    virtual_addr = bigip.get_resource(ResourceType.virtual_address,
-                                      virtual_addr_name,
-                                      partition=folder)
-    assert virtual_addr
-    assert virtual_addr.address == "10.2.2.112%1"
-    assert virtual_addr.trafficGroup == "/Common/traffic-group-1"
-    assert virtual_addr.autoDelete == "false"
-
     # Delete the loadbalancer
     service = service_iter.next()
-    lb_pending = icontrol_driver._common_service_handler(service, delete_partition=True,
-                                                             delete_event=True)
-    assert not lb_pending
+    icontrol_driver._common_service_handler(service, delete_partition=True,
+                                            delete_event=True)
     assert not bigip.folder_exists(folder)
+    
