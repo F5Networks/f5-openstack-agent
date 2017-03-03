@@ -120,10 +120,46 @@ class NetworkServiceBuilder(object):
                            vtep_selfip_name))
         return local_ips
 
+    def is_service_connected(self, service):
+        networks = service.get('networks', {})
+        supported_net_types = ['vlan', 'vxlan', 'gre', 'opflex']
+
+        for (network_id, network) in networks.iteritems():
+            if network_id in self.conf.common_network_ids:
+                continue
+
+            network_type = \
+                network.get('provider:network_type', "")
+            if network_type == "flat":
+                continue
+
+            segmentation_id = \
+                network.get('provider:segmentation_id', None)
+            if not segmentation_id:
+                if network_type in supported_net_types and \
+                   self.conf.f5_network_segment_physical_network:
+                    return False
+
+                LOG.error("Misconfiguration: Segmentation ID is "
+                          "missing from the service definition. "
+                          "Please check the setting for "
+                          "f5_network_segment_physical_network in "
+                          "f5-openstack-agent.ini in case neutron "
+                          "is operating in Hierarchical Port Binding "
+                          "mode.")
+                raise f5_ex.InvalidNetworkDefinition(
+                    "Network segment ID %s not defined" % network_id)
+
+        return True
+
     def prep_service_networking(self, service, traffic_group):
-        # Assure network connectivity is established on all bigips
-        if self.conf.f5_global_routed_mode or not service['loadbalancer']:
+        """Assure network connectivity is established on all bigips."""
+        if self.conf.f5_global_routed_mode:
             return
+
+        if not self.is_service_connected(service):
+            raise f5_ex.NetworkNotReady(
+                "Network segment(s) definition incomplete")
 
         if self.conf.use_namespaces:
             try:
@@ -174,7 +210,6 @@ class NetworkServiceBuilder(object):
 
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
-        LOG.debug("Service before route domains: %s" % service)
         tenant_id = service['loadbalancer']['tenant_id']
         self.update_rds_cache(tenant_id)
 
@@ -216,11 +251,9 @@ class NetworkServiceBuilder(object):
                 service['loadbalancer']['vip_address'] += rd_id
             else:
                 service['loadbalancer']['vip_address'] += '%0'
-        LOG.debug("Service after route domains: %s" % service)
 
     def is_common_network(self, network):
-        if self.l2_service.is_common_network(network):
-            return True
+        return self.l2_service.is_common_network(network)
 
     def assign_route_domain(self, tenant_id, network, subnet):
         # Assign route domain for a network
@@ -228,7 +261,7 @@ class NetworkServiceBuilder(object):
             network['route_domain_id'] = 0
             return
 
-        LOG.debug("assign route domain get from cache %s" % network)
+        LOG.debug("Assign route domain get from cache %s" % network)
         route_domain_id = self.get_route_domain_from_cache(network)
         if route_domain_id is not None:
             network['route_domain_id'] = route_domain_id
@@ -249,7 +282,7 @@ class NetworkServiceBuilder(object):
             return
 
         LOG.debug("assign route domain checking for available route domain")
-        # need new route domain ?
+
         check_cidr = netaddr.IPNetwork(subnet['cidr'])
         placed_route_domain_id = None
         for route_domain_id in self.rds_cache[tenant_id]:
@@ -437,12 +470,14 @@ class NetworkServiceBuilder(object):
 
     def get_route_domain_from_cache(self, network):
         # Get route domain from cache by network
+        route_domain_id = None
         net_short_name = self.get_neutron_net_short_name(network)
         for tenant_id in self.rds_cache:
             tenant_cache = self.rds_cache[tenant_id]
             for route_domain_id in tenant_cache:
                 if net_short_name in tenant_cache[route_domain_id]:
                     return route_domain_id
+        return route_domain_id
 
     def remove_from_rds_cache(self, network, subnet):
         # Get route domain from cache by network
@@ -500,8 +535,11 @@ class NetworkServiceBuilder(object):
     @staticmethod
     def get_neutron_net_short_name(network):
         # Return <network_type>-<seg_id> for neutron network
-        net_type = network['provider:network_type']
-        net_seg_key = network['provider:segmentation_id']
+        net_type = network.get('provider:network_type', None)
+        net_seg_key = network.get('provider:segmentation_id', None)
+        if not net_type or not net_seg_key:
+            raise f5_ex.InvalidNetworkType
+
         return net_type + '-' + str(net_seg_key)
 
     def _assure_subnet_snats(self, assure_bigips, service, subnetinfo):
@@ -657,11 +695,15 @@ class NetworkServiceBuilder(object):
                 net_folder = self.service_adapter.get_folder_name(
                     loadbalancer['tenant_id']
                 )
-            fdb_info = {'network': network,
-                        'ip_address': member['address'],
-                        'mac_address': member['port']['mac_address']}
-            self.l2_service.add_bigip_fdbs(
-                bigip, net_folder, fdb_info, member)
+
+            if 'port' in member:
+                fdb_info = {'network': network,
+                            'ip_address': member['address'],
+                            'mac_address': member['port']['mac_address']}
+                self.l2_service.add_bigip_fdbs(
+                    bigip, net_folder, fdb_info, member)
+            else:
+                member['provisioning_status'] = plugin_const.ERROR
 
     def delete_bigip_member_l2(self, bigip, loadbalancer, member):
         # Delete pool member l2 records
@@ -827,8 +869,8 @@ class NetworkServiceBuilder(object):
             network = self.service_adapter.get_network_from_service(
                 service, subnetinfo['network_id'])
             subnetinfo['network'] = network
-            route_domain = network['route_domain_id']
-            if not subnet:
+            route_domain = network.get('route_domain_id', None)
+            if not subnet or not route_domain:
                 continue
             if not self._ips_exist_on_subnet(
                     bigip,

@@ -91,8 +91,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_loadbalancer_status(self,
                                    lb_id,
-                                   provisioning_status=plugin_const.ERROR,
-                                   operating_status=lb_const.OFFLINE):
+                                   provisioning_status=None,
+                                   operating_status=None):
         """Update the database with loadbalancer status."""
         return self._cast(
             self.context,
@@ -179,8 +179,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_member_status(self,
                              member_id,
-                             provisioning_status=plugin_const.ERROR,
-                             operating_status=lb_const.OFFLINE):
+                             provisioning_status=None,
+                             operating_status=None):
         """Update the database with member status."""
         return self._cast(
             self.context,
