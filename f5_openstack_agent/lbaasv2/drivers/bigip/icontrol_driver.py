@@ -1409,9 +1409,16 @@ class iControlDriver(LBaaSBaseDriver):
                 provisioning_status == plugin_const.PENDING_UPDATE):
             if timed_out:
                 operating_status = (lb_const.OFFLINE)
+                if provisioning_status == plugin_const.PENDING_CREATE:
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ERROR
+                else:
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ACTIVE
             else:
                 operating_status = (lb_const.ONLINE)
-            loadbalancer['provisioning_status'] = plugin_const.ACTIVE
+                loadbalancer['provisioning_status'] = \
+                    plugin_const.ACTIVE
 
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
