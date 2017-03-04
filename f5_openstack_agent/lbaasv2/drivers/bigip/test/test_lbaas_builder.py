@@ -102,6 +102,7 @@ def service():
 
 class TestLbaasBuilder(object):
     """Test _assure_members in LBaaSBuilder"""
+    @pytest.mark.skip(reason="Test is not valid without port object")
     def test_assure_members_deleted(self, service):
         """Test that delete method is called.
 
