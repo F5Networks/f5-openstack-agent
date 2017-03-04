@@ -52,16 +52,19 @@ class TestStats:
         stats = stats_helper.get_global_statistics(mgmt_root)
         assert stats
 
+    @pytest.meta_test(tags=['no_regression'])
     def test_get_composite_score(self, mgmt_root, stats_helper):
         score = stats_helper.get_composite_score(mgmt_root)
         assert score > 0
         print "Composite Score: " + str(score)
 
+    @pytest.meta_test(tags=['no_regression'])
     def test_get_mem_health_score(self, mgmt_root, stats_helper):
         score = stats_helper.get_mem_health_score(mgmt_root)
         assert score > 0
         print "Memory Health Score: " + str(score)
 
+    @pytest.meta_test(tags=['no_regression'])
     def test_get_cpu_health_score(self, mgmt_root, stats_helper):
         score = stats_helper.get_cpu_health_score(mgmt_root)
         assert score > 0
@@ -77,11 +80,13 @@ class TestStats:
         assert score >= 0
         print "Active SSL TPS: " + str(score)
 
+    @pytest.meta_test(tags=['no_regression'])
     def test_get_inbound_throughput(self, mgmt_root, stats_helper):
         score = stats_helper.get_inbound_throughput(mgmt_root)
         assert score > 0
         print "Inbound Throughtput: " + str(score)
 
+    @pytest.meta_test(tags=['no_regression'])
     def test_get_outbound_throughput(self, mgmt_root, stats_helper):
         score = stats_helper.get_outbound_throughput(mgmt_root)
         assert score > 0
@@ -92,6 +97,7 @@ class TestStats:
         assert score >= 0
         print "Throughput: " + str(score)
 
+    @pytest.meta_test(tags=['no_regression'])
     def test_get_node_count(self, mgmt_root):
         count = len(mgmt_root.tm.ltm.nodes.get_collection())
         assert count == 1
@@ -102,11 +108,13 @@ class TestStats:
         assert count > 0
         print "SSL Profile Count: " + str(count)
 
+    @pytest.meta_test(tags=['no_regression'])
     def test_get_tenant_count(self, mgmt_root, system_helper):
         count = system_helper.get_tenant_folder_count(mgmt_root)
         assert count == 1
         print "Tenant Count: " + str(count)
 
+    @pytest.meta_test(tags=['no_regression'])
     def test_get_tunnel_count(self, mgmt_root, network_helper):
         count = network_helper.get_tunnel_count(mgmt_root)
         assert count == 1

@@ -22,14 +22,16 @@ from pprint import pprint as pp
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
+import pytest
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import\
     ClusterManager
 
 cm = ClusterManager()
 
-
-def test_device_name(mgmt_root):
+@pytest.meta_test(tags=['no_regression'])
+def test_device_name(symbols, mgmt_root):
+    pp(symbols)
     device_name = mgmt_root._meta_data['device_name']
     assert cm.get_device_name(mgmt_root) == device_name
 
@@ -48,6 +50,7 @@ def test_get_sync_status(mgmt_root):
     assert cm.get_sync_status(mgmt_root) == 'Standalone'
 
 
+@pytest.meta_test(tags=['no_regression'])
 def test_auto_sync(mgmt_root):
     # assume BIG-IP has device group test-group
     device_group = 'test-group'
@@ -72,6 +75,7 @@ def test_get_device_group():
     assert device_group is not None
 
 
+@pytest.meta_test(tags=['no_regression'])
 def test_get_mgmt_addr_by_device(symbols, mgmt_root):
     pp(dir(symbols))
     device_name = mgmt_root._meta_data['device_name']
