@@ -82,27 +82,11 @@ SEG_INDEPENDENT_LB_URIS =\
 
          u'https://localhost/mgmt/tm/net/route-domain/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
-
-         u'https://localhost/mgmt/tm/net/fdb/tunnel/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~disconnected_network?ver=11.5.0',
-
-         u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~disconnected_network?ver='+tmos_version])
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version])
 
 SEG_INDEPENDENT_LB_URIS_GRM =\
     set([u'https://localhost/mgmt/tm/sys/folder/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
-
-         u'https://localhost/mgmt/tm/net/fdb/tunnel/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~disconnected_network?ver=11.5.0',
-
-         u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~disconnected_network?ver='+tmos_version])
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version])
 
 SEG_DEPENDENT_LB_URIS =\
     set([u'https://localhost/mgmt/tm/ltm/snat-translation/'
@@ -195,7 +179,7 @@ def configure_icd(icd_config, create_mock_rpc):
 
 
 def logcall(lh, call, *cargs, **ckwargs):
-    call(*cargs, **ckwargs)
+    return call(*cargs, **ckwargs)
 
 
 @pytest.fixture
@@ -399,14 +383,12 @@ def test_nosegid_lb(setup_l2adjacent_test, bigip):
     after_create_registry = register_device(bigip)
     create_uris = (set(after_create_registry.keys()) -
                    set(start_registry.keys()))
-    assert create_uris == SEG_INDEPENDENT_LB_URIS | NOSEG_LB_URIS
+    assert create_uris == SEG_INDEPENDENT_LB_URIS
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
-    assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
-    ]
+    assert not rpc.update_loadbalancer_status.called
 
 
 def test_nosegid_listener(setup_l2adjacent_test, bigip):
@@ -421,18 +403,15 @@ def test_nosegid_listener(setup_l2adjacent_test, bigip):
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     create_uris = (set(after_create_registry.keys()) -
                    set(start_registry.keys()))
-    assert create_uris == (SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS |
-                           NOSEG_LB_URIS)
+    assert create_uris == (SEG_INDEPENDENT_LB_URIS)
+
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
-    assert rpc.update_listener_status.call_args_list == [
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'OFFLINE')
-    ]
-    assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE')
-    ]
+    assert not rpc.update_listener_status.called
+    assert not rpc.update_loadbalancer_status.called    
 
 
+@pytest.mark.skip(reason="The polling will occur in the agent")
 def test_nosegid_listener_timeout(setup_l2adjacent_test, bigip):
     def create_mock_rpc_plugin():
         mock_rpc_plugin = mock.MagicMock(name='mock_rpc_plugin')
@@ -496,6 +475,7 @@ def test_nosegid_listener_timeout(setup_l2adjacent_test, bigip):
     ]
 
 
+@pytest.mark.skip(reason="The polling will occur in the agent")
 def test_nosegid_to_segid(setup_l2adjacent_test, bigip):
     def create_swing_mock_rpc_plugin():
         # set up mock to return segid after 3 polling attempts
@@ -607,6 +587,39 @@ def test_featureoff_grm_lb(setup_l2adjacent_test, bigip):
                    set(start_registry.keys()))
 
     assert post_destroy_uris == empty_set
+
+def test_featureoff_grm_listener(setup_l2adjacent_test, bigip):
+    def create_mock_rpc_plugin():
+        mock_rpc_plugin = mock.MagicMock(name='mock_rpc_plugin')
+        mock_rpc_plugin.get_port_by_name.return_value = [
+            {'fixed_ips': [{'ip_address': '10.2.2.134'}]}
+        ]
+        mock_rpc_plugin.get_all_loadbalancers.return_value = [
+            {'lb_id': u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
+             'tenant_id': u'128a63ef33bc4cf891d684fad58e7f2d'
+            }
+        ]
+        return mock_rpc_plugin
+
+    icontroldriver, start_registry = handle_init_registry(bigip,
+                                                          FEATURE_OFF_GRM,
+                                                          create_mock_rpc_plugin)
+
+    service = deepcopy(SEGID_CREATELISTENER)
+    logcall(setup_l2adjacent_test,
+            icontroldriver._common_service_handler,
+            service)
+    after_create_registry = register_device(bigip)
+    empty_set = set()
+
+    create_uris = (set(after_create_registry.keys()) -
+                   set(start_registry.keys()))
+    assert create_uris == (SEG_INDEPENDENT_LB_URIS_GRM | NOSEG_LB_URIS |
+                           NOSEG_LISTENER_URIS)
+
+    logfilename = setup_l2adjacent_test.baseFilename
+    assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
+    assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
 
 def test_featureoff_nosegid_common_lb_net(setup_l2adjacent_test, bigip):
     icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_OFF_COMMON_NET)
