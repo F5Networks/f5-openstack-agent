@@ -142,7 +142,7 @@ singlebigip:
 
 setup_singlebigip_tests: 
 	@echo executing $@
-	testenv create --name $${!DEVICEVERSION} \
+	testenv --verbose create --name $${DEVICEVERSION} \
 	               --config $${TESTENV_CONF} \
 	               --params bigip_img:$${!DEVICEVERSION}
 
@@ -169,7 +169,8 @@ run_disconnected_service_tests:
 
 cleanup_singlebigip:
 	@echo executing $@
-	testenv delete --name $${!DEVICEVERSION} --config $${TESTENV_CONF} || \
+	testenv --verbose delete --name $${DEVICEVERSION} \
+	               --config $${TESTENV_CONF} || \
 	$(MAKE) -C . clean
 
 #### 
