@@ -72,6 +72,7 @@ BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 # /ASB/PATH/systest/test_results: This is where the buildbot system will look
 # for test reuslts.
 RESULTS_DIR := $(MAKEFILE_DIR)/test_results
+TESTENVLOGDIR := $(RESULTS_DIR)/testenv
 
 #### INITIALIZATION SECTION
 #    Since all tests will run on the same buildbot worker, and we do not (yet)
@@ -82,6 +83,7 @@ RESULTS_DIR := $(MAKEFILE_DIR)/test_results
 functest: 
 	-@echo executing $@
 	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh &&
+	mkdir -p $(TESTENVLOGDIR) &&
 	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-unit &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
@@ -105,6 +107,7 @@ $(DEPLOYS):
 	-@echo executing $@
 	. $(MAKEFILE_DIR)/device_version_maps.sh &&
 	export DEVICEVERSION=BIGIP_`python -c 'print("$@".split("-")[0])'` &&
+	export OSTACK_NAME=$${DEVICEVERSION}_$(TAGINFO) &&
 	export CLOUD=`python -c 'print("$@".split("-")[1])'` &&
 	export TIMESTAMP=`date +"%Y%m%d-%H%M%S"` &&
 	export GUMBALLS_SESSION=$(TAGINFO)_$${TIMESTAMP} &&
@@ -142,9 +145,9 @@ singlebigip:
 
 setup_singlebigip_tests: 
 	@echo executing $@
-	testenv --verbose create --name $${DEVICEVERSION} \
+	testenv --debug create --name $${OSTACK_NAME} \
 	               --config $${TESTENV_CONF} \
-	               --params bigip_img:$${!DEVICEVERSION}
+	               --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$(TAGINFO)_$@.log
 
 run_singlebigip_tests: 
 	@echo executing $@
@@ -169,8 +172,8 @@ run_disconnected_service_tests:
 
 cleanup_singlebigip:
 	@echo executing $@
-	testenv --verbose delete --name $${DEVICEVERSION} \
-	               --config $${TESTENV_CONF} || \
+	testenv --debug delete --name $${OSTACK_NAME} \
+	               --config $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$(TAGINFO)_$@.log || \
 	$(MAKE) -C . clean
 
 #### 
