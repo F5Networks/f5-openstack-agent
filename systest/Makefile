@@ -72,6 +72,7 @@ BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 # /ASB/PATH/systest/test_results: This is where the buildbot system will look
 # for test reuslts.
 RESULTS_DIR := $(MAKEFILE_DIR)/test_results
+TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(BRANCH)/testenv
 
 #### INITIALIZATION SECTION
 #    Since all tests will run on the same buildbot worker, and we do not (yet)
@@ -82,6 +83,7 @@ RESULTS_DIR := $(MAKEFILE_DIR)/test_results
 functest: 
 	-@echo executing $@
 	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh &&
+	mkdir -p $(TESTENVLOGDIR) &&
 	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-unit &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
@@ -105,6 +107,7 @@ $(DEPLOYS):
 	-@echo executing $@
 	. $(MAKEFILE_DIR)/device_version_maps.sh &&
 	export DEVICEVERSION=BIGIP_`python -c 'print("$@".split("-")[0])'` &&
+	export OSTACK_NAME=$${DEVICEVERSION}_$(TAGINFO)_`date "+%s"` &&
 	export CLOUD=`python -c 'print("$@".split("-")[1])'` &&
 	export TIMESTAMP=`date +"%Y%m%d-%H%M%S"` &&
 	export GUMBALLS_SESSION=$(TAGINFO)_$${TIMESTAMP} &&
@@ -142,15 +145,17 @@ singlebigip:
 
 setup_singlebigip_tests: 
 	@echo executing $@
-	testenv --verbose create --name $${DEVICEVERSION} \
+	echo running testenv create with stack name $${OSTACK_NAME} &&
+	testenv --debug create --name $${OSTACK_NAME} \
 	               --config $${TESTENV_CONF} \
-	               --params bigip_img:$${!DEVICEVERSION}
+	               --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
 
 run_singlebigip_tests: 
 	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
+	    --ignore test_network.py \
+	    --meta $(MAKEFILE_DIR)/noregression/singlebigip.yaml \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
-		--exclude incomplete no_regression \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 		$(PROJDIR)/test/functional/singlebigip
@@ -161,16 +166,17 @@ run_disconnected_service_tests:
 	export GP_SUFFIX=disconnected_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e disconnected_service --sitepackage -- \
+	    --meta $(MAKEFILE_DIR)/noregression/disconnected_service.yaml \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
-		--exclude incomplete no_regression \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 		$(PROJDIR)/test/functional/neutronless/disconnected_service
 
 cleanup_singlebigip:
 	@echo executing $@
-	testenv --verbose delete --name $${DEVICEVERSION} \
-	               --config $${TESTENV_CONF} || \
+	echo running testenv delete with stack name $${OSTACK_NAME} &&
+	testenv --debug delete --name $${OSTACK_NAME} \
+	               --config $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log || \
 	$(MAKE) -C . clean
 
 #### 
