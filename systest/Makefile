@@ -153,8 +153,9 @@ setup_singlebigip_tests:
 run_singlebigip_tests: 
 	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
+	    --ignore test_network.py \
+	    --meta $(MAKEFILE_DIR)/noregression/singlebigip.yaml \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
-		--exclude incomplete no_regression \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 		$(PROJDIR)/test/functional/singlebigip
@@ -165,8 +166,8 @@ run_disconnected_service_tests:
 	export GP_SUFFIX=disconnected_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e disconnected_service --sitepackage -- \
+	    --meta $(MAKEFILE_DIR)/noregression/disconnected_service.yaml \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
-		--exclude incomplete no_regression \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 		$(PROJDIR)/test/functional/neutronless/disconnected_service

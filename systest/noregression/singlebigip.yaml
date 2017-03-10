@@ -1,0 +1,14 @@
+{
+    "exclude": ["test_device_name",
+                "test_auto_sync",
+                "test_get_mgmt_addr_by_device",
+                "test_create_listener",
+                "test_get_composite_score",
+                "test_get_mem_health_score",
+                "test_get_cpu_health_score",
+                "test_get_inbound_throughput",
+                "test_get_outbound_throughput",
+                "test_get_node_count",
+                "test_get_tenant_count",
+                "test_get_route_domain_count"]
+}
