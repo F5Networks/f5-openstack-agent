@@ -87,7 +87,7 @@ functest:
 	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-unit &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
-		--exclude incomplete no_regression \
+		--cov $(PROJDIR)/f5_openstack_agent \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $(TAGINFO)_`date +"%Y%m%d-%H%M%S"` \
 	    $(PROJDIR)/f5_openstack_agent &&
@@ -147,8 +147,8 @@ setup_singlebigip_tests:
 	@echo executing $@
 	echo running testenv create with stack name $${OSTACK_NAME} &&
 	testenv --debug create --name $${OSTACK_NAME} \
-	               --config $${TESTENV_CONF} \
-	               --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
+	        --config $${TESTENV_CONF} \
+	        --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
 
 run_singlebigip_tests: 
 	@echo executing $@
