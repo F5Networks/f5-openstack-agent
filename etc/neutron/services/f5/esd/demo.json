@@ -15,5 +15,10 @@
       "_sys_https_redirect",
       "_sys_APM_ExchangeSupport_helper"
     ]
+  },
+
+  "esd_demo_3": {
+    "lbaas_ctcp": "tcp-wan-optimized",
+    "lbaas_stcp": "tcp-lan-optimized"
   }
 }
