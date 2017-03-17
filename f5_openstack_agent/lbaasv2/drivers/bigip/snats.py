@@ -169,8 +169,8 @@ class BigipSnatManager(object):
                 "name": snat_info['pool_name'],
                 "partition": snat_info['pool_folder'],
             }
-            snat_pool_member = ('/' + snat_info['network_folder'] + '/' +
-                               index_snat_name)
+            snat_pool_member = (
+                '/' + snat_info['network_folder'] + '/' + index_snat_name)
             snat_pool_model["members"] = [snat_pool_member]
             try:
                 if not self.snatpool_manager.exists(
