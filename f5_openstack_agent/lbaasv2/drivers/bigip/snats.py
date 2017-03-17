@@ -146,7 +146,7 @@ class BigipSnatManager(object):
             #     in this file about this
             # Create a SNAT Pool if a name was passed in
             #   * Add the snat to the list of members
-            model = {
+            snat_translation_model = {
                 "name": index_snat_name,
                 "partition": snat_info['network_folder'],
                 "address": ip_address,
@@ -157,35 +157,36 @@ class BigipSnatManager(object):
                         bigip,
                         name=index_snat_name,
                         partition=snat_info['network_folder']):
-                    self.snat_translation_manager.create(bigip, model)
+                    self.snat_translation_manager.create(
+                        bigip, snat_translation_model)
             except Exception as err:
                 LOG.exception(err)
                 raise f5_ex.SNATCreationException(
                     "Error creating snat translation manager %s" %
                     index_snat_name)
 
-            model = {
+            snat_pool_model = {
                 "name": snat_info['pool_name'],
-                "partition": snat_info['network_folder'],
+                "partition": snat_info['pool_folder'],
             }
-            snatpool_member = ('/' + model["partition"] + '/' +
+            snat_pool_member = ('/' + snat_info['network_folder'] + '/' +
                                index_snat_name)
-            model["members"] = [snatpool_member]
+            snat_pool_model["members"] = [snat_pool_member]
             try:
                 if not self.snatpool_manager.exists(
                         bigip,
-                        name=model['name'],
-                        partition=model['partition']):
-                    LOG.debug("Creating SNAT pool: %s" % model)
-                    self.snatpool_manager.create(bigip, model)
+                        name=snat_pool_model['name'],
+                        partition=snat_pool_model['partition']):
+                    LOG.debug("Creating SNAT pool: %s" % snat_pool_model)
+                    self.snatpool_manager.create(bigip, snat_pool_model)
                 else:
                     LOG.debug("Updating SNAT pool")
                     snatpool = self.snatpool_manager.load(
                         bigip,
-                        name=model["name"],
-                        partition=model["partition"]
+                        name=snat_pool_model["name"],
+                        partition=snat_pool_model["partition"]
                     )
-                    snatpool.members.append(snatpool_member)
+                    snatpool.members.append(snat_pool_member)
                     snatpool.modify(members=snatpool.members)
 
             except Exception as err:
