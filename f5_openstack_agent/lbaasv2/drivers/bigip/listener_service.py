@@ -110,7 +110,6 @@ class ListenerServiceBuilder(object):
             # delete ssl profiles
             self.remove_ssl_profiles(tls, bigip)
 
-
     def add_ssl_profile(self, tls, bigip):
         # add profile to virtual server
         vip = {'name': tls['name'],
