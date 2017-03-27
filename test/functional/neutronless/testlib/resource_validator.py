@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2016-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ class ResourceValidator(object):
         description = listener['description']
         if listener['name']:
             description = '{0}:{1}'.format(listener['name'], description)
-            assert vs.description == description
+        assert vs.description == description
 
         # port
         assert vs.destination.endswith(
@@ -120,9 +120,6 @@ class ResourceValidator(object):
 
         if persist_name:
             val = persistence[0].get('name')
-            print "VALUE ======"
-            print val
-            print persist_name
             assert val == persist_name
         else:
             assert not persistence

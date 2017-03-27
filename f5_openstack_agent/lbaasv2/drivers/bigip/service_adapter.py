@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -286,12 +286,12 @@ class ServiceModelAdapter(object):
             pool["loadBalancingMode"] = self._get_lb_method(
                 lbaas_pool["lb_algorithm"])
 
-        # If source_ip lb method, add SOURCE_IP persistence to ensure
-        # source IP loadbalancing. See issue #344 for details.
-        if lbaas_pool["lb_algorithm"].upper() == 'SOURCE_IP':
-            persist = lbaas_pool.get('session_persistence', None)
-            if not persist:
-                lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
+            # If source_ip lb method, add SOURCE_IP persistence to ensure
+            # source IP loadbalancing. See issue #344 for details.
+            if lbaas_pool["lb_algorithm"].upper() == 'SOURCE_IP':
+                persist = lbaas_pool.get('session_persistence', None)
+                if not persist:
+                    lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
 
         if lbaas_hm is not None:
             hm = self.init_monitor_name(loadbalancer, lbaas_hm)
