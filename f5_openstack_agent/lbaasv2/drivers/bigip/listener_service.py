@@ -321,7 +321,8 @@ class ListenerServiceBuilder(object):
             if persistence:
                 persist_name = persistence[0].get('name', '')
                 if persist_name:
-                    has_app_cookie = persist_name.startswith('app_cookie')
+                    has_app_cookie = persist_name.lower().\
+                        startswith('app_cookie')
 
                 self.vs_helper.update(bigip, vip)
                 LOG.debug("Cleared session persistence for %s" % vip["name"])
