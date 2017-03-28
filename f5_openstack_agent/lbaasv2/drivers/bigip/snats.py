@@ -241,6 +241,7 @@ class BigipSnatManager(object):
             partition = self.driver.service_adapter.get_folder_name(tenant_id)
 
         snat_pool_name = self.driver.service_adapter.get_folder_name(tenant_id)
+        snat_pool_folder = snat_pool_name
         deleted_names = set()
         in_use_subnets = set()
 
@@ -274,7 +275,7 @@ class BigipSnatManager(object):
             try:
                 snatpool = self.snatpool_manager.load(bigip,
                                                       snat_pool_name,
-                                                      partition)
+                                                      snat_pool_folder)
 
                 snatpool.members = [
                     member for member in snatpool.members
