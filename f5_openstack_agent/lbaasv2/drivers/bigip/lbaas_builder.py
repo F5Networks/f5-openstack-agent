@@ -148,8 +148,12 @@ class LBaaSBuilder(object):
                 self.add_listener_pool(service, svc)
 
                 try:
-                    # create pool
-                    self.pool_builder.create_pool(svc, bigips)
+                    # create or update pool
+                    if pool['provisioning_status'] == \
+                            plugin_const.PENDING_CREATE:
+                        self.pool_builder.create_pool(svc, bigips)
+                    else:
+                        self.pool_builder.update_pool(svc, bigips)
 
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(

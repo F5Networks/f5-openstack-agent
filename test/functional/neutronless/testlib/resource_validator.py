@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2016-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,17 +48,19 @@ class ResourceValidator(object):
 
     def assert_pool_deleted(self, pool, member, folder):
         pool_name = '{0}_{1}'.format(self.prefix, pool['id'])
-        member_name = '{0}:{1}'.format(member['address'],
-                                       member['protocol_port'])
-
-        node_name = '{0}%1'.format(member['address'])
-
         assert not self.bigip.resource_exists(
             ResourceType.pool, pool_name, partition=folder)
-        assert not self.bigip.member_exists(
-            pool_name, member_name, partition=folder)
-        assert not self.bigip.resource_exists(
-            ResourceType.node, node_name, partition=folder)
+
+        if member:
+            member_name = '{0}:{1}'.format(member['address'],
+                                           member['protocol_port'])
+
+            node_name = '{0}%1'.format(member['address'])
+
+            assert not self.bigip.member_exists(
+                pool_name, member_name, partition=folder)
+            assert not self.bigip.resource_exists(
+                ResourceType.node, node_name, partition=folder)
 
     def assert_pool_valid(self, pool, folder):
         pool_name = '{0}_{1}'.format(self.prefix, pool['id'])
@@ -92,7 +94,7 @@ class ResourceValidator(object):
         description = listener['description']
         if listener['name']:
             description = '{0}:{1}'.format(listener['name'], description)
-        vs.description == description
+        assert vs.description == description
 
         # port
         assert vs.destination.endswith(
@@ -108,3 +110,17 @@ class ResourceValidator(object):
             return ResourceType.ping_monitor
         else:
             return ResourceType.http_monitor
+
+    def assert_session_persistence(
+            self, listener, persist_name, app_cookie, folder):
+        listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
+        vs = self.bigip.get_resource(
+            ResourceType.virtual, listener_name, partition=folder)
+        persistence = getattr(vs, 'persist', None)
+
+        if persist_name:
+            val = persistence[0].get('name')
+            assert val == persist_name
+        else:
+            assert not persistence
+
