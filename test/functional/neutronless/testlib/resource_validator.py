@@ -124,3 +124,14 @@ class ResourceValidator(object):
         else:
             assert not persistence
 
+    def assert_snatpool_valid(self, name, folder, members):
+        snatpool = self.bigip.get_resource(
+            ResourceType.snatpool, name, partition=folder)
+
+        # check snatpool exists and has same number of expected members
+        assert snatpool
+        assert len(snatpool.members) == len(members)
+
+        # check that all expected members are in the snatpool
+        for member in members:
+            assert member in snatpool.members
