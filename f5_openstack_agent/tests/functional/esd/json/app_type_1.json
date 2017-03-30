@@ -1,0 +1,18 @@
+{
+  "app_type_1": {
+    "lbaas_ctcp": "tcp-mobile-optimzed",
+    "lbaas_stcp": "tcp-lan-optimzed",
+    "lbaas_cssl_profile": "clientssl",
+    "lbaas_sssl_profile": "serverssl",
+    "lbaas_irule": [
+    ],
+    "lbaas_persist": "hash",
+    "lbaas_fallback_persist": "source_addr"
+  },
+  "app_type_2": {
+    "lbaas_sssl_profile": "invalid-ssl-profile"
+  },
+  "app_type_3": {
+    "lbaas_sssl_profile": "serverssl"
+  }
+}
