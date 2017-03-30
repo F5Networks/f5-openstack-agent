@@ -870,7 +870,7 @@ class NetworkServiceBuilder(object):
                 service, subnetinfo['network_id'])
             subnetinfo['network'] = network
             route_domain = network.get('route_domain_id', None)
-            if not subnet or not route_domain:
+            if not subnet:
                 continue
             if not self._ips_exist_on_subnet(
                     bigip,
