@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2016-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ class ResourceValidator(object):
 
         if member:
             member_name = '{0}:{1}'.format(member['address'],
-                                       member['protocol_port'])
+                                           member['protocol_port'])
 
             node_name = '{0}%1'.format(member['address'])
 
@@ -85,7 +85,7 @@ class ResourceValidator(object):
         assert vs.enabled == listener['admin_state_up']
 
         # connection limit
-        connection_limit =  listener['connection_limit']
+        connection_limit = listener['connection_limit']
         if connection_limit == -1:
             connection_limit = 0
         assert vs.connectionLimit == connection_limit
@@ -94,7 +94,7 @@ class ResourceValidator(object):
         description = listener['description']
         if listener['name']:
             description = '{0}:{1}'.format(listener['name'], description)
-        vs.description == description
+        assert vs.description == description
 
         # port
         assert vs.destination.endswith(
@@ -144,7 +144,7 @@ class ResourceValidator(object):
         if 'lbaas_irule' in esd:
             for rule in esd['lbaas_irule']:
                 rule_name = '/Common/' + rule
-                assert  rule_name in vs.rules
+                assert rule_name in vs.rules
 
     def assert_esd_removed(self, esd, listener, folder):
         listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
@@ -183,10 +183,34 @@ class ResourceValidator(object):
         if 'lbaas_irule' in esd:
             assert not getattr(vs, 'rules', None)
 
-
     def is_in_collection(self, collection, name):
         for item in collection:
             if item.name == name:
                 return True
 
         return False
+
+    def assert_session_persistence(
+            self, listener, persist_name, app_cookie, folder):
+        listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
+        vs = self.bigip.get_resource(
+            ResourceType.virtual, listener_name, partition=folder)
+        persistence = getattr(vs, 'persist', None)
+
+        if persist_name:
+            val = persistence[0].get('name')
+            assert val == persist_name
+        else:
+            assert not persistence
+
+    def assert_snatpool_valid(self, name, folder, members):
+        snatpool = self.bigip.get_resource(
+            ResourceType.snatpool, name, partition=folder)
+
+        # check snatpool exists and has same number of expected members
+        assert snatpool
+        assert len(snatpool.members) == len(members)
+
+        # check that all expected members are in the snatpool
+        for member in members:
+            assert member in snatpool.members
