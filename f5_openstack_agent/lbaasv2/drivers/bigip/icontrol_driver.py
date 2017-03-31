@@ -1320,8 +1320,6 @@ class iControlDriver(LBaaSBaseDriver):
         if 'l7policies' in service:
             self._update_l7policy_status(service['l7policies'])
 
-        self._update_loadbalancer_status(service)
-
         self._update_loadbalancer_status(service, timed_out)
 
     def _update_member_status(self, members, timed_out):
