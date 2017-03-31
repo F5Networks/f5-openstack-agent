@@ -85,7 +85,7 @@ class ResourceValidator(object):
         assert vs.enabled == listener['admin_state_up']
 
         # connection limit
-        connection_limit =  listener['connection_limit']
+        connection_limit = listener['connection_limit']
         if connection_limit == -1:
             connection_limit = 0
         assert vs.connectionLimit == connection_limit
@@ -111,7 +111,6 @@ class ResourceValidator(object):
         else:
             return ResourceType.http_monitor
 
-<<<<<<< HEAD
     def assert_esd_applied(self, esd, listener, folder):
         # check that vs exists
         listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
@@ -145,7 +144,7 @@ class ResourceValidator(object):
         if 'lbaas_irule' in esd:
             for rule in esd['lbaas_irule']:
                 rule_name = '/Common/' + rule
-                assert  rule_name in vs.rules
+                assert rule_name in vs.rules
 
     def assert_esd_removed(self, esd, listener, folder):
         listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
@@ -184,14 +183,13 @@ class ResourceValidator(object):
         if 'lbaas_irule' in esd:
             assert not getattr(vs, 'rules', None)
 
-
     def is_in_collection(self, collection, name):
         for item in collection:
             if item.name == name:
                 return True
 
         return False
-=======
+
     def assert_session_persistence(
             self, listener, persist_name, app_cookie, folder):
         listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
@@ -216,4 +214,3 @@ class ResourceValidator(object):
         # check that all expected members are in the snatpool
         for member in members:
             assert member in snatpool.members
->>>>>>> upstream/liberty
