@@ -128,9 +128,6 @@ class LBaaSBuilder(object):
                 if pool:
                     svc['pool'] = pool
 
-            svc['pool'] = self.get_pool_by_id(
-                service, listener.get('default_pool_id', ''))
-
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
                 try:
                     self.listener_builder.update_listener(svc, bigips)
