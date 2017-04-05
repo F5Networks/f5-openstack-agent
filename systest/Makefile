@@ -87,7 +87,7 @@ functest:
 	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-unit &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
-		--exclude incomplete no_regression \
+		--cov $(PROJDIR)/f5_openstack_agent \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $(TAGINFO)_`date +"%Y%m%d-%H%M%S"` \
 	    $(PROJDIR)/f5_openstack_agent &&
@@ -147,30 +147,33 @@ setup_singlebigip_tests:
 	@echo executing $@
 	echo running testenv create with stack name $${OSTACK_NAME} &&
 	testenv --debug create --name $${OSTACK_NAME} \
-	               --config $${TESTENV_CONF} \
-	               --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
+	        --config $${TESTENV_CONF} \
+	        --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
 
 run_singlebigip_tests: 
 	@echo executing $@
+	export RUNTARGETS=$(MAKEFILE_DIR)/projects/$${GP_SUFFIX}
 	tox -e singlebigip --sitepackage -- \
-	    --ignore test_network.py \
-	    --meta $(MAKEFILE_DIR)/noregression/singlebigip.yaml \
+	    --meta $${RUNTARGETS}/noregress.yaml \
+	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-		$(PROJDIR)/test/functional/singlebigip
+	    $${RUNTARGETS}
 
 # disconnected_singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
 run_disconnected_service_tests:
 	@echo executing $@
 	export GP_SUFFIX=disconnected_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
+	export RUNTARGETS=$(MAKEFILE_DIR)/projects/$${GP_SUFFIX}
 	tox -e disconnected_service --sitepackage -- \
-	    --meta $(MAKEFILE_DIR)/noregression/disconnected_service.yaml \
+	    --meta $${RUNTARGETS}/noregress.yaml \
+	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-		$(PROJDIR)/test/functional/neutronless/disconnected_service
+	    $${RUNTARGETS}
 
 cleanup_singlebigip:
 	@echo executing $@
