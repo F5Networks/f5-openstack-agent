@@ -119,6 +119,13 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "listener": listener,
                    "networks": networks}
+
+            default_pool_id = listener.get('default_pool_id', '')
+            if default_pool_id:
+                pool = self.get_pool_by_id(service, default_pool_id)
+                if pool:
+                    svc['pool'] = pool
+
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
                 if 'old_listener' in service:
                     # Delete existing VS and proceed with creating a new VS
@@ -352,7 +359,7 @@ class LBaaSBuilder(object):
 
     @staticmethod
     def get_pool_by_id(service, pool_id):
-        if "pools" in service:
+        if pool_id and "pools" in service:
             pools = service["pools"]
             for pool in pools:
                 if pool["id"] == pool_id:
