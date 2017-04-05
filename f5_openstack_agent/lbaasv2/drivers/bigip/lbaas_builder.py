@@ -593,7 +593,7 @@ class LBaaSBuilder(object):
         return op_status
 
     def get_l7policy_for_rule(self, l7policies, l7rule):
-        policy_id = l7rule['l7policy_id']
+        policy_id = l7rule['policy_id']
         for policy in l7policies:
             if policy_id == policy['id']:
                 return policy
