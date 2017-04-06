@@ -20,7 +20,6 @@ Overview
     :hidden:
     :maxdepth: 1
 
-    release_notes
 
 
 Installation
