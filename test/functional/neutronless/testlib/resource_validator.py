@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2016-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,17 +48,19 @@ class ResourceValidator(object):
 
     def assert_pool_deleted(self, pool, member, folder):
         pool_name = '{0}_{1}'.format(self.prefix, pool['id'])
-        member_name = '{0}:{1}'.format(member['address'],
-                                       member['protocol_port'])
-
-        node_name = '{0}%1'.format(member['address'])
-
         assert not self.bigip.resource_exists(
             ResourceType.pool, pool_name, partition=folder)
-        assert not self.bigip.member_exists(
-            pool_name, member_name, partition=folder)
-        assert not self.bigip.resource_exists(
-            ResourceType.node, node_name, partition=folder)
+
+        if member:
+            member_name = '{0}:{1}'.format(member['address'],
+                                           member['protocol_port'])
+
+            node_name = '{0}%1'.format(member['address'])
+
+            assert not self.bigip.member_exists(
+                pool_name, member_name, partition=folder)
+            assert not self.bigip.resource_exists(
+                ResourceType.node, node_name, partition=folder)
 
     def assert_pool_valid(self, pool, folder):
         pool_name = '{0}_{1}'.format(self.prefix, pool['id'])
@@ -83,7 +85,7 @@ class ResourceValidator(object):
         assert vs.enabled == listener['admin_state_up']
 
         # connection limit
-        connection_limit =  listener['connection_limit']
+        connection_limit = listener['connection_limit']
         if connection_limit == -1:
             connection_limit = 0
         assert vs.connectionLimit == connection_limit
@@ -92,7 +94,7 @@ class ResourceValidator(object):
         description = listener['description']
         if listener['name']:
             description = '{0}:{1}'.format(listener['name'], description)
-        vs.description == description
+        assert vs.description == description
 
         # port
         assert vs.destination.endswith(
@@ -108,3 +110,107 @@ class ResourceValidator(object):
             return ResourceType.ping_monitor
         else:
             return ResourceType.http_monitor
+
+    def assert_esd_applied(self, esd, listener, folder):
+        # check that vs exists
+        listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
+        assert self.bigip.resource_exists(
+            ResourceType.virtual, listener_name, partition=folder)
+        vs = self.bigip.get_resource(
+            ResourceType.virtual, listener_name, partition=folder)
+
+        profiles = vs.profiles_s.get_collection()
+        policies = vs.policies_s.get_collection()
+
+        if 'lbaas_ctcp' in esd:
+            assert self.is_in_collection(profiles, esd['lbaas_ctcp'])
+
+        if 'lbaas_stcp' in esd:
+            assert self.is_in_collection(profiles, esd['lbaas_stcp'])
+
+        if 'lbaas_cssl_profile' in esd:
+            assert self.is_in_collection(profiles, esd['lbaas_cssl_profile'])
+
+        if 'lbaas_sssl_profile' in esd:
+            assert self.is_in_collection(profiles, esd['lbaas_sssl_profile'])
+
+        if 'lbaas_persist' in esd:
+            assert vs.persist[0]['name'] == esd['lbaas_persist']
+
+        if 'lbaas_fallback_persist' in esd:
+            assert vs.fallbackPersistence == \
+                   '/Common/' + esd['lbaas_fallback_persist']
+
+        if 'lbaas_irule' in esd:
+            for rule in esd['lbaas_irule']:
+                rule_name = '/Common/' + rule
+                assert rule_name in vs.rules
+
+    def assert_esd_removed(self, esd, listener, folder):
+        listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
+        assert self.bigip.resource_exists(
+            ResourceType.virtual, listener_name, partition=folder)
+        vs = self.bigip.get_resource(
+            ResourceType.virtual, listener_name, partition=folder)
+
+        profiles = vs.profiles_s.get_collection()
+
+        if 'lbaas_ctcp' in esd:
+            assert not self.is_in_collection(profiles, esd['lbaas_ctcp'])
+
+        if 'lbaas_stcp' in esd:
+            assert not self.is_in_collection(profiles, esd['lbaas_stcp'])
+
+        if 'lbaas_cssl_profile' in esd:
+            assert not self.is_in_collection(profiles,
+                                             esd['lbaas_cssl_profile'])
+
+        if 'lbaas_sssl_profile' in esd:
+            assert not self.is_in_collection(profiles,
+                                             esd['lbaas_sssl_profile'])
+
+        if 'lbaas_persist' in esd:
+            persist = getattr(vs, 'persist', None)
+            if not persist:
+                assert vs.persist[0]['name'] != esd['lbaas_persist']
+
+        if 'lbaas_fallback_persist' in esd:
+            fallback_persist = getattr(vs, 'fallbackPersistence', None)
+            if fallback_persist:
+                assert fallback_persist != \
+                       '/Common/' + esd['lbaas_fallback_persist']
+
+        if 'lbaas_irule' in esd:
+            assert not getattr(vs, 'rules', None)
+
+    def is_in_collection(self, collection, name):
+        for item in collection:
+            if item.name == name:
+                return True
+
+        return False
+
+    def assert_session_persistence(
+            self, listener, persist_name, app_cookie, folder):
+        listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
+        vs = self.bigip.get_resource(
+            ResourceType.virtual, listener_name, partition=folder)
+        persistence = getattr(vs, 'persist', None)
+
+        if persist_name:
+            val = persistence[0].get('name')
+            assert val == persist_name
+        else:
+            assert not persistence
+
+    def assert_snatpool_valid(self, name, folder, members):
+        snatpool = self.bigip.get_resource(
+            ResourceType.snatpool, name, partition=folder)
+
+        # check snatpool exists and has same number of expected members
+        assert snatpool
+        assert len(snatpool.members) == len(members)
+
+        # check that all expected members are in the snatpool
+        for member in members:
+            assert member in snatpool.members

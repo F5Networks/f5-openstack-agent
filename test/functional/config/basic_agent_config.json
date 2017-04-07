@@ -55,7 +55,7 @@
         "f5_parent_ssl_profile": "clientssl", 
         "f5_populate_static_arp": false, 
         "f5_route_domain_strictness": false, 
-        "f5_snat_addresses_per_subnet": 1, 
+        "f5_snat_addresses_per_subnet": 1,
         "f5_snat_mode": true, 
         "f5_vtep_folder": "Common",
         "f5_vtep_selfip_name": "selfip.client", 

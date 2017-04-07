@@ -1,6 +1,6 @@
 # coding=utf-8
 #
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
+from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
+    EsdTagProcessor
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
@@ -60,6 +62,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
+
 
 LOG = logging.getLogger(__name__)
 
@@ -397,6 +400,16 @@ class iControlDriver(LBaaSBaseDriver):
                  % (len(self.__bigips), self.conf.icontrol_username))
         LOG.info('iControlDriver dynamic agent configurations:%s'
                  % self.agent_configurations)
+
+        # read enhanced services definitions
+        esd_dir = os.path.join(self.get_config_dir(), 'esd')
+        esd = EsdTagProcessor(esd_dir)
+        try:
+            esd.process_esd(self.get_all_bigips())
+            self.lbaas_builder.init_esd(esd)
+        except f5ex.esdJSONFileInvalidException as err:
+            LOG.error("Unable to initialize ESD. Error: %s.", err.message)
+
         self.initialized = True
 
     def connect_bigips(self):
@@ -1307,8 +1320,6 @@ class iControlDriver(LBaaSBaseDriver):
         if 'l7policies' in service:
             self._update_l7policy_status(service['l7policies'])
 
-        self._update_loadbalancer_status(service)
-
         self._update_loadbalancer_status(service, timed_out)
 
     def _update_member_status(self, members, timed_out):
@@ -1666,3 +1677,34 @@ class iControlDriver(LBaaSBaseDriver):
             fp.write(',')
             json.dump(service, fp, sort_keys=True, indent=2)
             fp.write(']')
+
+    def get_config_dir(self):
+        """Determines F5 agent configuration directory.
+
+        Oslo cfg has a config_dir option, but F5 agent is not currently
+        started with this option. To be complete, the code will check if
+        config_dir is defined, and use that value as long as it is a single
+        string (no idea what to do if it is not a str). If not defined,
+        get the full dir path of the INI file, which is currently used when
+        starting F5 agent. If neither option is available,
+        use /etc/neutron/services/f5.
+
+        :return: str defining configuration directory.
+        """
+        if self.conf.config_dir and isinstance(self.conf.config_dir, str):
+            # use config_dir parameter if defined, and is a string
+            return self.conf.config_dir
+        elif self.conf.config_file:
+            # multiple config files (neutron and agent) are usually defined
+            if isinstance(self.conf.config_file, list):
+                # find agent config (f5-openstack-agent.ini)
+                config_files = self.conf.config_file
+                for file_name in config_files:
+                    if 'f5-openstack-agent.ini' in file_name:
+                        return os.path.dirname(file_name)
+            elif isinstance(self.conf.config_file, str):
+                # not a list, just a single string
+                return os.path.dirname(self.conf.config_file)
+
+        # if all else fails
+        return '/etc/neutron/services/f5'

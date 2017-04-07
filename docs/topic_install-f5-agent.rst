@@ -6,9 +6,9 @@ Quick Start
 
 .. rubric:: Install the ``f5-openstack-agent`` package for v |release|:
 
-.. code-block:: text
+.. parsed-literal::
 
-    $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v9.3.0.b2
+    $ sudo pip install |f5_agent_pip_url|
 
 .. tip::
 
@@ -36,10 +36,10 @@ The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
 
 2. Download and install the f5-openstack-agent:
 
-.. code-block:: bash
+.. parsed-literal::
 
-    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.3.0.b2/python-f5-openstack-agent_9.3.0.b2-1_1404_all.deb
-    $ sudo dpkg –i python-f5-openstack-agent_9.3.0.b2-1_1404_all.deb
+    $ curl -L -O |f5_agent_deb_url|
+    $ sudo dpkg –i |f5_agent_deb_package|
 
 
 RPM Package
@@ -58,10 +58,11 @@ The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
 
 2. Download and install the f5-openstack-agent:
 
-.. code-block:: bash
+.. parsed-literal::
 
-    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.3.0.b2/f5-openstack-agent-9.3.0.b2-1.el7.noarch.rpm
-    $ sudo rpm –ivh f5-openstack-agent-9.3.0.b2-1.el7.noarch.rpm
+    $ curl -L -O |f5_agent_rpm_url|
+    $ sudo rpm –ivh |f5_agent_rpm_package|
+
 
 
 Next Steps
