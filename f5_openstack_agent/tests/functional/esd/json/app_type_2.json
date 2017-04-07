@@ -1,0 +1,8 @@
+{
+  "app_type_4": {
+    "lbaas_cssl_profile": "invalid-profile-name",
+    "lbaas_sssl_profile": "serverssl",
+    "lbaas_invalid_tag_name": "serverssl",
+    "lbaas_cssl_chain_cert": "ca-bundle"
+  }
+}
