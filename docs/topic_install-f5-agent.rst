@@ -27,12 +27,12 @@ The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
 
 1. Download and install the dependencies:
 
-.. code-block:: bash
+.. parsed-literal::
 
-    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v2.2.2/python-f5-sdk_2.2.2-1_1404_all.deb
-    $ curl -L -O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.3.0/python-f5-icontrol-rest_1.3.0-1_1404_all.deb
-    $ sudo dpkg –i python-f5-icontrol-rest_1.3.0-1_1404_all.deb
-    $ sudo dpkg –i python-f5-sdk_2.2.2-1_1404_all.deb
+    $ curl -L -O |f5_sdk_deb_url|
+    $ curl -L -O |f5_icontrol_deb_url|
+    $ sudo dpkg –i |f5_icontrol_deb_package|
+    $ sudo dpkg –i |f5_sdk_deb_package|
 
 2. Download and install the f5-openstack-agent:
 
@@ -49,11 +49,11 @@ The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
 
 1. Download and install the dependencies:
 
-.. code-block:: bash
+.. parsed-literal::
 
-    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v2.2.2/f5-sdk-2.2.2-1.el7.noarch.rpm
-    $ curl -L -O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.3.0/f5-icontrol-rest-1.3.0-1.el7.noarch.rpm
-    $ sudo rpm –ivh f5-icontrol-rest-1.3.0-1.el7.noarch.rpm f5-sdk-2.2.2-1.el7.noarch.rpm
+    $ curl -L -O |f5_sdk_rpm_url|
+    $ curl -L -O |f5_icontrol_rpm_url|
+    $ sudo rpm -ivh |f5_icontrol_rpm_package| |f5_sdk_rpm_package|
 
 
 2. Download and install the f5-openstack-agent:
