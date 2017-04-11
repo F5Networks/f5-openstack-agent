@@ -72,6 +72,11 @@ version = VERSION
 # The full version, including alpha/beta/rc tags.
 release = VERSION
 
+# F5 SDK release version should be set here
+f5_sdk_version = '2.3.1'
+# F5 icontrol REST version should be set here
+f5_icontrol_version = '1.3.0'
+
 # OpenStack release
 
 openstack_release = "Liberty"
@@ -326,6 +331,16 @@ rst_epilog = '''
 .. |f5_agent_rpm_url| replace:: https://github.com/F5Networks/f5-openstack-agent/releases/download/v%(version)s/f5-openstack-agent-%(version)s-1.el7.noarch.rpm
 .. |f5_agent_deb_package| replace:: python-f5-openstack-agent_%(version)s-1_1404_all.deb
 .. |f5_agent_rpm_package| replace:: f5-openstack-agent-%(version)s-1.el7.noarch.rpm
+.. |f5_sdk_deb_url| replace:: https://github.com/F5Networks/f5-common-python/releases/download/v%(f5_sdk_version)s/python-f5-sdk_%(f5_sdk_version)s-1_1404_all.deb
+.. |f5_sdk_rpm_url| replace:: https://github.com/F5Networks/f5-common-python/releases/download/v%(f5_sdk_version)s/f5-sdk-%(f5_sdk_version)s-1.el7.noarch.rpm
+.. |f5_sdk_rpm_package| replace:: f5-sdk-%(f5_sdk_version)s-1.el7.noarch.rpm
+.. |f5_sdk_deb_package| replace:: python-f5-sdk_%(f5_sdk_version)s-1_1404_all.deb
+.. |f5_icontrol_deb_url| replace:: https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v%(f5_icontrol_version)s/python-f5-icontrol-rest_%(f5_icontrol_version)s-1_1404_all.deb
+.. |f5_icontrol_rpm_url| replace:: https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v%(f5_icontrol_version)s/f5-icontrol-rest-%(f5_icontrol_version)s-1.el7.noarch.rpm
+.. |f5_icontrol_rpm_package| replace:: f5-icontrol-rest-%(f5_icontrol_version)s-1.el7.noarch.rpm
+.. |f5_icontrol_deb_package| replace:: python-f5-icontrol-rest_%(f5_icontrol_version)s-1_1404_all.deb
 ''' % {
-  'version': version
+  'version': version,
+  'f5_sdk_version': f5_sdk_version,
+  'f5_icontrol_version': f5_icontrol_version
 }
