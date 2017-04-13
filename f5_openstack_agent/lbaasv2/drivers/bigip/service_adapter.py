@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,14 +57,31 @@ class ServiceModelAdapter(object):
     def snat_count(self):
         return self.conf.f5_snat_addresses_per_subnet
 
+    def vip_on_common_network(self, service):
+        loadbalancer = service.get('loadbalancer', {})
+        network_id = loadbalancer.get('network_id', "")
+        return (network_id in self.conf.common_network_ids)
+
     def init_pool_name(self, loadbalancer, pool):
-        if "name" not in pool or not pool["name"]:
-            name = self.prefix + pool["id"]
-        else:
-            name = pool["name"]
+        name = self.prefix + pool["id"]
 
         return {"name": name,
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}
+
+    def get_resource_description(self, resource):
+        if not isinstance(resource, dict):
+            raise ValueError
+
+        full_description = resource.get('name', "")
+        description = resource.get('description', "")
+        if len(full_description):
+            full_description += ":"
+            if len(description):
+                full_description += (" %s" % (description))
+        else:
+            full_description += description
+
+        return full_description
 
     def get_virtual(self, service):
         listener = service["listener"]
@@ -90,22 +107,17 @@ class ServiceModelAdapter(object):
         return self._init_virtual_name(loadbalancer, listener)
 
     def _init_virtual_name(self, loadbalancer, listener):
-        if "name" not in listener or not listener["name"]:
-            name = self.prefix + listener["id"]
-        else:
-            name = listener["name"]
+        name = self.prefix + listener["id"]
 
         return {"name": name,
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}
 
     def get_traffic_group(self, service):
-        tg = None
+        tg = "traffic-group-local-only"
         loadbalancer = service["loadbalancer"]
 
         if "traffic_group" in loadbalancer:
-            listener = service["listener"]
-            tg = self._init_virtual_name(loadbalancer, listener)
-            tg["traffic_group"] = loadbalancer["traffic_group"]
+            tg = loadbalancer["traffic_group"]
 
         return tg
 
@@ -180,6 +192,9 @@ class ServiceModelAdapter(object):
         healthmonitor = self.init_monitor_name(loadbalancer,
                                                lbaas_healthmonitor)
 
+        healthmonitor["description"] = self.get_resource_description(
+            lbaas_healthmonitor)
+
         # type
         if "type" in lbaas_healthmonitor:
             # healthmonitor["type"] = lbaas_healthmonitor["type"].lower()
@@ -212,10 +227,7 @@ class ServiceModelAdapter(object):
         return healthmonitor
 
     def init_monitor_name(self, loadbalancer, monitor):
-        if "name" not in monitor or not monitor["name"]:
-            name = self.prefix + monitor["id"]
-        else:
-            name = monitor["name"]
+        name = self.prefix + monitor["id"]
 
         return {"name": name,
                 "partition": self.get_folder_name(loadbalancer['tenant_id'])}
@@ -268,12 +280,18 @@ class ServiceModelAdapter(object):
     def _map_pool(self, loadbalancer, lbaas_pool, lbaas_hm):
         pool = self.init_pool_name(loadbalancer, lbaas_pool)
 
-        if "description" in lbaas_pool:
-            pool["description"] = lbaas_pool["description"]
+        pool["description"] = self.get_resource_description(pool)
 
         if "lb_algorithm" in lbaas_pool:
             pool["loadBalancingMode"] = self._get_lb_method(
                 lbaas_pool["lb_algorithm"])
+
+            # If source_ip lb method, add SOURCE_IP persistence to ensure
+            # source IP loadbalancing. See issue #344 for details.
+            if lbaas_pool["lb_algorithm"].upper() == 'SOURCE_IP':
+                persist = lbaas_pool.get('session_persistence', None)
+                if not persist:
+                    lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
 
         if lbaas_hm is not None:
             hm = self.init_monitor_name(loadbalancer, lbaas_hm)
@@ -302,8 +320,7 @@ class ServiceModelAdapter(object):
     def _map_virtual(self, loadbalancer, listener):
         vip = self._init_virtual_name(loadbalancer, listener)
 
-        if "description" in listener:
-            vip["description"] = listener["description"]
+        vip["description"] = self.get_resource_description(listener)
 
         if "protocol" in listener:
             if not (listener["protocol"] == "HTTP" or
@@ -349,10 +366,14 @@ class ServiceModelAdapter(object):
                 bigip.assured_networks[network_id])
             vip['vlansEnabled'] = True
             vip.pop('vlansDisabled', None)
+        elif network_id in self.conf.common_network_ids:
+            vip['vlans'].append(
+                self.conf.common_network_ids[network_id])
+            vip['vlansEnabled'] = True
+            vip.pop('vlansDisabled', None)
 
     def _add_bigip_items(self, listener, vip):
         # following are needed to complete a create()
-
         virtual_type = 'standard'
         if 'protocol' in listener:
             if listener['protocol'] == 'TCP':
@@ -362,7 +383,7 @@ class ServiceModelAdapter(object):
             persistence_type = listener['session_persistence']
             if persistence_type == 'APP_COOKIE':
                 virtual_type = 'standard'
-                vip['persist'] = [{'name': '/Common/cookie'}]
+                vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
 
             elif persistence_type == 'SOURCE_IP':
                 vip['persist'] = [{'name': '/Common/source_addr'}]
@@ -376,6 +397,9 @@ class ServiceModelAdapter(object):
 
         if virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
+        else:
+            # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
+            vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
         # mask
         if "ip_address" in vip:
@@ -401,6 +425,18 @@ class ServiceModelAdapter(object):
         member = {}
         port = lbaas_member["protocol_port"]
         ip_address = lbaas_member["address"]
+
+        if lbaas_member["admin_state_up"]:
+            member["session"] = "user-enabled"
+        else:
+            member["session"] = "user-disabled"
+
+        if lbaas_member["weight"] == 0:
+            member["ratio"] = 1
+            member["session"] = "user-disabled"
+        else:
+            member["ratio"] = lbaas_member["weight"]
+
         if ':' in ip_address:
             member['name'] = ip_address + '.' + str(port)
         else:
@@ -429,13 +465,13 @@ class ServiceModelAdapter(object):
         vip = self.get_virtual_name(service)
         vip['fallbackPersistence'] = ''
         vip['persist'] = []
-        if 'session_persistence' in pool and pool['session_persistence']:
-            persistence = pool['session_persistence']
+        persistence = pool.get('session_persistence', '')
+        if persistence:
             persistence_type = persistence['type']
+            lb_algorithm = pool.get('lb_algorithm', '')
             if persistence_type == 'APP_COOKIE':
-                vip['persist'] = [{'name': '/Common/cookie'}]
-                if 'loadBalancingMode' in pool and \
-                        pool['loadBalancingMode'] == 'SOURCE_IP':
+                vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
+                if lb_algorithm == 'SOURCE_IP':
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
             elif persistence_type == 'SOURCE_IP':
@@ -443,8 +479,7 @@ class ServiceModelAdapter(object):
 
             elif persistence_type == 'HTTP_COOKIE':
                 vip['persist'] = [{'name': '/Common/cookie'}]
-                if 'loadBalancingMode' in pool and \
-                        pool['loadBalancingMode'] == 'SOURCE_IP':
+                if lb_algorithm == 'SOURCE_IP':
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
         return vip

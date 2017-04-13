@@ -1,46 +1,63 @@
+# coding=utf-8
 # Copyright 2016 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#   http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
 
-import logging
+
+from .testlib.bigip_client import BigIpClient
+from .testlib.fake_rpc import FakeRPCPlugin
+from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
+    iControlDriver
 import pytest
-
-from f5.utils.testutils.registrytools import register_device
-from f5_os_test.order_utils import AGENT_LB_DEL_ORDER
-from f5_os_test.order_utils import order_by_weights
-from icontrol.exceptions import iControlUnexpectedHTTPError
 
 
 @pytest.fixture
-def setup_neutronless_test(request, bigip):
-    pretest_snapshot = frozenset(register_device(bigip))
+def bigip(request):
 
-    def remove_test_created_elements():
-        for t in bigip.tm.net.fdb.tunnels.get_collection():
-            if t.name == 'tunnel-vxlan-45':
-                t.update(records=[])
-        posttest_registry = register_device(bigip)
-        created = frozenset(posttest_registry) - pretest_snapshot
-        ordered = order_by_weights(created, AGENT_LB_DEL_ORDER)
-        for selfLink in ordered:
-            try:
-                logging.info(selfLink)
-                posttest_registry[selfLink].delete()
-            except iControlUnexpectedHTTPError as exc:
-                if exc.response.status_code == 404:
-                    logging.debug(exc.response.status_code)
-                else:
-                    raise exc
+    bigip = BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
+                        pytest.symbols.bigip_username,
+                        pytest.symbols.bigip_password)
 
-    request.addfinalizer(remove_test_created_elements)
+    def fin():
+        bigip.delete_folders()
+    request.addfinalizer(fin)
+
+    return bigip
+
+
+@pytest.fixture
+def fake_plugin_rpc(services):
+
+    rpcObj = FakeRPCPlugin(services)
+
+    return rpcObj
+
+
+@pytest.fixture
+def icontrol_driver(icd_config, fake_plugin_rpc):
+    class ConfFake(object):
+        def __init__(self, params):
+            self.__dict__ = params
+            for k, v in self.__dict__.items():
+                if isinstance(v, unicode):
+                    self.__dict__[k] = v.encode('utf-8')
+
+        def __repr__(self):
+            return repr(self.__dict__)
+
+    icd = iControlDriver(ConfFake(icd_config),
+                         registerOpts=False)
+
+    icd.plugin_rpc = fake_plugin_rpc
+
+    return icd

@@ -36,12 +36,12 @@ class ClusterManager(object):
     def disable_auto_sync(self, device_group_name, bigip, partition='Common'):
         dg = bigip.tm.cm.device_groups.device_group.load(
             name=device_group_name, partition=partition)
-        dg.update(autoSync='disabled')
+        dg.modify(autoSync='disabled')
 
     def enable_auto_sync(self, device_group_name, bigip, partition='Common'):
         dg = bigip.tm.cm.device_groups.device_group.load(
             name=device_group_name, partition=partition)
-        dg.update(autoSync='enabled')
+        dg.modify(autoSync='enabled')
 
     def get_sync_status(self, bigip):
         sync_status = bigip.tm.cm.sync_status
@@ -92,6 +92,18 @@ class ClusterManager(object):
                 return device.managementIp
 
         return None
+
+    def is_device_active(self, bigip):
+        active = False
+        try:
+            device_name = self.get_device_name(bigip)
+            act = bigip.tm.cm.devices.device.load(
+                name=device_name, partition='Common')
+            active = act.failoverState.lower() == 'active'
+        except Exception as exc:
+            LOG.error("Unable to get device info. %s", exc.message)
+
+        return active
 
     def sync(self, bigip, name, force_now=False):
         state = ''

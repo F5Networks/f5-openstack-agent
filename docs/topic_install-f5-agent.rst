@@ -1,26 +1,74 @@
 Install the F5 OpenStack Agent
 ------------------------------
 
-.. note::
+Quick Start
+```````````
 
-    - You must have both ``pip`` and ``git`` installed on your machine in order to use these commands.
-    - It may be necessary to use ``sudo``, depending on your environment.
+.. rubric:: Install the ``f5-openstack-agent`` package for v |release|:
 
-.. topic:: To install the ``f5-openstack-agent`` package from the |openstack| branch:
+.. parsed-literal::
 
+    $ sudo pip install |f5_agent_pip_url|
+
+.. tip::
+
+    You can install packages from HEAD on a specific branches by adding ``@<branch_name>`` to the end of the install command instead of the release tag.
+
+    .. rubric:: Example:
     .. code-block:: text
 
         $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@liberty
 
-.. topic:: To install the ``f5-openstack-agent`` release package for v |version|:
 
-    You can install specific releases by adding ``@<release_tag>`` to the end of the install command.
+Debian Package
+``````````````
 
-    For example:
+The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
 
-    .. code-block:: text
+1. Download and install the dependencies:
 
-        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v8.0.3
+.. parsed-literal::
+
+    $ curl -L -O |f5_sdk_deb_url|
+    $ curl -L -O |f5_icontrol_deb_url|
+    $ sudo dpkg –i |f5_icontrol_deb_package|
+    $ sudo dpkg –i |f5_sdk_deb_package|
+
+2. Download and install the f5-openstack-agent:
+
+.. parsed-literal::
+
+    $ curl -L -O |f5_agent_deb_url|
+    $ sudo dpkg –i |f5_agent_deb_package|
+
+
+RPM Package
+```````````
+
+The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
+
+1. Download and install the dependencies:
+
+.. parsed-literal::
+
+    $ curl -L -O |f5_sdk_rpm_url|
+    $ curl -L -O |f5_icontrol_rpm_url|
+    $ sudo rpm -ivh |f5_icontrol_rpm_package| |f5_sdk_rpm_package|
+
+
+2. Download and install the f5-openstack-agent:
+
+.. parsed-literal::
+
+    $ curl -L -O |f5_agent_rpm_url|
+    $ sudo rpm –ivh |f5_agent_rpm_package|
+
+
+
+Next Steps
+``````````
+
+Next, :ref:`install the f5-openstack-lbaasv2-driver <lbaasv2driver:Install the F5 LBaaSv2 Driver>`.
 
 
 Need to Upgrade?

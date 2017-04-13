@@ -1,0 +1,39 @@
+From ubuntu:16.04
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y apt-utils
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
+RUN DEBIAN_FRONTEND=noninteractive apt-get remove -qq --purge nano
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git vim tmux mtr ipython python-pip python-dev build-essential libssl-dev libffi-dev iputils-ping 
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y vim
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tmux
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y mtr
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y ipython
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y python-pip
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y python-dev
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y libssl-dev
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y libffi-dev
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y iputils-ping
+RUN pip install --upgrade pip
+RUN pip install cryptography
+RUN pip install hacking
+RUN pip install mock
+RUN pip install pytest
+RUN pip install pytest-cov
+RUN pip install paramiko
+RUN pip install decorator
+RUN pip install -e git+https://github.com/openstack/neutron#egg=neutron
+RUN pip install -e git+https://github.com/openstack/neutron-lbaas.git#egg=neutron_lbaas
+RUN pip install --upgrade git+https://github.com/openstack/oslo.log.git@liberty-eol
+# RUN pip install --upgrade git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@liberty
+RUN pip install --upgrade git+https://github.com/F5Networks/pytest-symbols.git
+
+# Enter your fork and branch below
+RUN mkdir -p /root/devenv
+RUN git clone -b feature.rename_service_objects https://github.com/richbrowne/f5-openstack-agent.git /root/devenv/f5-openstack-agent
+WORKDIR /root/devenv/f5-openstack-agent
+RUN pip install -r /root/devenv/f5-openstack-agent/requirements.sa-test.txt
+
+RUN pip install --upgrade git+https://github.com/F5Networks/f5-common-python.git@development
+ENTRYPOINT [ "/root/devenv/f5-openstack-agent/test/functional/neutronless/service_object_rename/run_tests.py" ]

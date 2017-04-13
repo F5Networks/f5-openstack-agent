@@ -1,0 +1,9 @@
+[run]
+source = 
+    */lbaasv2/*
+
+[paths]
+source =
+    f5_openstack_agent/
+    /usr/lib/python2.7/site-packages/f5_openstack_agent/
+    /root/devenv/f5-openstack-agent/f5_openstack_agent/

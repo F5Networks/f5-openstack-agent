@@ -13,6 +13,15 @@
 # limitations under the License.
 #
 
+import errno
+import inspect
+import logging
+import os
+import re
+import sys
+import syslog
+import traceback
+
 
 class F5AgentException(Exception):
     pass
@@ -62,7 +71,15 @@ class MissingNetwork(F5AgentException):
     pass
 
 
+class NetworkNotReady(F5AgentException):
+    pass
+
+
 class InvalidNetworkType(F5AgentException):
+    pass
+
+
+class InvalidNetworkDefinition(F5AgentException):
     pass
 
 
@@ -352,3 +369,90 @@ class VXLANUpdateException(F5AgentException):
 
 class VXLANDeleteException(F5AgentException):
     pass
+
+
+class BigIPNotLicensedForVcmp(F5AgentException):
+    pass
+
+
+class F5MissingDependencies(F5AgentException):
+    default_msg = "%s cannot start due to missing dependency" % \
+        str(sys.argv[0])
+    message_format = "(%d) %s: %s [%s; line:%s]"
+    default_errno = errno.ENOSYS
+    default_project = 'neutron'
+    default_name = 'f5-oslbaasv2-agent'
+
+    def __init__(self, *args, **kargs):
+        self.__set_message(args, kargs)
+        super(F5MissingDependencies, self).__init__(self.message)
+        self.__logger()
+        self.__log_error()
+        self.__check_debug()
+
+    def __check_debug(self):
+        print("__check_debug")
+        debug = False
+        for item in sys.argv:
+            if 'f5-openstack-agent.ini' in item:
+                with open(item, 'r') as fh:
+                    line = fh.readline()
+                    print('line', line)
+                    debug_re = \
+                        re.compile('debug\s*=\s*([Tt]rue|[Ff]alse|[01])')
+                    while line:
+                        match = debug_re.search(line)
+                        if match:  # there should only be one!
+                            if re.search('[tT]|1', match.group(1)):
+                                debug = True
+                            break
+                        line = fh.readline()
+        if debug:
+            # our sys.exc_info queue should still be pointing at our ImportE
+            traceback.print_exc()
+
+    def __get_mod(self):
+        frame = self.frame
+        mod = "f5_openstack_agent.lbaasv2.drivers.bigip."
+        mod = mod + os.path.basename(frame.filename)
+        mod = mod.replace('.py', '')
+        return mod
+
+    def __logger(self):
+        try:
+            self._logger = \
+                logging.getLogger('%s' % (self.__get_mod()))
+            fh = \
+                logging.FileHandler("/var/log/%s/%s.log" %
+                                    (self.default_project, self.default_name))
+            fh.setLevel(logging.DEBUG)
+            self._logger.addHandler(fh)
+        except IOError:
+            self._logger = None
+
+    def __log_error(self):
+        if self._logger:
+            self._logger.fatal(self.message)
+        else:
+            syslog.syslog(syslog.LOG_CRIT, self.message)
+
+    def __set_message(self, args, kargs):
+        details = ', '.join(map(str, args))
+        errno = kargs['errno'] if 'errno' in kargs and kargs['errno'] else \
+            self.default_errno
+        self.errno = errno
+        message = kargs['message'] if 'message' in kargs and kargs['message'] \
+            else self.default_msg
+        exception = ''
+        if 'frame' in kargs and kargs['frame']:
+            frame = kargs['frame']
+        else:
+            my_frames = inspect.getouterframes(inspect.currentframe())[2]
+            frame = inspect.getframeinfo(my_frames[0])
+        if 'exception' in kargs and kargs['exception']:
+            message = kargs['exception']
+        elif details:
+            exception = details
+        self.frame = frame
+        self.message = self.message_format % (errno, message, exception,
+                                              frame.filename, frame.lineno)

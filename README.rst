@@ -19,7 +19,7 @@
 f5-openstack-agent
 ##################
 
-|Build Status| |slack badge|
+|Build Status| |slack badge| |coveralls badge|
 
 Introduction
 ************
@@ -63,35 +63,71 @@ include a set of functional tests written to use a real BIG-IP® device
 for testing. Information on how to run our set of tests is included
 below.
 
-Unit Tests
-==========
-
-We use pytest for our unit tests.
-
-1. If you haven't already, install the required test packages and the
-   requirements.txt in your virtual environment.
-
-::
-
-    $ pip install hacking pytest pytest-cov
-    $ pip install -r requirements.txt
-
-2. Run the tests and produce a coverage report. The ``--cov-report=html`` will create a ``htmlcov/`` directory that you can view in your browser to see the missing lines of code.
-
-::
-
-    $ py.test --cov ./icontrol --cov-report=html
-    $ open htmlcov/index.html
-
 Style Checks
 ============
 
-We use the hacking module for our style checks (installed as part of step 1 in the Unit Test section).
+We use the hacking module for our style checks.
+
+::
+    $ pip install tox
+    $ tox -e style
+
+Unit Tests
+==========
+
+We use tox to run our pytest unit tests. To run the unit tests use the tox
+environment `unit`.
+
+::
+    $ pip install tox
+    $ tox -e unit
+
+Functional Tests
+=================
+
+Functional tests can be run without a full OpenStack deployment, but do require
+access to a BIG-IP device or VE instance.
+
+1. Create a symbol's file that describes the environment that you are running
+   your test in by copying and editing the `symbols.json.example <test/functional/symbols.json.example>`_
+   file to have the values that are correct for your BIG-IP.
+
+2. Run the functional tests by supplying the symbol file that you just created
+   which includes the information relative to your environment using the
+   example file. The example below runs the disconnected services neutronless
+   functional test cases (the tox target changes to the [test/functional](test/functional)
+   directory before running.
 
 ::
 
-    $ flake8 ./
+    $ tox -e functest -- \
+      --symbols ~/path/to/symbols/symbols.json \
+      neutronless/disconnected_service
 
+Troubleshooting
+===============
+
+When the f5-openstack-agent is installed, the *debug_bundler.py* script will be installed to */usr/bin/f5/*. This script can be run from the command line directly. It will search in the specified directories to bundle log files and configuration files for use in debugging an issue with the f5-openstack-agent. In addition to the above files, it also dumps a complete listing of the ``pip lists`` output.
+
+**WARNING**
+
+The files added to this bundle may contain VERY SENSITIVE INFORMATION such as encryption keys, passwords, and usernames. Do not upload this bundle, or any information within, to a public forum unless you have scrubbed sensitive information thoroughly. When in doubt, don't upload it at all.
+
+Below you can see the basic usage, using the default command-line arguments:
+
+::
+
+    $ python /usr/bin/f5/debug_bundler.py /home/myuser/debug_bundle_output/
+
+A tarred, compressed, file will be created in the directory specified. It will contain all logs and configuration files the script found. Note that the script offers a best-effort search of the directories given, and if it cannot find the log files it is looking for in those directories, it will print a message and continue running.
+
+The default log location is set to `/var/log/neutron` and the default configuration file location is in `/etc/neutron`. These locations can be overriden via the command-line invocation shown below:
+
+::
+
+    $ python /usr/bin/f5/debug_bundler.py --log-dir=/var/log/mylogs --config-dir /etc/myconfigs/ ~/
+
+If any issue is found with the debug_bundler script, please file an issue on GitHub.
 
 Copyright
 *********
@@ -127,9 +163,13 @@ Contributor License Agreement
 Individuals or business entities who contribute to this project must have completed and submitted the `F5® Contributor License Agreement <http://f5-openstack-docs.readthedocs.org/en/latest/cla_landing.html#cla-landing>`_ to Openstack\_CLA@f5.com prior to their code submission being included in this project.
 
 
-.. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=master
-   :target: https://travis-ci.org/F5Networks/f5-openstack-agent
+.. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=liberty
+   :target: https://travis-ci.org/F5Networks/f5-openstack-agent?branch=liberty
 
 .. |slack badge| image:: https://f5-openstack-slack.herokuapp.com/badge.svg
     :target: https://f5-openstack-slack.herokuapp.com/
     :alt: Slack
+
+.. |coveralls badge| image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=liberty
+    :target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=liberty
+    :alt: Coveralls

@@ -101,7 +101,7 @@ class SystemHelper(object):
         else:
             val = 'disable'
         db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
-        db.update(value=val)
+        db.modify(value=val)
 
     def get_provision_extramb(self, bigip):
         db = bigip.tm.sys.dbs.db.load(name='provision.extramb')
@@ -139,6 +139,7 @@ class SystemHelper(object):
             # First remove all LTM resources.
             ltm_types = [
                 ResourceType.virtual,
+                ResourceType.virtual_address,
                 ResourceType.pool,
                 ResourceType.http_monitor,
                 ResourceType.https_monitor,
@@ -181,3 +182,10 @@ class SystemHelper(object):
             LOG.error(
                 ('Request to purge exempt folder %s ignored.' %
                  folder))
+
+    def get_tenant_folder_count(self, bigip):
+        folders = bigip.tm.sys.folders.get_collection()
+        # ignore '/' and 'Common'
+        tenants = [item for item in folders if item.name != '/' and
+                   item.name != 'Common']
+        return len(tenants)

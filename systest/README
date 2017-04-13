@@ -1,0 +1,17 @@
+This directory is used for internal F5 Quality Engineering regression testing.
+
+For testing instructions refer to the README at the top level of the project.
+
+If you have access to the internal test infrastructure, and have the right
+ssh keys and OpenStack creditials for the internal test lab you are able to run
+the tests for this repo with the following commands:
+
+$> make unit
+
+$> make functest
+
+Sub-sets of tests can be run with:
+
+$> make ifaceonly
+
+$> make singlebigip

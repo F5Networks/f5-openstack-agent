@@ -1,0 +1,33 @@
+# This is the container to run an agent to deploy an LBaaSV2 service on a BigIP
+# using the old naming scheme.
+From ubuntu:trusty
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get upgrade -y
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y apt-utils software-properties-common
+RUN DEBIAN_FRONTEND=noninteractive apt-add-repository cloud-archive:liberty
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y update && apt-get dist-upgrade -y
+RUN DEBIAN_FRONTEND=noninteractive apt-get remove -qq --purge nano
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git vim tmux ipython python-pip python-dev build-essential libssl-dev libffi-dev iputils-ping
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y python-neutron python-neutron-lbaas
+
+# Do installation of pip testing tools.
+RUN pip install --upgrade pip
+RUN pip install hacking
+RUN pip install mock
+RUN pip install pytest
+RUN pip install pytest-cov
+
+# Install our test extensions.
+RUN pip install --upgrade git+https://github.com/F5Networks/pytest-symbols.git
+
+# Enter your fork and branch below
+RUN mkdir -p /root/devenv
+
+# This needs to be pinned to some tagged version that existed prior to the code that goes in to fix
+# resource names on BigIP.  This will need to change to a F5Networks tagged branch after initial commit.
+RUN git clone -b issue-329 https://github.com/richbrowne/f5-openstack-agent.git /root/devenv/f5-openstack-agent
+WORKDIR /root/devenv/f5-openstack-agent
+RUN pip install --upgrade git+https://github.com/F5Networks/f5-common-python.git@development
+
+# This script should only be called to setup the BigIP with old names.
+ENTRYPOINT [ "/root/devenv/f5-openstack-agent/test/functional/neutronless/service_object_rename/run_tests.py" ]

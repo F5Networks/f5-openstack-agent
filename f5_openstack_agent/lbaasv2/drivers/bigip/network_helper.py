@@ -14,6 +14,7 @@
 #
 
 import constants_v2 as const
+from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
 import netaddr
 import os
 import urllib
@@ -42,6 +43,13 @@ class NetworkHelper(object):
         'defaultsFrom': 'vxlan',
         'floodingType': 'multipoint',
         'port': const.VXLAN_UDP_PORT
+    }
+
+    ppp_profile_defaults = {
+        'name': None,
+        'partition': const.DEFAULT_PARTITION,
+        'defaultsFrom': 'ppp',
+        'floodingType': 'none',
     }
 
     route_domain_defaults = {
@@ -76,6 +84,35 @@ class NetworkHelper(object):
             payload['partition'] = partition
             obj = p.create(**payload)
         return obj
+
+    @log_helpers.log_method_call
+    def create_ppp_profile(self, bigip, name,
+                           partition=const.DEFAULT_PARTITION):
+        pf = bigip.tm.net.tunnels.ppps.ppp
+        if pf.exists(name=name, partition=partition):
+            p = pf.load(name=name, partition=partition)
+        else:
+            payload = NetworkHelper.ppp_profile_defaults
+            payload['name'] = name
+            payload['partition'] = partition
+            p = pf.create(**payload)
+        return p
+
+    @log_helpers.log_method_call
+    def create_tunnel(self, bigip, model):
+        payload = {'name': model.get('name', None),
+                   'partition': model.get('partition',
+                                          const.DEFAULT_PARTITION),
+                   'profile': model.get('profile', None)}
+        description = model.get('description', None)
+        if description:
+            payload['description'] = description
+        tf = bigip.tm.net.tunnels.tunnels.tunnel
+        if tf.exists(name=payload['name'], partition=payload['partition']):
+            t = tf.load(name=payload['name'], partition=payload['partition'])
+        else:
+            t = tf.create(**payload)
+        return t
 
     @log_helpers.log_method_call
     def create_multipoint_tunnel(self, bigip, model):
@@ -190,8 +227,8 @@ class NetworkHelper(object):
             else:
                 raise LookupError(
                     "The list of route domain ids is out of order")
-        else:
-            return lowest_available_index
+
+        return lowest_available_index
 
     @log_helpers.log_method_call
     def create_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
@@ -273,15 +310,28 @@ class NetworkHelper(object):
             payload = {'name': name,
                        'partition': partition,
                        'tag': tag}
+
             if description:
                 payload['description'] = description
             obj = v.create(**payload)
             interface = model.get('interface', None)
             if interface:
-                payload = {'name': interface,
-                           ('tagged' if tag else 'untagged'): True}
+                payload = {'name': interface}
+                if tag:
+                    payload['tagged'] = True
+                    payload['tagMode'] = "service"
+                else:
+                    payload['untagged'] = True
+
                 i = obj.interfaces_s.interfaces
-                i.create(**payload)
+                try:
+                    i.create(**payload)
+                except TagModeDisallowedForTMOSVersion as e:
+                    # Providing the tag-mode is not supported
+                    LOG.warn(e.message)
+                    payload.pop('tagMode')
+                    i.create(**payload)
+
             if not partition == const.DEFAULT_PARTITION:
                 self.add_vlan_to_domain_by_id(bigip, name, partition,
                                               route_domain_id)
@@ -312,8 +362,7 @@ class NetworkHelper(object):
             return False
 
         existing_vlans.append(name)
-        rd.vlans = existing_vlans
-        rd.update()
+        rd.modify(vlans=existing_vlans)
         return True
 
     @log_helpers.log_method_call
@@ -329,8 +378,7 @@ class NetworkHelper(object):
         else:
             return False
         existing_vlans.append(name)
-        rd.vlans = existing_vlans
-        rd.update()
+        rd.modify(vlans=existing_vlans)
         return True
 
     @log_helpers.log_method_call
@@ -522,7 +570,7 @@ class NetworkHelper(object):
             tunnel = bigip.tm.net.fdb.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 obj = tunnel.load(name=tunnel_name, partition=partition)
-                obj.update(records=records)
+                obj.modify(records=records)
                 if const.FDB_POPULATE_STATIC_ARP:
                     # arp_ip_address is typcially member address.
                     if arp_ip_address:
@@ -581,7 +629,7 @@ class NetworkHelper(object):
             tunnel = bigip.tm.net.fdb.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 obj = tunnel.load(name=tunnel_name, partition=partition)
-                obj.update(records=records)
+                obj.modify(records=records)
         except HTTPError as err:
             LOG.error("Error updating tunnel %s. "
                       "Repsponse status code: %s. Response "
@@ -626,7 +674,7 @@ class NetworkHelper(object):
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
                 obj = tunnel.load(name=tunnel_name, partition=folder)
-                obj.update(records=new_records)
+                obj.modify(records=new_records)
 
     @log_helpers.log_method_call
     def delete_fdb_entries(self, bigip, tunnel_name=None, fdb_entries=None):
@@ -655,7 +703,7 @@ class NetworkHelper(object):
             # default to 11.6.0, so we expect it to work in 12 and greater.
             if tunnel.exists(name=tunnel_name, partition=folder):
                 obj = tunnel.load(name=tunnel_name, partition=folder)
-                obj.update(records=new_records)
+                obj.modify(records=new_records)
 
             if const.FDB_POPULATE_STATIC_ARP:
                 for mac in arps_to_delete:
@@ -703,7 +751,7 @@ class NetworkHelper(object):
         try:
             t = bigip.tm.net.fdb.tunnels.tunnel
             obj = t.load(name=tunnel_name, partition=partition)
-            obj.update(records=None)
+            obj.modify(records=None)
         except HTTPError as err:
             LOG.error("Error deleting all fdb entries %s. "
                       "Repsponse status code: %s. Response "
@@ -731,7 +779,7 @@ class NetworkHelper(object):
                             partition=partition
                         )
 
-                    obj.update(records=[])
+                    obj.modify(records=[])
         except HTTPError as err:
             LOG.error("Error updating tunnel %s. "
                       "Repsponse status code: %s. Response "
@@ -766,3 +814,25 @@ class NetworkHelper(object):
         if decorator_index > 0:
             ip_address = ip_address[:decorator_index]
         return ip_address
+
+    def get_route_domain_count(self, bigip, partition=''):
+        """Return number of route domains, exluding route domain 0"""
+        route_domain_ids = self.get_route_domain_ids(
+            bigip, partition=partition)
+        if 0 in route_domain_ids:
+            route_domain_ids.remove(0)
+        return len(route_domain_ids)
+
+    def get_tunnel_count(self, bigip, partition='/'):
+        """Return sum of VXLAN and GRE tunnels"""
+        all_tunnels = bigip.tm.net.tunnels.tunnels.get_collection(
+            partition=partition)
+
+        tunnels = [item for item in all_tunnels if
+                   item.profile.find('vxlan') > 0 or
+                   item.profile.find('gre') > 0]
+        return len(tunnels)
+
+    def get_vlan_count(self, bigip, partition='/'):
+        """Return number of VLANs"""
+        return len(bigip.tm.net.vlans.get_collection(partition=partition))

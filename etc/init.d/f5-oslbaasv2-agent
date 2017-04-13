@@ -2,7 +2,7 @@
 ### BEGIN INIT INFO
 # Provides:             f5-openstack-agent
 # Required-Start:       $remote_fs $syslog
-# Required-Stope:       $remote_fs $syslog
+# Required-Stop:        $remote_fs $syslog
 # Should-Start:         keystone neutron-server
 # Should-Stop:          keystone neutron-server
 # Default-Start:        2 3 4 5
@@ -14,16 +14,24 @@
 PROJECT_NAME=neutron
 NAME=f5-oslbaasv2-agent
 SERVICE=f5-oslbaasv2-agent
-DAEMON="/usr/local/bin/${NAME}"
 SCRIPTNAME="/etc/init.d/${NAME}"
 NEUTRON_CONF="/etc/neutron/neutron.conf"
 F5_AGENT_CONF="/etc/neutron/services/f5/f5-openstack-agent.ini"
 STARTDAEMON_ARGS=""
+DEPEND_RETURN=''
+DEPEND_EXIT=''
+ACTION=$1
 
 [ -r "${F5_AGENT_CONF}" ] && DAEMON_ARGS="${DAEMON_ARGS} --config-file ${F5_AGENT_CONF}"
 [ -r "${NEUTRON_CONF}" ] && DAEMON_ARGS="${DAEMON_ARGS} --config-file ${NEUTRON_CONF}"
 
 PATH=/sbin:/user/sbin:/bin:/usr/bin
+
+if [ -x "/usr/local/bin/${NAME}" ]; then
+	DAEMON="/usr/local/bin/${NAME}"
+else
+	DAEMON="/usr/bin/${NAME}"
+fi
 
 if [ -z "${SYSTEM_USER}" ]; then
     id ${PROJECT_NAME} >/dev/null 2>&1
@@ -40,7 +48,7 @@ if [ -z "${SYSTEM_USER}" ]; then
 fi
 
 PIDFILE="/var/run/${PROJECT_NAME}/${NAME}.pid"
-STARTDAEMON_ARGS=" --start --background --quiet $STARTDAEMON_CHUID --make-pidfile --pidfile ${PIDFILE}"
+STARTDAEMON_ARGS=" --start  $STARTDAEMON_CHUID --make-pidfile --pidfile ${PIDFILE}"
 [ -x $DAEMON ] || exit 4
 
 # If ran as root, create /var/lock/X, /var/run/X, /var/lib/X and /var/log/X as needed
@@ -61,36 +69,200 @@ LOGFILE="/var/log/${PROJECT_NAME}/${NAME}.log"
 [ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
 [ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
 
-start() {
-    echo -n $"Starting ${SERVICE}: "
-    start_cmd="start-stop-daemon ${STARTDAEMON_ARGS} --exec ${DAEMON}  -- ${DAEMON_ARGS}"
-    eval $start_cmd
-    retval=$?
-    echo
-    [ $retval -eq 0 ] && touch $LOCKFILE
-    return $retval
+function log_initializing_msg() {
+    msg="Begin ${ACTION} on ${NAME}..."
+    logger "${msg}"
+    echo "${msg}"
 }
 
-stop() {
-    echo -n $"Stopping ${SERVICE}: "
-    start-stop-daemon --stop --quiet -p $PIDFILE --retry=TERM/30/KILL/5
-    retval=$?
-    echo
-    [ $retval -eq 0 ] && rm -f $lockfile
-    return $retval
+function log_failure_msg() {
+    msg="Failed in action to ${ACTION} ${NAME}!"
+    if [ "$1" != "" ]; then
+        msg="${msg} ($1)"
+    fi
+    logger "${msg}"
+    echo "${msg}"
 }
 
-restart() {
-    stop
-    start
+function log_success_msg() {
+    msg="Succeeded in action to ${ACTION} ${NAME}!"
+    logger "${msg}"
+    echo "${msg}"
+}
+
+function log_error_msg() {
+    msg="$@"
+    logger "${msg}"
+    echo "${msg}"
+}
+
+function log_exit_status() {
+    case "$1" in
+    0)
+        log_error_msg "(0) Service ${NAME} is in an OK Status!"
+        ;;
+    1)
+        log_error_msg "(1) Service ${NAME} is dead and /var/run pid file exists!"
+        ;;
+    2)
+        log_error_msg "(2) Service ${NAME} is dead and /var/lock lock file exists!"
+        ;;
+    3)
+        log_error_msg "(3) Service ${NAME} is not running!"
+        ;;
+    *) # 4 is unknown status and above is not specified!
+        log_error_msg "(4) Service ${NAME} status is unknown!"
+        ;;
+    esac
+    exit $1
+}
+
+function log_exit_non_status() {
+    case "$1" in
+    0)
+        log_error_msg "(0) Service is running"
+        ;;
+    1)
+        log_error_msg "(1) An Unknown Error has occurred while attempting to $ACTION $SERVICE!"
+        ;;
+    2)
+        log_error_msg "(2) Invalid or excess argument(s)"
+        ;;
+    3)
+        log_error_msg "(3) Unimplemented feature ($ACTION) for Service, ${SERVICE},"
+        ;;
+    4)
+        log_error_msg "(4) User had insufficient priviledges"
+        ;;
+    5)
+        log_error_msg "(5) Service, ${SERVICE}, is not installed"
+        ;;
+    6)
+        log_error_msg "(6) Service, ${SERVICE}, is not configured"
+        ;;
+    7)
+        log_error_msg "(7) Service, ${SERVICE}, is not running"
+        ;;
+    *)
+        log_error_msg "($1) An unspecified error type has occurred!"
+        ;;
+    esac
+    exit $1
+}
+
+function depend() {
+    python_require="import f5_openstack_agent.lbaasv2.drivers.bigip.agent"
+    DEPEND_RETURN=$(/usr/bin/env python -c "${python_require}" 2>&1)
+    DEPEND_EXIT=$?
+    if [ ! "$?" -eq 0 ]; then
+        log_error_msg "${DEPEND_RETURN}"
+        retval=5
+    fi
+}
+
+function determine_opt_status() {
+    agent_status
+    case $retval in
+    0)
+         retval='running'
+         ;;
+    1)
+         retval='stopped'
+         rm -f $PIDFILE
+         ;;
+    2)
+         retval='stopped'
+         rm -f $LOCKFILE
+         ;;
+    3)
+         retval='stopped'
+         ;;
+    *)
+         ;;
+    esac    
+}
+
+function agent_start() {
+    determine_opt_status
+    case $retval in
+    'stopped')
+        depend
+
+        if [ "${DEPEND_EXIT}" ==  0 ]; then
+            start_cmd="start-stop-daemon ${STARTDAEMON_ARGS} --startas ${DAEMON}  -- ${DAEMON_ARGS} 2>&1 >> $LOGFILE; rm -rf ${LOCKFILE}"
+            touch $LOCKFILE
+            nohup sh -c "$start_cmd" >/dev/null 2>&1 &
+            disown
+            retval=0
+        else
+            retval=$DEPEND_EXIT
+        fi
+        ;;
+    'running')
+        log_error_msg "Service is Already Running: no action"
+        retval=0
+    esac
+}
+
+agent_stop() {
+    # To follow Linux Foundation's standard, have to think backwards on this...
+    determine_opt_status
+    case $retval in
+    'running')
+        start-stop-daemon --stop --quiet -p $PIDFILE --retry=TERM/30/KILL/5
+        retval=$?
+
+        [ $retval -eq 0 ] && rm -f $lockfile
+        rm -rf $PIDFILE
+        case $retval in
+        0)  # we succeeded in stopping the service...
+            retval=7
+            ;;
+        1)  # nothing was done, we know it was not running...
+            retval=1
+            ;;
+        2)  # --stop was specified, and attempt timed out...
+            log_error_msg "Failed to stop service due to timeout..."
+            retval=1
+            ;;
+        *)  # Other error
+            log_error_msg "Failed to stop service..."
+            ;;
+        esac
+        ;;
+    'stopped')
+        log_error_msg "Service is already in stopped status"
+        retval=7
+        ;;
+    esac
+}
+
+agent_status() {
+    start-stop-daemon --status -p $PIDFILE
+    retval=$?
+}
+
+agent_restart() {
+    # retval should be 0 if we succeeded in restart; otherwise 1
+    agent_stop
+    if [ $retval -ne 7 ]; then
+        log_error_msg "Unable to stop service for restart... retrying..."
+        agent_stop
+        if [ $retval -ne 7 ]; then
+             log_error_msg "Unable to stop service for restart... aborting..."
+             retval=1
+        fi
+    else
+        agent_start  # should handle the retval from here...
+    fi
 }
 
 reload() {
-    restart
+    agent_restart
 }
 
 force_reload() {
-    restart
+    agent_restart
 }
 
 rh_status() {
@@ -103,42 +275,90 @@ rh_status() {
 	return 1
     fi
 
-    return 0
+    start-stop-daemon --status -p $PIDFILE
+    retval=$?
 }
 
 rh_status_q() {
     rh_status >/dev/null 2>&1
 }
 
+check_argument_list() {
+    error=0
+    if [ "$2" == "" ]; then
+        if [ "$1" != "" ]; then
+            error=2  # Invalid or excess arguments
+        fi
+    else
+        error=2
+    fi
+    if [ $error -ne 0 ]; then
+        log_exit_non_status ${error}
+    fi
+}
 
+if [ ! -e ${F5_AGENT_CONF} ]; then
+    log_error_msg "Missing ${F5_AGENT_CONF}!"
+    log_exit_non_status 6 # agent is not configured without a .ini file!
+fi
+check_argument_list
+log_initializing_msg
 case "$1" in
     start)
-        rh_status_q && exit 0
-        $1
+        if [ ! -x ${DAEMON} ] || [ -f $LOCKFILE ]; then
+            retval=4  # insufficient priviledges
+        else
+            agent_start
+        fi
+        log_exit_non_status ${retval}
         ;;
     stop)
-        rh_status_q || exit 0
-        $1
+        if [ ! -x ${DAEMON} ] || [ ! -w $LOCKFILE ]; then
+            retval=4  # insufficient priviledges
+        else
+            agent_stop
+        fi
+        log_exit_non_status ${retval}
         ;;
     restart)
-        $1
+        if [ ! -x ${DAEMON} ] || [ ! -w $LOCKFILE ]; then
+            retval=4  # insufficient priviledges
+        else
+            agent_restart
+        fi
+        log_exit_non_status ${retval}
         ;;
     reload)
-        rh_status_q || exit 7
-        $1
+        if [ ! -x ${DAEMON} ] || [ ! -w $LOCKFILE ]; then
+            retval=4  # insufficient priviledges
+        else
+            reload
+        fi
+        log_exit_non_status ${retval}
         ;;
     force-reload)
-        force_reload
+        if [ ! -x ${DAEMON} ] || [ ! -w $LOCKFILE ]; then
+            retval=4  # insufficient priviledges
+        else
+            force_reload
+        fi
+        log_exit_non_status ${retval}
         ;;
     status)
-        rh_status
+	agent_status
+        log_exit_status ${retval}
         ;;
     condrestart|try-restart)
-        rh_status_q || exit 0
-        restart
+        if [ ! -x ${DAEMON} ] || [ ! -w $LOCKFILE ]; then
+            retval=4  # insufficient priviledges
+        else
+            rh_status_q || exit 0
+            agent_restart
+        fi
+        log_exit_non_status ${retval}
         ;;
     *)
-        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
-        exit 2
+        log_daemon_msg $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        log_exit_non_status 3
 esac
 exit $?

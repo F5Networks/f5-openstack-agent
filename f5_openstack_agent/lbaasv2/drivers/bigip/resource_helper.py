@@ -44,6 +44,7 @@ class ResourceType(Enum):
     arp = 18
     route_domain = 19
     tunnel = 20
+    virtual_address = 21
 
 
 class BigIPResourceHelper(object):
@@ -68,8 +69,7 @@ class BigIPResourceHelper(object):
         u"""Create/update resource (e.g., pool) on a BIG-IP® system.
 
         First checks to see if resource has been created and creates
-        it if not. If the resource is already created, updates resource
-        with model attributes.
+        it if not.
 
         :param bigip: BigIP instance to use for creating resource.
         :param model: Dictionary of BIG-IP® attributes to add resource. Must
@@ -77,13 +77,7 @@ class BigIPResourceHelper(object):
         :returns: created or updated resource object.
         """
         resource = self._resource(bigip)
-        partition = None
-        if "partition" in model:
-            partition = model["partition"]
-        if resource.exists(name=model["name"], partition=partition):
-            obj = self.update(bigip, model)
-        else:
-            obj = resource.create(**model)
+        obj = resource.create(**model)
 
         return obj
 
@@ -135,7 +129,7 @@ class BigIPResourceHelper(object):
         if "partition" in model:
             partition = model["partition"]
         resource = self.load(bigip, name=model["name"], partition=partition)
-        resource.update(**model)
+        resource.modify(**model)
 
         return resource
 
@@ -200,7 +194,9 @@ class BigIPResourceHelper(object):
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains.route_domain,
             ResourceType.tunnel:
-                lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel
+                lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel,
+            ResourceType.virtual_address:
+                lambda bigip: bigip.tm.ltm.virtual_address_s.virtual_address
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -237,6 +233,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.net.arps,
             ResourceType.tunnel:
                 lambda bigip: bigip.tm.net.tunnels.tunnels,
+            ResourceType.virtual_address:
+                lambda bigip: bigip.tm.ltm.virtual_address_s,
         }
 
         if self.resource_type in collection_map:
@@ -246,3 +244,53 @@ class BigIPResourceHelper(object):
                       "resource %s", self.resource_type)
             raise KeyError("No collection available for %s" %
                            (self.resource_type))
+
+    def get_stats(self, bigip, name=None, partition=None, stat_keys=[]):
+        """Returns dictionary of stats.
+
+        Use by calling with an array of stats to get from resource. Return
+        value will be a dict with key/value pairs. The stat key will only
+        be included in the return dict if the resource includes that stat.
+
+        :param bigip: BIG-IP to get stats from.
+        :param name: name of resource object.
+        :param partition: partition where to get resource.
+        :param stat_keys: Array of strings that define stats to collect.
+        :return: dictionary with key/value pairs where key is string
+        defined in input array, if present in resource stats, and value
+        as the value of resource stats 'value' key.
+        """
+        collected_stats = {}
+
+        # get resource, then its stats
+        if self.exists(bigip, name=name, partition=partition):
+            resource = self.load(bigip, name=name, partition=partition)
+            collected_stats = self.collect_stats(resource, stat_keys)
+
+        return collected_stats
+
+    def collect_stats(self, resource, stat_keys=[]):
+        collected_stats = {}
+        resource_stats = resource.stats.load()
+        stat_entries = resource_stats.entries
+
+        # Difference between 11.6 and 12.1. Stats in 12.1 are embedded
+        # in nestedStats. In 11.6, they are directly accessible in entries.
+        if stat_keys[0] not in stat_entries:
+            # find nestedStats
+            for key in stat_entries.keys():
+                value = stat_entries.get(key, None)
+                if 'nestedStats' in value:
+                    stat_entries = value['nestedStats']['entries']
+
+        # add stats defined in input stats array
+        for stat_key in stat_keys:
+            if stat_key in stat_entries:
+                if 'value' in stat_entries[stat_key]:
+                    collected_stats[stat_key] = stat_entries[stat_key][
+                        'value']
+                elif 'description' in stat_entries[stat_key]:
+                    collected_stats[stat_key] = \
+                        stat_entries[stat_key]['description']
+
+        return collected_stats

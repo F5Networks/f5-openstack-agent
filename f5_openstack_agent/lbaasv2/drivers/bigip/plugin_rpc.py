@@ -91,8 +91,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_loadbalancer_status(self,
                                    lb_id,
-                                   provisioning_status=plugin_const.ERROR,
-                                   operating_status=lb_const.OFFLINE):
+                                   provisioning_status=None,
+                                   operating_status=None):
         """Update the database with loadbalancer status."""
         return self._cast(
             self.context,
@@ -100,6 +100,19 @@ class LBaaSv2PluginRPC(object):
                            loadbalancer_id=lb_id,
                            status=provisioning_status,
                            operating_status=operating_status),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def update_loadbalancer_stats(self,
+                                  lb_id,
+                                  stats):
+        """Update the database with loadbalancer stats."""
+        return self._cast(
+            self.context,
+            self._make_msg('update_loadbalancer_stats',
+                           loadbalancer_id=lb_id,
+                           stats=stats),
             topic=self.topic
         )
 
@@ -166,8 +179,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_member_status(self,
                              member_id,
-                             provisioning_status=plugin_const.ERROR,
-                             operating_status=lb_const.OFFLINE):
+                             provisioning_status=None,
+                             operating_status=None):
         """Update the database with member status."""
         return self._cast(
             self.context,
@@ -373,16 +386,20 @@ class LBaaSv2PluginRPC(object):
         return service
 
     @log_helpers.log_method_call
-    def get_all_loadbalancers(self):
+    def get_all_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of loadbalancers in Neutron."""
         loadbalancers = []
+
+        if not env:
+            env = self.env
+
         try:
             loadbalancers = self._call(
                 self.context,
                 self._make_msg('get_all_loadbalancers',
-                               env=self.env,
-                               group=self.group,
-                               host=self.host),
+                               env=env,
+                               group=group,
+                               host=host),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
@@ -392,16 +409,20 @@ class LBaaSv2PluginRPC(object):
         return loadbalancers
 
     @log_helpers.log_method_call
-    def get_active_loadbalancers(self):
+    def get_active_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of active loadbalancers for this agent."""
         loadbalancers = []
+
+        if not env:
+            env = self.env
+
         try:
             loadbalancers = self._call(
                 self.context,
                 self._make_msg('get_active_loadbalancers',
-                               env=self.env,
-                               group=self.group,
-                               host=self.host),
+                               env=env,
+                               group=group,
+                               host=host),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
@@ -411,16 +432,20 @@ class LBaaSv2PluginRPC(object):
         return loadbalancers
 
     @log_helpers.log_method_call
-    def get_pending_loadbalancers(self):
+    def get_pending_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of pending loadbalancers for this agent."""
         loadbalancers = []
+
+        if not env:
+            env = self.env
+
         try:
             loadbalancers = self._call(
                 self.context,
                 self._make_msg('get_pending_loadbalancers',
-                               env=self.env,
-                               group=self.group,
-                               host=self.host),
+                               env=env,
+                               group=group,
+                               host=host),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:

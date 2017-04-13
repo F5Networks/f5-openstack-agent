@@ -15,7 +15,10 @@
 #
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.utils as utils
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import IpNotInCidrNotation
+
 import mock
+import pytest
 
 
 class TestUtils(object):
@@ -79,3 +82,20 @@ class TestUtils(object):
         f = utils.get_filter(bigip, 'partition', 'eq', 'Common')
         assert isinstance(f, dict)
         assert f == {'$filter': 'partition eq Common'}
+
+    def test_strip_cidr_netmask(self):
+        addy = utils.strip_cidr_netmask('10.1.1.1/21')
+        assert addy == '10.1.1.1'
+
+    def test_strip_cidr_netmask_exception(self):
+        with pytest.raises(IpNotInCidrNotation) as ex:
+            utils.strip_cidr_netmask('10.1.1.1')
+        assert '' in ex.value.message
+
+    def test_get_device_info(self):
+        bigip = mock.MagicMock()
+        device = mock.MagicMock()
+        device.selfDevice = 'true'
+        bigip.tm.cm.devices.get_collection.return_value = [device]
+        ret = utils.get_device_info(bigip)
+        assert ret is device

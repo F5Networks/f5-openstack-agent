@@ -1,0 +1,22 @@
+{
+  "bigip_ip":                                     "10.190.5.187",
+  "bigip2_ip":                                    "10.190.5.184",
+  "bigip_version":                                "12.1.0",
+  "bigip_username":                               "admin",
+  "bigip_password":                               "admin",
+  "icontrol_hostname":                            "10.190.5.187",
+  "icontrol_vcmp_host1":                          {"host_ip": "10.190.5.185", "guest_name": "test_guest", "guest_hostname": "localhost.localdomain"},
+  "icontrol_vcmp_host2":                          {"host_ip": "10.190.5.186", "guest_name": "test_guest2", "guest_hostname": "local.localdomain"},
+  "icontrol_username":                            "admin",
+  "icontrol_password":                            "admin",
+  "f5_device_type":                               "external",
+  "f5_ha_type":                                   "standalone",
+  "f5_global_routed_mode":                        true,
+  "f5_sync_mode":                                 "replication",
+  "environment_prefix":                           "TEST",
+  "vlan_binding_driver":                          null,
+  "l3_binding_driver":                            null,
+  "cert_manager":                                 null,
+  "debug":                                        false,
+  "f5_parent_ssl_profile":                        null
+}
