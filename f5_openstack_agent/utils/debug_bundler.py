@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2016-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ class DebugBundle(object):
         self.no_log_files = command_args.no_log_files
 
     def _save_pip_list(self, tar):
-        '''Dump a pip list, containing packages and versions.
+        '''Dump a pip list containing packages and versions.
 
         :param dest: unicode -- directory of dumped pip list
         :param tar: tarfile object -- tar where pip list dump will be added
@@ -52,7 +52,7 @@ class DebugBundle(object):
         return sorted_pkgs
 
     def _tar_config_files(self, tar):
-        '''Add config files specified to tarfile
+        '''Add specified config files to tarfile
 
         :param tar: tarfile object -- tar where config files will be added
         '''
@@ -67,7 +67,7 @@ class DebugBundle(object):
             self._add_file_to_tar(cfg_dir, cfg_file, tar)
 
     def _tar_log_files(self, tar):
-        '''Add log files specified to tarfile
+        '''Add specified log files to tarfile
 
         :param tar: tarfile object -- tar where log files will be added
         '''
@@ -125,19 +125,19 @@ class DebugBundle(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Bundle important info for troubleshooting purposes.'
+        description='Bundles important info for troubleshooting purposes.'
     )
     parser.add_argument(
         '--no-config-files',
         action='store_true',
-        help='Include this option if you would not like configuration '
-        'files included in your bundle (they will by default).'
+        help='Use this option to exclude configuration files'
+        'from your bundle (they are included by default).'
     )
     parser.add_argument(
         '--no-log-files',
         action='store_true',
-        help='Include this option if you would not like log files included '
-        'in your bundle (they will by default).'
+        help='Use this option to exclude log files from your bundle'
+             '(they are included by default).'
     )
     parser.add_argument(
         'tar_dest', help='Directory of bundle produced by this script.'
