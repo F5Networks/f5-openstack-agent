@@ -79,7 +79,7 @@ f5_icontrol_version = '1.3.0'
 
 # OpenStack release
 
-openstack_release = "Mitaka"
+openstack_release = "Newton"
 rst_epilog = """
 .. |openstack| replace:: {0}
 """.format(openstack_release)
@@ -314,13 +314,13 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'heat': (
-    'http://f5-openstack-heat.readthedocs.io/en/liberty', None),
+    'http://f5-openstack-heat.readthedocs.io/en/newton', None),
     'heatplugins': (
-    'http://f5-openstack-heat-plugins.readthedocs.io/en/liberty', None),
+    'http://f5-openstack-heat-plugins.readthedocs.io/en/newton', None),
     'lbaasv1': (
-    'http://f5-openstack-lbaasv1.readthedocs.io/en/liberty/', None),
+    'http://f5-openstack-lbaasv1.readthedocs.io/en/newton/', None),
     'lbaasv2driver': (
-    'http://f5-openstack-lbaasv2-driver.readthedocs.io/en/liberty/', None),
+    'http://f5-openstack-lbaasv2-driver.readthedocs.io/en/newton/', None),
     'f5sdk': (
     'http://f5-sdk.readthedocs.io/en/latest/', None),
     }
