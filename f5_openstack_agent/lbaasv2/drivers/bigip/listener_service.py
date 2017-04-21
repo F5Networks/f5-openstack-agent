@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 
 from oslo_log import log as logging
 
-from f5_openstack_agent.lbaasv2.drivers.bigip.disconnected_service import \
-    DisconnectedService
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from neutron_lbaas.services.loadbalancer import constants as lb_const
@@ -36,7 +34,6 @@ class ListenerServiceBuilder(object):
 
     def __init__(self, service_adapter, cert_manager, parent_ssl_profile=None):
         self.cert_manager = cert_manager
-        self.disconnected_service = DisconnectedService()
         self.parent_ssl_profile = parent_ssl_profile
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
@@ -61,23 +58,6 @@ class ListenerServiceBuilder(object):
             tls['partition'] = vip['partition']
 
         service['listener']['operating_status'] = lb_const.ONLINE
-        # Hierarchical Port Binding mode adjustments
-        if not self.disconnected_service.is_service_connected(service) \
-           and \
-           not self.service_adapter.vip_on_common_network(service):
-
-            # start the virtual server on a disconnected network if the neutron
-            # network does not yet exist
-            network_name = DisconnectedService.network_name
-            vip['vlansEnabled'] = True
-            vip.pop('vlansDisabled', None)
-            vip['vlans'] = [
-                '/%s/%s' % (vip['partition'], network_name)
-            ]
-            # strip out references to network pieces that don't yet exist
-            vip.pop('sourceAddressTranslation', None)
-            # the listener is offline until we have a real network
-            service['listener']['operating_status'] = lb_const.OFFLINE
 
         network_id = service['loadbalancer']['network_id']
         for bigip in bigips:
@@ -239,6 +219,8 @@ class ListenerServiceBuilder(object):
                 # profiles must be added before setting persistence
                 self.vs_helper.update(bigip, vip_persist)
                 LOG.debug("Set persist %s" % vip["name"])
+        else:
+            self.remove_session_persistence(service, bigips)
 
     def _add_profile(self, vip, profile_name, bigip, context='all'):
         """Add profile to virtual server instance. Assumes Common.
@@ -320,28 +302,35 @@ class ListenerServiceBuilder(object):
         and load balancer definition.
         :param bigips: Single BigIP instances to update.
         """
-        pool = service["pool"]
-        if "session_persistence" in pool and pool['session_persistence']:
-            vip = self.service_adapter.get_virtual_name(service)
-            vip["persist"] = []
-            vip["fallbackPersistence"] = ""
-            persistence = pool['session_persistence']
-            persistence_type = persistence['type']
-            listener = service["listener"]
-            if listener['protocol'] == 'TCP':
-                # Revert VS back to fastL4. Must do an update to replace
-                # profiles instead of using add/remove profile. Leave http
-                # profiles in place for non-TCP listeners.
-                vip['profiles'] = ['/Common/fastL4']
 
-            for bigip in bigips:
-                # remove persistence (and revert profiles if TCP)
+        vip = self.service_adapter.get_virtual_name(service)
+        vip["persist"] = []
+        vip["fallbackPersistence"] = ""
+
+        listener = service["listener"]
+        if listener['protocol'] == 'TCP':
+            # Revert VS back to fastL4. Must do an update to replace
+            # profiles instead of using add/remove profile. Leave http
+            # profiles in place for non-TCP listeners.
+            vip['profiles'] = ['/Common/fastL4']
+
+        for bigip in bigips:
+            # Check for custom app_cookie profile.
+            has_app_cookie = False
+            vs = self.vs_helper.load(bigip, vip['name'], vip['partition'])
+            persistence = getattr(vs, 'persist', None)
+            if persistence:
+                persist_name = persistence[0].get('name', '')
+                if persist_name:
+                    has_app_cookie = persist_name.lower().\
+                        startswith('app_cookie')
+
                 self.vs_helper.update(bigip, vip)
                 LOG.debug("Cleared session persistence for %s" % vip["name"])
 
-                # remove profiles and rules
-                if persistence_type == 'APP_COOKIE' and \
-                        'cookie_name' in persistence:
+                if has_app_cookie:
+                    # Delete app_cookie profile. Other persist types have
+                    # Common profiles and remain in place.
                     self._remove_cookie_persist_rule(vip, bigip)
 
     def remove_ssl_profiles(self, tls, bigip):
@@ -462,3 +451,215 @@ class ListenerServiceBuilder(object):
                 LOG.error("Error getting virtual server stats: %s", e.message)
 
         return collected_stats
+
+    def _add_policy(self, vs, policy_name, bigip):
+        vs_name = vs['name']
+        vs_partition = vs['partition']
+        policy_partition = 'Common'
+
+        v = bigip.tm.ltm.virtuals.virtual
+        obj = v.load(name=vs_name,
+                     partition=vs_partition)
+        p = obj.policies_s
+        policies = p.get_collection()
+
+        # see if policy already added to virtual server
+        for policy in policies:
+            if policy.name == policy_name:
+                LOG.debug("L7Policy found. Not adding.")
+                return
+
+        try:
+            # not found -- add policy to virtual server
+            p.policies.create(name=policy_name,
+                              partition=policy_partition)
+        except Exception as exc:
+            # Bug in TMOS 12.1 will return a 404 error, but the request
+            # succeeded. Verify that policy was added, and ignore exception.
+            LOG.debug(exc.message)
+            if not p.policies.exists(name=policy_name,
+                                     partition=policy_partition):
+                # really failed, raise original exception
+                raise
+
+        # success
+        LOG.debug("Added L7 policy {0} for virtual sever {1}".format(
+            policy_name, vs_name))
+
+    def _remove_policy(self, vs, policy_name, bigip):
+        vs_name = vs['name']
+        vs_partition = vs['partition']
+        policy_partition = 'Common'
+
+        v = bigip.tm.ltm.virtuals.virtual
+        obj = v.load(name=vs_name,
+                     partition=vs_partition)
+        p = obj.policies_s
+        policies = p.get_collection()
+
+        # find policy and remove from virtual server
+        for policy in policies:
+            if policy.name == policy_name:
+                l7 = p.policies.load(name=policy_name,
+                                     partition=policy_partition)
+                l7.delete()
+                LOG.debug("Removed L7 policy {0} for virtual sever {1}".
+                          format(policy_name, vs_name))
+
+    def _add_irule(self, vs, irule_name, bigip, rule_partition='Common'):
+        vs_name = vs['name']
+        vs_partition = vs['partition']
+
+        v = bigip.tm.ltm.virtuals.virtual
+        obj = v.load(name=vs_name,
+                     partition=vs_partition)
+        r = obj.rules
+        rules = r.get_collection()
+
+        # see if iRule already added to virtual server
+        for rule in rules:
+            if rule.name == irule_name:
+                LOG.debug("iRule found. Not adding.")
+                return
+
+        try:
+            # not found -- add policy to virtual server
+            r.rules.create(name=irule_name,
+                           partition=rule_partition)
+        except Exception as exc:
+            # Bug in TMOS 12.1 will return a 404 error, but the request
+            # succeeded. Verify that policy was added, and ignore exception.
+            LOG.debug(exc.message)
+            if not r.rule.exists(name=irule_name,
+                                 partition=rule_partition):
+                # really failed, raise original exception
+                raise
+
+        # success
+        LOG.debug("Added iRule {0} for virtual sever {1}".format(
+            irule_name, vs_name))
+
+    def _remove_irule(self, vs, irule_name, bigip, rule_partition='Common'):
+        vs_name = vs['name']
+        vs_partition = vs['partition']
+
+        v = bigip.tm.ltm.virtuals.virtual
+        obj = v.load(name=vs_name,
+                     partition=vs_partition)
+        r = obj.rules_s
+        rules = r.get_collection()
+
+        # find iRule and remove from virtual server
+        for rule in rules:
+            if rule.name == irule_name:
+                irule = r.rules.load(name=irule_name,
+                                     partition=rule_partition)
+                irule.delete()
+                LOG.debug("Removed iRule {0} for virtual sever {1}".
+                          format(irule_name, vs_name))
+
+    def apply_esd(self, svc, esd, bigips):
+        profiles = []
+
+        # get virtual server name
+        update_attrs = self.service_adapter.get_virtual_name(svc)
+
+        # start with server tcp profile
+        if 'lbaas_stcp' in esd:
+            # set serverside tcp profile
+            profiles.append({'name': esd['lbaas_stcp'],
+                             'partition': 'Common',
+                             'context': 'serverside'})
+            # restrict client profile
+            ctcp_context = 'clientside'
+        else:
+            # no serverside profile; use client profile for both
+            ctcp_context = 'all'
+
+        # must define client profile; default to tcp if not in ESD
+        if 'lbaas_ctcp' in esd:
+            ctcp_profile = esd['lbaas_ctcp']
+        else:
+            ctcp_profile = 'tcp'
+        profiles.append({'name':  ctcp_profile,
+                         'partition': 'Common',
+                         'context': ctcp_context})
+
+        # SSL profiles
+        if 'lbaas_cssl_profile' in esd:
+            profiles.append({'name': esd['lbaas_cssl_profile'],
+                             'partition': 'Common',
+                             'context': 'clientside'})
+        if 'lbaas_sssl_profile' in esd:
+            profiles.append({'name': esd['lbaas_sssl_profile'],
+                             'partition': 'Common',
+                             'context': 'serverside'})
+
+        # persistence
+        if 'lbaas_persist' in esd:
+            update_attrs['persist'] = [{'name': esd['lbaas_persist']}]
+        if 'lbaas_fallback_persist' in esd:
+            update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
+
+        if profiles:
+            # always use http and oneconnect
+            profiles.append({'name': 'http',
+                             'partition': 'Common',
+                             'context': 'all'})
+            profiles.append({'name': 'oneconnect',
+                             'partition': 'Common',
+                             'context': 'all'})
+            update_attrs['profiles'] = profiles
+
+        # iRules
+        if 'lbaas_irule' in esd:
+            irules = []
+            for irule in esd['lbaas_irule']:
+                irules.append('/Common/' + irule)
+            update_attrs['rules'] = irules
+
+        # L7 policies
+        if 'lbaas_policy' in esd:
+            policies = []
+            for policy in esd['lbaas_policy']:
+                policies.append({'name': policy, 'partition': 'Common'})
+            update_attrs['policies'] = policies
+
+        # udpate BIG-IPs
+        for bigip in bigips:
+            self.vs_helper.update(bigip, update_attrs)
+
+    def remove_esd(self, svc, esd, bigips):
+        # original service object definition of listener
+        vs = self.service_adapter.get_virtual(svc)
+
+        # add back SSL profile for TLS?
+        tls = self.service_adapter.get_tls(svc)
+        if tls:
+            tls['name'] = vs['name']
+            tls['partition'] = vs['partition']
+
+        # remove iRules
+        if 'lbaas_irule' in esd:
+            vs['rules'] = []
+
+        # remove policies
+        if 'lbaas_policy' in esd:
+            vs['policies'] = []
+
+        # reset persistence to original definition
+        if 'pool' in svc:
+            vip_persist = self.service_adapter.get_session_persistence(svc)
+            vs.update(vip_persist)
+
+        for bigip in bigips:
+            try:
+                # update VS back to original listener definition
+                self.vs_helper.update(bigip, vs)
+
+                # add back SSL profile for TLS
+                if tls:
+                    self.add_ssl_profile(tls, bigip)
+            except Exception as err:
+                LOG.exception("Virtual server update error: %s" % err.message)
+                raise

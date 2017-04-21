@@ -143,10 +143,10 @@ class L2ServiceBuilder(object):
         net_type = network['provider:network_type']
 
         # look for host specific interface mapping
-        if net_key + ':' + hostname in self.interface_mapping:
+        if net_key and net_key + ':' + hostname in self.interface_mapping:
             interface = self.interface_mapping[net_key + ':' + hostname]
             tagged = self.tagging_mapping[net_key + ':' + hostname]
-        elif net_key in self.interface_mapping:
+        elif net_key and net_key in self.interface_mapping:
             interface = self.interface_mapping[net_key]
             tagged = self.tagging_mapping[net_key]
         else:
@@ -206,6 +206,9 @@ class L2ServiceBuilder(object):
         elif network['provider:network_type'] == 'gre':
             network_name = self._assure_device_network_gre(
                 network, bigip, network_folder)
+        elif network['provider:network_type'] == 'opflex':
+            raise f5_ex.NetworkNotReady(
+                "Opflex network segment definition required")
         else:
             error_message = 'Unsupported network type %s.' \
                             % network['provider:network_type'] + \
@@ -226,12 +229,12 @@ class L2ServiceBuilder(object):
 
         # Do we have host specific mappings?
         net_key = network['provider:physical_network']
-        if net_key + ':' + bigip.hostname in \
+        if net_key and net_key + ':' + bigip.hostname in \
                 self.interface_mapping:
             interface = self.interface_mapping[
                 net_key + ':' + bigip.hostname]
         # Do we have a mapping for this network
-        elif net_key in self.interface_mapping:
+        elif net_key and net_key in self.interface_mapping:
             interface = self.interface_mapping[net_key]
 
         vlan_name = self.get_vlan_name(network,
@@ -269,14 +272,14 @@ class L2ServiceBuilder(object):
 
         # Do we have host specific mappings?
         net_key = network['provider:physical_network']
-        if net_key + ':' + bigip.hostname in \
+        if net_key and net_key + ':' + bigip.hostname in \
                 self.interface_mapping:
             interface = self.interface_mapping[
                 net_key + ':' + bigip.hostname]
             tagged = self.tagging_mapping[
                 net_key + ':' + bigip.hostname]
         # Do we have a mapping for this network
-        elif net_key in self.interface_mapping:
+        elif net_key and net_key in self.interface_mapping:
             interface = self.interface_mapping[net_key]
             tagged = self.tagging_mapping[net_key]
 
@@ -431,6 +434,9 @@ class L2ServiceBuilder(object):
             self._delete_device_vxlan(bigip, network, network_folder)
         elif network['provider:network_type'] == 'gre':
             self._delete_device_gre(bigip, network, network_folder)
+        elif network['provider:network_type'] == 'opflex':
+            raise f5_ex.NetworkNotReady(
+                "Opflex network segment definition required")
         else:
             LOG.error('Unsupported network type %s. Can not delete.'
                       % network['provider:network_type'])
@@ -458,14 +464,14 @@ class L2ServiceBuilder(object):
             vlanid = 0
             # Do we have host specific mappings?
             net_key = network['provider:physical_network']
-            if net_key + ':' + bigip.hostname in \
+            if net_key and net_key + ':' + bigip.hostname in \
                     self.interface_mapping:
                 interface = self.interface_mapping[
                     net_key + ':' + bigip.hostname]
                 tagged = self.tagging_mapping[
                     net_key + ':' + bigip.hostname]
             # Do we have a mapping for this network
-            elif net_key in self.interface_mapping:
+            elif net_key and net_key in self.interface_mapping:
                 interface = self.interface_mapping[net_key]
                 tagged = self.tagging_mapping[net_key]
             if tagged:

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ from time import time
 from oslo_log import log as logging
 
 from neutron.plugins.common import constants as plugin_const
+from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import l7policy_service
@@ -48,6 +49,7 @@ class LBaaSBuilder(object):
             self.service_adapter
         )
         self.l7service = l7policy_service.L7PolicyService(conf)
+        self.esd = None
 
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
@@ -127,19 +129,15 @@ class LBaaSBuilder(object):
                     svc['pool'] = pool
 
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
-                if 'old_listener' in service:
-                    # Delete existing VS and proceed with creating a new VS
-                    # to ensure that name changes, SSL profile changes,
-                    # etc. are handled correctly.
-                    old_svc = {"loadbalancer": loadbalancer,
-                               "listener": service["old_listener"]}
-                    try:
-                        self.listener_builder.delete_listener(old_svc, bigips)
-                    except Exception as err:
-                        listener['provisioning_status'] = plugin_const.ERROR
-                        raise f5_ex.VirtualServerDeleteException(err.message)
+                try:
+                    self.listener_builder.update_listener(svc, bigips)
+                except Exception as err:
+                    loadbalancer['provisioning_status'] = plugin_const.ERROR
+                    listener['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.VirtualServerUpdateException(err.message)
 
-            if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
+            elif listener['provisioning_status'] != \
+                    plugin_const.PENDING_DELETE:
                 try:
                     # create_listener() will do an update if VS exists
                     self.listener_builder.create_listener(svc, bigips)
@@ -165,8 +163,12 @@ class LBaaSBuilder(object):
                        "pool": pool}
 
                 try:
-                    # create pool
-                    self.pool_builder.create_pool(svc, bigips)
+                    # create or update pool
+                    if pool['provisioning_status'] == \
+                            plugin_const.PENDING_CREATE:
+                        self.pool_builder.create_pool(svc, bigips)
+                    else:
+                        self.pool_builder.update_pool(svc, bigips)
 
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
@@ -241,6 +243,12 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "member": member,
                    "pool": pool}
+
+            if 'port' not in member and \
+               member['provisioning_status'] != plugin_const.PENDING_DELETE:
+                LOG.error("Member definition does not include Neutron port")
+                continue
+
             # delete member if pool is being deleted
             if member['provisioning_status'] == plugin_const.PENDING_DELETE or\
                     pool['provisioning_status'] == plugin_const.PENDING_DELETE:
@@ -264,7 +272,7 @@ class LBaaSBuilder(object):
                         self.pool_builder.update_member(svc, bigips)
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MemberCreateException(err.message)
+                    raise f5_ex.MemberCreationException(err.message)
 
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
@@ -416,7 +424,18 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
-                    self.l7service.create_l7policy(l7policy, service, bigips)
+                    name = l7policy.get('name', None)
+                    if name and self.is_esd(name):
+                        listener = self.get_listener_by_id(
+                            service, l7policy.get('listener_id', ''))
+
+                        svc = {"loadbalancer": service["loadbalancer"],
+                               "listener": listener}
+                        esd = self.get_esd(name)
+                        self.listener_builder.apply_esd(svc, esd, bigips)
+                    else:
+                        self.l7service.create_l7policy(
+                            l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
@@ -430,9 +449,26 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             if l7policy['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
-                    # Note: use update_l7policy because a listener can have
-                    # multiple policies
-                    self.l7service.update_l7policy(l7policy, service, bigips)
+                    name = l7policy.get('name', None)
+                    if name and self.is_esd(name):
+                        listener = self.get_listener_by_id(
+                            service, l7policy.get('listener_id', ''))
+                        svc = {"loadbalancer": service["loadbalancer"],
+                               "listener": listener}
+
+                        # pool is needed to reset session persistence
+                        if listener['default_pool_id']:
+                            pool = self.get_pool_by_id(
+                                service, listener.get('default_pool_id', ''))
+                            if pool:
+                                svc['pool'] = pool
+                        esd = self.get_esd(name)
+                        self.listener_builder.remove_esd(svc, esd, bigips)
+                    else:
+                        # Note: use update_l7policy because a listener can have
+                        # multiple policies
+                        self.l7service.update_l7policy(
+                            l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
@@ -446,6 +482,15 @@ class LBaaSBuilder(object):
         for l7rule in l7rules:
             if l7rule['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
+                    # ignore L7 rule if its policy is really an ESD
+                    l7policy = self.get_l7policy_for_rule(
+                        service['l7policies'], l7rule)
+                    name = l7policy.get('name', None)
+                    if name and self.driver.is_esd(name):
+                        LOG.error("L7 policy {0} is an ESD. Cannot add "
+                                  "an L7 rule to and ESD.".format(name))
+                        continue
+
                     self.l7service.create_l7rule(l7rule, service, bigips)
                 except Exception as err:
                     l7rule['provisioning_status'] = plugin_const.ERROR
@@ -460,6 +505,12 @@ class LBaaSBuilder(object):
         for l7rule in l7rules:
             if l7rule['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
+                    # ignore L7 rule if its policy is really an ESD
+                    l7policy = self.get_l7policy_for_rule(
+                        service['l7policies'], l7rule)
+                    name = l7policy.get('name', None)
+                    if name and self.driver.is_esd(name):
+                        continue
                     self.l7service.bigips = self.driver.get_config_bigips()
                     self.l7service.delete_l7rule(l7rule, service, bigips)
                 except Exception as err:
@@ -499,3 +550,70 @@ class LBaaSBuilder(object):
                 collected_stats[stat] += vs_stats[stat]
 
         return collected_stats
+
+    def update_operating_status(self, service):
+        bigip = self.driver.get_active_bigip()
+        loadbalancer = service["loadbalancer"]
+        status_keys = ['status.availabilityState',
+                       'status.enabledState']
+
+        members = service["members"]
+        for member in members:
+            if member['provisioning_status'] == plugin_const.ACTIVE:
+                pool = self.get_pool_by_id(service, member["pool_id"])
+                svc = {"loadbalancer": loadbalancer,
+                       "member": member,
+                       "pool": pool}
+                status = self.pool_builder.get_member_status(
+                    svc, bigip, status_keys)
+                member['operating_status'] = self.convert_operating_status(
+                    status)
+
+    @staticmethod
+    def convert_operating_status(status):
+        """Convert object status to LBaaS operating status.
+
+        status.availabilityState and  status.enabledState = Operating Status
+
+        available                     enabled                 ONLINE
+        available                     disabled                DISABLED
+        offline                       -                       OFFLINE
+        unknown                       -                       NO_MONITOR
+        """
+        op_status = None
+        available = status.get('status.availabilityState', '')
+        if available == 'available':
+            enabled = status.get('status.enabledState', '')
+            if enabled == 'enabled':
+                op_status = lb_const.ONLINE
+            elif enabled == 'disabled':
+                op_status = lb_const.DISABLED
+            else:
+                LOG.warning('Unexpected value %s for status.enabledState',
+                            enabled)
+        elif available == 'offline':
+            op_status = lb_const.OFFLINE
+        elif available == 'unknown':
+            op_status = lb_const.NO_MONITOR
+
+        return op_status
+
+    def get_l7policy_for_rule(self, l7policies, l7rule):
+        policy_id = l7rule['policy_id']
+        for policy in l7policies:
+            if policy_id == policy['id']:
+                return policy
+
+        return None
+
+    def init_esd(self, esd):
+        self.esd = esd
+
+    def get_esd(self, name):
+        if self.esd:
+            return self.esd.get_esd(name)
+
+        return None
+
+    def is_esd(self, name):
+        return self.esd.get_esd(name) is not None

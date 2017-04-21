@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -291,6 +291,13 @@ class ServiceModelAdapter(object):
             pool["loadBalancingMode"] = self._get_lb_method(
                 lbaas_pool["lb_algorithm"])
 
+            # If source_ip lb method, add SOURCE_IP persistence to ensure
+            # source IP loadbalancing. See issue #344 for details.
+            if lbaas_pool["lb_algorithm"].upper() == 'SOURCE_IP':
+                persist = lbaas_pool.get('session_persistence', None)
+                if not persist:
+                    lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
+
         if lbaas_hm is not None:
             hm = self.init_monitor_name(loadbalancer, lbaas_hm)
             pool["monitor"] = hm["name"]
@@ -387,7 +394,7 @@ class ServiceModelAdapter(object):
             persistence_type = listener['session_persistence']
             if persistence_type == 'APP_COOKIE':
                 virtual_type = 'standard'
-                vip['persist'] = [{'name': '/Common/cookie'}]
+                vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
 
             elif persistence_type == 'SOURCE_IP':
                 vip['persist'] = [{'name': '/Common/source_addr'}]
@@ -429,6 +436,18 @@ class ServiceModelAdapter(object):
         member = {}
         port = lbaas_member["protocol_port"]
         ip_address = lbaas_member["address"]
+
+        if lbaas_member["admin_state_up"]:
+            member["session"] = "user-enabled"
+        else:
+            member["session"] = "user-disabled"
+
+        if lbaas_member["weight"] == 0:
+            member["ratio"] = 1
+            member["session"] = "user-disabled"
+        else:
+            member["ratio"] = lbaas_member["weight"]
+
         if ':' in ip_address:
             member['name'] = ip_address + '.' + str(port)
         else:
@@ -457,13 +476,13 @@ class ServiceModelAdapter(object):
         vip = self.get_virtual_name(service)
         vip['fallbackPersistence'] = ''
         vip['persist'] = []
-        if 'session_persistence' in pool and pool['session_persistence']:
-            persistence = pool['session_persistence']
+        persistence = pool.get('session_persistence', '')
+        if persistence:
             persistence_type = persistence['type']
+            lb_algorithm = pool.get('lb_algorithm', '')
             if persistence_type == 'APP_COOKIE':
-                vip['persist'] = [{'name': '/Common/cookie'}]
-                if 'loadBalancingMode' in pool and \
-                        pool['loadBalancingMode'] == 'SOURCE_IP':
+                vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
+                if lb_algorithm == 'SOURCE_IP':
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
             elif persistence_type == 'SOURCE_IP':
@@ -471,8 +490,7 @@ class ServiceModelAdapter(object):
 
             elif persistence_type == 'HTTP_COOKIE':
                 vip['persist'] = [{'name': '/Common/cookie'}]
-                if 'loadBalancingMode' in pool and \
-                        pool['loadBalancingMode'] == 'SOURCE_IP':
+                if lb_algorithm == 'SOURCE_IP':
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
         return vip

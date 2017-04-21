@@ -6,9 +6,9 @@ Quick Start
 
 .. rubric:: Install the ``f5-openstack-agent`` package for v |release|:
 
-.. code-block:: text
+.. parsed-literal::
 
-    $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@v9.2.0
+    $ sudo pip install |f5_agent_pip_url|
 
 .. tip::
 
@@ -29,17 +29,17 @@ The ``f5-openstack-agent`` package can be installed using ``dpkg`` tools.
 
 .. code-block:: bash
 
-    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v2.1.0/python-f5-sdk_2.1.0-1_1404_all.deb
-    $ curl -L -O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.1.0/python-f5-icontrol-rest_1.1.0-1_1404_all.deb
-    $ sudo dpkg –i python-f5-icontrol-rest_1.1.0-1_1404_all.deb
-    $ sudo dpkg –i python-f5-sdk_2.1.0-1_1404_all.deb
+    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v2.2.2/python-f5-sdk_2.2.2-1_1404_all.deb
+    $ curl -L -O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.3.0/python-f5-icontrol-rest_1.3.0-1_1404_all.deb
+    $ sudo dpkg –i python-f5-icontrol-rest_1.3.0-1_1404_all.deb
+    $ sudo dpkg –i python-f5-sdk_2.2.2-1_1404_all.deb
 
 2. Download and install the f5-openstack-agent:
 
-.. code-block:: bash
+.. parsed-literal::
 
-    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.2.0/python-f5-openstack-agent_9.2.0-1_1404_all.deb
-    $ sudo dpkg –i python-f5-openstack-agent_9.2.0-1_1404_all.deb
+    $ curl -L -O |f5_agent_deb_url|
+    $ sudo dpkg –i |f5_agent_deb_package|
 
 
 RPM Package
@@ -51,17 +51,18 @@ The ``f5-openstack-agent`` package can be installed using ``rpm`` tools.
 
 .. code-block:: bash
 
-    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v2.1.0/f5-sdk-2.1.0-1.el7.noarch.rpm
-    $ curl -L -O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.1.0/f5-icontrol-rest-1.1.0-1.el7.noarch.rpm
-    $ sudo rpm –ivh f5-icontrol-rest-1.1.0-1.el7.noarch.rpm f5-sdk-2.1.0-1.el7.noarch.rpm
+    $ curl -L -O https://github.com/F5Networks/f5-common-python/releases/download/v2.2.2/f5-sdk-2.2.2-1.el7.noarch.rpm
+    $ curl -L -O https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v1.3.0/f5-icontrol-rest-1.3.0-1.el7.noarch.rpm
+    $ sudo rpm –ivh f5-icontrol-rest-1.3.0-1.el7.noarch.rpm f5-sdk-2.2.2-1.el7.noarch.rpm
 
 
 2. Download and install the f5-openstack-agent:
 
-.. code-block:: bash
+.. parsed-literal::
 
-    $ curl -L -O https://github.com/F5Networks/f5-openstack-agent/releases/download/v9.2.0/f5-openstack-agent-9.2.0-1.el7.noarch.rpm
-    $ sudo rpm –ivh f5-openstack-agent-9.2.0-1.el7.noarch.rpm
+    $ curl -L -O |f5_agent_rpm_url|
+    $ sudo rpm –ivh |f5_agent_rpm_package|
+
 
 
 Next Steps
