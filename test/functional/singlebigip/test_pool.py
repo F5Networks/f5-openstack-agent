@@ -24,6 +24,8 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+import pytest
+
 from f5.bigip import BigIP
 from f5_openstack_agent.lbaasv2.drivers.bigip.pool_service import \
     PoolServiceBuilder
@@ -31,6 +33,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.loadbalancer_service import \
     LoadBalancerServiceBuilder
 
 
+@pytest.meta_test(tags=['no_regression'])
 def test_create_listener(symbols):
     lb_service = LoadBalancerServiceBuilder()
     pool_builder = PoolServiceBuilder()
