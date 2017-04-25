@@ -8,5 +8,7 @@
                 "test_get_inbound_throughput",
                 "test_get_outbound_throughput",
                 "test_get_node_count",
-                "test_get_route_domain_count"]
+                "test_get_route_domain_count",
+                "test_get_tenant_count",
+                "test_get_tunnel_count"]
 }
