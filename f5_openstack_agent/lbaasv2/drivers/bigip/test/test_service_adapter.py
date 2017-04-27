@@ -18,6 +18,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
     ServiceModelAdapter
 
 
+import copy
 import mock
 import pytest
 
@@ -133,3 +134,97 @@ class TestServiceAdapter(object):
         assert '/Common/http' in vs['profiles']
         assert '/Common/oneconnect' in vs['profiles']
         assert '/Common/fastL4' not in vs['profiles']
+
+    def test_pool_member_weight_least_conns(self, pool_member_service):
+        '''lb method changes if member has weight and lb method least conns.
+
+        The pool's lb method should be set to 'ratio-least-connections-member'.
+        '''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+
+        pool = adapter.get_pool(pool_member_service)
+        assert pool['loadBalancingMode'] == 'ratio-least-connections-member'
+
+    def test_pool_member_weight_round_robin(self, pool_member_service):
+        '''lb method changes if member has weight and lb method round robin
+
+        The pool's lb method should be set to 'ratio-member'.
+        '''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        srvc = copy.deepcopy(pool_member_service)
+        srvc['pool']['lb_algorithm'] = 'ROUND_ROBIN'
+        pool = adapter.get_pool(srvc)
+        assert pool['loadBalancingMode'] == 'ratio-member'
+
+    def test_pool_member_weight_source_ip(self, pool_member_service):
+        '''lb method changes if member has weight and lb method source ip
+
+        The pool's lb method should be set to 'least-connections-node'
+        '''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        srvc = copy.deepcopy(pool_member_service)
+        srvc['pool']['lb_algorithm'] = 'SOURCE_IP'
+        pool = adapter.get_pool(srvc)
+        assert pool['loadBalancingMode'] == 'least-connections-node'
+
+    def test_pool_member_weight_bad_lb_method(self, pool_member_service):
+        '''If lb method is bad and member has weight, lb is changed
+
+        The pool's lb method should be set to 'ratio-member'
+        '''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        srvc = copy.deepcopy(pool_member_service)
+        srvc['pool']['lb_algorithm'] = 'ROUND_ROCK'
+        pool = adapter.get_pool(srvc)
+        assert pool['loadBalancingMode'] == 'ratio-member'
+
+    def test_pool_member_weight_no_lb_method(self, pool_member_service):
+        '''If lb method does not exist, no change is made.'''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        srvc = copy.deepcopy(pool_member_service)
+        del srvc['pool']['lb_algorithm']
+        pool = adapter.get_pool(srvc)
+        assert 'loadBalancingMode' not in pool
+
+    def test_pool_member_with_weight_deleted(self, pool_member_service):
+        '''If lb method does not exist, no change is made.'''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        srvc = copy.deepcopy(pool_member_service)
+        del srvc['pool']['lb_algorithm']
+        pool = adapter.get_pool(srvc)
+        assert 'loadBalancingMode' not in pool
+
+    def test_pool_no_members_least_conns(self, pool_member_service):
+        '''No members, lb method should be 'least-connections-member'.'''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        srvc = copy.deepcopy(pool_member_service)
+        del srvc['members']
+        pool = adapter.get_pool(srvc)
+        assert pool['loadBalancingMode'] == 'least-connections-member'
+
+    def test_pool_no_members_round_robin(self, pool_member_service):
+        '''No members, lb method should be 'round-robin'.'''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        srvc = copy.deepcopy(pool_member_service)
+        del srvc['members']
+        srvc['pool']['lb_algorithm'] = 'ROUND_ROBIN'
+        pool = adapter.get_pool(srvc)
+        assert pool['loadBalancingMode'] == 'round-robin'
+
+    def test_pool_no_members_source_ip(self, pool_member_service):
+        '''No members, lb method should be 'least-connections-node'.'''
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        srvc = copy.deepcopy(pool_member_service)
+        del srvc['members']
+        srvc['pool']['lb_algorithm'] = 'SOURCE_IP'
+        pool = adapter.get_pool(srvc)
+        assert pool['loadBalancingMode'] == 'least-connections-node'
