@@ -120,7 +120,7 @@ SEG_INDEPENDENT_LB_URIS_COMMON_NET =\
          '-ce69e293-56e7-43b8-b51c-01b91d66af20_0?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/ltm/snatpool/'
-         '~Common'
+         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
 
          u'https://localhost/mgmt/tm/net/self/'
