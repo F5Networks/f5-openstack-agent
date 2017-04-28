@@ -143,6 +143,7 @@ class LBaaSBuilder(object):
             if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
+                svc['members'] = self._get_pool_members(service, pool['id'])
 
                 # get associated listener for pool
                 self.add_listener_pool(service, svc)
@@ -175,6 +176,15 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
+
+    def _get_pool_members(self, service, pool_id):
+        '''Return a list of members associated with given pool.'''
+
+        members = []
+        for member in service['members']:
+            if member['pool_id'] == pool_id:
+                members.append(member)
+        return members
 
     def _update_listener_pool(self, service, listener_id, pool_name, bigips):
         listener = self.get_listener_by_id(service, listener_id)

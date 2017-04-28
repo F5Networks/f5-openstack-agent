@@ -18,6 +18,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
 
 
+import copy
 import mock
 import pytest
 
@@ -134,3 +135,17 @@ class TestLbaasBuilder(object):
         service['pools'][0]['provisioning_status'] = 'ACTIVE'
         builder._assure_members(service, mock.MagicMock())
         assert not delete_member_mock.called
+
+    def test__get_pool_members(self, pool_member_service):
+        '''Method will map members with their pool.'''
+
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        service = copy.deepcopy(pool_member_service)
+        members = builder._get_pool_members(service, service['pool']['id'])
+        assert len(members) == 2
+
+        # Modify pool_id of both members, expect no members returned
+        service['members'][0]['pool_id'] = 'test'
+        service['members'][1]['pool_id'] = 'test'
+        members = builder._get_pool_members(service, service['pool']['id'])
+        assert members == []
