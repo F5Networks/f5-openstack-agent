@@ -23,8 +23,8 @@ sudo -E apt-get install -y libssl-dev &&
 sudo -E apt-get install -y libffi-dev &&
 sudo -E -H pip install --upgrade pip &&
 sudo -E -H pip install tox &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com:tools/testenv.git@v0.1.18 &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com:velcro/systest-common.git@001c8f80f0b2fed1feed1f2a097c15c601914246 &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com:tools/pytest-meta.git &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com:tools/pytest-autolog.git &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com:tools/pytest-symbols.git
+sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/testenv.git@v0.1.18 &&
+sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/velcro/systest-common.git@001c8f80f0b2fed1feed1f2a097c15c601914246 &&
+sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-meta.git &&
+sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-autolog.git &&
+sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-symbols.git
