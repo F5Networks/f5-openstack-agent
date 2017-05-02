@@ -182,8 +182,13 @@ class PoolServiceBuilder(object):
             if m.exists(name=urllib.quote(member["name"]), partition=part):
                 m = m.load(name=urllib.quote(member["name"]),
                            partition=part)
-                member.pop("address")
-                m.modify(**member)
+                if member.get("address"):
+                    member.pop("address")
+                    m.modify(**member)
+                else:
+                    LOG.error("Unable to update member, no address")
+                    LOG.error(member)
+
 
     def _get_monitor_helper(self, service):
         monitor_type = self.service_adapter.get_monitor_type(service)
