@@ -1,3 +1,9 @@
 {
-    "exclude": []
+    "exclude": ["test_featureoff_withsegid_lb",
+                "test_withsegid_lb",
+                "test_featureoff_withsegid_listener",
+                "test_withsegid_listener",
+                "test_featureoff_grm_listener",
+                "test_featureoff_nosegid_common_lb_net",
+                "test_featureoff_nosegid_create_listener_common_lb_net"]
 }

@@ -44,7 +44,7 @@ DEPLOYS := $(foreach v, $(DEVICES), $(v)-overcloud $(v)-undercloud)
         singlebigip \
         setup_singlebigip_tests \
         run_singlebigip_tests \
-        cleanup_singelbigip \
+        cleanup_singlebigip \
         run_disconnected_service_tests \
         clean
 
@@ -139,8 +139,8 @@ singlebigip:
 	export GP_SUFFIX=$@_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	$(MAKE) -C . setup_singlebigip_tests &&
-	$(MAKE) -C . run_singlebigip_tests || \
-	$(MAKE) -C . run_disconnected_service_tests || \
+	$(MAKE) -C . run_singlebigip_tests ;\
+	$(MAKE) -C . run_disconnected_service_tests ;\
 	$(MAKE) -C . cleanup_singlebigip
 
 setup_singlebigip_tests: 
@@ -161,7 +161,6 @@ run_singlebigip_tests:
 		--autolog-session $${GUMBALLS_SESSION} \
 	    $${RUNTARGETS}
 
-# disconnected_singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
 run_disconnected_service_tests:
 	@echo executing $@
 	export GP_SUFFIX=disconnected_$${GP_SUFFIX} &&
@@ -179,7 +178,7 @@ cleanup_singlebigip:
 	@echo executing $@
 	echo running testenv delete with stack name $${OSTACK_NAME} &&
 	testenv --debug delete --name $${OSTACK_NAME} \
-	               --config $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log || \
+	               --config $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log ;\
 	$(MAKE) -C . clean
 
 #### 
