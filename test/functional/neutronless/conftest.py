@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2016-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,10 @@ from .testlib.bigip_client import BigIpClient
 from .testlib.fake_rpc import FakeRPCPlugin
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
+
+from copy import deepcopy
+import json
+import os
 import pytest
 
 
@@ -61,3 +65,20 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     icd.plugin_rpc = fake_plugin_rpc
 
     return icd
+
+
+@pytest.fixture()
+def icd_config():
+    oslo_config_filename = (
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     '../config/basic_agent_config.json')
+    )
+    OSLO_CONFIGS = json.load(open(oslo_config_filename))
+
+    config = deepcopy(OSLO_CONFIGS)
+    config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+    config['icontrol_username'] = pytest.symbols.bigip_username
+    config['icontrol_password'] = pytest.symbols.bigip_password
+    config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
+
+    return config

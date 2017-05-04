@@ -44,12 +44,13 @@ class ServiceModelAdapter(object):
 
     def get_pool(self, service):
         pool = service["pool"]
+        members = service.get('members', [])
         loadbalancer = service["loadbalancer"]
         healthmonitor = None
         if "healthmonitor" in service:
             healthmonitor = service["healthmonitor"]
 
-        return self._map_pool(loadbalancer, pool, healthmonitor)
+        return self._map_pool(loadbalancer, pool, healthmonitor, members)
 
     def snat_mode(self):
         return self.conf.f5_snat_mode
@@ -280,18 +281,19 @@ class ServiceModelAdapter(object):
             monitor_type = lbaas_healthmonitor["type"]
         return monitor_type
 
-    def _map_pool(self, loadbalancer, lbaas_pool, lbaas_hm):
+    def _map_pool(self, loadbalancer, lbaas_pool, lbaas_hm, lbaas_members):
         pool = self.init_pool_name(loadbalancer, lbaas_pool)
 
         pool["description"] = self.get_resource_description(pool)
 
         if "lb_algorithm" in lbaas_pool:
-            pool["loadBalancingMode"] = self._get_lb_method(
-                lbaas_pool["lb_algorithm"])
+            lbaas_lb_method = lbaas_pool['lb_algorithm'].upper()
+            pool['loadBalancingMode'] = \
+                self._set_lb_method(lbaas_lb_method, lbaas_members)
 
             # If source_ip lb method, add SOURCE_IP persistence to ensure
             # source IP loadbalancing. See issue #344 for details.
-            if lbaas_pool["lb_algorithm"].upper() == 'SOURCE_IP':
+            if lbaas_pool['lb_algorithm'].upper() == 'SOURCE_IP':
                 persist = lbaas_pool.get('session_persistence', None)
                 if not persist:
                     lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
@@ -301,6 +303,26 @@ class ServiceModelAdapter(object):
             pool["monitor"] = hm["name"]
 
         return pool
+
+    def _set_lb_method(self, lbaas_lb_method, lbaas_members):
+        '''Set pool lb method depending on member attributes.'''
+
+        lb_method = self._get_lb_method(lbaas_lb_method)
+
+        if lbaas_lb_method == 'SOURCE_IP':
+            return lb_method
+
+        member_has_weight = False
+        for member in lbaas_members:
+            if 'weight' in member and member['weight'] > 1 and \
+                    member['provisioning_status'] != 'PENDING_DELETE':
+                member_has_weight = True
+                break
+        if member_has_weight:
+            if lbaas_lb_method == 'LEAST_CONNECTIONS':
+                return self._get_lb_method('RATIO_LEAST_CONNECTIONS')
+            return self._get_lb_method('RATIO')
+        return lb_method
 
     def _get_lb_method(self, method):
         lb_method = method.upper()
