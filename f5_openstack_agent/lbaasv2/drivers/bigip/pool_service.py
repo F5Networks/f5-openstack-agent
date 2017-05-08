@@ -182,7 +182,7 @@ class PoolServiceBuilder(object):
             if m.exists(name=urllib.quote(member["name"]), partition=part):
                 m = m.load(name=urllib.quote(member["name"]),
                            partition=part)
-                member.pop("address")
+                member.pop("address", None)
                 m.modify(**member)
 
     def _get_monitor_helper(self, service):

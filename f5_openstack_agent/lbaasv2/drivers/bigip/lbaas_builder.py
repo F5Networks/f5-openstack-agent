@@ -286,7 +286,11 @@ class LBaaSBuilder(object):
                         )
                         raise f5_ex.MemberCreationException(err.message)
                     else:
-                        self.pool_builder.update_member(svc, bigips)
+                        try:
+                            self.pool_builder.update_member(svc, bigips)
+                        except Exception as err:
+                            member['provisioning_status'] = plugin_const.ERROR
+                            raise f5_ex.MemberUpdateException(err.message)
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberCreationException(err.message)
