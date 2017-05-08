@@ -47,22 +47,6 @@ def disconnected_service_no_seg():
     )
     return (json.load(open(neutron_services_filename)))
 
-@pytest.fixture(scope="module")
-def icd_config():
-    oslo_config_filename = (
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../config/basic_agent_config.json')
-    )
-    OSLO_CONFIGS = json.load(open(oslo_config_filename))
-
-    config = deepcopy(OSLO_CONFIGS)
-    config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
-    config['icontrol_username'] = pytest.symbols.bigip_username
-    config['icontrol_password'] = pytest.symbols.bigip_password
-    config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
-
-    return config
-
 
 def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
                                icd_config, icontrol_driver):
@@ -72,7 +56,7 @@ def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_hostname
+    hostname = pytest.symbols.bigip_mgmt_ip_public
     icd_config['f5_network_segment_physical_network'] = None
 
     folder = '%s_%s' % (env_prefix, lb_reader.tenant_id())
@@ -138,7 +122,7 @@ def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_dri
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_hostname
+    hostname = pytest.symbols.bigip_mgmt_ip_public
     icd_config['f5_network_segment_physical_network'] = \
         "physnet1"
 
