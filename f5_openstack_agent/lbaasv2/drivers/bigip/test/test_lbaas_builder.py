@@ -14,13 +14,15 @@
 # limitations under the License.
 #
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
-
 
 import copy
 import mock
 import pytest
+
+from requests import HTTPError
 
 
 @pytest.fixture
@@ -83,6 +85,7 @@ def service():
                       u'provisioning_status': u'ACTIVE',
                       u'subnet_id': u'81f42a8a-fc98-4281-8de4-2b946e931457',
                       u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd',
+                      u'port': 'port',
                       u'weight': 1}],
         u'pools': [{u'admin_state_up': True,
                     u'description': u'',
@@ -99,6 +102,17 @@ def service():
                     u'sessionpersistence': None,
                     u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd'}],
     }
+
+
+class MockHTTPError(HTTPError):
+    def __init__(self, response_obj):
+        self.response = response_obj
+
+
+class MockHTTPErrorResponse409(HTTPError):
+    def __init__(self):
+        self.text = 'Conflict.'
+        self.status_code = 409
 
 
 class TestLbaasBuilder(object):
@@ -149,3 +163,30 @@ class TestLbaasBuilder(object):
         service['members'][1]['pool_id'] = 'test'
         members = builder._get_pool_members(service, service['pool']['id'])
         assert members == []
+
+    def test_assure_members_update_exception(self, service):
+        """Test update_member exception and setting ERROR status.
+
+        When LBaaSBuilder assure_members() is called and the member is
+        updated, LBaaSBuilder must catch any exception from PoolServiceBuilder
+        update_member() and set member provisioning_status to ERROR.
+        """
+        with mock.patch(
+                target='f5_openstack_agent.lbaasv2.drivers.bigip.'
+                       'pool_service.PoolServiceBuilder.'
+                       'create_member') as mock_create:
+            with mock.patch(
+                    target='f5_openstack_agent.lbaasv2.drivers.'
+                           'bigip.pool_service.PoolServiceBuilder.'
+                           'update_member') as mock_update:
+                mock_create.side_effect = MockHTTPError(
+                    MockHTTPErrorResponse409())
+                mock_update.side_effect = MockHTTPError(
+                    MockHTTPErrorResponse409())
+                service['members'][0]['provisioning_status'] = 'PENDING_UPDATE'
+                service['pools'][0]['provisioning_status'] = 'ACTIVE'
+                builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+                with pytest.raises(f5_ex.MemberUpdateException):
+                    builder._assure_members(service, mock.MagicMock())
+                    assert service['members'][0]['provisioning_status'] ==\
+                        'ERROR'
