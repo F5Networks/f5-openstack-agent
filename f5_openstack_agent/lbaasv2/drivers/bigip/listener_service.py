@@ -203,13 +203,13 @@ class ListenerServiceBuilder(object):
             for bigip in bigips:
                 # For TCP listeners, must remove fastL4 profile before adding
                 # adding http/oneconnect profiles.
-                if listener['protocol'] == 'TCP':
-                    self._remove_profile(vip, 'fastL4', bigip)
+                if persistence_type != 'SOURCE_IP':
+                    if listener['protocol'] == 'TCP':
+                        self._remove_profile(vip, 'fastL4', bigip)
 
-                # Standard virtual servers should already have these profiles,
-                # but make sure profiles in place for all virtual server types.
-                self._add_profile(vip, 'http', bigip)
-                self._add_profile(vip, 'oneconnect', bigip)
+                    # HTTP listeners should have http and oneconnect profiles
+                    self._add_profile(vip, 'http', bigip)
+                    self._add_profile(vip, 'oneconnect', bigip)
 
                 if persistence_type == 'APP_COOKIE' and \
                         'cookie_name' in persistence:
