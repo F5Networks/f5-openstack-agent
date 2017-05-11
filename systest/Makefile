@@ -33,7 +33,7 @@
 #     the states "overcloud" and "undercloud", therefore elements of DEPLOYS
 #     look like the following: '12_1_1_overcloud' '11_5_4_undercloud'.
 # 
-DEVICES := 11_5_4 11_6_0 11_6_1 12_1_1
+DEVICES := 12_1_1
 DEPLOYS := $(foreach v, $(DEVICES), $(v)-overcloud $(v)-undercloud)
 
 # Tell make that targets don't map to files
@@ -44,8 +44,12 @@ DEPLOYS := $(foreach v, $(DEVICES), $(v)-overcloud $(v)-undercloud)
         singlebigip \
         setup_singlebigip_tests \
         run_singlebigip_tests \
-        cleanup_singelbigip \
+        cleanup_singlebigip \
         run_disconnected_service_tests \
+        run_neutronless_loadbalancer_tests \
+        run_neutronless_listener_tests \
+        run_neutronless_member_tests \
+        run_neutronless_pool_tests \
         clean
 
 # Don't launch seperate shell proceses on new recipe lines.
@@ -133,22 +137,62 @@ run_overcloud_tests:
 #    against all tested DEPLOYS.
 #    NOTE: GUMBALLS PROJECTS are complete here, e.g.:
 #    singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
+setup_singlebigip_tests:
+	@echo executing $@
+	echo running testenv create with stack name $${!DEVICEVERSION} &&
+	testenv --debug create --name $${!DEVICEVERSION} \
+	        --config $${TESTENV_CONF} \
+	        --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
+
 singlebigip:
 	@echo executing $@
 	export TESTENV_CONF=bigip.testenv.yaml
 	export GP_SUFFIX=$@_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
-	$(MAKE) -C . setup_singlebigip_tests &&
-	$(MAKE) -C . run_singlebigip_tests || \
-	$(MAKE) -C . run_disconnected_service_tests || \
+	$(MAKE) -C . setup_singlebigip_tests &&\
+	$(MAKE) -C . run_neutronless_loadbalancer_tests ;\
+	$(MAKE) -C . run_neutronless_listener_tests ;\
+	$(MAKE) -C . run_neutronless_member_tests ;\
+	$(MAKE) -C . run_neutronless_pool_tests ;\
+	$(MAKE) -C . run_disconnected_service_tests ;\
+	$(MAKE) -C . run_singlebigip_tests ;\
 	$(MAKE) -C . cleanup_singlebigip
 
-setup_singlebigip_tests: 
+run_neutronless_loadbalancer_tests:
 	@echo executing $@
-	echo running testenv create with stack name $${OSTACK_NAME} &&
-	testenv --debug create --name $${OSTACK_NAME} \
-	        --config $${TESTENV_CONF} \
-	        --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
+	tox -e singlebigip --sitepackage -- \
+	    --cov $(PROJDIR)/f5_openstack_agent \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--autolog-outputdir $${GUMBALLS_PROJECT} \
+		--autolog-session $${GUMBALLS_SESSION} \
+	    ../test/functional/neutronless/loadbalancer/
+
+run_neutronless_listener_tests:
+	@echo executing $@
+	tox -e singlebigip --sitepackage -- \
+	    --cov $(PROJDIR)/f5_openstack_agent \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--autolog-outputdir $${GUMBALLS_PROJECT} \
+		--autolog-session $${GUMBALLS_SESSION} \
+	    ../test/functional/neutronless/listener/
+
+run_neutronless_member_tests:
+	@echo executing $@
+	tox -e singlebigip --sitepackage -- \
+	    --cov $(PROJDIR)/f5_openstack_agent \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--autolog-outputdir $${GUMBALLS_PROJECT} \
+		--autolog-session $${GUMBALLS_SESSION} \
+	    ../test/functional/neutronless/member/
+
+run_neutronless_pool_tests:
+	@echo executing $@
+	tox -e singlebigip --sitepackage -- \
+	    --cov $(PROJDIR)/f5_openstack_agent \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--autolog-outputdir $${GUMBALLS_PROJECT} \
+		--autolog-session $${GUMBALLS_SESSION} \
+	    ../test/functional/neutronless/pool/
 
 run_singlebigip_tests: 
 	@echo executing $@

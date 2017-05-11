@@ -79,6 +79,8 @@ def icd_config():
     config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
     config['icontrol_username'] = pytest.symbols.bigip_username
     config['icontrol_password'] = pytest.symbols.bigip_password
-    config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
-
+    try:
+        config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
+    except AttributeError:
+        config['f5_vtep_selfip_name'] = "selfip.external"
     return config

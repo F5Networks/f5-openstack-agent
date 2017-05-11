@@ -13,17 +13,12 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from copy import deepcopy
-from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
-    iControlDriver
 import json
 import logging
 import os
 import pytest
 import requests
 
-from ..testlib.bigip_client import BigIpClient
-from ..testlib.fake_rpc import FakeRPCPlugin
 from ..testlib.service_reader import LoadbalancerReader
 from ..testlib.resource_validator import ResourceValidator
 
@@ -36,49 +31,14 @@ LOG = logging.getLogger(__name__)
 def services():
     neutron_services_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/session_persistence.json'
+                     '../../testdata/service_requests/'
+                     'tcp_listener.json'
                      )
     )
     return (json.load(open(neutron_services_filename)))
 
 
-@pytest.fixture(scope="module")
-def bigip():
-
-    return BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
-                       pytest.symbols.bigip_username,
-                       pytest.symbols.bigip_password)
-
-
-@pytest.fixture
-def fake_plugin_rpc(services):
-
-    rpcObj = FakeRPCPlugin(services)
-
-    return rpcObj
-
-
-@pytest.fixture
-def icontrol_driver(icd_config, fake_plugin_rpc):
-    class ConfFake(object):
-        def __init__(self, params):
-            self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
-                    self.__dict__[k] = v.encode('utf-8')
-
-        def __repr__(self):
-            return repr(self.__dict__)
-
-    icd = iControlDriver(ConfFake(icd_config),
-                         registerOpts=False)
-
-    icd.plugin_rpc = fake_plugin_rpc
-
-    return icd
-
-
-def test_single_pool(bigip, services, icd_config, icontrol_driver):
+def test_single_pool_tcp_vs(bigip, services, icd_config, icontrol_driver):
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)
@@ -95,38 +55,46 @@ def test_single_pool(bigip, services, icd_config, icontrol_driver):
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
+    validator.assert_virtual_profiles(listener, folder, ['/Common/fastL4'])
 
     # create pool
     service = service_iter.next()
     pool = service['pools'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool, folder)
+    validator.assert_virtual_profiles(listener, folder, ['/Common/fastL4'])
+    validator.assert_session_persistence(listener, 'source_addr', None, folder)
 
     # update pool session persistence, HTTP_COOKIE
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
     validator.assert_session_persistence(listener, 'cookie', None, folder)
+    validator.assert_virtual_profiles(
+        listener, folder, ['/Common/http', '/Common/oneconnect', '/Common/tcp'])
 
     # update pool session persistence, APP_COOKIE
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
     validator.assert_session_persistence(
         listener, 'app_cookie_TEST_' + listener['id'], 'JSESSIONID', folder)
+    validator.assert_virtual_profiles(
+        listener, folder, ['/Common/http', '/Common/oneconnect', '/Common/tcp'])
 
     # remove pool session persistence
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
     validator.assert_session_persistence(listener, None, None, folder)
+    validator.assert_virtual_profiles(listener, folder, ['/Common/fastL4'])
 
     # delete pool (and member, node)
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_deleted(pool, None, folder)
+    validator.assert_virtual_profiles(listener, folder, ['/Common/fastL4'])
 
     # delete listener
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
-    validator.assert_virtual_deleted(listener, folder)
 
     # delete loadbalancer
     service = service_iter.next()
