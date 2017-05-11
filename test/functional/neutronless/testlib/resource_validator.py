@@ -91,14 +91,23 @@ class ResourceValidator(object):
         assert vs.connectionLimit == connection_limit
 
         # description
-        description = listener['description']
-        if listener['name']:
-            description = '{0}:{1}'.format(listener['name'], description)
-        assert vs.description == description
+        if hasattr(vs, 'description'):
+            description = listener['description']
+            if listener['name']:
+                description = '{0}:{1}'.format(listener['name'], description)
+            assert vs.description == description
 
         # port
         assert vs.destination.endswith(
             ':{0}'.format(listener['protocol_port']))
+
+    def assert_virtual_profiles(self, listener, folder, expected_profiles=[]):
+        listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
+        vs = self.bigip.get_resource(
+            ResourceType.virtual, listener_name, partition=folder)
+        profiles = sorted(
+            [prof.fullPath for prof in vs.profiles_s.get_collection()])
+        assert profiles == sorted(expected_profiles)
 
     def get_monitor_type(self, monitor):
         monitor_type = monitor['type']
