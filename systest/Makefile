@@ -126,6 +126,7 @@ run_undercloud_tests:
 # This rule is run once per device type XX.Y.Z
 run_overcloud_tests:
 	@echo executing $@
+	$(MAKE) -C . setup_singlebigip_tests &&\
 	$(MAKE) -C . singlebigip
 
 #### TESTSBYINFRA SECTION
@@ -140,16 +141,15 @@ run_overcloud_tests:
 setup_singlebigip_tests:
 	@echo executing $@
 	echo running testenv create with stack name $${!DEVICEVERSION} &&
+	export TESTENV_CONF=bigip.testenv.yaml
 	testenv --debug create --name $${!DEVICEVERSION} \
 	        --config $${TESTENV_CONF} \
 	        --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
 
 singlebigip:
 	@echo executing $@
-	export TESTENV_CONF=bigip.testenv.yaml
 	export GP_SUFFIX=$@_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
-	$(MAKE) -C . setup_singlebigip_tests &&\
 	$(MAKE) -C . run_neutronless_loadbalancer_tests ;\
 	$(MAKE) -C . run_neutronless_listener_tests ;\
 	$(MAKE) -C . run_neutronless_member_tests ;\
