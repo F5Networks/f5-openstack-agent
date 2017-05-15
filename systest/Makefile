@@ -217,7 +217,7 @@ run_disconnected_service_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    $${RUNTARGETS}
+	    ../test/functional/neutronless/disconnected_service/
 
 cleanup_singlebigip:
 	@echo executing $@
