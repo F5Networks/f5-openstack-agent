@@ -17,6 +17,7 @@
 # test system. It is divided into 4 sections:
 # VARIABLES
 # INITIALIZATION
+# UNITTEST
 # MULTIPLEXING
 # TESTSBYINFRA
 
@@ -31,13 +32,14 @@
 #    DEPLOYS are a list of XX.Y.Z triples combined with other variables,
 #     currently the only specified variable is the (implicit) "CLOUDTYPE" with
 #     the states "overcloud" and "undercloud", therefore elements of DEPLOYS
-#     look like the following: '12_1_1_overcloud' '11_5_4_undercloud'.
-# 
-DEVICES := 12_1_1
+#     look like the following: '12.1.1-overcloud' '11.5.4-undercloud'.
+#
+DEVICES := 12.1.1
 DEPLOYS := $(foreach v, $(DEVICES), $(v)-overcloud $(v)-undercloud)
 
 # Tell make that targets don't map to files
-.PHONY: functest \
+.PHONY: setup \
+	unit_test \
         $(DEPLOYS) \
         run_overcloud_tests \
         run_undercloud_tests \
@@ -49,8 +51,7 @@ DEPLOYS := $(foreach v, $(DEVICES), $(v)-overcloud $(v)-undercloud)
         run_neutronless_loadbalancer_tests \
         run_neutronless_listener_tests \
         run_neutronless_member_tests \
-        run_neutronless_pool_tests \
-        clean
+        run_neutronless_pool_tests
 
 # Don't launch seperate shell proceses on new recipe lines.
 .ONESHELL:
@@ -71,35 +72,37 @@ PROJDIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
 TAGINFO := $(shell git describe --long --tags --first-parent)
 
 # git branch
-BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+BRANCH := liberty
 
-# /ASB/PATH/systest/test_results: This is where the buildbot system will look
+# /ASB/PATH/systest/test_results: This is where the CI system will look
 # for test reuslts.
 RESULTS_DIR := $(MAKEFILE_DIR)/test_results
 TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(BRANCH)/testenv
 
 #### INITIALIZATION SECTION
-#    Since all tests will run on the same buildbot worker, and we do not (yet)
+#    Since all tests will run on the same CI worker, and we do not (yet)
 #    require different packages for different suites, all packages are
-#    installed.  Each deploy maps to its own GUMBALLS project.  This section
-#    has one because unittests are run in this section.  
+#    installed.  Each deploy maps to its own GUMBALLS project.
 #    Tests use tox for python variants.
-functest: 
+setup:
 	-@echo executing $@
-	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh &&
-	mkdir -p $(TESTENVLOGDIR) &&
+	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh
+	mkdir -p $(TESTENVLOGDIR)
+
+#### UNITTEST SECTION:
+unit-tests: setup
+	-@echo executing $@
 	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-unit &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
 		--cov $(PROJDIR)/f5_openstack_agent \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $(TAGINFO)_`date +"%Y%m%d-%H%M%S"` \
-	    $(PROJDIR)/f5_openstack_agent &&
-	$(MAKE) -C . $(DEPLOYS)
+	    $(PROJDIR)/f5_openstack_agent
 
 #### MULTIPLEXING SECTION:
 #    there are (DEVICES * CLOUDTYPES) rules in this section. They have targets
-#    like '12_1_1_overcloud' and '11_6_1_undercloud'.
+#    like '12.1.1-overcloud' and '11.6.1-undercloud'.
 
 #  This rule sets variables to values specific for a particular deploy. This
 #  is where interfacing software (trtl) names are set.
@@ -107,11 +110,13 @@ functest:
 #  "GUMBALLS_SESSION" maps to a column in gumballs" (URL)
 #  NOTE: GUMBALLS SESSIONs are complete here, e.g.:
 #  v8.0.1-435-gab9141e_20170311
-$(DEPLOYS):
+$(DEPLOYS): setup
 	-@echo executing $@
 	. $(MAKEFILE_DIR)/device_version_maps.sh &&
-	export DEVICEVERSION=BIGIP_`python -c 'print("$@".split("-")[0])'` &&
-	export OSTACK_NAME=$${DEVICEVERSION}_$(TAGINFO)_`date "+%s"` &&
+	export BIGIP_VER=`python -c 'print("$@".split("-")[0].replace(".", "_"))'` &&
+	export DEVICEVERSION=BIGIP_$${BIGIP_VER} &&
+	export TESTENV_NAME=agent_$(BRANCH)_v$${BIGIP_VER}_bigip &&
+	export TESTENV_CONF=bigip.testenv.yaml &&
 	export CLOUD=`python -c 'print("$@".split("-")[1])'` &&
 	export TIMESTAMP=`date +"%Y%m%d-%H%M%S"` &&
 	export GUMBALLS_SESSION=$(TAGINFO)_$${TIMESTAMP} &&
@@ -137,14 +142,13 @@ run_overcloud_tests:
 #    added to this section.   That scenario will then be appropriately run
 #    against all tested DEPLOYS.
 #    NOTE: GUMBALLS PROJECTS are complete here, e.g.:
-#    singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
+#    singlebigip_f5-openstack-agent_liberty-12.1.1-overcloud
 setup_singlebigip_tests:
 	@echo executing $@
-	echo running testenv create with stack name $${!DEVICEVERSION} &&
-	export TESTENV_CONF=bigip.testenv.yaml
-	testenv --debug create --name $${!DEVICEVERSION} \
+	echo running testenv create with stack name $${TESTENV_NAME} &&
+	testenv -v create --name $${TESTENV_NAME} \
 	        --config $${TESTENV_CONF} \
-	        --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log
+	        --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
 
 singlebigip:
 	@echo executing $@
@@ -194,7 +198,7 @@ run_neutronless_pool_tests:
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ../test/functional/neutronless/pool/
 
-run_singlebigip_tests: 
+run_singlebigip_tests:
 	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
 	    --cov $(PROJDIR)/f5_openstack_agent \
@@ -217,14 +221,6 @@ run_disconnected_service_tests:
 
 cleanup_singlebigip:
 	@echo executing $@
-	echo running testenv delete with stack name $${OSTACK_NAME} &&
-	testenv --debug delete --name $${OSTACK_NAME} \
-	               --config $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${OSTACK_NAME}.log || \
-	$(MAKE) -C . clean
-
-#### 
-# Remove the buildbot venv directory and any tox venvs we made
-clean:
-	@echo executing $@
-	rm -rf $(PROJDIR)/.tox/functest-buildbot
-	rm -rf $(PROJDIR)/.tox/unit-buildbot
+	echo running testenv delete with stack name $${TESTENV_NAME}
+	testenv --debug delete --name $${TESTENV_NAME} \
+		 --config $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log

@@ -15,7 +15,7 @@
 #   limitations under the License.
 
 
-#### These commands are invoked by the buildbot worker during automated tests.
+#### These commands are invoked by the CI worker during automated tests.
 #    The invocation at the time of this writing is in the "functest" rule
 #    in ../Makefile
 sudo -E apt-get update &&
