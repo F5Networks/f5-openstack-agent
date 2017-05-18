@@ -196,23 +196,19 @@ run_neutronless_pool_tests:
 
 run_singlebigip_tests: 
 	@echo executing $@
-	export RUNTARGETS=$(MAKEFILE_DIR)/projects/$${GP_SUFFIX}
 	tox -e singlebigip --sitepackage -- \
-	    --meta $${RUNTARGETS}/noregress.yaml \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    $${RUNTARGETS}
+	    ../test/functional/singlebigip/
 
 # disconnected_singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
 run_disconnected_service_tests:
 	@echo executing $@
 	export GP_SUFFIX=disconnected_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
-	export RUNTARGETS=$(MAKEFILE_DIR)/projects/$${GP_SUFFIX}
 	tox -e disconnected_service --sitepackage -- \
-	    --meta $${RUNTARGETS}/noregress.yaml \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
