@@ -146,9 +146,9 @@ run_overcloud_tests:
 setup_singlebigip_tests:
 	@echo executing $@
 	echo running testenv create with stack name $${TESTENV_NAME} &&
-	testenv -v create --name $${TESTENV_NAME} \
-	        --config $${TESTENV_CONF} \
-	        --params bigip_img:$${!DEVICEVERSION} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
+	testenv --debug create --name $${TESTENV_NAME} \
+	        --params bigip_img:$${!DEVICEVERSION} \
+	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
 
 singlebigip:
 	@echo executing $@
@@ -223,4 +223,4 @@ cleanup_singlebigip:
 	@echo executing $@
 	echo running testenv delete with stack name $${TESTENV_NAME}
 	testenv --debug delete --name $${TESTENV_NAME} \
-		 --config $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
+		$${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
