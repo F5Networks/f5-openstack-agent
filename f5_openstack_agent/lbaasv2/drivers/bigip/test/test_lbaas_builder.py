@@ -14,6 +14,14 @@
 # limitations under the License.
 #
 
+from mock import Mock
+from mock import patch
+from requests import HTTPError
+
+import neutron.plugins.common.constants
+
+import f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder
+
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
@@ -22,7 +30,7 @@ import copy
 import mock
 import pytest
 
-from requests import HTTPError
+LOG = f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG
 
 
 POL_CREATE_PATH = \
@@ -582,6 +590,39 @@ class MockHTTPErrorResponse500(HTTPError):
 
 
 class TestLbaasBuilder(object):
+    neutron_plugin_constants = neutron.plugins.common.constants
+
+    @pytest.fixture
+    def create_self(self, request):
+        request.addfinalizer(self.teardown)
+        conf = Mock()
+        driver = Mock()
+        listener_service = \
+            str('f5_openstack_agent.lbaasv2.drivers.bigip.listener_service.'
+                'ListenerServiceBuilder')
+        pool_service = \
+            str('f5_openstack_agent.lbaasv2.drivers.bigip.pool_service.'
+                'PoolServiceBuilder')
+        l7service = \
+            str('f5_openstack_agent.lbaasv2.drivers.bigip.pool_service.'
+                'L7PolicyService')
+        mock_listener = Mock()
+        mock_pool = Mock()
+        mock_l7service = Mock()
+        self.log = Mock()
+        f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG = self.log
+        with patch(listener_service, mock_listener, create=True):
+            with patch(pool_service, mock_pool, create=True):
+                with patch(l7service, mock_l7service, create=True):
+                    self.builder = LBaaSBuilder(conf, driver)
+        self.listener_service = mock_listener
+        self.pool_service = mock_pool
+        self.l7service = mock_l7service
+
+    def teardown(self):
+        neutron.plugins.common.constants = self.neutron_plugin_constants
+        f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG = LOG
+
     """Test _assure_members in LBaaSBuilder"""
     @pytest.mark.skip(reason="Test is not valid without port object")
     def test_assure_members_deleted(self, service):
@@ -599,6 +640,166 @@ class TestLbaasBuilder(object):
 
         builder._assure_members(service, mock.MagicMock())
         assert delete_member_mock.called
+
+    def reset_mocks(self, *mocks):
+        for mymock in mocks:
+            mymock.reset_mock()
+
+    @pytest.fixture()
+    def setup_l7rules(self):
+        # set up test-wide mocks...
+        builder = self.builder
+        bigips = 'bigips'
+        mock_service = \
+            {'l7policy_rules': [{'provisioning_status': 'status'}],
+             'l7policies': [1, 2, 3], 'loadbalancer': {}}
+        neutron.plugins.common.constants = Mock()
+        neutron.plugins.common.constants.PENDING_DELETE = 'delete'
+        l7policy = Mock()
+        name = "policy name"
+        l7policy.get = Mock(return_value=name)
+        builder.driver.get_config_bigips = Mock(return_value=bigips)
+        l7policy = Mock()
+        l7policy.get = Mock(return_value=name)
+        builder.get_l7policy_for_rule = Mock(return_value=l7policy)
+        builder.is_esd = Mock(return_value=True)
+        self.mock_service = mock_service
+        self.name = name
+        self.l7policy = l7policy
+        self.bigips = bigips
+
+    def l7_check_being_esd(self, action_mock, target_method, check_log=False,
+                           status='status'):
+        builder = self.builder
+        l7policy = self.l7policy
+        mock_service = self.mock_service
+        name = self.name
+        mock_service['l7policy_rules'][0]['provisioning_status'] = status
+        # Failure result due to being an esd...
+        target_method(mock_service)
+        if check_log:
+            assert self.log.error.called, "Logged that we cannot do esd's"
+        else:
+            assert not self.log.error.called, "No logger element"
+        builder.is_esd.assert_called_once_with(name)
+        builder.get_l7policy_for_rule.assert_called_once_with(
+            mock_service['l7policies'], mock_service['l7policy_rules'][0])
+        l7policy.get.assert_called_once_with('name', None)
+        builder.driver.get_config_bigips.assert_called_once()
+        # Clear our mocks...
+        self.reset_mocks(builder.is_esd, builder.get_l7policy_for_rule,
+                         l7policy.get, builder.driver.get_config_bigips,
+                         self.log.error)
+
+    def l7_check_not_esd(self, action_mock, target_method, status='status',
+                         get_config_bigips=1):
+        bigips = self.bigips
+        builder = self.builder
+        l7policy = self.l7policy
+        mock_service = self.mock_service
+        name = self.name
+        # Success result of not being an esd...
+        builder.is_esd.return_value = False
+        target_method(mock_service)
+        assert not self.log.error.called, "Should not log a non-error"
+        builder.is_esd.assert_called_once_with(name)
+        builder.get_l7policy_for_rule.assert_called_once_with(
+            mock_service['l7policies'], mock_service['l7policy_rules'][0])
+        l7policy.get.assert_called_once_with('name', None)
+        assert builder.driver.get_config_bigips.call_count == \
+            get_config_bigips, "get_config_bigips called {} x's".format(
+                get_config_bigips)
+        action_mock.assert_called_once_with(
+            mock_service['l7policy_rules'][0], mock_service, bigips)
+        # Clear our mocks...
+        self.reset_mocks(builder.is_esd, builder.get_l7policy_for_rule,
+                         l7policy.get, builder.driver.get_config_bigips,
+                         self.log.error)
+
+    def l7_check_failure_on_exception(self, action_mock, target_method,
+                                      exc=f5_ex.L7PolicyCreationException,
+                                      status='status'):
+        builder = self.builder
+        l7policy = self.l7policy
+        mock_service = self.mock_service
+        # Failure on exception...
+        builder.is_esd.side_effect = NameError("wrong way...")
+        with pytest.raises(exc):
+            target_method(mock_service)
+        # Reset our mocks...
+        self.reset_mocks(builder.is_esd, builder.get_l7policy_for_rule,
+                         l7policy.get, builder.driver.get_config_bigips,
+                         self.log.error)
+        builder.is_esd.side_effect = None
+        # Clear our mocks...
+        self.reset_mocks(builder.is_esd, builder.get_l7policy_for_rule,
+                         l7policy.get, builder.driver.get_config_bigips,
+                         self.log.error)
+
+    def l7_check_negative_provisioning_status(self, action_mock, target_method,
+                                              status='status'):
+        builder = self.builder
+        l7policy = self.l7policy
+        mock_service = self.mock_service
+        # Provisioning is delete...
+        mock_service['l7policy_rules'][0]['provisioning_status'] = \
+            status
+        target_method(mock_service)
+        assert not builder.is_esd.called, "deletion status should not..."
+        assert not builder.get_l7policy_for_rule.called, \
+            "deletion status should not..."
+        assert not l7policy.get.called, "deletion status should not..."
+        # Reset our mocks...
+        self.reset_mocks(builder.is_esd, builder.get_l7policy_for_rule,
+                         l7policy.get, builder.driver.get_config_bigips,
+                         self.log.error)
+
+    def l7_check_no_rules(self, action_mock, target_method):
+        builder = self.builder
+        mock_service = self.mock_service
+        mock_service['l7policy_rules'] = list()
+        target_method(mock_service)
+        assert not builder.get_l7policy_for_rule.called
+        assert builder.driver.get_config_bigips.called, \
+            "We are present, but no one home..."
+
+    def l7_check_no_rules_definition(self, action_mock, target_method):
+        builder = self.builder
+        mock_service = self.mock_service
+        mock_service.pop('l7policy_rules')
+        target_method(mock_service)
+        assert not builder.driver.get_config.bigips.called, \
+            "no one home..."
+
+    def test__assure_l7rules_created(self, create_self, setup_l7rules):
+        action_mock = Mock()
+        target_method = self.builder._assure_l7rules_created
+        self.builder.l7service.create_l7rule = action_mock
+        self.l7_check_being_esd(action_mock, target_method,
+                                check_log=True)
+        self.l7_check_not_esd(action_mock, target_method)
+        self.l7_check_failure_on_exception(action_mock, target_method)
+        self.l7_check_negative_provisioning_status(action_mock,
+                                                   target_method,
+                                                   status='PENDING_DELETE')
+        self.l7_check_no_rules(action_mock, target_method)
+        self.l7_check_no_rules_definition(action_mock, target_method)
+
+    def test__assure_l7rules_deleted(self, create_self, setup_l7rules):
+        action_mock = Mock()
+        target_method = self.builder._assure_l7rules_deleted
+        self.builder.l7service.delete_l7rule = action_mock
+        self.l7_check_being_esd(action_mock, target_method,
+                                check_log=False, status='PENDING_DELETE')
+        self.l7_check_not_esd(action_mock, target_method,
+                              status='PENDING_DELETE', get_config_bigips=2)
+        self.l7_check_failure_on_exception(
+            action_mock, target_method,
+            exc=f5_ex.L7PolicyDeleteException, status='PENDING_DELETE')
+        self.l7_check_negative_provisioning_status(action_mock,
+                                                   target_method)
+        self.l7_check_no_rules(action_mock, target_method)
+        self.l7_check_no_rules_definition(action_mock, target_method)
 
     def test_assure_members_not_deleted(self, service):
         """Test that delete method is NOT called.
