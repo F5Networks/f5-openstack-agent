@@ -459,6 +459,8 @@ class LBaaSBuilder(object):
                             l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
 
     def _assure_l7policies_deleted(self, service):
@@ -492,6 +494,8 @@ class LBaaSBuilder(object):
                             l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
 
     def _assure_l7rules_created(self, service):
@@ -515,6 +519,8 @@ class LBaaSBuilder(object):
                     self.l7service.create_l7rule(l7rule, service, bigips)
                 except Exception as err:
                     l7rule['provisioning_status'] = plugin_const.ERROR
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
 
     def _assure_l7rules_deleted(self, service):
@@ -536,6 +542,8 @@ class LBaaSBuilder(object):
                     self.l7service.delete_l7rule(l7rule, service, bigips)
                 except Exception as err:
                     l7rule['provisioning_status'] = plugin_const.ERROR
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
 
     def get_listener_stats(self, service, stats):
