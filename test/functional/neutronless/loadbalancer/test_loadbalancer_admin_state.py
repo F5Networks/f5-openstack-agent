@@ -55,6 +55,15 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     Update loadbalancer using admin-state-up and eval virtual address
     enabled value.
 
+    Note: this tests loadbalancer admin_state_up and how those values
+    are translated to the BIG-IP virtual address. The vip_port data in the
+    service object does not affect the virtual address enabled value,
+    only the loadbalancer admin_state_up will change the virtual address
+    enabled value.
+
+    Also, admin-state-down (no value allowed) is permitted only in create
+    commands. admin-state-up (with True/False values) is permitted only updtae
+    commands.
 
     :param bigip: BIG-IP under test
     :param services: list of service objects
@@ -72,7 +81,9 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     # Make sure we are starting clean.
     assert not bigip.folder_exists(folder)
 
-    # Create loadbalancer, admin_state_down
+    # Create loadbalancer, admin-state-down not specified
+    # CLI: lbaas-loadbalancer-create --name lb1 mgmt_v4_subnet
+    # LB svc object: "admin_state_up": true
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
 
@@ -85,6 +96,8 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     assert virtual_addr.enabled == 'yes'
 
     # Update loadbalancer, admin_state_up=False
+    # CLI: lbaas-loadbalancer-update --admin-state-up=False lb1
+    # LB svc object: "admin_state_up": false
     service = service_iter.next()
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
@@ -94,6 +107,8 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     assert virtual_addr.enabled == 'no'
 
     # Update loadbalancer, admin_state_up=True
+    # CLI: lbaas-loadbalancer-update --admin-state-up=True lb1
+    # LB svc object: "admin_state_up": true
     service = service_iter.next()
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
@@ -103,14 +118,19 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     assert virtual_addr.enabled == 'yes'
 
     # Delete loadbalancer
+    # CLI: lbaas-loadbalancer-delete lb1
+    # LB svc object: "admin_state_up": true
     service = service_iter.next()
-    lb_pending = icontrol_driver._common_service_handler(service, delete_partition=True,
-                                                         delete_event=True)
+    lb_pending = icontrol_driver._common_service_handler(
+        service, delete_partition=True, delete_event=True)
     assert not lb_pending
     assert not bigip.resource_exists(ResourceType.virtual_address,
                                      virtual_addr_name)
 
-    # Create loadbalancer, admin_state_down
+    # Create loadbalancer with admin_state_down
+    # CLI:
+    # lbaas-loadbalancer-create --name lb1 --admin-state-down mgmt_v4_subnet
+    # LB svc object: "admin_state_up": false
     service = service_iter.next()
     lb_reader = LoadbalancerReader(service)
     virtual_addr_name = "%s_%s" % (env_prefix, lb_reader.id())
@@ -124,6 +144,8 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     assert virtual_addr.enabled == 'no'
 
     # Update loadbalancer, admin_state_up=True
+    # CLI: lbaas-loadbalancer-update --admin-state-up=True lb1
+    # LB svc object: "admin_state_up": true
     service = service_iter.next()
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
@@ -133,6 +155,8 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     assert virtual_addr.enabled == 'yes'
 
     # Update loadbalancer, admin_state_up=False
+    # CLI: lbaas-loadbalancer-update --admin-state-up=False lb1
+    # LB svc object: "admin_state_up": false
     service = service_iter.next()
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
@@ -142,8 +166,10 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     assert virtual_addr.enabled == 'no'
 
     # Delete loadbalancer
+    # CLI: lbaas-loadbalancer-delete lb1
+    # LB svc object: "admin_state_up": false
     service = service_iter.next()
-    lb_pending = icontrol_driver._common_service_handler(service, delete_partition=True,
-                                                         delete_event=True)
+    lb_pending = icontrol_driver._common_service_handler(
+        service, delete_partition=True, delete_event=True)
     assert not lb_pending
     assert not bigip.folder_exists(folder)
