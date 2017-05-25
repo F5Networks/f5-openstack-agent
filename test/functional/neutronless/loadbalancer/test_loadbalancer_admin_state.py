@@ -62,7 +62,7 @@ def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     enabled value.
 
     Also, admin-state-down (no value allowed) is permitted only in create
-    commands. admin-state-up (with True/False values) is permitted only updtae
+    commands. admin-state-up (with True/False values) is permitted only update
     commands.
 
     :param bigip: BIG-IP under test
