@@ -43,17 +43,19 @@ def services():
 def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
     """Test creating and updating loadbalancer with differing admin states.
 
-    Create loadbalancer using admin-state-down and eval virtual address
-    enabled value.
-
-    Update loadbalancer using admin-state-up and eval virtual address
-    enabled value.
 
     Create loadbalancer without admin-state-down and eval virtual address
     enabled value.
 
     Update loadbalancer using admin-state-up and eval virtual address
     enabled value.
+
+    Create loadbalancer using admin-state-down and eval virtual address
+    enabled value.
+
+    Update loadbalancer using admin-state-up and eval virtual address
+    enabled value.
+
 
     Note: this tests loadbalancer admin_state_up and how those values
     are translated to the BIG-IP virtual address. The vip_port data in the
