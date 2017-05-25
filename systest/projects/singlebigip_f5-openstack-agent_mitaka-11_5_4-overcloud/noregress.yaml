@@ -1,8 +1,0 @@
-{
-    "exclude": ["test_device_name",
-                "test_devices",
-                "test_get_sync_status",
-                "test_auto_sync",
-                "test_get_traffic_groups",
-                "test_get_mgmt_addr_by_device"]
-}
