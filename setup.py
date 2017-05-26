@@ -42,6 +42,6 @@ setuptools.setup(
             'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main'
         ]
     },
-    install_requires=['f5-sdk==2.3.2']
+    install_requires=['f5-sdk==2.3.3']
 )
 
