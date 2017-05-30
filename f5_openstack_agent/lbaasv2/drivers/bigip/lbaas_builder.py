@@ -168,7 +168,11 @@ class LBaaSBuilder(object):
                             plugin_const.PENDING_CREATE:
                         self.pool_builder.create_pool(svc, bigips)
                     else:
-                        self.pool_builder.update_pool(svc, bigips)
+                        try:
+                            self.pool_builder.update_pool(svc, bigips)
+                        except HTTPError as err:
+                            if err.response.status_code == 404:
+                                self.pool_builder.create_pool(svc, bigips)
 
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
