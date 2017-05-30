@@ -58,13 +58,14 @@ class LBaaSBuilder(object):
 
         self._assure_loadbalancer_created(service, all_subnet_hints)
 
+        self._assure_pools_created(service)
+
         self._assure_listeners_created(service)
 
         self._assure_l7policies_created(service)
 
         self._assure_l7rules_created(service)
 
-        self._assure_pools_created(service)
 
         self._assure_monitors(service)
 
