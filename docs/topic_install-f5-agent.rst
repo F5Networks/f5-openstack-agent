@@ -17,7 +17,7 @@ Quick Start
     .. rubric:: Example:
     .. code-block:: text
 
-        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@mitaka
+        $ sudo pip install git+https://github.com/F5Networks/f5-openstack-agent@stable/newton
 
 
 Debian Package

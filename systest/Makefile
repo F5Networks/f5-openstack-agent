@@ -72,7 +72,7 @@ PROJDIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
 TAGINFO := $(shell git describe --long --tags --first-parent)
 
 # git branch
-BRANCH := mitaka
+BRANCH := newton
 
 # /ASB/PATH/systest/test_results: This is where the CI system will look
 # for test reuslts.
