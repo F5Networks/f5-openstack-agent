@@ -44,7 +44,8 @@ class TestVirtualAddress(object):
                         "tenant_id": "123456789",
                         "id": "loadbalancer_id",
                         "traffic_group": "traffic-group-local-only",
-                        "vip_address": "192.168.100.5"}
+                        "vip_address": "192.168.100.5",
+                        "admin_state_up": True}
 
         return loadbalancer
 
@@ -57,3 +58,4 @@ class TestVirtualAddress(object):
         assert(va.address == "192.168.100.5")
         assert(va.traffic_group == "traffic-group-local-only")
         assert(va.description == "lb1:")
+        assert(va.enabled == "yes")
