@@ -66,7 +66,7 @@ class LBaaSBuilder(object):
 
         self._assure_l7rules_created(service)
 
-        self._assure_pools_cconfigured(service)
+        self._assure_pools_configured(service)
 
         self._assure_monitors(service)
 
