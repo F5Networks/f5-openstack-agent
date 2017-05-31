@@ -180,7 +180,7 @@ class ResourceValidator(object):
 
         if 'lbaas_persist' in esd:
             persist = getattr(vs, 'persist', None)
-            if not persist:
+            if persist:
                 assert vs.persist[0]['name'] != esd['lbaas_persist']
 
         if 'lbaas_fallback_persist' in esd:
