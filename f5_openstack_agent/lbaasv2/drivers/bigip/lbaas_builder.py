@@ -58,13 +58,15 @@ class LBaaSBuilder(object):
 
         self._assure_loadbalancer_created(service, all_subnet_hints)
 
+        self._assure_pools_created(service)
+
         self._assure_listeners_created(service)
 
         self._assure_l7policies_created(service)
 
         self._assure_l7rules_created(service)
 
-        self._assure_pools_created(service)
+        self._assure_pools_cconfigured(service)
 
         self._assure_monitors(service)
 
@@ -175,6 +177,34 @@ class LBaaSBuilder(object):
                             if err.response.status_code == 404:
                                 self.pool_builder.create_pool(svc, bigips)
 
+                except HTTPError as err:
+                    if err.response.status_code != 409:
+                        pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = (
+                            plugin_const.ERROR)
+                        raise f5_ex.PoolCreationException(err.message)
+
+                except Exception as err:
+                    pool['provisioning_status'] = plugin_const.ERROR
+                    loadbalancer['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.PoolCreationException(err.message)
+
+    def _assure_pools_configured(self, service):
+        if "pools" not in service:
+            return
+
+        pools = service["pools"]
+        loadbalancer = service["loadbalancer"]
+
+        bigips = self.driver.get_config_bigips()
+
+        for pool in pools:
+            if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
+                svc = {"loadbalancer": loadbalancer,
+                       "pool": pool}
+                svc['members'] = self._get_pool_members(service, pool['id'])
+
+                try:
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
                         loadbalancer, pool)
@@ -200,6 +230,7 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
+
 
     def _get_pool_members(self, service, pool_id):
         '''Return a list of members associated with given pool.'''
