@@ -161,6 +161,7 @@ class LBaaSBuilder(object):
             if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
+                svc['members'] = self._get_pool_members(service, pool['id'])
 
                 try:
                     # create or update pool
@@ -199,6 +200,28 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
+
+    def _get_pool_members(self, service, pool_id):
+        '''Return a list of members associated with given pool.'''
+
+        members = []
+        for member in service['members']:
+            if member['pool_id'] == pool_id:
+                members.append(member)
+        return members
+
+    def _update_listener_pool(self, service, listener_id, pool_name, bigips):
+        listener = self.get_listener_by_id(service, listener_id)
+        if listener is not None:
+            try:
+                listener["pool"] = pool_name
+                svc = {"loadbalancer": service["loadbalancer"],
+                       "listener": listener}
+                self.listener_builder.update_listener(svc, bigips)
+
+            except Exception as err:
+                listener['provisioning_status'] = plugin_const.ERROR
+                raise f5_ex.VirtualServerUpdateException(err.message)
 
     def _assure_monitors(self, service):
         if not (("pools" in service) and ("healthmonitors" in service)):
@@ -273,7 +296,11 @@ class LBaaSBuilder(object):
                         )
                         raise f5_ex.MemberCreationException(err.message)
                     else:
-                        self.pool_builder.update_member(svc, bigips)
+                        try:
+                            self.pool_builder.update_member(svc, bigips)
+                        except Exception as err:
+                            member['provisioning_status'] = plugin_const.ERROR
+                            raise f5_ex.MemberUpdateException(err.message)
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberCreationException(err.message)

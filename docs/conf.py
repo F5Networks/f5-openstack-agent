@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('.'))
 
 import f5_openstack_agent
+import f5_sphinx_theme
 
 VERSION = f5_openstack_agent.__version__
 
@@ -60,7 +61,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'F5 OpenStack Agent'
-copyright = u'2016, F5 Networks'
+copyright = u'2017 F5 Networks'
 author = u'F5 Networks'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -71,6 +72,11 @@ author = u'F5 Networks'
 version = VERSION
 # The full version, including alpha/beta/rc tags.
 release = VERSION
+
+# F5 SDK release version should be set here
+f5_sdk_version = '2.3.2'
+# F5 icontrol REST version should be set here
+f5_icontrol_version = '1.3.0'
 
 # OpenStack release
 
@@ -122,22 +128,23 @@ pygments_style = 'sphinx'
 #keep_warnings = False
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = True
+todo_include_todos = False
 
 
 # -- Options for HTML output ----------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'f5_sphinx_theme'
+html_theme_path = f5_sphinx_theme.get_html_theme_path()
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
-
-# Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = []
+html_theme_options = {
+                        #'site_name': 'F5 OpenStack Docs Home',
+                        'next_prev_link': True
+                     }
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
@@ -175,7 +182,7 @@ html_static_path = ['_static']
 #html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-#html_sidebars = {}
+html_sidebars = {'**': ['searchbox.html', 'localtoc.html', 'globaltoc.html']}
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
@@ -307,25 +314,38 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 
-# Example configuration for intersphinx: refer to the Python standard library.
+# intersphinx: refer to other F5 OpenStack documentation sets.
 intersphinx_mapping = {'heat': (
-    'http://f5-openstack-heat.readthedocs.io/en/liberty', None),
+    'http://f5-openstack-heat.readthedocs.io/en/'+openstack_release.lower(), None),
     'heatplugins': (
-    'http://f5-openstack-heat-plugins.readthedocs.io/en/liberty', None),
+    'http://f5-openstack-heat-plugins.readthedocs.io/en/'+openstack_release.lower(), None),
     'lbaasv1': (
-    'http://f5-openstack-lbaasv1.readthedocs.io/en/liberty/', None),
+    'http://f5-openstack-lbaasv1.readthedocs.io/en/'+openstack_release.lower(), None),
     'lbaasv2driver': (
-    'http://f5-openstack-lbaasv2-driver.readthedocs.io/en/liberty/', None),
+    'http://f5-openstack-lbaasv2-driver.readthedocs.io/en/'+openstack_release.lower(), None),
     'f5sdk': (
     'http://f5-sdk.readthedocs.io/en/latest/', None),
     }
 
 rst_epilog = '''
+.. |openstack| replace:: %(openstack_release)s
 .. |f5_agent_pip_url| replace:: git+https://github.com/F5Networks/f5-openstack-agent@v%(version)s
 .. |f5_agent_deb_url| replace:: https://github.com/F5Networks/f5-openstack-agent/releases/download/v%(version)s/python-f5-openstack-agent_%(version)s-1_1404_all.deb
 .. |f5_agent_rpm_url| replace:: https://github.com/F5Networks/f5-openstack-agent/releases/download/v%(version)s/f5-openstack-agent-%(version)s-1.el7.noarch.rpm
 .. |f5_agent_deb_package| replace:: python-f5-openstack-agent_%(version)s-1_1404_all.deb
 .. |f5_agent_rpm_package| replace:: f5-openstack-agent-%(version)s-1.el7.noarch.rpm
+.. |f5_sdk_deb_url| replace:: https://github.com/F5Networks/f5-common-python/releases/download/v%(f5_sdk_version)s/python-f5-sdk_%(f5_sdk_version)s-1_1404_all.deb
+.. |f5_sdk_rpm_url| replace:: https://github.com/F5Networks/f5-common-python/releases/download/v%(f5_sdk_version)s/f5-sdk-%(f5_sdk_version)s-1.el7.noarch.rpm
+.. |f5_sdk_rpm_package| replace:: f5-sdk-%(f5_sdk_version)s-1.el7.noarch.rpm
+.. |f5_sdk_deb_package| replace:: python-f5-sdk_%(f5_sdk_version)s-1_1404_all.deb
+.. |f5_icontrol_deb_url| replace:: https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v%(f5_icontrol_version)s/python-f5-icontrol-rest_%(f5_icontrol_version)s-1_1404_all.deb
+.. |f5_icontrol_rpm_url| replace:: https://github.com/F5Networks/f5-icontrol-rest-python/releases/download/v%(f5_icontrol_version)s/f5-icontrol-rest-%(f5_icontrol_version)s-1.el7.noarch.rpm
+.. |f5_icontrol_rpm_package| replace:: f5-icontrol-rest-%(f5_icontrol_version)s-1.el7.noarch.rpm
+.. |f5_icontrol_deb_package| replace:: python-f5-icontrol-rest_%(f5_icontrol_version)s-1_1404_all.deb
 ''' % {
-  'version': version
+  'version': version,
+  'f5_sdk_version': f5_sdk_version,
+  'f5_icontrol_version': f5_icontrol_version,
+  'openstack_release': openstack_release,
+  'openstack_release_l': openstack_release.lower(),
 }
