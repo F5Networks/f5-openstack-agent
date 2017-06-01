@@ -108,6 +108,19 @@ def service():
                       u'subnet_id': u'81f42a8a-fc98-4281-8de4-2b946e931457',
                       u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd',
                       u'port': 'port',
+                      u'weight': 1},
+                     {u'address': u'10.2.2.4',
+                      u'admin_state_up': True,
+                      u'id': u'1e7bfa17-a38f-4728-a3a7-aad85da69712',
+                      u'name': u'',
+                      u'network_id': u'cdf1eb6d-9b17-424a-a054-778f3d3a5490',
+                      u'operating_status': u'ONLINE',
+                      u'pool_id': u'2dbca6cd-30d8-4013-9c9a-df0850fabf52',
+                      u'protocol_port': 8080,
+                      u'provisioning_status': u'ACTIVE',
+                      u'subnet_id': u'81f42a8a-fc98-4281-8de4-2b946e931457',
+                      u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd',
+                      u'port': 'port',
                       u'weight': 1}],
         u'pools': [{u'admin_state_up': True,
                     u'description': u'',
@@ -858,6 +871,7 @@ class TestLbaasBuilder(object):
                     assert service['members'][0]['provisioning_status'] ==\
                         'ERROR'
 
+
     def test_create_policy_active_status(self, l7policy_create_service):
         """provisioning_status is ACTIVE after successful policy creation."""
 
@@ -951,3 +965,40 @@ class TestLbaasBuilder(object):
             assert svc['l7policy_rules'][0]['provisioning_status'] == 'ERROR'
             assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
             assert ex.value.message == 'Not found.'
+
+    def test_assure_member_has_port(self, service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            builder._assure_members(service, mock.MagicMock())
+            assert mock_log.warning.call_args_list == []
+
+    def test_assure_member_has_no_port(self, service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            service['members'][0].pop('port', None)
+            service['members'][1].pop('port', None)
+            builder._assure_members(service, mock.MagicMock())
+            assert \
+                mock_log.warning.call_args_list == \
+                [mock.call('Member definition does not include Neutron port'),
+                 mock.call('Member definition does not include Neutron port')]
+
+    def test_assure_member_has_one_port(self, service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            service['members'][0].pop('port', None)
+            builder._assure_members(service, mock.MagicMock())
+            assert \
+                mock_log.warning.call_args_list == \
+                [mock.call('Member definition does not include Neutron port')]
+
+    def test_assure_member_has_two_ports(self, service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            builder._assure_members(service, mock.MagicMock())
+            assert mock_log.warning.call_args_list == []
+
