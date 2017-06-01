@@ -263,8 +263,7 @@ class LBaaSBuilder(object):
 
             if 'port' not in member and \
                member['provisioning_status'] != plugin_const.PENDING_DELETE:
-                LOG.error("Member definition does not include Neutron port")
-                continue
+                LOG.warning("Member definition does not include Neutron port")
 
             # delete member if pool is being deleted
             if member['provisioning_status'] == plugin_const.PENDING_DELETE or\
