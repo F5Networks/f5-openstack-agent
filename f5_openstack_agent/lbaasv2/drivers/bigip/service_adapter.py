@@ -98,7 +98,8 @@ class ServiceModelAdapter(object):
             listener["session_persistence"] = \
                 service["pool"]["session_persistence"]
 
-        vip = self._map_virtual(loadbalancer, listener)
+        vip = self._map_virtual(
+            loadbalancer, listener, service.get('pool', None))
         self._add_bigip_items(listener, vip)
         return vip
 
@@ -342,8 +343,12 @@ class ServiceModelAdapter(object):
         else:
             return 'round-robin'
 
-    def _map_virtual(self, loadbalancer, listener):
+    def _map_virtual(self, loadbalancer, listener, pool=None):
         vip = self._init_virtual_name(loadbalancer, listener)
+
+        if pool:
+            p = self.init_pool_name(loadbalancer, pool)
+            vip["pool"] = p["name"]
 
         vip["description"] = self.get_resource_description(listener)
 
