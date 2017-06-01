@@ -71,6 +71,7 @@ def pool_member_service():
                 u'operating_status': u'ONLINE',
                 u'pool_id': u'2dbca6cd-30d8-4013-9c9a-df0850fabf52',
                 u'protocol_port': 8080,
+                u'port': u'port',
                 u'provisioning_status': u'ACTIVE',
                 u'subnet_id': u'81f42a8a-fc98-4281-8de4-2b946e931457',
                 u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd',
@@ -84,11 +85,13 @@ def pool_member_service():
                 u'operating_status': u'ONLINE',
                 u'pool_id': u'2dbca6cd-30d8-4013-9c9a-df0850fabf52',
                 u'protocol_port': 8080,
+                u'port': u'port',
                 u'provisioning_status': u'ACTIVE',
                 u'subnet_id': u'81f42a8a-fc98-4281-8de4-2b946e931457',
                 u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd',
                 u'weight': 10}],
-        u'pool': {
+        u'pools': [
+            {
             u'admin_state_up': True,
             u'description': u'',
             u'healthmonitor_id': u'70fed03a-efc4-460a-8a21',
@@ -102,5 +105,5 @@ def pool_member_service():
             u'provisioning_status': u'ACTIVE',
             u'session_persistence': None,
             u'sessionpersistence': None,
-            u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd'}
-        }
+            u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd'}]
+    }

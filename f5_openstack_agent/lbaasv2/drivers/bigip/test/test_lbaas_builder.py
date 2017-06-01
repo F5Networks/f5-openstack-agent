@@ -155,13 +155,13 @@ class TestLbaasBuilder(object):
 
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         service = copy.deepcopy(pool_member_service)
-        members = builder._get_pool_members(service, service['pool']['id'])
+        members = builder._get_pool_members(service, service['pools'][0]['id'])
         assert len(members) == 2
 
         # Modify pool_id of both members, expect no members returned
         service['members'][0]['pool_id'] = 'test'
         service['members'][1]['pool_id'] = 'test'
-        members = builder._get_pool_members(service, service['pool']['id'])
+        members = builder._get_pool_members(service, service['pools'][0]['id'])
         assert members == []
 
     def test_assure_members_update_exception(self, service):
@@ -190,3 +190,49 @@ class TestLbaasBuilder(object):
                     builder._assure_members(service, mock.MagicMock())
                     assert service['members'][0]['provisioning_status'] ==\
                         'ERROR'
+
+    def test_assure_member_has_port(self, service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            builder._assure_members(service, mock.MagicMock())
+            assert mock_log.warning.call_args_list == []
+
+    def test_assure_member_has_no_port(self, service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            service['members'][0].pop('port', None)
+            builder._assure_members(service, mock.MagicMock())
+            assert mock_log.warning.call_args_list == \
+                    [mock.call('Member definition does not include Neutron port')]
+
+
+    def test_assure_member_has_two_port_poolmember(self, pool_member_service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            builder._assure_members(pool_member_service, mock.MagicMock())
+            assert mock_log.warning.call_args_list == []
+
+    def test_assure_member_has_no_port_poolmember(self, pool_member_service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            service = pool_member_service
+            service['members'][0].pop('port', None)
+            service['members'][1].pop('port', None)
+            builder._assure_members(service, mock.MagicMock())
+            assert mock_log.warning.call_args_list == \
+                    [mock.call('Member definition does not include Neutron port'),
+                     mock.call('Member definition does not include Neutron port')]
+
+    def test_assure_member_has_one_port_poolmember(self, pool_member_service):
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'lbaas_builder.LOG') as mock_log:
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            service = pool_member_service
+            service['members'][0].pop('port', None)
+            builder._assure_members(service, mock.MagicMock())
+            assert mock_log.warning.call_args_list == \
+                    [mock.call('Member definition does not include Neutron port')]
