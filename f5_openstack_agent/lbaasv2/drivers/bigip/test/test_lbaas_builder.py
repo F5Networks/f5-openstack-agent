@@ -871,7 +871,6 @@ class TestLbaasBuilder(object):
                     assert service['members'][0]['provisioning_status'] ==\
                         'ERROR'
 
-
     def test_create_policy_active_status(self, l7policy_create_service):
         """provisioning_status is ACTIVE after successful policy creation."""
 
@@ -1001,4 +1000,3 @@ class TestLbaasBuilder(object):
             builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
             builder._assure_members(service, mock.MagicMock())
             assert mock_log.warning.call_args_list == []
-
