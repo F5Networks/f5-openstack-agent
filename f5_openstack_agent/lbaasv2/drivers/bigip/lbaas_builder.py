@@ -548,7 +548,7 @@ class LBaaSBuilder(object):
                     l7policy = self.get_l7policy_for_rule(
                         service['l7policies'], l7rule)
                     name = l7policy.get('name', None)
-                    if name and self.driver.is_esd(name):
+                    if name and self.is_esd(name):
                         LOG.error("L7 policy {0} is an ESD. Cannot add "
                                   "an L7 rule to and ESD.".format(name))
                         continue
@@ -571,7 +571,7 @@ class LBaaSBuilder(object):
                     l7policy = self.get_l7policy_for_rule(
                         service['l7policies'], l7rule)
                     name = l7policy.get('name', None)
-                    if name and self.driver.is_esd(name):
+                    if name and self.is_esd(name):
                         continue
                     self.l7service.bigips = self.driver.get_config_bigips()
                     self.l7service.delete_l7rule(l7rule, service, bigips)
