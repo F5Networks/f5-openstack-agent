@@ -505,7 +505,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
             # Validate each service we own, i.e. loadbalancers to which this
             # agent is bound, that does not exist in our service cache.
-            for lb_id in active_loadbalancer_ids:
+            for lb_id in all_loadbalancer_ids:
                 if not self.cache.get_by_loadbalancer_id(lb_id):
                     self.validate_service(lb_id)
 
