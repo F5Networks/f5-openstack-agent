@@ -427,7 +427,7 @@ class LBaaSBuilder(object):
 
     @staticmethod
     def get_pool_by_id(service, pool_id):
-        if "pools" in service:
+        if pool_id and "pools" in service:
             pools = service["pools"]
             for pool in pools:
                 if pool["id"] == pool_id:
