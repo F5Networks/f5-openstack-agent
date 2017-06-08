@@ -13,16 +13,15 @@
 #   limitations under the License.
 
 This directory contains the configuration and code necessary to interface with
-the inhouse f5 Boulder buildbot automated test infrastructure.   If data is
+the inhouse f5 Boulder CI automated test infrastructure.   If data is
 contained inside this directory it is for internal use.  Items which are
-relevant outside the f5 Boulder buildbot system MUST NOT be placed in this
+relevant outside the f5 Boulder CI system MUST NOT be placed in this
 directory (or its subdirectories).
 
 List of Contents:
   * README.txt -- this file
-  * Makefile -- this file provides an interface that buildbot uses. Buildbot always invokes "functest".  This list of rules is:
+  * Makefile -- this file provides an interface that CI uses.  This list of rules is:
     $(DEPLOYS)
-    functest
     run_{over,under}cloud_tests
     singlebigip
     setup_singlebigip_tests
@@ -40,5 +39,5 @@ List of Contents:
     where possible use the Makefile to set variables, and scripts/RULE.sh to
     specify RULE behavior
 
-  * scripts/install_test_infra.sh -- setup the buildbot workder to have
+  * scripts/install_test_infra.sh -- setup the CI worker to have
     necessary packages before Make operations

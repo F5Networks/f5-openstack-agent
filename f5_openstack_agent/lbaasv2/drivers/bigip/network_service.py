@@ -726,7 +726,9 @@ class NetworkServiceBuilder(object):
                 self.l2_service.add_bigip_fdbs(
                     bigip, net_folder, fdb_info, member)
             else:
-                member['provisioning_status'] = plugin_const.ERROR
+                LOG.warning('LBaaS member, %s, is not associated with Neutron '
+                            'port. No fdb entries will be created for this '
+                            'member.' % member['address'])
 
     def delete_bigip_member_l2(self, bigip, loadbalancer, member):
         # Delete pool member l2 records
@@ -745,11 +747,11 @@ class NetworkServiceBuilder(object):
                 self.l2_service.delete_bigip_fdbs(
                     bigip, net_folder, fdb_info, member)
             else:
-                LOG.error('Member on SDN has no port. Manual '
-                          'removal on the BIG-IP will be '
-                          'required. Was the vm instance '
-                          'deleted before the pool member '
-                          'was deleted?')
+                LOG.warning('LBaaS member, %s, is not assoicated with '
+                            'Neutron port. If any fdb entries were '
+                            'created for this member, they may need to be '
+                            'removed from the BIG-IP device.'
+                            % member['address'])
 
     def update_bigip_vip_l2(self, bigip, loadbalancer):
         # Update vip l2 records

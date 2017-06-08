@@ -47,13 +47,20 @@ class VirtualAddress(object):
 
         self.auto_delete = False
 
+        if loadbalancer.get('admin_state_up', True):
+            self.enabled = 'yes'
+        else:
+            self.enabled = 'no'
+
     def model(self):
         model = {"name": self.name,
                  "partition": self.partition,
                  "address": self.address,
                  "description": self.description,
                  "trafficGroup": self.traffic_group,
-                 "autoDelete": self.auto_delete}
+                 "autoDelete": self.auto_delete,
+                 "enabled": self.enabled}
+
         return model
 
     def create(self, bigip, model=None):

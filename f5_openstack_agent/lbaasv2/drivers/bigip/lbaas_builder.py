@@ -62,10 +62,6 @@ class LBaaSBuilder(object):
 
         self._assure_listeners_created(service)
 
-        self._assure_l7policies_created(service)
-
-        self._assure_l7rules_created(service)
-
         self._assure_pools_configured(service)
 
         self._assure_monitors(service)
@@ -73,6 +69,10 @@ class LBaaSBuilder(object):
         self._assure_members(service, all_subnet_hints)
 
         self._assure_pools_deleted(service)
+
+        self._assure_l7policies_created(service)
+
+        self._assure_l7rules_created(service)
 
         self._assure_l7rules_deleted(service)
 
@@ -231,7 +231,6 @@ class LBaaSBuilder(object):
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
 
-
     def _get_pool_members(self, service, pool_id):
         '''Return a list of members associated with given pool.'''
 
@@ -302,10 +301,9 @@ class LBaaSBuilder(object):
                    "member": member,
                    "pool": pool}
 
-            # if 'port' not in member and \
-            #    member['provisioning_status'] != plugin_const.PENDING_DELETE:
-            #     LOG.error("Member definition does not include Neutron port")
-            #     continue
+            if 'port' not in member and \
+               member['provisioning_status'] != plugin_const.PENDING_DELETE:
+                LOG.warning("Member definition does not include Neutron port")
 
             # delete member if pool is being deleted
             if member['provisioning_status'] == plugin_const.PENDING_DELETE or\
@@ -429,7 +427,7 @@ class LBaaSBuilder(object):
 
     @staticmethod
     def get_pool_by_id(service, pool_id):
-        if pool_id and "pools" in service:
+        if "pools" in service:
             pools = service["pools"]
             for pool in pools:
                 if pool["id"] == pool_id:
@@ -500,6 +498,8 @@ class LBaaSBuilder(object):
                             l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
 
     def _assure_l7policies_deleted(self, service):
@@ -533,6 +533,8 @@ class LBaaSBuilder(object):
                             l7policy, service, bigips)
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
 
     def _assure_l7rules_created(self, service):
@@ -556,6 +558,8 @@ class LBaaSBuilder(object):
                     self.l7service.create_l7rule(l7rule, service, bigips)
                 except Exception as err:
                     l7rule['provisioning_status'] = plugin_const.ERROR
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
 
     def _assure_l7rules_deleted(self, service):
@@ -577,6 +581,8 @@ class LBaaSBuilder(object):
                     self.l7service.delete_l7rule(l7rule, service, bigips)
                 except Exception as err:
                     l7rule['provisioning_status'] = plugin_const.ERROR
+                    service['loadbalancer']['provisioning_status'] = \
+                        plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
 
     def get_listener_stats(self, service, stats):

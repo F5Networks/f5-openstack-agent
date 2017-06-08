@@ -74,9 +74,16 @@ version = VERSION
 release = VERSION
 
 # F5 SDK release version should be set here
-f5_sdk_version = '2.3.2'
+f5_sdk_version = '2.3.3'
 # F5 icontrol REST version should be set here
 f5_icontrol_version = '1.3.0'
+
+rst_prolog = '''
+.. attention::
+
+   **The F5 OpenStack Integrations documentation is moving to
+   clouddocs.f5.com. Thank you for your patience during construction.**
+'''
 
 # OpenStack release
 

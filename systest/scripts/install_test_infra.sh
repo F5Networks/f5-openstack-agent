@@ -15,16 +15,15 @@
 #   limitations under the License.
 
 
-#### These commands are invoked by the buildbot worker during automated tests.
+#### These commands are invoked by the CI worker during automated tests.
 #    The invocation at the time of this writing is in the "functest" rule
 #    in ../Makefile
 sudo -E apt-get update &&
 sudo -E apt-get install -y libssl-dev &&
 sudo -E apt-get install -y libffi-dev &&
-sudo -E -H pip install --upgrade pip &&
-sudo -E -H pip install tox &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/testenv.git@v0.1.18 &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/velcro/systest-common.git@001c8f80f0b2fed1feed1f2a097c15c601914246 &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-meta.git &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-autolog.git &&
-sudo -E -H pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-symbols.git
+sudo -E pip install --upgrade pip &&
+sudo -E pip install tox &&
+sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/bdo/testenv-all.git &&
+sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-meta.git &&
+sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-autolog.git &&
+sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-symbols.git
