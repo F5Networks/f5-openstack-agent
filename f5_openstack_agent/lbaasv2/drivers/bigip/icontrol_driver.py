@@ -1329,7 +1329,7 @@ class iControlDriver(LBaaSBaseDriver):
                 provisioning_status = member['provisioning_status']
 
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE or provisioning_status == plugin_const.ACTIVE):
 
                     if timed_out:
                         member['provisioning_status'] = plugin_const.ERROR
@@ -1358,7 +1358,7 @@ class iControlDriver(LBaaSBaseDriver):
             if 'provisioning_status' in health_monitor:
                 provisioning_status = health_monitor['provisioning_status']
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE or provisioning_status == plugin_const.ACTIVE):
                         self.plugin_rpc.update_health_monitor_status(
                             health_monitor['id'],
                             plugin_const.ACTIVE,
@@ -1380,7 +1380,7 @@ class iControlDriver(LBaaSBaseDriver):
             if 'provisioning_status' in pool:
                 provisioning_status = pool['provisioning_status']
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE or provisioning_status == plugin_const.ACTIVE):
                         self.plugin_rpc.update_pool_status(
                             pool['id'],
                             plugin_const.ACTIVE,
@@ -1401,7 +1401,7 @@ class iControlDriver(LBaaSBaseDriver):
             if 'provisioning_status' in listener:
                 provisioning_status = listener['provisioning_status']
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE or provisioning_status == plugin_const.ACTIVE):
                         self.plugin_rpc.update_listener_status(
                             listener['id'],
                             plugin_const.ACTIVE,
@@ -1425,7 +1425,7 @@ class iControlDriver(LBaaSBaseDriver):
             if 'provisioning_status' in l7rule:
                 provisioning_status = l7rule['provisioning_status']
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE or provisioning_status == plugin_const.ACTIVE):
                         self.plugin_rpc.update_l7rule_status(
                             l7rule['id'],
                             l7rule['policy_id'],
@@ -1447,7 +1447,7 @@ class iControlDriver(LBaaSBaseDriver):
             if 'provisioning_status' in l7policy:
                 provisioning_status = l7policy['provisioning_status']
                 if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        provisioning_status == plugin_const.PENDING_UPDATE or provisioning_status == plugin_const.ACTIVE):
                         self.plugin_rpc.update_l7policy_status(
                             l7policy['id'],
                             plugin_const.ACTIVE,
@@ -1468,7 +1468,7 @@ class iControlDriver(LBaaSBaseDriver):
                                                plugin_const.ERROR)
 
         if (provisioning_status == plugin_const.PENDING_CREATE or
-                provisioning_status == plugin_const.PENDING_UPDATE):
+                provisioning_status == plugin_const.PENDING_UPDATE or provisioning_status == plugin_const.ACTIVE):
             if timed_out:
                 operating_status = (lb_const.OFFLINE)
                 if provisioning_status == plugin_const.PENDING_CREATE:

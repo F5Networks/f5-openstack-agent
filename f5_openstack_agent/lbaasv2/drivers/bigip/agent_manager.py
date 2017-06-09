@@ -565,8 +565,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 lb_id
             )
             self.cache.put(service, self.agent_host)
-            if not self.lbdriver.service_exists(service):
-                LOG.error('active loadbalancer %s is not on BIG-IP...syncing'
+            if not self.lbdriver.service_exists(service) or self._service_has_provisioning_error(service):
+                LOG.info('active loadbalancer %s is not on BIG-IP or has Error state...syncing'
                           % lb_id)
 
                 if self.lbdriver.service_rename_required(service):
@@ -582,11 +582,44 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
                 self.lbdriver.sync(service)
             else:
-                LOG.debug("Found service definition for %s" % (lb_id))
+                LOG.debug("Found service definition for %s, state is ACTIVE, move on" % (lb_id))
         except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.exception("Service validation error: %s" % exc.message)
+
+    def _service_has_provisioning_error(self, service):
+
+        loadbalancer = service['loadbalancer']
+
+        if loadbalancer["provisioning_status"] == plugin_const.ERROR:
+            return True
+
+        for listener in service['listeners']:
+
+            if listener["provisioning_status"] == plugin_const.ERROR:
+                return True
+
+        for pool in service['pools']:
+            if pool["provisioning_status"] == plugin_const.ERROR:
+                return True
+
+        for healthmonitor in service['healthmonitors']:
+            if healthmonitor["provisioning_status"] == plugin_const.ERROR:
+                return True
+
+        for l7policies in service['l7policies']:
+            if l7policies["provisioning_status"] == plugin_const.ERROR:
+                return True
+
+        for l7_rules in service['l7policy_rules']:
+            if l7_rules["provisioning_status"] == plugin_const.ERROR:
+                return True
+
+
+        return False
+
+
 
     @log_helpers.log_method_call
     def refresh_service(self, lb_id):
