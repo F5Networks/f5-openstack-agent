@@ -20,16 +20,10 @@ install:
     - pip install tox
 script:
     - tox -e style,unit
-    - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "7"
-    - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "6"
-    - f5-openstack-agent-dist/scripts/package_agent.sh "ubuntu" "14.04"
-    - sudo chown -R travis:travis ${DIST_REPO}/rpms/build
-    - sudo chown -R travis:travis ${DIST_REPO}/deb_dist/*.deb
+    - ./f5-openstack-agent-dist/scripts/build_pkgs.py
 after_success:
   - md5sum ${PKG_RELEASE_EL7} > ${PKG_RELEASE_EL7}.md5 && md5sum --check ${PKG_RELEASE_EL7}.md5
   - md5sum ${PKG_RELEASE_1404} > ${PKG_RELEASE_1404}.md5 && md5sum --check ${PKG_RELEASE_1404}.md5
-  - f5-openstack-agent-dist/scripts/test_install.sh "redhat" "7" ${PKG_RELEASE_EL7}
-  - f5-openstack-agent-dist/scripts/test_install.sh "ubuntu" "14.04" ${PKG_RELEASE_1404}
 deploy:
   - provider: releases
     api_key:
