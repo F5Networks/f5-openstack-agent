@@ -109,8 +109,8 @@ class LBaaSBuilder(object):
                                   loadbalancer["network_id"],
                                   all_subnet_hints,
                                   False)
-
-        loadbalancer['provisioning_status'] = plugin_const.ACTIVE
+        if loadbalancer['provisioning_status'] != plugin_const.PENDING_DELETE:
+            loadbalancer['provisioning_status'] = plugin_const.ACTIVE
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
