@@ -152,7 +152,8 @@ class LBaaSBuilder(object):
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerCreationException(err.message)
 
-            listener['provisioning_status'] = plugin_const.ACTIVE
+            if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
+                listener['provisioning_status'] = plugin_const.ACTIVE
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -326,6 +327,7 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_member(svc, bigips)
+                    member['provisioning_status'] = plugin_const.ACTIVE
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # FIXME(RB)
@@ -340,6 +342,8 @@ class LBaaSBuilder(object):
                         except Exception as err:
                             member['provisioning_status'] = plugin_const.ERROR
                             raise f5_ex.MemberUpdateException(err.message)
+
+
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberCreationException(err.message)
@@ -349,7 +353,7 @@ class LBaaSBuilder(object):
                                       member["network_id"],
                                       all_subnet_hints,
                                       True)
-            member['provisioning_status'] = plugin_const.ACTIVE
+
 
 
     def _assure_loadbalancer_deleted(self, service):
