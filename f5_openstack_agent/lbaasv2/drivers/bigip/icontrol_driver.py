@@ -975,16 +975,20 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def sync(self, service):
         """Sync service defintion to device"""
+
+        load_balancer = service.get('loadbalancer',None)
+
         # plugin_rpc may not be set when unit testing
-        if self.plugin_rpc:
+        if self.plugin_rpc and load_balancer:
             # Get the latest service. It may have changed.
             service = self.plugin_rpc.get_service_by_loadbalancer_id(
-                service['loadbalancer']['id']
+                load_balancer.get('id')
             )
-        if service['loadbalancer']:
+
+        if service.get('loadbalancer',None):
             return self._common_service_handler(service)
         else:
-            LOG.debug("Attempted sync of deleted pool")
+            LOG.debug("Attempted sync of deleted load balancer")
 
     @serialized('backup_configuration')
     @is_connected
