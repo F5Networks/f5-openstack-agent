@@ -262,10 +262,12 @@ class NetworkServiceBuilder(object):
             return
 
         LOG.debug("Assign route domain get from cache %s" % network)
-        route_domain_id = self.get_route_domain_from_cache(network)
-        if route_domain_id is not None:
+        try:
+            route_domain_id = self.get_route_domain_from_cache(network)
             network['route_domain_id'] = route_domain_id
             return
+        except f5_ex.RouteDomainCacheMiss as exc:
+            LOG.debug(exc.message)
 
         LOG.debug("max namespaces: %s" % self.conf.max_namespaces_per_tenant)
         LOG.debug("max namespaces == 1: %s" %
@@ -282,7 +284,6 @@ class NetworkServiceBuilder(object):
             return
 
         LOG.debug("assign route domain checking for available route domain")
-
         check_cidr = netaddr.IPNetwork(subnet['cidr'])
         placed_route_domain_id = None
         for route_domain_id in self.rds_cache[tenant_id]:
@@ -470,14 +471,16 @@ class NetworkServiceBuilder(object):
 
     def get_route_domain_from_cache(self, network):
         # Get route domain from cache by network
-        route_domain_id = None
         net_short_name = self.get_neutron_net_short_name(network)
         for tenant_id in self.rds_cache:
             tenant_cache = self.rds_cache[tenant_id]
             for route_domain_id in tenant_cache:
                 if net_short_name in tenant_cache[route_domain_id]:
                     return route_domain_id
-        return route_domain_id
+
+        # Not found
+        raise f5_ex.RouteDomainCacheMiss(
+            "No route domain cache entry for {0}".format(net_short_name))
 
     def remove_from_rds_cache(self, network, subnet):
         # Get route domain from cache by network
