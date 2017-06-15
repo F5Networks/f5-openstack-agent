@@ -211,13 +211,27 @@ class TestNetworkServiceBuilder(object):
         network_service.assign_route_domain(tenant_id, network, subnet)
         assert network['route_domain_id'] == 2
 
-        # no cache entry, single namespace
-        network_service.conf.max_namespaces_per_tenant = 1
-        network['provider:segmentation_id'] = 600
-        network_service.assign_route_domain(tenant_id, network, subnet)
-        assert network['route_domain_id'] == 1234
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'network_service.LOG') as mock_log:
+            # no cache entry, single namespace
+            network_service.conf.max_namespaces_per_tenant = 1
+            network['provider:segmentation_id'] = 600
+            network_service.assign_route_domain(tenant_id, network, subnet)
+            assert network['route_domain_id'] == 1234
+            assert mock.call('No route domain cache entry for vlan-600') in \
+                mock_log.debug.call_args_list
+            assert mock.call('max namespaces: 1') in \
+                mock_log.debug.call_args_list
 
-        # no cache entry, multiple namespaces
-        network_service.conf.max_namespaces_per_tenant = 3
-        network_service.assign_route_domain(tenant_id, network, subnet)
-        assert network['route_domain_id'] == 2
+            # no cache entry, multiple namespaces
+            network_service.conf.max_namespaces_per_tenant = 3
+            network_service.assign_route_domain(tenant_id, network, subnet)
+            assert network['route_domain_id'] == 2
+            assert mock.call('max namespaces: 3') in \
+                mock_log.debug.call_args_list
+
+        # invalid network data
+        with pytest.raises(f5_ex.InvalidNetworkType):
+            network['provider:segmentation_id'] = 604
+            network['provider:network_type'] = ''
+            network_service.assign_route_domain(tenant_id, network, subnet)
