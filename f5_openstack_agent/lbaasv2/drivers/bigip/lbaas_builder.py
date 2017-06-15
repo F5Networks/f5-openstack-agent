@@ -60,10 +60,6 @@ class LBaaSBuilder(object):
 
         self._assure_listeners_created(service)
 
-        self._assure_l7policies_created(service)
-
-        self._assure_l7rules_created(service)
-
         self._assure_pools_created(service)
 
         self._assure_monitors(service)
@@ -71,6 +67,10 @@ class LBaaSBuilder(object):
         self._assure_members(service, all_subnet_hints)
 
         self._assure_pools_deleted(service)
+
+        self._assure_l7policies_created(service)
+
+        self._assure_l7rules_created(service)
 
         self._assure_l7rules_deleted(service)
 
@@ -263,8 +263,7 @@ class LBaaSBuilder(object):
 
             if 'port' not in member and \
                member['provisioning_status'] != plugin_const.PENDING_DELETE:
-                LOG.error("Member definition does not include Neutron port")
-                continue
+                LOG.warning("Member definition does not include Neutron port")
 
             # delete member if pool is being deleted
             if member['provisioning_status'] == plugin_const.PENDING_DELETE or\

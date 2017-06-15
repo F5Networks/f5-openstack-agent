@@ -72,12 +72,19 @@ PROJDIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
 TAGINFO := $(shell git describe --long --tags --first-parent)
 
 # git branch
-BRANCH := newton
+
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+
+# The branch may contain the text 'stable/' before the OpenStack release name
+# To allow this type of branch name and any other to work with the cloud deployment
+# and with Jenkins, we should strip out the forward slash, leaving something like:
+# stable/newton -> stablenewton
+SANITIZED_BRANCH := $(subst /,,$(BRANCH))
 
 # /ASB/PATH/systest/test_results: This is where the CI system will look
 # for test reuslts.
 RESULTS_DIR := $(MAKEFILE_DIR)/test_results
-TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(BRANCH)/testenv
+TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(SANITIZED_BRANCH)/testenv
 
 #### INITIALIZATION SECTION
 #    Since all tests will run on the same CI worker, and we do not (yet)
@@ -92,7 +99,7 @@ setup:
 #### UNITTEST SECTION:
 unit-tests: setup
 	-@echo executing $@
-	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-unit &&
+	export GP_SUFFIX=f5-openstack-agent_$(SANITIZED_BRANCH)-unit &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
 		--cov $(PROJDIR)/f5_openstack_agent \
@@ -115,12 +122,12 @@ $(DEPLOYS): setup
 	. $(MAKEFILE_DIR)/device_version_maps.sh &&
 	export BIGIP_VER=`python -c 'print("$@".split("-")[0].replace(".", "_"))'` &&
 	export DEVICEVERSION=BIGIP_$${BIGIP_VER} &&
-	export TESTENV_NAME=agent_$(BRANCH)_v$${BIGIP_VER}_bigip &&
+	export TESTENV_NAME=agent_$(SANITIZED_BRANCH)_v$${BIGIP_VER}_bigip &&
 	export TESTENV_CONF=bigip.testenv.yaml &&
 	export CLOUD=`python -c 'print("$@".split("-")[1])'` &&
 	export TIMESTAMP=`date +"%Y%m%d-%H%M%S"` &&
 	export GUMBALLS_SESSION=$(TAGINFO)_$${TIMESTAMP} &&
-	export GP_SUFFIX=f5-openstack-agent_$(BRANCH)-$@ &&
+	export GP_SUFFIX=f5-openstack-agent_$(SANITIZED_BRANCH)-$@ &&
 	$(MAKE) -C . run_$${CLOUD}_tests
 
 # Currently does nothing in f5-openstack-agent
