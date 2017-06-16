@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import constants_v2 as const
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
@@ -47,6 +48,7 @@ class BigipTenantManager(object):
         adaptations shouldn't we be using ServiceModelAdapter...  though I
         suppose this is the other way.
         """
+        network_id = service['loadbalancer']['network_id']
         tenant_id = service['loadbalancer']['tenant_id']
         traffic_group = self.driver.service_to_traffic_group(service)
         traffic_group = '/Common/' + traffic_group
@@ -74,17 +76,19 @@ class BigipTenantManager(object):
         if self.conf.use_namespaces:
             for bigip in self.driver.get_all_bigips():
                 if not self.network_helper.route_domain_exists(bigip,
-                                                               folder_name):
+                                                               const.DEFAULT_PARTITION,network_id):
                     try:
                         self.network_helper.create_route_domain(
                             bigip,
-                            folder_name,
+                            "Common",network_id,
                             self.conf.f5_route_domain_strictness)
                     except Exception as err:
                         LOG.exception(err.message)
                         raise f5ex.RouteDomainCreationException(
                             "Failed to create route domain for "
-                            "tenant in %s" % (folder_name))
+                            "tenant in %s" % (const.DEFAULT_PARTITION))
+
+
 
     def assure_tenant_cleanup(self, service, all_subnet_hints):
         """Delete tenant partition."""
@@ -98,23 +102,23 @@ class BigipTenantManager(object):
     # otherwise called once
     def _assure_bigip_tenant_cleanup(self, bigip, service, subnet_hints):
         tenant_id = service['loadbalancer']['tenant_id']
+        network_id = service['loadbalancer']['network_id']
 
-        self._remove_tenant_replication_mode(bigip, tenant_id)
+        self._remove_tenant_replication_mode(bigip, tenant_id, network_id)
 
-    def _remove_tenant_replication_mode(self, bigip, tenant_id):
+    def _remove_tenant_replication_mode(self, bigip, tenant_id, network_id):
         # Remove tenant in replication sync-mode
         partition = self.service_adapter.get_folder_name(tenant_id)
-        domain_names = self.network_helper.get_route_domain_names(bigip,
-                                                                  partition)
-        for domain_name in domain_names:
-            try:
-                self.network_helper.delete_route_domain(bigip,
-                                                        partition,
-                                                        domain_name)
-            except Exception as err:
-                LOG.error("Failed to delete route domain %s. "
-                          "%s. Manual intervention might be required."
-                          % (domain_name, err.message))
+
+
+        try:
+            self.network_helper.delete_route_domain(bigip,
+                                                    "Common",
+                                                    network_id)
+        except Exception as err:
+            LOG.error("Failed to delete route domain %s. "
+                      "%s. Manual intervention might be required."
+                      % (network_id, err.message))
 
         try:
             self.system_helper.delete_folder(bigip, partition)

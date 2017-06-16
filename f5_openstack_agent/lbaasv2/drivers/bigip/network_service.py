@@ -16,6 +16,7 @@
 import itertools
 import netaddr
 
+import constants_v2 as const
 from neutron.common.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
@@ -208,6 +209,23 @@ class NetworkServiceBuilder(object):
                     self.bigip_selfip_manager.assure_gateway_on_subnet(
                         assure_bigip, subnetinfo, traffic_group)
 
+        self._assure_subnet_gateway(service)
+
+    def _assure_subnet_gateway(self,service):
+        network_id = service['loadbalancer']['network_id']
+
+        for bigip in self.driver.get_all_bigips():
+            rd = self.network_helper.get_route_domain(bigip, partition=const.DEFAULT_PARTITION, name=network_id)
+
+            for subnet_id, subnet in service['subnets'].iteritems():
+
+                if not self.network_helper.route_exists(bigip, const.DEFAULT_PARTITION,subnet_id):
+                    try:
+                        self.network_helper.create_route(bigip, const.DEFAULT_PARTITION,subnet_id, subnet['gateway_ip'], rd.id)
+                    except Exception as err:
+                        LOG.error("Failed to create default gateway route for network %s subnet %s" % (network_id, subnet_id))
+                        LOG.exception(err)
+
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
         tenant_id = service['loadbalancer']['tenant_id']
@@ -257,9 +275,11 @@ class NetworkServiceBuilder(object):
 
     def assign_route_domain(self, tenant_id, network, subnet):
         # Assign route domain for a network
-        if self.l2_service.is_common_network(network):
-            network['route_domain_id'] = 0
-            return
+
+
+        # if self.l2_service.is_common_network(network):
+        #     network['route_domain_id'] = 0
+        #     return
 
         LOG.debug("Assign route domain get from cache %s" % network)
         try:
@@ -276,10 +296,13 @@ class NetworkServiceBuilder(object):
         if self.conf.max_namespaces_per_tenant == 1:
             bigip = self.driver.get_bigip()
             LOG.debug("bigip before get_domain: %s" % bigip)
-            partition_id = self.service_adapter.get_folder_name(
-                tenant_id)
+            # partition_id = self.service_adapter.get_folder_name(
+            #     tenant_id)
+
+            partition_id='Common'
+
             tenant_rd = self.network_helper.get_route_domain(
-                bigip, partition=partition_id)
+                bigip, partition=partition_id, name=network['id'])
             network['route_domain_id'] = tenant_rd.id
             return
 
@@ -778,6 +801,11 @@ class NetworkServiceBuilder(object):
                 if not self.conf.f5_snat_mode:
                     gw_name = delete_gateway(bigip, subnetinfo)
                     deleted_names.add(gw_name)
+                else:
+                    if self._is_last_on_network(service):
+                        self.network_helper.delete_route(bigip, const.DEFAULT_PARTITION,subnetinfo['subnet_id'])
+
+
                 my_deleted_names, my_in_use_subnets = \
                     self.bigip_snat_manager.delete_bigip_snats(
                         bigip, subnetinfo, tenant_id)
@@ -797,6 +825,11 @@ class NetworkServiceBuilder(object):
     def _assure_delete_nets_nonshared(self, bigip, service, subnet_hints):
         # Delete non shared base objects for networks
         deleted_names = set()
+
+        if not self._is_last_on_network(service):
+            return deleted_names
+
+
         for subnetinfo in self._get_subnets_to_delete(bigip,
                                                       service,
                                                       subnet_hints):
@@ -816,6 +849,11 @@ class NetworkServiceBuilder(object):
                         mask=None,
                         partition=network_folder
                     )
+
+
+                if self._is_last_on_network(service):
+                    self.network_helper.delete_route(bigip, const.DEFAULT_PARTITION,subnetinfo['subnet_id'])
+
 
                 local_selfip_name = "local-" + bigip.device_name + \
                                     "-" + subnet['id']
@@ -862,6 +900,20 @@ class NetworkServiceBuilder(object):
                           % str(exc.message))
 
         return deleted_names
+
+    def _is_last_on_network(self, service):
+        network_id= service['loadbalancer']['network_id']
+
+        lb_id = service['loadbalancer']['id']
+
+        loadbalancers = self.driver.plugin_rpc.get_loadbalancers_by_network(network_id)
+
+        for lb in loadbalancers:
+            if lb['lb_id'] != lb_id:
+                return False
+
+        return True
+
 
     def _get_subnets_to_delete(self, bigip, service, subnet_hints):
         # Clean up any Self IP, SNATs, networks, and folder for

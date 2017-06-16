@@ -58,9 +58,11 @@ class LBaaSBuilder(object):
 
         self._assure_loadbalancer_created(service, all_subnet_hints)
 
+        self._assure_pools_created(service)
+
         self._assure_listeners_created(service)
 
-        self._assure_pools_created(service)
+        self._assure_pools_configured(service)
 
         self._assure_monitors(service)
 
@@ -107,6 +109,8 @@ class LBaaSBuilder(object):
                                   loadbalancer["network_id"],
                                   all_subnet_hints,
                                   False)
+        if loadbalancer['provisioning_status'] != plugin_const.PENDING_DELETE:
+            loadbalancer['provisioning_status'] = plugin_const.ACTIVE
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
@@ -121,6 +125,12 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "listener": listener,
                    "networks": networks}
+
+            default_pool_id = listener.get('default_pool_id', '')
+            if default_pool_id:
+                pool = self.get_pool_by_id(service, default_pool_id)
+                if pool:
+                    svc['pool'] = pool
 
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
                 try:
@@ -141,6 +151,9 @@ class LBaaSBuilder(object):
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerCreationException(err.message)
+
+            if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
+                listener['provisioning_status'] = plugin_const.ACTIVE
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -163,8 +176,42 @@ class LBaaSBuilder(object):
                             plugin_const.PENDING_CREATE:
                         self.pool_builder.create_pool(svc, bigips)
                     else:
-                        self.pool_builder.update_pool(svc, bigips)
+                        try:
+                            self.pool_builder.update_pool(svc, bigips)
+                        except HTTPError as err:
+                            if err.response.status_code == 404:
+                                self.pool_builder.create_pool(svc, bigips)
 
+                except HTTPError as err:
+                    if err.response.status_code != 409:
+                        pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = (
+                            plugin_const.ERROR)
+                        raise f5_ex.PoolCreationException(err.message)
+
+                except Exception as err:
+                    pool['provisioning_status'] = plugin_const.ERROR
+                    loadbalancer['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.PoolCreationException(err.message)
+
+                pool['provisioning_status'] = plugin_const.ACTIVE
+
+    def _assure_pools_configured(self, service):
+        if "pools" not in service:
+            return
+
+        pools = service["pools"]
+        loadbalancer = service["loadbalancer"]
+
+        bigips = self.driver.get_config_bigips()
+
+        for pool in pools:
+            if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
+                svc = {"loadbalancer": loadbalancer,
+                       "pool": pool}
+                svc['members'] = self._get_pool_members(service, pool['id'])
+
+                try:
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
                         loadbalancer, pool)
@@ -190,6 +237,8 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
+
+                pool['provisioning_status'] = plugin_const.ACTIVE
 
     def _get_pool_members(self, service, pool_id):
         '''Return a list of members associated with given pool.'''
@@ -247,6 +296,8 @@ class LBaaSBuilder(object):
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorCreationException(err.message)
 
+                monitor['provisioning_status'] = plugin_const.ACTIVE
+
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
             return
@@ -276,6 +327,7 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_member(svc, bigips)
+                    member['provisioning_status'] = plugin_const.ACTIVE
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # FIXME(RB)
@@ -290,6 +342,8 @@ class LBaaSBuilder(object):
                         except Exception as err:
                             member['provisioning_status'] = plugin_const.ERROR
                             raise f5_ex.MemberUpdateException(err.message)
+
+
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberCreationException(err.message)
@@ -299,6 +353,8 @@ class LBaaSBuilder(object):
                                       member["network_id"],
                                       all_subnet_hints,
                                       True)
+
+
 
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
@@ -387,7 +443,7 @@ class LBaaSBuilder(object):
 
     @staticmethod
     def get_pool_by_id(service, pool_id):
-        if "pools" in service:
+        if pool_id and "pools" in service:
             pools = service["pools"]
             for pool in pools:
                 if pool["id"] == pool_id:
@@ -462,6 +518,8 @@ class LBaaSBuilder(object):
                         plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
 
+                l7policy['provisioning_status'] = plugin_const.ACTIVE
+
     def _assure_l7policies_deleted(self, service):
         if 'l7policies' not in service:
             return
@@ -521,6 +579,8 @@ class LBaaSBuilder(object):
                     service['loadbalancer']['provisioning_status'] = \
                         plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
+
+                l7rule['provisioning_status'] = plugin_const.ACTIVE
 
     def _assure_l7rules_deleted(self, service):
         if 'l7policy_rules' not in service:

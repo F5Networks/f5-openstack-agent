@@ -40,7 +40,7 @@ class BigipSelfIpManager(object):
         self.selfip_manager = BigIPResourceHelper(ResourceType.selfip)
         self.network_helper = NetworkHelper()
 
-    def _create_bigip_selfip(self, bigip, model):
+    def _create_bigip_selfip(self, bigip, model, network_id):
         created = False
         if self.selfip_manager.exists(bigip, name=model['name'],
                                       partition=model['partition']):
@@ -59,7 +59,8 @@ class BigipSelfIpManager(object):
                         self.network_helper.add_vlan_to_domain(
                             bigip,
                             name=model['vlan'],
-                            partition=model['partition'])
+                            partition=model['partition'],
+                            rd_name=network_id)
                         self.selfip_manager.create(bigip, model)
                         created = True
                     except HTTPError as err:
@@ -132,7 +133,10 @@ class BigipSelfIpManager(object):
             "floating": "disabled",
             "partition": network_folder
         }
-        self._create_bigip_selfip(bigip, model)
+
+        network_id = network['id']
+
+        self._create_bigip_selfip(bigip, model, network_id)
 
         if self.l3_binding:
             self.l3_binding.bind_address(subnet_id=subnet['id'],
@@ -203,7 +207,9 @@ class BigipSelfIpManager(object):
             'partition': network_folder
         }
 
-        if not self._create_bigip_selfip(bigip, model):
+        network_id = network['id']
+
+        if not self._create_bigip_selfip(bigip, model, network_id):
             LOG.error("failed to create gateway selfip")
 
         if self.l3_binding:
