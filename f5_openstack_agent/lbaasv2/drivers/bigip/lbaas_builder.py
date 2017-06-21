@@ -170,9 +170,9 @@ class LBaaSBuilder(object):
                         loadbalancer, pool)
 
                     # get associated listeners for pool
-                    for listener in pool['listeners']:
-                        svc['listener'] = \
-                            self.get_listener_by_id(service, listener['id'])
+                    listeners = self._get_pool_listeners(service, pool['id'])
+                    for listener in listeners:
+                        svc['listener'] = listener
                         self.listener_builder.update_listener_pool(
                             svc, pool_name["name"], bigips)
 
@@ -190,6 +190,13 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
+
+    def _get_pool_listeners(self, service, pool_id):
+        pools_listeners = []
+        for listener in service['listeners']:
+            if listener['default_pool_id'] == pool_id:
+                pools_listeners.append(listener)
+        return pools_listeners
 
     def _get_pool_members(self, service, pool_id):
         '''Return a list of members associated with given pool.'''
@@ -337,13 +344,12 @@ class LBaaSBuilder(object):
                 try:
 
                     # update listeners for pool
-                    for listener in pool['listeners']:
-                        svc['listener'] = \
-                            self.get_listener_by_id(service, listener['id'])
-
+                    listeners = self._get_pool_listeners(service, pool['id'])
+                    for listener in listeners:
+                        svc['listener'] = listener
                         # remove pool name from virtual before deleting pool
                         self.listener_builder.update_listener_pool(
-                            svc, "", bigips)
+                            svc, '', bigips)
 
                         self.listener_builder.remove_session_persistence(
                             svc, bigips)

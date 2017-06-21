@@ -45,6 +45,9 @@ RULE_CREATE_PATH = \
 RULE_DELETE_PATH = \
     'f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_service' \
     '.L7PolicyService.delete_l7rule'
+VS_POOL_UPDATE_PATH = \
+    'f5_openstack_agent.lbaasv2.drivers.bigip.listener_service' \
+    '.ListenerServiceBuilder.update_listener_pool'
 
 
 @pytest.fixture
@@ -581,6 +584,93 @@ def l7rule_delete_service():
     }
 
 
+@pytest.fixture
+def shared_pool_service():
+    return {
+        u'loadbalancer': {
+            u'admin_state_up': True,
+            u'description': u'',
+            u'gre_vteps': [u'201.0.162.1',
+                           u'201.0.160.1',
+                           u'201.0.165.1'],
+            u'id': u'd5a0396e-e862-4cbf-8eb9-25c7fbc4d593',
+            u'listeners': [
+                {u'id': u'e3af03f4-d3df-4c9b-b3dd-8002f133d5bf'}],
+            u'name': u'',
+            u'network_id': u'cdf1eb6d-9b17-424a-a054-778f3d3a5490',
+            u'operating_status': u'ONLINE',
+            u'pools': [],
+            u'provider': u'f5networks',
+            u'provisioning_status': u'ACTIVE',
+            u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd',
+            u'vip_address': u'172.16.101.3',
+            u'vip_port': {u'admin_state_up': True,
+                          u'allowed_address_pairs': [],
+                          u'binding:host_id':
+                              u'host-164.int.lineratesystems.com:16ea1e',
+                          u'binding:profile': {},
+                          u'binding:vif_details': {},
+                          u'binding:vif_type': u'binding_failed',
+                          u'binding:vnic_type': u'normal',
+                          u'created_at': u'2016-10-24T21:17:30',
+                          u'description': None,
+                          u'device_id': u'0bd0b8ff-1c51-5061-b0c4',
+                          u'device_owner': u'network:f5lbaasv2',
+                          u'dns_name': None,
+                          u'extra_dhcp_opts': [],
+                          u'fixed_ips': [
+                              {u'ip_address': u'172.16.101.3',
+                               u'subnet_id': u'81f42a8a-fc98-4281-8de4'}],
+                          u'id': u'38a13e5c-6863-4537-80a3',
+                          u'mac_address': u'fa:16:3e:94:65:0c',
+                          u'name': u'loadbalancer-d5a0396e-e862',
+                          u'network_id': u'cdf1eb6d-9b17-424a',
+                          u'security_groups': [u'df88afdb-2bc6-4621'],
+                          u'status': u'DOWN',
+                          u'tenant_id': u'd9ed216f67f04a84bf8fd',
+                          u'updated_at': u'2016-10-24T21:17:31'},
+            u'vip_port_id': u'38a13e5c-6863-4537-80a3-c788d5f0c9ce',
+            u'vip_subnet_id': u'81f42a8a-fc98-4281-8de4-2b946e931457',
+            u'vxlan_vteps': []},
+        u'l7policies': [],
+        u'l7policy_rules': [],
+        u'listeners': [
+            {
+                u'admin_state_up': True,
+                u'connection_limit': -1,
+                u'default_pool_id': u'2dbca6cd-30d8-4013-9c9a-df0850fabf52',
+                u'default_tls_container_id': None,
+                u'description': u'',
+                u'id': u'7ddad6cc-887d-49aa-b970-5820471dc6e5',
+                u'l7_policies': [],
+                u'loadbalancer_id': u'd5a0396e-e862-4cbf-8eb9-25c7fbc4d593',
+                u'name': u'vs1',
+                u'operating_status': 'ONLINE',
+                u'protocol': u'HTTP',
+                u'protocol_port': 80,
+                u'provisioning_status': u'ACTIVE',
+                'snat_pool_name': u'Project_5197d6a284044c72b63f2fe6ae6edc21',
+                u'sni_containers': [],
+                u'tenant_id': u'5197d6a284044c72b63f2fe6ae6edc21',
+                'use_snat': True}],
+        u'members': [],
+        u'pools': [{u'admin_state_up': True,
+                    u'description': u'',
+                    u'healthmonitor_id': None,
+                    u'id': u'2dbca6cd-30d8-4013-9c9a-df0850fabf52',
+                    u'l7_policies': [],
+                    u'lb_algorithm': u'ROUND_ROBIN',
+                    u'loadbalancer_id': u'd5a0396e-e862-4cbf-8eb9-25c7fbc4d59',
+                    u'name': u'',
+                    u'operating_status': u'ONLINE',
+                    u'protocol': u'HTTP',
+                    u'provisioning_status': u'PENDING_CREATE',
+                    u'session_persistence': None,
+                    u'sessionpersistence': None,
+                    u'tenant_id': u'5197d6a284044c72b63f2fe6ae6edc21'}],
+    }
+
+
 class MockHTTPError(HTTPError):
     def __init__(self, response_obj, message=''):
         self.response = response_obj
@@ -1000,3 +1090,40 @@ class TestLbaasBuilder(object):
             builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
             builder._assure_members(service, mock.MagicMock())
             assert mock_log.warning.call_args_list == []
+
+    def test_assure_pools_created(self, shared_pool_service):
+        '''Test assure pools does not iterate of pool's listeners.'''
+        mock_driver = mock.MagicMock(name='driver')
+        mock_bigip = mock.MagicMock(name='bigip')
+        mock_driver.get_config_bigips.return_value = [mock_bigip]
+        mock_driver.service_adapter.init_pool_name.return_value = \
+            {'name': 'test_pool'}
+        with mock.patch(VS_POOL_UPDATE_PATH) as mock_update_vs_pool:
+            builder = LBaaSBuilder(mock.MagicMock(), mock_driver)
+            builder._assure_pools_created(shared_pool_service)
+            svc = {
+                'listener': shared_pool_service['listeners'][0],
+                'members': [],
+                'loadbalancer': shared_pool_service['loadbalancer'],
+                'pool': shared_pool_service['pools'][0]}
+            assert mock_update_vs_pool.call_args == \
+                mock.call(svc, 'test_pool', [mock_bigip])
+
+    def test_assure_pools_deleted(self, shared_pool_service):
+        '''Test assure pools does not iterate of pool's listeners.'''
+        shared_pool_service['pools'][0]['provisioning_status'] = \
+            'PENDING_DELETE'
+        mock_driver = mock.MagicMock(name='driver')
+        mock_bigip = mock.MagicMock(name='bigip')
+        mock_driver.get_config_bigips.return_value = [mock_bigip]
+        mock_driver.service_adapter.init_pool_name.return_value = \
+            {'name': 'test_pool'}
+        with mock.patch(VS_POOL_UPDATE_PATH) as mock_update_vs_pool:
+            builder = LBaaSBuilder(mock.MagicMock(), mock_driver)
+            builder._assure_pools_deleted(shared_pool_service)
+            svc = {
+                'listener': shared_pool_service['listeners'][0],
+                'loadbalancer': shared_pool_service['loadbalancer'],
+                'pool': shared_pool_service['pools'][0]}
+            assert mock_update_vs_pool.call_args == \
+                mock.call(svc, '', [mock_bigip])
