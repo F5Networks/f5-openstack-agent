@@ -287,7 +287,9 @@ def service():
             'vip_subnet_id': '30715508-bdde-4aed-90d9-7aa86adb2214',
             'vip_port': {
                 'status': 'DOWN',
-                'binding:host_id': 'host-155.int.lineratesystems.com:e4d04069-3d8b-555c-a154-3e2486f7c92e',
+                'binding:host_id':
+                    'host-155.int.lineratesystems.com:'
+                    'e4d04069-3d8b-555c-a154-3e2486f7c92e',
                 'name': 'loadbalancer-b0ac477a-a334-4bc9-8071-13692eee2d4e',
                 'allowed_address_pairs': [],
                 'admin_state_up': True,
@@ -422,16 +424,16 @@ class TestNetworkServiceBuilder(object):
             network_service.assign_route_domain(tenant_id, network, subnet)
             assert network['route_domain_id'] == 1234
             assert mock.call('No route domain cache entry for vlan-600') in \
-                   mock_log.debug.call_args_list
+                mock_log.debug.call_args_list
             assert mock.call('max namespaces: 1') in \
-                   mock_log.debug.call_args_list
+                mock_log.debug.call_args_list
 
             # no cache entry, multiple namespaces
             network_service.conf.max_namespaces_per_tenant = 3
             network_service.assign_route_domain(tenant_id, network, subnet)
             assert network['route_domain_id'] == 2
             assert mock.call('max namespaces: 3') in \
-                   mock_log.debug.call_args_list
+                mock_log.debug.call_args_list
 
         # invalid network data
         with pytest.raises(f5_ex.InvalidNetworkType):
