@@ -961,7 +961,6 @@ class NetworkServiceBuilder(object):
         networks = dict()
         loadbalancer = service['loadbalancer']
         service_adapter = self.service_adapter
-
         lb_status = loadbalancer['provisioning_status']
         if lb_status != plugin_const.PENDING_DELETE:
             if 'network_id' in loadbalancer:
@@ -973,9 +972,9 @@ class NetworkServiceBuilder(object):
                     service,
                     loadbalancer['vip_subnet_id']
                 )
-                networks[network['id']] = {'network': network,
-                                           'subnet': subnet,
-                                           'is_for_member': False}
+                networks[subnet['id']] = {'network': network,
+                                          'subnet': subnet,
+                                          'is_for_member': False}
 
         for member in service['members']:
             if member['provisioning_status'] != plugin_const.PENDING_DELETE:
@@ -988,7 +987,8 @@ class NetworkServiceBuilder(object):
                         service,
                         member['subnet_id']
                     )
-                    networks[network['id']] = {'network': network,
-                                               'subnet': subnet,
-                                               'is_for_member': True}
+                    networks[subnet['id']] = {'network': network,
+                                              'subnet': subnet,
+                                              'is_for_member': True}
+
         return networks.values()
