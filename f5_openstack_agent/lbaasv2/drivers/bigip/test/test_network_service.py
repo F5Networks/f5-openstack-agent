@@ -442,21 +442,53 @@ class TestNetworkServiceBuilder(object):
             network_service.assign_route_domain(tenant_id, network, subnet)
 
     def test_get_subnets_to_assure(self, network_service, service):
+        net_id = '8f398b94-635e-4a58-9f70-bf4d93f206a6'
+
+        # expect three subnets: vip, first member, second member
         subnets = network_service._get_subnets_to_assure(service)
         assert len(subnets) == 3
+        self._verify_assure_item('mgmt_v4_subnet', subnets, net_id, False)
+        self._verify_assure_item('sub1', subnets, net_id, True)
+        self._verify_assure_item('sub2', subnets, net_id, True)
 
+        # expect only member subnets, not vip
         service['loadbalancer']['provisioning_status'] = 'PENDING_DELETE'
         subnets = network_service._get_subnets_to_assure(service)
         assert len(subnets) == 2
+        self._verify_assure_item('sub1', subnets, net_id, True)
+        self._verify_assure_item('sub2', subnets, net_id, True)
 
+        # back to three subnets
         service['loadbalancer']['provisioning_status'] = 'ACTIVE'
         subnets = network_service._get_subnets_to_assure(service)
         assert len(subnets) == 3
+        self._verify_assure_item('mgmt_v4_subnet', subnets, net_id, False)
+        self._verify_assure_item('sub1', subnets, net_id, True)
+        self._verify_assure_item('sub2', subnets, net_id, True)
 
+        # expect vip and first member subnet
         service['members'].pop()
         subnets = network_service._get_subnets_to_assure(service)
         assert len(subnets) == 2
+        self._verify_assure_item('mgmt_v4_subnet', subnets, net_id, False)
+        self._verify_assure_item('sub1', subnets, net_id, True)
 
+        # expect vip only
         service['members'].pop()
         subnets = network_service._get_subnets_to_assure(service)
         assert len(subnets) == 1
+        self._verify_assure_item('mgmt_v4_subnet', subnets, net_id, False)
+
+    def _verify_assure_item(self, name, subnets, net_id, is_member):
+        item = self._get_assure_item(name, subnets)
+        assert item
+        assert item['subnet']['network_id'] == net_id
+        assert item['network']['id'] == net_id
+        assert item['is_for_member'] == is_member
+
+    def _get_assure_item(self, name, items):
+        try:
+            return next(
+                item for item in items if item['subnet']['name'] == name)
+        except StopIteration:
+            return None
