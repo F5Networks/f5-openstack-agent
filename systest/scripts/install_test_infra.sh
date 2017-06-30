@@ -23,7 +23,7 @@ sudo -E apt-get install -y libssl-dev &&
 sudo -E apt-get install -y libffi-dev &&
 sudo -E pip install --upgrade pip &&
 sudo -E pip install tox &&
-sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/bdo/testenv-all.git@818d3962 &&
+sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/bdo/testenv-all.git@af55369 &&
 sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-meta.git &&
 sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-autolog.git &&
 sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-symbols.git
