@@ -18,12 +18,16 @@
 #### These commands are invoked by the CI worker during automated tests.
 #    The invocation at the time of this writing is in the "functest" rule
 #    in ../Makefile
-sudo -E apt-get update &&
-sudo -E apt-get install -y libssl-dev &&
-sudo -E apt-get install -y libffi-dev &&
-sudo -E pip install --upgrade pip &&
-sudo -E pip install tox &&
-sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/bdo/testenv-all.git &&
-sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-meta.git &&
-sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-autolog.git &&
-sudo -E pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-symbols.git
+apt-get update
+apt-get install -y libssl-dev
+apt-get install -y libffi-dev
+pip install --upgrade pip
+# - install testenv-all first because it has a bunch of pinned dependencies
+pip install git+ssh://git@gitlab.pdbld.f5net.com/bdo/testenv-all.git
+pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-meta.git
+pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-autolog.git
+pip install git+ssh://git@gitlab.pdbld.f5net.com/tools/pytest-symbols.git
+pip install tox virtualenv virtualenvwrapper
+
+# - list installed python packages
+pip freeze | tee python-pkgs.txt
