@@ -174,6 +174,10 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Strict route domain isolation'
     ),
     cfg.BoolOpt(
+        'f5_common_networks', default=False,
+        help='All networks defined under Common partition'
+    ),
+    cfg.BoolOpt(
         'f5_common_external_networks', default=True,
         help='Treat external networks as common'
     ),
