@@ -69,9 +69,12 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
 
 @pytest.fixture()
 def icd_config():
+    relative = get_relative_path()
+    basic_agent_config = str("{}/f5-openstack-agent/test/functional/config"
+                             "/basic_agent_config.json".format(relative))
     oslo_config_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../config/basic_agent_config.json')
+                     basic_agent_config)
     )
     OSLO_CONFIGS = json.load(open(oslo_config_filename))
 
@@ -84,3 +87,39 @@ def icd_config():
     except AttributeError:
         config['f5_vtep_selfip_name'] = "selfip.external"
     return config
+
+
+@pytest.fixture()
+def get_relative_path():
+    """Discovers the relative path to the start of the repo's path and returns
+
+    This test fixture will find the relative path of the beginning of the repo.
+    This path is then returned.  If it is discovered that:
+    ./f5-openstack-agent/test/functional/neutronless/
+
+    Is not a full path, then it will raise and AssertionError.  If the user
+    executes this within a non-existent or partial repo that is fake or
+    unexpected, then it is assumed any subsequent test would fail.
+
+    The purpose of this code is to free up some tests from having to be run
+    from an explicit point of reference from within the repo's many possible
+    paths or tributaries.
+    """
+    current = os.getcwd()
+    repo_name = "f5-openstack-agent"
+    expected_relative = [repo_name, 'test', 'functional', 'neutronless']
+    relative_path = list()
+    for level in current.split("/"):
+        if level == repo_name:
+            break
+        relative_path.append(level)
+    else:
+        raise AssertionError(
+            "{} is not in your path! Please be "
+            "within the repo!".format(repo_name))
+    found = list(relative_path)
+    found.extend(expected_relative)
+    discovered = '/'.join(found)
+    assert os.path.isdir('/'.join(found)), \
+        "{} does not exist!".format(discovered)
+    return '/'.join(relative_path)
