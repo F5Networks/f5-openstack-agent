@@ -389,7 +389,7 @@ rst_epilog = '''
 .. _self IP: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/6.html
 .. _Better or Best license: https://f5.com/products/how-to-buy/simplified-licensing
 .. _secure network address translation: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/8.html
-.. _F5 OpenStack LBaaSv2 user documentation: /cloud/openstack/latest/lbaas
+.. _F5 Integration for OpenStack: /cloud/openstack/latest/lbaas
 ''' % {
   'version': version,
   'f5_sdk_version': f5_sdk_version,

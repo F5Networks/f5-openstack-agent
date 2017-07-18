@@ -129,7 +129,7 @@ Next steps
   - :command:`systemctl systemctl start f5-openstack-agent`   \\ CentOS
   - :command:`service f5-oslbaasv2-agent start`               \\ Ubuntu
 
-See the `F5 Integration for OpenStack documentation`_ for more information.
+See the `F5 Integration for OpenStack`_ documentation for more information.
 
 
 .. rubric:: Footnotes

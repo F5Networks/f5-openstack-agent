@@ -18,7 +18,11 @@ F5 Agent for OpenStack Neutron
    :maxdepth: 1
    :glob:
 
-   *
+   global-routed-mode
+   l2-adjacent-mode
+   device-driver-settings
+   ha-mode
+
 
 version |release|
 -----------------
@@ -46,7 +50,7 @@ Downloads
 Guides
 ------
 
-See the `F5 OpenStack LBaaSv2 user documentation`_.
+See the `F5 Integration for OpenStack`_ user documentation.
 
 .. index::
    single: f5-openstack-agent; install
@@ -172,11 +176,8 @@ The table below shows the corresponding iControl endpoint and BIG-IP object for 
 Modes of Operation
 ------------------
 
-.. toctree::
-   :maxdepth: 2
-
-   global-routed-mode
-   l2-adjacent-mode
+* :ref:`Global Routed Mode <global-routed-mode>`
+* :ref:`L2/L3-Adjacent Mode <l2-adjacent-mode>`
 
 
 .. index::
