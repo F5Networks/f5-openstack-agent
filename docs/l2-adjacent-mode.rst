@@ -360,6 +360,6 @@ Next steps
   - CentOS: :command:`systemctl systemctl start f5-openstack-agent`
   - Ubuntu :command:`service f5-oslbaasv2-agent start`
 
-See the `F5 Integration for OpenStack documentation`_ for more information.
+See the `F5 Integration for OpenStack`_ documentation for more information.
 
 
