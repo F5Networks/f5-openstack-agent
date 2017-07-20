@@ -42,6 +42,16 @@ LOG = logging.getLogger(__name__)
 
 # XXX OPTS is used in (at least) agent.py Maybe move/rename to agent.py
 OPTS = [
+    cfg.IntOpt(
+        'periodic_interval',
+        default=10,
+        help='Seconds between periodic task runs'
+    ),
+    cfg.BoolOpt(
+        'start_agent_admin_state_up',
+        default=True,
+        help='Should the agent force its admin_state_up to True on boot'
+    ),
     cfg.StrOpt(  # XXX should we use this with internal classes?
         'f5_bigip_lbaas_device_driver',  # XXX maybe remove "device" and "f5"?
         default=('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
@@ -116,6 +126,7 @@ OPTS = [
     ),
 ]
 
+PERIODIC_TASK_INTERVAL = 10
 
 class LogicalServiceCache(object):
     """Manage a cache of known services."""
@@ -217,6 +228,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.context = ncontext.get_admin_context_without_session()
         self.serializer = None
 
+        global PERIODIC_TASK_INTERVAL
+        PERIODIC_TASK_INTERVAL = self.conf.periodic_interval
+
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
@@ -233,10 +247,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.agent_host = self.conf.agent_id
             LOG.debug('setting agent host to %s' % self.agent_host)
         else:
-            self.agent_host = conf.host
-
-        # Load the iControl® driver.
-        self._load_driver(conf)
+            # If not set statically, add the driver agent env hash
+            agent_hash = str(
+                uuid.uuid5(uuid.NAMESPACE_DNS,
+                           self.conf.environment_prefix +
+                           '.' + self.lbdriver.hostnames[0])
+                )
+            self.agent_host = conf.host + ":" + agent_hash
+            LOG.debug('setting agent host to %s' % self.agent_host)
 
         # Initialize agent configurations
         agent_configurations = (
@@ -251,7 +269,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 if len(nv) > 1:
                     agent_configurations[nv[0]] = nv[1]
 
-        # Initialize agent-state
+        # Initialize agent-state to a default values
+        self.admin_state_up = self.conf.start_agent_admin_state_up
+        
         self.agent_state = {
             'binary': constants_v2.AGENT_BINARY_NAME,
             'host': self.agent_host,
@@ -261,13 +281,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             'l2_population': self.conf.l2_population,
             'start_flag': True
         }
+        
+        # Load the driver.
+        self._load_driver(conf)
+        
+        # Allow the driver to force the agent to 
+        # report state if something happens requring 
+        # the agent to show an error message in configuration
+        # and set the admin_state_up to False so no further
+        # scheduling will take place on this agent
+        self.lbdriver.agent_report_state = self._report_state
 
-        self.admin_state_up = True
-
-        # Set iControl® driver context for RPC.
+        # Set driver context for RPC.
         self.lbdriver.set_context(self.context)
 
-        # Setup RPC:
+        # Setup RPC for communications to controller
         self._setup_rpc()
 
         # Allow driver to run post init process not that the RPC is all setup.
@@ -275,6 +303,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         # Set the flag to resync tunnels/services
         self.needs_resync = True
+        
+        if(self.admin_state_up):
+            self.plugin_rpc.set_agent_admin_state(self.admin_state_up)
 
     def _load_driver(self, conf):
         self.lbdriver = None
@@ -285,21 +316,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver = importutils.import_object(
                 conf.f5_bigip_lbaas_device_driver,
                 self.conf)
-
-            if self.lbdriver.initialized:
-                if not self.conf.agent_id:
-                    # If not set statically, add the driver agent env hash
-                    agent_hash = str(
-                        uuid.uuid5(uuid.NAMESPACE_DNS,
-                                   self.conf.environment_prefix +
-                                   '.' + self.lbdriver.hostnames[0])
-                    )
-                    self.agent_host = conf.host + ":" + agent_hash
-                    LOG.debug('setting agent host to %s' % self.agent_host)
-            else:
-                LOG.error('Driver did not initialize. Fix the driver config '
-                          'and restart the agent.')
-                return
+            return
         except ImportError as ie:
             msg = ('Error importing loadbalancer device driver: %s error %s'
                    % (conf.f5_bigip_lbaas_device_driver, repr(ie)))
@@ -308,12 +325,20 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     def _setup_rpc(self):
 
-        # LBaaS Plugin API
+        #
+        # Setting up outbound (callbacks) communications from agent
+        #
+
+        # setup the topic to send oslo messages RPC calls
+        # from this agent to the controller
         topic = constants_v2.TOPIC_PROCESS_ON_HOST_V2
         if self.conf.environment_specific_plugin:
             topic = topic + '_' + self.conf.environment_prefix
             LOG.debug('agent in %s environment will send callbacks to %s'
                       % (self.conf.environment_prefix, topic))
+        
+        # create our class we will use to send callbacks to the controller
+        # for processing by the driver plugin        
         self.plugin_rpc = plugin_rpc.LBaaSv2PluginRPC(
             topic,
             self.context,
@@ -321,31 +346,59 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.conf.environment_group_number,
             self.agent_host
         )
-
-        # Allow driver to make callbacks using the
-        # same RPC proxy as the manager
+        
+        # Allow driver to make direct callbacks not proxy 
+        # through this manager
         self.lbdriver.set_plugin_rpc(self.plugin_rpc)
 
+        #
+        # Setting up outbound communcations with the neutron agent extension
+        #
         self._setup_state_rpc(topic)
 
-        # Setup message queues to listen for updates from
-        # Neutron.
+        #
+        # Setting up all inbound notifications and outbound callbacks
+        # for standard neutron agent services: 
+        #
+        #     tunnel_sync - used to advertise the driver VTEP endpoints
+        #                   and optionally learn about other VTEP endpoints
+        #
+        #     update - used to get updates to agent state triggered by 
+        #              the controller, like setting admin_state_up 
+        #              the agent
+        #
+        #     l2_populateion - used to get updates on neturon SDN topology
+        #                      changes
+        #
+        #  We only establish notification if we care about L2/L3 updates
+        #
+        
         if not self.conf.f5_global_routed_mode:
-            # Core plugin
-            self.lbdriver.set_tunnel_rpc(agent_rpc.PluginApi(topics.PLUGIN))
 
+            # allow the driver to issue notifications of 
+            # topology change to the controller
+            self.lbdriver.set_tunnel_rpc(agent_rpc.PluginApi(topics.PLUGIN))
+            
+            # define which controler notifications the agent comsumes
             consumers = [[constants_v2.TUNNEL, topics.UPDATE]]
+            
+            # if we are dynamically changing tunnel peers,
+            # register to recieve and send notificatoins via RPC
             if self.conf.l2_population:
-                # L2 Populate plugin Callbacks API
+                # communications of notifications from the 
+                # driver to neutron for SDN topology changes
                 self.lbdriver.set_l2pop_rpc(
                     l2pop_rpc.L2populationAgentNotifyAPI())
 
+                # notification of SDN topology updates from the
+                # controller by adding to the general consumer list
                 consumers.append(
                     [topics.L2POPULATION, topics.UPDATE, self.agent_host]
                 )
-
+            
+            # kick off the whole RPC process by creating 
+            # a connection to the message bus
             self.endpoints = [self]
-
             self.connection = agent_rpc.create_consumers(
                 self.endpoints,
                 topics.AGENT,
@@ -353,7 +406,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             )
 
     def _setup_state_rpc(self, topic):
-        # Agent state API
+        # notify the controller (agent extension) of 
+        # agent state on a period basis using oslo services
         self.state_rpc = agent_rpc.PluginReportStateAPI(topic)
         report_interval = self.conf.AGENT.report_interval
         if report_interval:
@@ -361,14 +415,34 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self._report_state)
             heartbeat.start(interval=report_interval)
 
-    def _report_state(self):
+    def _report_state(self, force_resync=False):
 
         try:
-            # assure the agent is connected
-            # FIXME: what happens if we can't connect.
-            if not self.lbdriver.connected:
-                self.lbdriver.connect()
+            if force_resync:
+                self.needs_resync = True
+                self.cache.services = {}
+                self.lbdriver.flush_cache()
+            # use the admin_state_up to notify the 
+            # controller if all backend devices 
+            # are functioning properly. If not
+            # automatically set the admin_state_up
+            # for this agent to False            
+            if not self.lbdriver.backend_integrity():
+                self.needs_resync = True
+                self.cache.services = {}
+                self.last_resync = datetime.datetime.now()
+                self.lbdriver.flush_cache()
+                self.plugin_rpc.set_agent_admin_state(False)
+                self.admin_state_up = False
+            else:
+                # if we are transitioning from down to up,
+                # change the controller state for this agent
+                if not self.admin_state_up:
+                    self.plugin_rpc.set_agent_admin_state(True)
+                    self.admin_state_up = True
 
+            # allow the service cache size to be monitored 
+            # from neutron
             service_count = self.cache.size
             self.agent_state['configurations']['services'] = service_count
             if hasattr(self.lbdriver, 'service_queue'):
@@ -376,13 +450,15 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     len(self.lbdriver.service_queue)
                 )
 
-            # Add configuration from icontrol_driver.
+            # add the agent configurations from driver.
             if self.lbdriver.agent_configurations:
                 self.agent_state['configurations'].update(
-                    self.lbdriver.agent_configurations
+                    self.lbdriver.get_agent_configurations()
                 )
 
-            # Compute the capacity score.
+            # add the capacity score, used by the scheduler
+            # for horizontal scaling of an environment, from
+            # the driver
             if self.conf.capacity_policy:
                 env_score = (
                     self.lbdriver.generate_capacity_score(
@@ -398,9 +474,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug("reporting state of agent as: %s" % self.agent_state)
             self.state_rpc.report_state(self.context, self.agent_state)
             self.agent_state.pop('start_flag', None)
+            
         except Exception as e:
             LOG.exception(("Failed to report state: " + str(e.message)))
 
+    # callback from oslo messaging letting us know we are properly 
+    # connected to the message bus so we can register for inbound 
+    # messages to this agent
     def initialize_service_hook(self, started_by):
         """Create service hook to listen for messanges on agent topic."""
         node_topic = "%s_%s.%s" % (constants_v2.TOPIC_LOADBALANCER_AGENT_V2,
@@ -412,9 +492,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             node_topic, endpoints, fanout=False)
         self.sync_state()
 
-    @periodic_task.periodic_task(spacing=10)
+    # setup a period task to decide if it is time empty the local service 
+    # cache and resync service definitions form the controller
+    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def periodic_resync(self, context):
-        """Resync tunnels/service state."""
+        """Determine if it is time to resync services from controller."""
         now = datetime.datetime.now()
         LOG.debug("%s: periodic_resync called." % now)
 
@@ -439,8 +521,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if self.sync_state():
                 self.needs_resync = True
 
-    @periodic_task.periodic_task(spacing=30)
+    @periodic_task.periodic_task(
+        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
     def update_operating_status(self, context):
+        """Update pool member operational status from devices to controller."""
         if not self.plugin_rpc:
             return
 
@@ -459,14 +543,28 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 except Exception as e:
                     LOG.exception('Error updating status %s.', e.message)
 
+    @periodic_task.periodic_task(
+        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
+    def scrub_dead_agents_in_env_and_group(self, context):
+        """Triggering a dead agent scrub on the controller."""
+        LOG.debug("running periodic scrub_dead_agents_in_env_and_group")
+        self.plugin_rpc.scrub_dead_agents(self.conf.environment_prefix,
+                                          self.conf.environment_group_number)
+        
+    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
+    def recover_errored_devices(self, context):
+        """Try to reconnect to errored devices."""
+        LOG.debug("running periodic task to retry errored devices")
+        self.lbdriver.recover_errored_devices()
+        
     def tunnel_sync(self):
-        """Call into driver to advertise tunnels."""
+        """Call into driver to advertise device tunnel endpoints."""
         LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")
         return self.lbdriver.tunnel_sync()
 
     @log_helpers.log_method_call
     def sync_state(self):
-        """Sync state of BIG-IP with that of the neutron database."""
+        """Synchronize device configuration from controller state."""
         resync = False
 
         known_services = set()
@@ -647,6 +745,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.remove_orphans(all_loadbalancers)
         except Exception as exc:
             LOG.error("Exception: removing orphans: %s" % exc.message)
+
+    ######################################################################
+    #
+    # handlers for all in bound requests and notifications from controller
+    #
+    ######################################################################
 
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):
@@ -879,15 +983,15 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def agent_updated(self, context, payload):
         """Handle the agent_updated notification event."""
         if payload['admin_state_up'] != self.admin_state_up:
+            LOG.info("agent administration status updated %s!", payload)
             self.admin_state_up = payload['admin_state_up']
-            if self.admin_state_up:
-                # FIXME: This needs to be changed back to True
-                self.needs_resync = False
+            # the agent transitioned to down to up and the 
+            # driver reports healthy, trash the cache
+            # and force an update to update agent scheduler
+            if self.lbdriver.backend_integrity() and self.admin_state_up:
+                self._report_state(True)
             else:
-                for loadbalancer_id in self.cache.get_loadbalancer_ids():
-                    LOG.debug("DESTROYING loadbalancer: " + loadbalancer_id)
-                    # self.destroy_service(loadbalancer_id)
-            LOG.info("agent_updated by server side %s!", payload)
+                self._report_state(False)
 
     @log_helpers.log_method_call
     def tunnel_update(self, context, **kwargs):

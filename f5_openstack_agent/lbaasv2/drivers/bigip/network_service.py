@@ -74,51 +74,46 @@ class NetworkServiceBuilder(object):
     def initialize_vcmp(self):
         self.l2_service.initialize_vcmp_manager()
 
-    def initialize_tunneling(self):
+    def initialize_tunneling(self, bigip):
         # setup tunneling
         vtep_folder = self.conf.f5_vtep_folder
         vtep_selfip_name = self.conf.f5_vtep_selfip_name
-        local_ips = []
+        
+        bigip.local_ip = None
 
-        for bigip in self.driver.get_all_bigips():
+        if not vtep_folder or vtep_folder.lower() == 'none':
+            vtep_folder = 'Common'
 
-            bigip.local_ip = None
+        if vtep_selfip_name and \
+            not vtep_selfip_name.lower() == 'none':
 
-            if not vtep_folder or vtep_folder.lower() == 'none':
-                vtep_folder = 'Common'
+            # profiles may already exist
+            # create vxlan_multipoint_profile`
+            self.network_helper.create_vxlan_multipoint_profile(
+                bigip,
+               'vxlan_ovs',
+                partition='Common')
+            # create l2gre_multipoint_profile
+            self.network_helper.create_l2gre_multipoint_profile(
+                bigip,
+                'gre_ovs',
+                partition='Common')
 
-            if vtep_selfip_name and \
-               not vtep_selfip_name.lower() == 'none':
+            # find the IP address for the selfip for each box
+            local_ip = self.bigip_selfip_manager.get_selfip_addr(
+                bigip,
+                vtep_selfip_name,
+                partition=vtep_folder
+            )
 
-                # profiles may already exist
-                # create vxlan_multipoint_profile`
-                self.network_helper.create_vxlan_multipoint_profile(
-                    bigip,
-                    'vxlan_ovs',
-                    partition='Common')
-                # create l2gre_multipoint_profile
-                self.network_helper.create_l2gre_multipoint_profile(
-                    bigip,
-                    'gre_ovs',
-                    partition='Common')
-
-                # find the IP address for the selfip for each box
-                local_ip = self.bigip_selfip_manager.get_selfip_addr(
-                    bigip,
-                    vtep_selfip_name,
-                    partition=vtep_folder
-                )
-
-                if local_ip:
-                    bigip.local_ip = local_ip
-                    local_ips.append(local_ip)
-                else:
-                    raise f5_ex.MissingVTEPAddress(
-                        'device %s missing vtep selfip %s'
-                        % (bigip.device_name,
-                           '/' + vtep_folder + '/' +
-                           vtep_selfip_name))
-        return local_ips
+            if local_ip:
+                bigip.local_ip = local_ip
+            else:
+                raise f5_ex.MissingVTEPAddress(
+                    'device %s missing vtep selfip %s'
+                    % (bigip.device_name,
+                       '/' + vtep_folder + '/' +
+                       vtep_selfip_name))
 
     def is_service_connected(self, service):
         networks = service.get('networks', {})
