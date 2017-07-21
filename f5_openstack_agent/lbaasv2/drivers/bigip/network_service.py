@@ -78,21 +78,21 @@ class NetworkServiceBuilder(object):
         # setup tunneling
         vtep_folder = self.conf.f5_vtep_folder
         vtep_selfip_name = self.conf.f5_vtep_selfip_name
-        
+
         bigip.local_ip = None
 
         if not vtep_folder or vtep_folder.lower() == 'none':
             vtep_folder = 'Common'
 
         if vtep_selfip_name and \
-            not vtep_selfip_name.lower() == 'none':
+                not vtep_selfip_name.lower() == 'none':
 
             # profiles may already exist
             # create vxlan_multipoint_profile`
             self.network_helper.create_vxlan_multipoint_profile(
-                bigip,
-               'vxlan_ovs',
-                partition='Common')
+                    bigip,
+                    'vxlan_ovs',
+                    partition='Common')
             # create l2gre_multipoint_profile
             self.network_helper.create_l2gre_multipoint_profile(
                 bigip,

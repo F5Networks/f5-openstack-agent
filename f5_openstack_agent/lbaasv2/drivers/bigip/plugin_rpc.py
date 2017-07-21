@@ -473,7 +473,6 @@ class LBaaSv2PluginRPC(object):
 
         return service
 
-
     @log_helpers.log_method_call
     def get_all_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of loadbalancers in Neutron."""
