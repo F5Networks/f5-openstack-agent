@@ -20,14 +20,12 @@ import hashlib
 import json
 import logging as std_logging
 import os
-import urllib2
 
 from eventlet import greenthread
 from time import strftime
 from time import time
 
-from neutron.common.exceptions import InvalidConfigurationOption
-from neutron.common.exceptions import NeutronException
+from neutron_lib.exceptions import InvalidConfigurationOption
 from neutron.plugins.common import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
@@ -62,7 +60,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
-from f5.bigip.tm.cm import device_group
 
 
 LOG = logging.getLogger(__name__)

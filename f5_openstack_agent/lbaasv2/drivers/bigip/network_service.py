@@ -16,7 +16,7 @@
 import itertools
 import netaddr
 
-from neutron.common.exceptions import NeutronException
+from neutron_lib.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
 from oslo_log import log as logging
 
@@ -559,7 +559,7 @@ class NetworkServiceBuilder(object):
                 subnetinfo, tenant_id, snats_per_subnet)
 
             if len(snat_addrs) != snats_per_subnet:
-                raise f5_ex.SNAT_CreationException(
+                raise f5_ex.SNATCreationException(
                     "Unable to satisfy request to allocate %d "
                     "snats.  Actual SNAT count: %d SNATs" %
                     (snats_per_subnet, len(snat_addrs)))

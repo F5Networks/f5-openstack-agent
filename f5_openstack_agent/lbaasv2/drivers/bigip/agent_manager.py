@@ -27,8 +27,8 @@ from oslo_service import periodic_task
 from oslo_utils import importutils
 
 from neutron.agent import rpc as agent_rpc
-from neutron.common import constants as plugin_const
-from neutron.common import exceptions as q_exception
+from neutron_lib import constants as plugin_const
+from neutron_lib import exceptions as q_exception
 from neutron.common import topics
 from neutron import context as ncontext
 from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
