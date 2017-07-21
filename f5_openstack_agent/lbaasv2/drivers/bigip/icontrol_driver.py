@@ -574,8 +574,7 @@ class iControlDriver(LBaaSBaseDriver):
                 # connect to each BIG-IP and set it status
                 bigip = self._open_bigip(hostname)
                 if bigip.status == 'active':
-                    # set the status down until we can 
-                    # be certain it is initialized
+                    # set the status down until we assure initialized
                     bigip.status = 'error'
                     LOG.debug('proceeding to initialize %s' % hostname)
                     device_group_name = None
@@ -587,8 +586,13 @@ class iControlDriver(LBaaSBaseDriver):
                         self._init_traffic_groups(bigip)
                         self.tg_initialized = True
                     self._init_bigip(bigip, hostname, device_group_name)
-                    bigip.status = 'active'
-                    bigip.status_message = 'BIG-IP intialized properly'
+                    # Assure basic BIG-IP HA is operational 
+                    if self._validate_ha_operational(bigip):
+                        bigip.status = 'active'
+                        bigip.status_message = 'BIG-IP intialized properly'
+                    else:
+                        bigip.status = 'error'
+                        bigip.status_message = 'HA status is not operational'
             self._set_agent_status(False)
 
         except Exception as exc:
@@ -606,8 +610,7 @@ class iControlDriver(LBaaSBaseDriver):
                     # try to connect and set status
                     bigip = self._open_bigip(hostname)
                     if bigip.status == 'active':
-                        # set the status down until we can 
-                        # be certain it is initialized
+                        # set the status down until we assue initialized
                         bigip.status = 'error'
                         LOG.debug('proceeding to initialize %s' % hostname)
                         device_group_name = None
@@ -619,11 +622,14 @@ class iControlDriver(LBaaSBaseDriver):
                             self._init_traffic_groups(bigip)
                             self.tg_initialized = True
                         self._init_bigip(bigip, hostname, device_group_name)
-                        # device transitioned from offline to online
-                        # and has been initialized.
-                        bigip.status = 'active'
-                        bigip.status_message = 'BIG-IP intialized properly'
-                        force_resync = True
+                        # Assure basic BIG-IP HA is operational 
+                        if self._validate_ha_operational(bigip):
+                            bigip.status = 'active'
+                            bigip.status_message = 'BIG-IP intialized properly'
+                            force_resync = True
+                        else:
+                            bigip.status = 'error'
+                            bigip.status_message = 'HA status is not operational'
                 self._init_agent_config()
                 self._set_agent_status(force_resync)
             else:
@@ -781,6 +787,24 @@ class iControlDriver(LBaaSBaseDriver):
                             first_bigip, device))
                 self.hostnames = mgmt_addrs
         return device_group_name      
+
+    def _validate_ha_operational(self, bigip):
+        if self.conf.f5_ha_type == 'standalone':
+            return True
+        else:
+            # the device should not be in the disconnected state
+            sync_status = self.cluster_manager.get_sync_status(bigip)
+            if sync_status in ['Disconnected','Sync Failure']:
+                return False
+            # it should be in the same sync-failover group
+            # as the rest of the active bigips
+            device_group_name = self.cluster_manager.get_device_group(bigip)
+            active_bigips = self.get_active_bigip()
+            for ab in active_bigips:
+                adgn = self.cluster_manager.get_device_group(ab)
+                if not adgn == device_group_name:
+                    return False
+        return True
 
     def _init_agent_config(self):
         # Init agent config
