@@ -56,15 +56,15 @@ deploy:
       python: 2.7
     skip_cleanup: true
   # deploy docs to s3
-  # if this is not a tagged release, the docs go to /products/openstack/$TRAVIS_BRANCH/agent
+  # if this is not a tagged release, the docs go to /products/openstack/agent/$TRAVIS_BRANCH
   - provider: script
     skip_cleanup: true
     on:
       repo: F5Networks/f5-openstack-agent
       condition: $TRAVIS_TAG = ""
     script:
-    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/$TRAVIS_BRANCH agent
-  # if this is a tagged release, the docs go to /products/openstack/$TRAVIS_BRANCH/agent/vX.Y
+    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $TRAVIS_BRANCH
+  # if this is a tagged release, the docs go to /products/openstack/agent/$TRAVIS_BRANCH/vX.Y
   - provider: script
     skip_cleanup: true
     env:
@@ -73,7 +73,7 @@ deploy:
       tags: true
       repo: F5Networks/f5-openstack-agent
     script:
-    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/$TRAVIS_BRANCH/agent $RELEASE_TAG
+    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent/$TRAVIS_BRANCH $RELEASE_TAG
 
 notifications:
   slack:
