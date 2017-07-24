@@ -34,7 +34,7 @@ The F5 Agent for OpenStack Neutron is an OpenStack `Neutron plugin agent <https:
 Documentation
 -------------
 
-Documentation is published on `clouddocs.f5.com <http://clouddocs.f5.com/products/openstack/latest/agent/>`_.
+Documentation is published on `clouddocs.f5.com <http://clouddocs.f5.com/products/openstack/agent/latest>`_.
 
 Compatibility
 -------------
