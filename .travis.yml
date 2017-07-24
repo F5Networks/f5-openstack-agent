@@ -1,4 +1,4 @@
-sudo: true 
+sudo: required
 env:
   global:
     - DIST_REPO="f5-openstack-agent-dist"
@@ -15,7 +15,7 @@ python:
 before_install:
     - git config --global user.email "OpenStack_TravisCI@f5.com"
     - git config --global user.name "Travis F5 Openstack"
-
+    - docker pull f5devcentral/containthedocs:latest
 install:
     - pip install tox
 script:
@@ -25,6 +25,7 @@ script:
     - f5-openstack-agent-dist/scripts/package_agent.sh "ubuntu" "14.04"
     - sudo chown -R travis:travis ${DIST_REPO}/rpms/build
     - sudo chown -R travis:travis ${DIST_REPO}/deb_dist/*.deb
+    - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh
 after_success:
   - md5sum ${PKG_RELEASE_EL7} > ${PKG_RELEASE_EL7}.md5 && md5sum --check ${PKG_RELEASE_EL7}.md5
   - md5sum ${PKG_RELEASE_1404} > ${PKG_RELEASE_1404}.md5 && md5sum --check ${PKG_RELEASE_1404}.md5
@@ -54,6 +55,26 @@ deploy:
       tags: true
       python: 2.7
     skip_cleanup: true
+  # deploy docs to s3
+  # if this is not a tagged release, the docs go to /products/openstack/agent/$TRAVIS_BRANCH
+  - provider: script
+    skip_cleanup: true
+    on:
+      repo: F5Networks/f5-openstack-agent
+      all_branches: true
+      condition: $TRAVIS_TAG = ""
+    script:
+    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $TRAVIS_BRANCH
+  # if this is a tagged release, the docs go to /products/openstack/agent/$TRAVIS_BRANCH/vX.Y
+  - provider: script
+    skip_cleanup: true
+    env:
+    - RELEASE_TAG="$(echo $TRAVIS_TAG |cut -c1-4)"
+    on:
+      tags: true
+      repo: F5Networks/f5-openstack-agent
+    script:
+    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent/$TRAVIS_BRANCH $RELEASE_TAG
 
 notifications:
   slack:

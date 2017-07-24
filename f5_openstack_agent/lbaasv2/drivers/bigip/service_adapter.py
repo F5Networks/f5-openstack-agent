@@ -28,9 +28,9 @@ class UnsupportedProtocolException(Exception):
 
 
 class ServiceModelAdapter(object):
-    """Class to translate LBaaS service objects to BIG-IP® model objects.
+    """Class to translate LBaaS service objects to BIG-IP model objects.
 
-    Creates BIG-IP® model objects (dictionary of resource attributes) given
+    Creates BIG-IP model objects (dictionary of resource attributes) given
     an LBaaS service objet.
     """
 

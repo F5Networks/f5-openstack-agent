@@ -8,7 +8,7 @@
 # Default-Start:        2 3 4 5
 # Default-Stop:         0 1 6
 # Short-Description:    f5-openstack-agent
-# Description:          Provides the F5® OpenStack agent to configure BIG-IP®
+# Description:          Provides the F5 OpenStack agent to configure BIG-IP
 ### END INIT INFO
 
 PROJECT_NAME=neutron
