@@ -61,7 +61,7 @@ deploy:
     skip_cleanup: true
     on:
       repo: F5Networks/f5-openstack-agent
-      all_branches: true
+      branch: liberty
       condition: $TRAVIS_TAG = ""
     script:
     - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $TRAVIS_BRANCH
