@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -x
+#set -x
 set -e
 
 echo "Building docs with Sphinx"
@@ -12,6 +12,3 @@ write-good `find ./docs -not \( -path ./docs/drafts -prune \) -name '*.rst'` --p
 set +e
 echo "Checking links"
 make -C docs linkcheck
-
-echo "The following links are broken:"
-grep "broken" docs/_build/linkcheck/output.txt
