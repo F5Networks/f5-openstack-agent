@@ -474,6 +474,43 @@ class LBaaSv2PluginRPC(object):
         return service
 
     @log_helpers.log_method_call
+    def get_clusterwide_agent(self, env, group):
+        """Determin which agent performce global tasks for the cluster"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('get_clusterwide_agent',
+                               env=env,
+                               group=group,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "scrub_dead_agents")
+
+        return service
+
+    @log_helpers.log_method_call
+    def validate_loadbalancers_state(self, loadbalancers):
+        """Get the status of a list of loadbalancers IDs in Neutron"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('validate_loadbalancers_state',
+                               loadbalancers=loadbalancers,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "scrub_dead_agents")
+
+        return service
+
+    @log_helpers.log_method_call
     def get_all_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of loadbalancers in Neutron."""
         loadbalancers = []

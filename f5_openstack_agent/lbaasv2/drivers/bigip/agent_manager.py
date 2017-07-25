@@ -442,14 +442,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     self.plugin_rpc.set_agent_admin_state(True)
                     self.admin_state_up = True
 
-            # allow the service cache size to be monitored
-            # from neutron
+            # allow the service cache size to be monitored from neutron
             service_count = self.cache.size
             self.agent_state['configurations']['services'] = service_count
-            if hasattr(self.lbdriver, 'service_queue'):
-                self.agent_state['configurations']['request_queue_depth'] = (
-                    len(self.lbdriver.service_queue)
-                )
 
             # add the agent configurations from driver.
             if self.lbdriver.agent_configurations:
@@ -577,6 +572,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         now = datetime.datetime.now()
 
         try:
+            # Trigger a culling of all dead agents
+            self.plugin_rpc.scrub_dead_agents(
+                self.conf.environment_prefix,
+                self.conf.environment_group_number
+            )
             # Get loadbalancers from the environment which are bound to
             # this agent.
             active_loadbalancers = (
@@ -586,21 +586,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 [lb['lb_id'] for lb in active_loadbalancers]
             )
 
-            all_loadbalancers = (
-                self.plugin_rpc.get_all_loadbalancers(host=self.agent_host)
-            )
-            all_loadbalancer_ids = set(
-                [lb['lb_id'] for lb in all_loadbalancers]
-            )
-
             LOG.debug("plugin produced the list of active loadbalancer ids: %s"
                       % list(active_loadbalancer_ids))
             LOG.debug("currently known loadbalancer ids before sync are: %s"
                       % list(known_services))
-
-            for deleted_lb in owned_services - all_loadbalancer_ids:
-                LOG.error("Cached service not found in neutron database")
-                # self.destroy_service(deleted_lb)
 
             # Validate each service we own, i.e. loadbalancers to which this
             # agent is bound, that does not exist in our service cache.
@@ -650,8 +639,40 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug("currently known loadbalancer ids after sync: %s"
                       % list(known_services))
 
+            #
+            # Global cluster refresh tasks
+            #
+
+            global_agent = self.plugin_rpc.get_clusterwide_agent(
+                self.conf.environment_prefix,
+                self.conf.environment_group_number
+            )
+
+            if global_agent and global_agent['host'] == self.agent_host:
+                LOG.debug('this agent is the global config agent')
+                # We're the global agent perform global cluster tasks
+
+                # Query BIG-IPs for tenant folders and load balancers in
+                # each tenant. Query neutron for all discovered loadbalancer's
+                # state. If they are 'Unknown' state, meaning Neutron could
+                # not find it, delete it.
+                lbs = self.lbdriver.get_all_deployed_loadbalancers(
+                    purge_orphaned_folders=True)
+                if lbs:
+                    lbs_status = self.plugin_rpc.validate_loadbalancers_state(
+                        list(lbs.keys()))
+                    for lbid in lbs_status:
+                        if lbs_status[lbid] in ['Unknown']:
+                            self.lbdriver.purge_orphaned_loadbalancer(
+                                tenant_id=lbs[lbid]['tenant_id'],
+                                loadbalancer=lbid)
+            else:
+                LOG.debug('the global agent is %s' % (global_agent['host']))
+            # serialize config and save to disk
+            self.lbdriver.backup_configuration()
+
         except Exception as e:
-            LOG.error("Unable to retrieve ready service: %s" % e.message)
+            LOG.error("Unable to sync state: %s" % e.message)
             resync = True
 
         return resync
@@ -738,14 +759,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("Exception: %s" % exc.message)
             self.needs_resync = True
         self.cache.remove_by_loadbalancer_id(lb_id)
-
-    @log_helpers.log_method_call
-    def remove_orphans(self, all_loadbalancers):
-
-        try:
-            self.lbdriver.remove_orphans(all_loadbalancers)
-        except Exception as exc:
-            LOG.error("Exception: removing orphans: %s" % exc.message)
 
     ######################################################################
     #

@@ -441,10 +441,6 @@ class iControlDriver(LBaaSBaseDriver):
 
         self.initialized = True
 
-    # Abstract driver interface inbound from agent manager
-    def connect(self):
-        self.connect_bigips()
-
     def connect_bigips(self):
         self._init_bigips()
         self._init_agent_config()
@@ -692,7 +688,7 @@ class iControlDriver(LBaaSBaseDriver):
             self.__bigips[hostname] = bigip
             return bigip
 
-    def _init_collecbigip(self, bigip, hostname, check_group_name=None):
+    def _init_bigip(self, bigip, hostname, check_group_name=None):
         # Prepare a bigip for usage
         try:
             major_version, minor_version = self._validate_bigip_version(
@@ -982,6 +978,70 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.assured_tenant_snat_subnets = {}
             bigip.assured_gateway_subnets = []
 
+    @serialized('get_all_deployed_loadbalancers')
+    @is_connected
+    def get_all_deployed_loadbalancers(self, purge_orphaned_folders=False):
+        LOG.debug('getting all deployed loadbalancers on BIG-IPs')
+        deployed_lb_dict = {}
+        for bigip in self.get_all_bigips():
+            folders = self.system_helper.get_folders(bigip)
+            for folder in folders:
+                tenant_id = folder[len(self.service_adapter.prefix):]
+                LOG.debug('does %s start with %s' %
+                          (folder, self.service_adapter.prefix))
+                if str(folder).startswith(self.service_adapter.prefix):
+                    resource = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.virtual_address)
+                    deployed_lbs = resource.get_resources(bigip, folder)
+                    for lb in deployed_lbs:
+                        lb_id = lb.name[len(self.service_adapter.prefix):]
+                        deployed_lb_dict[lb_id] = {'id': lb_id,
+                                                   'tenant_id': tenant_id}
+                    else:
+                        # Orphaned folder!
+                        if purge_orphaned_folders:
+                            try:
+                                self.system_helper.purge_folder_contents(
+                                    bigip, folder)
+                                self.system_helper.purge_folder(bigip, folder)
+                                LOG.error('found orphaned folder %s on %s' %
+                                          (folder, bigip.hostname))
+                            except Exception as exc:
+                                LOG.error('error purging folder %s: %s' %
+                                          (folder, str(exc)))
+        return deployed_lb_dict
+
+    @serialized('purge_orphaned_loadbalancer')
+    @is_connected
+    def purge_orphaned_loadbalancer(self, tenant_id=None,
+                                    loadbalancer_id=None):
+        for bigip in self.get_all_bigips():
+            try:
+                va_name = self.service_adapter.prefix + loadbalancer_id
+                partition = self.service_adapter.prefix + tenant_id
+                va = resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.virtual_address).load(
+                        bigip, va_name, partition)
+                # get virtual services (listeners)
+                # referencing this virtual address
+                vses = resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.virtual).get_resources(
+                        bigip, partition)
+                vs_dest_compare = '/' + partition + '/' + va.name
+                for vs in vses:
+                    if vs.destination == vs_dest_compare:
+                        resource_helper.BigIPResourceHelper(
+                            resource_helper.ResourceType.pool).delete(
+                                bigip, os.path.basename(vs.pool), partition)
+                        resource_helper.BigIPResourceHelper(
+                            resource_helper.ResourceType.virtual).delete(
+                                bigip, vs.name, partition)
+                resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.virtual_address).delete(
+                        bigip, va_name, partition)
+            except Exception as exc:
+                LOG.exception('Exception purging loadbalancer %s' % str(exc))
+
     @serialized('create_loadbalancer')
     @is_connected
     def create_loadbalancer(self, loadbalancer, service):
@@ -1122,23 +1182,6 @@ class iControlDriver(LBaaSBaseDriver):
 
         finally:
             return lb_stats
-
-    @serialized('remove_orphans')
-    def remove_orphans(self, all_loadbalancers):
-        """Remove out-of-date configuration on big-ips """
-        existing_tenants = []
-        existing_lbs = []
-        for loadbalancer in all_loadbalancers:
-            existing_tenants.append(loadbalancer['tenant_id'])
-            existing_lbs.append(loadbalancer['lb_id'])
-
-        for bigip in self.get_all_bigips():
-            bigip.pool.purge_orphaned_pools(existing_lbs)
-        for bigip in self.get_all_bigips():
-            bigip.system.purge_orphaned_folders_contents(existing_tenants)
-
-        for bigip in self.get_all_bigips():
-            bigip.system.purge_orphaned_folders(existing_tenants)
 
     def fdb_add(self, fdb):
         # Add (L2toL3) forwarding database entries
