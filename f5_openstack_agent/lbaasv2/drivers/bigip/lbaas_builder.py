@@ -33,8 +33,8 @@ LOG = logging.getLogger(__name__)
 
 
 class LBaaSBuilder(object):
-    # F5® LBaaS Driver using iControl® for BIG-IP® to
-    # create objects (vips, pools) - not using an iApp®."""
+    # F5 LBaaS Driver using iControl for BIG-IP to
+    # create objects (vips, pools) - not using an iApp."""
 
     def __init__(self, conf, driver, l2_service=None):
         self.conf = conf
