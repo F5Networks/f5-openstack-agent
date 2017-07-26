@@ -44,8 +44,8 @@ class VLANBindingBase(object):
             LOG.debug('interface_port_static_mappings not configured')
 
     def register_bigip_interfaces(self):
-        # Delayed binding BIG-IP® ports will be called
-        # after BIG-IP® endpoints are registered.
+        # Delayed binding BIG-IP ports will be called
+        # after BIG-IP endpoints are registered.
         if not self.__initialized__bigip_ports:
             for bigip in self.driver.get_all_bigips():
 
