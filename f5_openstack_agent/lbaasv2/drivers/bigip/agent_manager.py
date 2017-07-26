@@ -661,8 +661,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 if lbs:
                     lbs_status = self.plugin_rpc.validate_loadbalancers_state(
                         list(lbs.keys()))
+                    LOG.debug('validate_loadbalancers_state returned: %s'
+                              % lbs_status)
                     for lbid in lbs_status:
                         if lbs_status[lbid] in ['Unknown']:
+                            LOG.debug('removing orphaned loadbalancer %s'
+                                      % lbid)
                             self.lbdriver.purge_orphaned_loadbalancer(
                                 tenant_id=lbs[lbid]['tenant_id'],
                                 loadbalancer=lbid)

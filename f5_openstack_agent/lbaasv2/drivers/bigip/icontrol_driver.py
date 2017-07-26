@@ -993,22 +993,35 @@ class iControlDriver(LBaaSBaseDriver):
                     resource = resource_helper.BigIPResourceHelper(
                         resource_helper.ResourceType.virtual_address)
                     deployed_lbs = resource.get_resources(bigip, folder)
-                    for lb in deployed_lbs:
-                        lb_id = lb.name[len(self.service_adapter.prefix):]
-                        deployed_lb_dict[lb_id] = {'id': lb_id,
-                                                   'tenant_id': tenant_id}
+                    if deployed_lbs:
+                        for lb in deployed_lbs:
+                            lb_id = lb.name[len(self.service_adapter.prefix):]
+                            deployed_lb_dict[lb_id] = \
+                                {'id': lb_id, 'tenant_id': tenant_id}
                     else:
-                        # Orphaned folder!
-                        if purge_orphaned_folders:
-                            try:
-                                self.system_helper.purge_folder_contents(
-                                    bigip, folder)
-                                self.system_helper.purge_folder(bigip, folder)
-                                LOG.error('found orphaned folder %s on %s' %
-                                          (folder, bigip.hostname))
-                            except Exception as exc:
-                                LOG.error('error purging folder %s: %s' %
-                                          (folder, str(exc)))
+                        # delay to assure we are not in the tenant creation
+                        # process before a virtual address is created.
+                        greenthread.sleep(10)
+                        deployed_lbs = resource.get_resources(bigip, folder)
+                        if deployed_lbs:
+                            for lb in deployed_lbs:
+                                lb_id = lb.name[
+                                    len(self.service_adapter.prefix):]
+                                deployed_lb_dict[lb_id] = \
+                                    {'id': lb_id, 'tenant_id': tenant_id}
+                        else:
+                            # Orphaned folder!
+                            if purge_orphaned_folders:
+                                try:
+                                    self.system_helper.purge_folder_contents(
+                                        bigip, folder)
+                                    self.system_helper.purge_folder(
+                                        bigip, folder)
+                                    LOG.error('orphaned folder %s on %s' %
+                                              (folder, bigip.hostname))
+                                except Exception as exc:
+                                    LOG.error('error purging folder %s: %s' %
+                                              (folder, str(exc)))
         return deployed_lb_dict
 
     @serialized('purge_orphaned_loadbalancer')
