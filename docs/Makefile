@@ -47,6 +47,7 @@ help:
 	@echo "  linkcheck  to check all external links for integrity"
 	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
 	@echo "  coverage   to run coverage check of the documentation (if enabled)"
+	@echo "  preview    to build local preview of docs using sphinx-autobuild"
 
 .PHONY: clean
 clean:
@@ -221,3 +222,11 @@ pseudoxml:
 	$(SPHINXBUILD) -b pseudoxml $(ALLSPHINXOPTS) $(BUILDDIR)/pseudoxml
 	@echo
 	@echo "Build finished. The pseudo-XML files are in $(BUILDDIR)/pseudoxml."
+
+# build live preview docs locally
+.PHONY: preview
+preview:
+	@echo "Running autobuild. View live edits at:"
+	@echo "  http://0.0.0.0:8000/index.html"
+	@echo ""
+	sphinx-autobuild --host 0.0.0.0 -b html ./ $(BUILDDIR)

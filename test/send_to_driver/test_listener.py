@@ -37,7 +37,7 @@ def test_create_listener(bigip):
         # create partition
         lb_service.prep_service(service, bigips)
 
-        # create BIG-IP® virtual servers
+        # create BIG-IP virtual servers
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
 
