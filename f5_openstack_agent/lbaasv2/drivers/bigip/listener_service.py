@@ -66,7 +66,8 @@ class ListenerServiceBuilder(object):
                 self.vs_helper.create(bigip, vip)
             except HTTPError as err:
                 if err.response.status_code == 409:
-                    LOG.debug("Virtual server already exists")
+                    LOG.debug("Virtual server already exists..updating")
+                    self.update_listener(service, [bigip])
                 else:
                     LOG.exception("Virtual server creation error: %s" %
                                   err.message)

@@ -54,29 +54,52 @@ class LBaaSBuilder(object):
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
         start_time = time()
-        LOG.debug("Starting assure_service")
+
+        LOG.debug("assuring loadbalancers")
 
         self._assure_loadbalancer_created(service, all_subnet_hints)
 
+        LOG.debug("assuring listeners")
+
         self._assure_listeners_created(service)
+
+        LOG.debug("assuring pools")
 
         self._assure_pools_created(service)
 
+        LOG.debug("assuring monitors")
+
         self._assure_monitors(service)
+
+        LOG.debug("assuring members")
 
         self._assure_members(service, all_subnet_hints)
 
+        LOG.debug("deleting pools")
+
         self._assure_pools_deleted(service)
+
+        LOG.debug("assuring l7 policies")
 
         self._assure_l7policies_created(service)
 
+        LOG.debug("assuring l7 rules")
+
         self._assure_l7rules_created(service)
+
+        LOG.debug("deleting l7 rules")
 
         self._assure_l7rules_deleted(service)
 
+        LOG.debug("deleting l7 policies")
+
         self._assure_l7policies_deleted(service)
 
+        LOG.debug("deleting listeners")
+
         self._assure_listeners_deleted(service)
+
+        LOG.debug("deleting loadbalancers")
 
         self._assure_loadbalancer_deleted(service)
 
@@ -122,15 +145,28 @@ class LBaaSBuilder(object):
                    "listener": listener,
                    "networks": networks}
 
-            if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
-                try:
-                    self.listener_builder.update_listener(svc, bigips)
-                except Exception as err:
-                    loadbalancer['provisioning_status'] = plugin_const.ERROR
-                    listener['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.VirtualServerUpdateException(err.message)
+            # if listener['provisioning_status'] \
+            #             == plugin_const.PENDING_UPDATE:
+            #    try:
+            #        self.listener_builder.update_listener(svc, bigips)
+            #    except Exception as err:
+            #        loadbalancer['provisioning_status'] = plugin_const.ERROR
+            #        listener['provisioning_status'] = plugin_const.ERROR
+            #        raise f5_ex.VirtualServerUpdateException(err.message)
+            #
+            # elif listener['provisioning_status'] != \
+            #        plugin_const.PENDING_DELETE:
+            #    try:
+            #       # create_listener() will do an update if VS exists
+            #        self.listener_builder.create_listener(svc, bigips)
+            #        listener['operating_status'] = \
+            #            svc['listener']['operating_status']
+            #    except Exception as err:
+            #        loadbalancer['provisioning_status'] = plugin_const.ERROR
+            #        listener['provisioning_status'] = plugin_const.ERROR
+            #        raise f5_ex.VirtualServerCreationException(err.message)
 
-            elif listener['provisioning_status'] != \
+            if listener['provisioning_status'] != \
                     plugin_const.PENDING_DELETE:
                 try:
                     # create_listener() will do an update if VS exists
@@ -158,12 +194,9 @@ class LBaaSBuilder(object):
                 svc['members'] = self._get_pool_members(service, pool['id'])
 
                 try:
-                    # create or update pool
                     if pool['provisioning_status'] \
-                            != plugin_const.PENDING_UPDATE:
+                            != plugin_const.PENDING_DELETE:
                         self.pool_builder.create_pool(svc, bigips)
-                    else:
-                        self.pool_builder.update_pool(svc, bigips)
 
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
@@ -241,15 +274,6 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_healthmonitor(svc, bigips)
-                except HTTPError as err:
-                    if err.response.status_code != 409:
-                        # pool['provisioning_status'] = plugin_const.ERROR
-                        loadbalancer['provisioning_status'] = (
-                            plugin_const.ERROR
-                        )
-                        raise f5_ex.MonitorCreationException(err.message)
-                    else:
-                        self.pool_builder.update_healthmonitor(svc, bigips)
                 except Exception as err:
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorCreationException(err.message)
@@ -283,20 +307,6 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_member(svc, bigips)
-                except HTTPError as err:
-                    if err.response.status_code != 409:
-                        # FIXME(RB)
-                        # pool['provisioning_status'] = plugin_const.ERROR
-                        loadbalancer['provisioning_status'] = (
-                            plugin_const.ERROR
-                        )
-                        raise f5_ex.MemberCreationException(err.message)
-                    else:
-                        try:
-                            self.pool_builder.update_member(svc, bigips)
-                        except Exception as err:
-                            member['provisioning_status'] = plugin_const.ERROR
-                            raise f5_ex.MemberUpdateException(err.message)
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberCreationException(err.message)

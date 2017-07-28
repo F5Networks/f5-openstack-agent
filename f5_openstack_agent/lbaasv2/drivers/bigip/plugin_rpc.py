@@ -578,3 +578,26 @@ class LBaaSv2PluginRPC(object):
                       "get_pending_loadbalancers")
 
         return loadbalancers
+
+    @log_helpers.log_method_call
+    def get_errored_loadbalancers(self, env=None, group=None, host=None):
+        """Retrieve a list of errored loadbalancers for this agent."""
+        loadbalancers = []
+
+        if not env:
+            env = self.env
+
+        try:
+            loadbalancers = self._call(
+                self.context,
+                self._make_msg('get_pending_loadbalancers',
+                               env=env,
+                               group=group,
+                               host=host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_errored_loadbalancers")
+
+        return loadbalancers

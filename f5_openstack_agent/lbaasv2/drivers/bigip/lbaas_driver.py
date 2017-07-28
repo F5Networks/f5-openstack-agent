@@ -32,12 +32,12 @@ class LBaaSBaseDriver(object):
         """Set the global context object for the lbaas driver """
         raise NotImplementedError()
 
-    def post_init(self):
-        """Run after agent is fully connected """
-        raise NotImplementedError()
-
     def set_plugin_rpc(self, plugin_rpc):
         """Provide LBaaS Plugin RPC access"""
+
+    def set_agent_report_state(self, report_state_callback):
+        """Set Agent Report State"""
+        raise NotImplementedError()
 
     def set_tunnel_rpc(self, tunnel_rpc):
         """Provide FDB Connector RPC access """
