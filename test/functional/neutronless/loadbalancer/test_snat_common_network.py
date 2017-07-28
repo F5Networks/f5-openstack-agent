@@ -13,7 +13,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from copy import deepcopy
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
 import json
@@ -26,6 +25,7 @@ from ..testlib.bigip_client import BigIpClient
 from ..testlib.fake_rpc import FakeRPCPlugin
 from ..testlib.service_reader import LoadbalancerReader
 from ..testlib.resource_validator import ResourceValidator
+from ..conftest import get_relative_path
 
 requests.packages.urllib3.disable_warnings()
 
@@ -34,9 +34,13 @@ LOG = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module")
 def services():
+    # ./f5-openstack-agent/test/functional/neutronless/conftest.py
+    relative = get_relative_path()
+    snat_pool_json = str("{}/f5-openstack-agent/test/functional/testdata/"
+                         "service_requests/snat_pool.json".format(relative))
     neutron_services_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/snat_pool.json')
+                     snat_pool_json)
     )
     return (json.load(open(neutron_services_filename)))
 
