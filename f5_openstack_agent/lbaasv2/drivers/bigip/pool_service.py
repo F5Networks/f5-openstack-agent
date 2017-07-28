@@ -228,6 +228,7 @@ class PoolServiceBuilder(object):
 
     def member_exists(self, service, bigip):
         """Rerturn the existence of a member in a pool
+
         :param service: Has pool and member name/partition
         :param bigip: BIG-IP to get member status from.
         :return: Boolean
