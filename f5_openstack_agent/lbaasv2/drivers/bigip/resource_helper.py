@@ -22,7 +22,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ResourceType(Enum):
-    u"""Defines supported BIG-IP® resource types."""
+    u"""Defines supported BIG-IP resource types."""
 
     nat = 1
     pool = 2
@@ -62,9 +62,9 @@ class ResourceType(Enum):
 
 
 class BigIPResourceHelper(object):
-    u"""Helper class for creating, updating and deleting BIG-IP® resources.
+    u"""Helper class for creating, updating and deleting BIG-IP resources.
 
-    Reduces some of the boilerplate that surrounds using the F5® SDK.
+    Reduces some of the boilerplate that surrounds using the F5 SDK.
     Example usage:
         bigip = BigIP("10.1.1.1", "admin", "admin")
         pool = {"name": "pool1",
@@ -80,13 +80,13 @@ class BigIPResourceHelper(object):
         self.resource_type = resource_type
 
     def create(self, bigip, model):
-        u"""Create/update resource (e.g., pool) on a BIG-IP® system.
+        u"""Create/update resource (e.g., pool) on a BIG-IP system.
 
         First checks to see if resource has been created and creates
         it if not.
 
         :param bigip: BigIP instance to use for creating resource.
-        :param model: Dictionary of BIG-IP® attributes to add resource. Must
+        :param model: Dictionary of BIG-IP attributes to add resource. Must
         include name and partition.
         :returns: created or updated resource object.
         """
@@ -101,7 +101,7 @@ class BigIPResourceHelper(object):
         return resource.exists(name=name, partition=partition)
 
     def delete(self, bigip, name=None, partition=None):
-        u"""Delete a resource on a BIG-IP® system.
+        u"""Delete a resource on a BIG-IP system.
 
         Checks if resource exists and deletes it. Returns without error
         if resource does not exist.
@@ -116,10 +116,10 @@ class BigIPResourceHelper(object):
             obj.delete()
 
     def load(self, bigip, name=None, partition=None):
-        u"""Retrieve a BIG-IP® resource from a BIG-IP®.
+        u"""Retrieve a BIG-IP resource from a BIG-IP.
 
         Populates a resource object with attributes for instance on a
-        BIG-IP® system.
+        BIG-IP system.
 
         :param bigip: BigIP instance to use for creating resource.
         :param name: Name of resource to load.
@@ -130,13 +130,13 @@ class BigIPResourceHelper(object):
         return resource.load(name=name, partition=partition)
 
     def update(self, bigip, model):
-        u"""Update a resource (e.g., pool) on a BIG-IP® system.
+        u"""Update a resource (e.g., pool) on a BIG-IP system.
 
-        Modifies a resource on a BIG-IP® system using attributes
+        Modifies a resource on a BIG-IP system using attributes
         defined in the model object.
 
         :param bigip: BigIP instance to use for creating resource.
-        :param model: Dictionary of BIG-IP® attributes to update resource.
+        :param model: Dictionary of BIG-IP attributes to update resource.
         Must include name and partition in order to identify resource.
         """
         partition = None
@@ -148,9 +148,9 @@ class BigIPResourceHelper(object):
         return resource
 
     def get_resources(self, bigip, partition=None):
-        u"""Retrieve a collection BIG-IP® of resources from a BIG-IP®.
+        u"""Retrieve a collection BIG-IP of resources from a BIG-IP.
 
-        Generates a list of resources objects on a BIG-IP® system.
+        Generates a list of resources objects on a BIG-IP system.
 
         :param bigip: BigIP instance to use for creating resource.
         :param name: Name of resource to load.
