@@ -235,7 +235,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         else:
             self.agent_host = conf.host
 
-        # Load the iControl® driver.
+        # Load the iControl driver.
         self._load_driver(conf)
 
         # Initialize agent configurations
@@ -264,7 +264,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         self.admin_state_up = True
 
-        # Set iControl® driver context for RPC.
+        # Set iControl driver context for RPC.
         self.lbdriver.set_context(self.context)
 
         # Setup RPC:

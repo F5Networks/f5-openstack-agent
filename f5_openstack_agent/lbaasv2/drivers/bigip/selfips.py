@@ -140,7 +140,7 @@ class BigipSelfIpManager(object):
 
     def _get_bigip_selfip_address(self, bigip, subnet):
         u"""Ensure a selfip address is allocated on Neutron network."""
-        # Get ip address for selfip to use on BIG-IP®.
+        # Get ip address for selfip to use on BIG-IP.
         selfip_address = ""
         selfip_name = "local-" + bigip.device_name + "-" + subnet['id']
         ports = self.driver.plugin_rpc.get_port_by_name(port_name=selfip_name)

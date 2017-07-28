@@ -34,7 +34,7 @@ LOG = logging.getLogger(__name__)
 
 
 def _get_tunnel_name(network):
-    # BIG-IP® object name for a tunnel
+    # BIG-IP object name for a tunnel
     tunnel_type = network['provider:network_type']
     tunnel_id = network['provider:segmentation_id']
     return 'tunnel-' + str(tunnel_type) + '-' + str(tunnel_id)
@@ -129,8 +129,13 @@ class L2ServiceBuilder(object):
             self.fdb_connector.set_context(context)
 
     def is_common_network(self, network):
-        # Does this network belong in the /Common folder?
+        """Returns True if this belongs in the /Common folder
+
+        This object method will return positive if the L2ServiceBuilder object
+        should be stored under the Common partition on the BIG-IP.
+        """
         return network['shared'] or \
+            self.conf.f5_common_networks or \
             (network['id'] in self.conf.common_network_ids) or \
             ('router:external' in network and
              network['router:external'] and

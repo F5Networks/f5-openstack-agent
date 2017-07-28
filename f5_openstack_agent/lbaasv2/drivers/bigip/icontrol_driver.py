@@ -69,7 +69,7 @@ LOG = logging.getLogger(__name__)
 NS_PREFIX = 'qlbaas-'
 __VERSION__ = '0.1.1'
 
-# configuration objects specific to iControl® driver
+# configuration objects specific to iControl driver
 # XXX see /etc/neutron/services/f5/f5-openstack-agent.ini
 OPTS = [  # XXX maybe we should make this a dictionary
     cfg.StrOpt(
@@ -172,6 +172,10 @@ OPTS = [  # XXX maybe we should make this a dictionary
     cfg.BoolOpt(
         'f5_route_domain_strictness', default=False,
         help='Strict route domain isolation'
+    ),
+    cfg.BoolOpt(
+        'f5_common_networks', default=False,
+        help='All networks defined under Common partition'
     ),
     cfg.BoolOpt(
         'f5_common_external_networks', default=True,
@@ -330,7 +334,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.connected = False  # overrides base, same value
         self.driver_name = 'f5-lbaasv2-icontrol'
 
-        # BIG-IP® containers
+        # BIG-IP containers
         self.__bigips = {}
         self.__traffic_groups = []
         self.agent_configurations = {}  # overrides base, same value
@@ -513,7 +517,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.hostnames = sorted(self.hostnames)
 
     def _init_bigips(self):
-        # Connect to all BIG-IP®s
+        # Connect to all BIG-IPs
         if self.connected:
             return
         try:
@@ -1614,7 +1618,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.__traffic_groups.sort()
 
     def _validate_bigip_version(self, bigip, hostname):
-        # Ensure the BIG-IP® has sufficient version
+        # Ensure the BIG-IP has sufficient version
         major_version = self.system_helper.get_major_version(bigip)
         if major_version < f5const.MIN_TMOS_MAJOR_VERSION:
             raise f5ex.MajorVersionValidateFailed(
