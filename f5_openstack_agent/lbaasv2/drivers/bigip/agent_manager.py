@@ -517,6 +517,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             pending_lb_ids = set(
                 [lb['lb_id'] for lb in pending_loadbalancers]
             )
+
+            not_pending_lb_ids = all_loadbalancer_ids - pending_lb_ids
+            for lb_id in not_pending_lb_ids:
+                self.pending_services.pop(lb_id, None)
+
             LOG.debug(
                 "plugin produced the list of pending loadbalancer ids: %s"
                 % list(pending_lb_ids))
