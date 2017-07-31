@@ -784,7 +784,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                                       % lbid)
                             self.lbdriver.purge_orphaned_loadbalancer(
                                 tenant_id=lbs[lbid]['tenant_id'],
-                                loadbalancer=lbid)
+                                loadbalancer_id=lbid)
             else:
                 LOG.debug('the global agent is %s' % (global_agent['host']))
             # serialize config and save to disk
