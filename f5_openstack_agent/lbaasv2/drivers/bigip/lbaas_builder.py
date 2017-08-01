@@ -159,11 +159,15 @@ class LBaaSBuilder(object):
 
                 try:
                     # create or update pool
-                    if pool['provisioning_status'] \
-                            != plugin_const.PENDING_UPDATE:
-                        self.pool_builder.create_pool(svc, bigips)
-                    else:
-                        self.pool_builder.update_pool(svc, bigips)
+                    try:
+                        if pool['provisioning_status'] \
+                                != plugin_const.PENDING_UPDATE:
+                            self.pool_builder.create_pool(svc, bigips)
+                        else:
+                            self.pool_builder.update_pool(svc, bigips)
+                    except HTTPError as err:
+                        if err.response.status_code != 409:
+                            raise f5_ex.PoolCreationException(err.message)
 
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
@@ -179,13 +183,6 @@ class LBaaSBuilder(object):
                         # update virtual sever pool name, session persistence
                         self.listener_builder.update_session_persistence(
                             svc, bigips)
-                except HTTPError as err:
-                    if err.response.status_code != 409:
-                        pool['provisioning_status'] = plugin_const.ERROR
-                        loadbalancer['provisioning_status'] = (
-                            plugin_const.ERROR)
-                        raise f5_ex.PoolCreationException(err.message)
-
                 except Exception as err:
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
