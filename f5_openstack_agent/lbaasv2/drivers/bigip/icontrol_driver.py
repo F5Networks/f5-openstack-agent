@@ -25,6 +25,8 @@ from eventlet import greenthread
 from time import strftime
 from time import time
 
+from requests import HTTPError
+
 from neutron.plugins.common import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 from neutron_lib.exceptions import InvalidConfigurationOption
@@ -1012,6 +1014,34 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.assured_tenant_snat_subnets = {}
             bigip.assured_gateway_subnets = []
 
+    @serialized('get_all_deployed_pools')
+    @is_operational
+    def get_all_deployed_pools(self):
+        LOG.debug('getting all deployed pools on BIG-IPs')
+        deployed_pool_dict = {}
+        for bigip in self.get_all_bigips():
+            folders = self.system_helper.get_folders(bigip)
+            for folder in folders:
+                tenant_id = folder[len(self.service_adapter.prefix):]
+                if str(folder).startswith(self.service_adapter.prefix):
+                    resource = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.pool)
+                    deployed_pools = resource.get_resources(bigip, folder)
+                    if deployed_pools:
+                        for pool in deployed_pools:
+                            pool_id = \
+                                pool.name[len(self.service_adapter.prefix):]
+                            if pool_id in deployed_pool_dict:
+                                deployed_pool_dict[pool_id][
+                                    'hostnames'].append(bigip.hostname)
+                            else:
+                                deployed_pool_dict[pool_id] = {
+                                    'id': pool_id,
+                                    'tenant_id': tenant_id,
+                                    'hostnames': [bigip.hostname]
+                                }
+        return deployed_pool_dict
+
     @serialized('get_all_deployed_loadbalancers')
     @is_operational
     def get_all_deployed_loadbalancers(self, purge_orphaned_folders=False):
@@ -1028,8 +1058,15 @@ class iControlDriver(LBaaSBaseDriver):
                     if deployed_lbs:
                         for lb in deployed_lbs:
                             lb_id = lb.name[len(self.service_adapter.prefix):]
-                            deployed_lb_dict[lb_id] = \
-                                {'id': lb_id, 'tenant_id': tenant_id}
+                            if lb_id in deployed_lb_dict:
+                                deployed_lb_dict[lb_id][
+                                    'hostnames'].append(bigip.hostname)
+                            else:
+                                deployed_lb_dict[lb_id] = {
+                                    'id': lb_id,
+                                    'tenant_id': tenant_id,
+                                    'hostnames': [bigip.hostname]
+                                }
                     else:
                         # delay to assure we are not in the tenant creation
                         # process before a virtual address is created.
@@ -1056,36 +1093,65 @@ class iControlDriver(LBaaSBaseDriver):
                                               (folder, str(exc)))
         return deployed_lb_dict
 
+    @serialized('purge_orphaned_pool')
+    @is_operational
+    def purge_orphaned_pool(self, tenant_id=None, pool_id=None, hostnames=[]):
+        for bigip in self.get_all_bigips():
+            if bigip.hostname in hostnames:
+                try:
+                    pool_name = self.service_adapter.prefix + pool_id
+                    partition = self.service_adapter.prefix + tenant_id
+                    pool = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.pool).load(
+                            bigip, pool_name, partition)
+                    pool.delete()
+                except HTTPError as err:
+                    if err.response.status_code == 404:
+                        LOG.debug('pool %s not on BIG-IP %s.'
+                                  % (pool_id, bigip.hostname))
+                except Exception as exc:
+                    LOG.exception('Exception purging pool %s' % str(exc))
+
     @serialized('purge_orphaned_loadbalancer')
     @is_operational
     def purge_orphaned_loadbalancer(self, tenant_id=None,
-                                    loadbalancer_id=None):
+                                    loadbalancer_id=None, hostnames=[]):
         for bigip in self.get_all_bigips():
-            try:
-                va_name = self.service_adapter.prefix + loadbalancer_id
-                partition = self.service_adapter.prefix + tenant_id
-                va = resource_helper.BigIPResourceHelper(
-                    resource_helper.ResourceType.virtual_address).load(
-                        bigip, va_name, partition)
-                # get virtual services (listeners)
-                # referencing this virtual address
-                vses = resource_helper.BigIPResourceHelper(
-                    resource_helper.ResourceType.virtual).get_resources(
-                        bigip, partition)
-                vs_dest_compare = '/' + partition + '/' + va.name
-                for vs in vses:
-                    if vs.destination == vs_dest_compare:
-                        resource_helper.BigIPResourceHelper(
-                            resource_helper.ResourceType.pool).delete(
-                                bigip, os.path.basename(vs.pool), partition)
-                        resource_helper.BigIPResourceHelper(
-                            resource_helper.ResourceType.virtual).delete(
-                                bigip, vs.name, partition)
-                resource_helper.BigIPResourceHelper(
-                    resource_helper.ResourceType.virtual_address).delete(
-                        bigip, va_name, partition)
-            except Exception as exc:
-                LOG.exception('Exception purging loadbalancer %s' % str(exc))
+            if bigip.hostname in hostnames:
+                try:
+                    va_name = self.service_adapter.prefix + loadbalancer_id
+                    partition = self.service_adapter.prefix + tenant_id
+                    va = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.virtual_address).load(
+                            bigip, va_name, partition)
+                    # get virtual services (listeners)
+                    # referencing this virtual address
+                    vses = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.virtual).get_resources(
+                            bigip, partition)
+                    vs_dest_compare = '/' + partition + '/' + va.name
+                    for vs in vses:
+                        if str(vs.destination).startswith(vs_dest_compare):
+                            LOG.debug('BAM!!! matched %s startswith %s' % (vs.destination, vs_dest_compare))
+                            if vs.pool:
+                                pool = resource_helper.BigIPResourceHelper(
+                                    resource_helper.ResourceType.pool).load(
+                                    bigip, os.path.basename(vs.pool),
+                                    partition)
+                                vs.delete()
+                                pool.delete()
+                            else:
+                                vs.delete()
+                    resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.virtual_address).delete(
+                            bigip, va_name, partition)
+                except HTTPError as err:
+                    if err.response.status_code == 404:
+                        LOG.debug('loadbalancer %s not on BIG-IP %s.'
+                                  % (loadbalancer_id, bigip.hostname))
+                except Exception as exc:
+                    LOG.exception('Exception purging loadbalancer %s'
+                                  % str(exc))
 
     @serialized('create_loadbalancer')
     @is_operational

@@ -506,7 +506,25 @@ class LBaaSv2PluginRPC(object):
             )
         except messaging.MessageDeliveryFailure:
             LOG.error("agent->plugin RPC exception caught: ",
-                      "scrub_dead_agents")
+                      "validate_loadbalancers_state")
+
+        return service
+
+    @log_helpers.log_method_call
+    def validate_pools_state(self, pools):
+        """Get the status of a list of pools IDs in Neutron"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('validate_pools_state',
+                               pools=pools,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_pool_state")
 
         return service
 
