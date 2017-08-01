@@ -107,7 +107,7 @@ class PoolServiceBuilder(object):
             except HTTPError as err:
                 if err.response.status_code == 409:
                     try:
-                        self.pool_builder.update_healthmonitor(service, bigips)
+                        self.update_healthmonitor(service, [bigip])
                     except Exception as err:
                         raise f5_ex.MonitorUpdateException(err.message)
                 else:
