@@ -1132,7 +1132,6 @@ class iControlDriver(LBaaSBaseDriver):
                     vs_dest_compare = '/' + partition + '/' + va.name
                     for vs in vses:
                         if str(vs.destination).startswith(vs_dest_compare):
-                            LOG.debug('BAM!!! matched %s startswith %s' % (vs.destination, vs_dest_compare))
                             if vs.pool:
                                 pool = resource_helper.BigIPResourceHelper(
                                     resource_helper.ResourceType.pool).load(
