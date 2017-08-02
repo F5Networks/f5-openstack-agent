@@ -945,21 +945,15 @@ class TestLbaasBuilder(object):
                 target='f5_openstack_agent.lbaasv2.drivers.bigip.'
                        'pool_service.PoolServiceBuilder.'
                        'create_member') as mock_create:
-            with mock.patch(
-                    target='f5_openstack_agent.lbaasv2.drivers.'
-                           'bigip.pool_service.PoolServiceBuilder.'
-                           'update_member') as mock_update:
-                mock_create.side_effect = MockHTTPError(
-                    MockHTTPErrorResponse409())
-                mock_update.side_effect = MockHTTPError(
-                    MockHTTPErrorResponse409())
-                service['members'][0]['provisioning_status'] = 'PENDING_UPDATE'
-                service['pools'][0]['provisioning_status'] = 'ACTIVE'
-                builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
-                with pytest.raises(f5_ex.MemberUpdateException):
-                    builder._assure_members(service, mock.MagicMock())
-                    assert service['members'][0]['provisioning_status'] ==\
-                        'ERROR'
+            mock_create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse404())
+            service['members'][0]['provisioning_status'] = 'PENDING_UPDATE'
+            service['pools'][0]['provisioning_status'] = 'ACTIVE'
+            builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            with pytest.raises(f5_ex.MemberUpdateException):
+                builder._assure_members(service, mock.MagicMock())
+                assert service['members'][0]['provisioning_status'] ==\
+                    'ERROR'
 
     def test_create_policy_active_status(self, l7policy_create_service):
         """provisioning_status is ACTIVE after successful policy creation."""
