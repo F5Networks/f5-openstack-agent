@@ -307,9 +307,12 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_member(svc, bigips)
-                except Exception as err:
+                except Exception:
                     member['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MemberCreationException(err.message)
+                    loadbalancer['provisioning_status'] = (
+                            plugin_const.ERROR
+                    )
+                    raise
 
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
