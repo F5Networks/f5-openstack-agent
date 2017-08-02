@@ -946,11 +946,11 @@ class TestLbaasBuilder(object):
                        'pool_service.PoolServiceBuilder.'
                        'create_member') as mock_create:
             mock_create.side_effect = MockHTTPError(
-                MockHTTPErrorResponse404())
+                MockHTTPErrorResponse500())
             service['members'][0]['provisioning_status'] = 'PENDING_UPDATE'
             service['pools'][0]['provisioning_status'] = 'ACTIVE'
             builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
-            with pytest.raises(f5_ex.MemberUpdateException):
+            with pytest.raises(Exception):
                 builder._assure_members(service, mock.MagicMock())
                 assert service['members'][0]['provisioning_status'] ==\
                     'ERROR'
