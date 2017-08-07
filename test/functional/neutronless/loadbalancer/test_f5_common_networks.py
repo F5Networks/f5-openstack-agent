@@ -39,7 +39,7 @@ LOG = logging.getLogger(__name__)
 def services():
     # ./f5-openstack-agent/test/functional/neutronless/conftest.py
     relative = get_relative_path()
-    snat_pool_json = str("{}/f5-openstack-agent/test/functional/testdata/"
+    snat_pool_json = str("{}/test/functional/testdata/"
                          "service_requests/snat_pool_common_networks.json")
     neutron_services_filename = (snat_pool_json.format(relative))
     return (json.load(open(neutron_services_filename)))
