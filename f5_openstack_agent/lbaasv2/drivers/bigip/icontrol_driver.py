@@ -139,7 +139,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Name of the VTEP SelfIP'
     ),
     cfg.ListOpt(
-        'advertised_tunnel_types', default=['gre', 'vxlan'],
+        'advertised_tunnel_types', default=['vxlan'],
         help='tunnel types which are advertised to other VTEPs'
     ),
     cfg.BoolOpt(
@@ -881,7 +881,11 @@ class iControlDriver(LBaaSBaseDriver):
         ic_host['status'] = bigip.status
         ic_host['status_message'] = bigip.status_message
         ic_host['failover_state'] = self.get_failover_state(bigip)
-        ic_host['local_ip'] = bigip.local_ip
+        if bigip.local_ip:
+            ic_host['local_ip'] = bigip.local_ip
+        else:
+            ic_host['local_ip'] = 'VTEP disabled'
+            self.agent_configurations['tunnel_types'] = 'None'
         self.agent_configurations['icontrol_endpoints'][bigip.hostname] = \
             ic_host
         if self.network_builder:
