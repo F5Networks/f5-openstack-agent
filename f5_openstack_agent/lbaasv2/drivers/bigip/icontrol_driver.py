@@ -608,12 +608,12 @@ class iControlDriver(LBaaSBaseDriver):
                             LOG.debug('HA validated from %s with DSG %s' %
                                       (hostname, device_group_name))
                             self.ha_validated = True
-                            if not self.tg_initialized:
-                                self._init_traffic_groups(bigip)
-                                LOG.debug('known traffic groups initialized',
-                                          ' from %s as %s' %
-                                          (hostname, self.__traffic_groups))
-                                self.tg_initialized = True
+                        if not self.tg_initialized:
+                            self._init_traffic_groups(bigip)
+                            LOG.debug('known traffic groups initialized',
+                                      ' from %s as %s' %
+                                      (hostname, self.__traffic_groups))
+                            self.tg_initialized = True
                         LOG.debug('initializing bigip %s' % hostname)
                         self._init_bigip(bigip, hostname, device_group_name)
                         LOG.debug('initializing agent configurations %s'
