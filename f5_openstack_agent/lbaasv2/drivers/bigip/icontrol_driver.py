@@ -424,7 +424,7 @@ class iControlDriver(LBaaSBaseDriver):
         try:
             self._init_bigips()
         except Exception as exc:
-            LOG.error("exception in intializing communicatoins to BIG-IPs %s"
+            LOG.error("exception in intializing communications to BIG-IPs %s"
                       % str(exc))
             self._set_agent_status(False)
 
@@ -553,12 +553,12 @@ class iControlDriver(LBaaSBaseDriver):
                         LOG.debug('HA validated from %s with DSG %s' %
                                   (hostname, device_group_name))
                         self.ha_validated = True
-                        if not self.tg_initialized:
-                            self._init_traffic_groups(bigip)
-                            LOG.debug('known traffic groups initialized',
-                                      ' from %s as %s' %
-                                      (hostname, self.__traffic_groups))
-                            self.tg_initialized = True
+                    if not self.tg_initialized:
+                        self._init_traffic_groups(bigip)
+                        LOG.debug('known traffic groups initialized',
+                                  ' from %s as %s' %
+                                  (hostname, self.__traffic_groups))
+                        self.tg_initialized = True
                     LOG.debug('initializing bigip %s' % hostname)
                     self._init_bigip(bigip, hostname, device_group_name)
                     LOG.debug('initializing agent configurations %s'
@@ -801,6 +801,10 @@ class iControlDriver(LBaaSBaseDriver):
         device_group_name = None
         if self.conf.f5_ha_type == 'standalone':
             if len(self.hostnames) != 1:
+                bigip.status = 'error'
+                bigip.status_message = \
+                    'HA mode is standalone and %d hosts found.'\
+                    % len(self.hostnames)
                 raise f5ex.BigIPClusterInvalidHA(
                     'HA mode is standalone and %d hosts found.'
                     % len(self.hostnames))
@@ -817,6 +821,9 @@ class iControlDriver(LBaaSBaseDriver):
                         self.cluster_manager.get_mgmt_addr_by_device(device))
                 self.hostnames = mgmt_addrs
             if len(self.hostnames) != 2:
+                bigip.status = 'error'
+                bigip.status_message = 'HA mode is pair and %d hosts found.' \
+                    % len(self.hostnames)
                 raise f5ex.BigIPClusterInvalidHA(
                     'HA mode is pair and %d hosts found.'
                     % len(self.hostnames))
@@ -832,6 +839,11 @@ class iControlDriver(LBaaSBaseDriver):
                         self.cluster_manager.get_mgmt_addr_by_device(
                             bigip, device))
                 self.hostnames = mgmt_addrs
+            if len(self.hostnames) < 2:
+                bigip.status = 'error'
+                bigip.status_message = 'HA mode is scale and 1 hosts found.'
+                raise f5ex.BigIPClusterInvalidHA(
+                    'HA mode is pair and 1 hosts found.')
         return device_group_name
 
     def _validate_ha_operational(self, bigip):
@@ -846,15 +858,15 @@ class iControlDriver(LBaaSBaseDriver):
                     if len(active_bigips) > 1:
                         # the device should not be in the disconnected state
                         return False
-                    else:
-                        # it should be in the same sync-failover group
-                        # as the rest of the active bigips
-                        device_group_name = \
-                            self.cluster_manager.get_device_group(bigip)
-                        for ab in active_bigips:
-                            adgn = self.cluster_manager.get_device_group(ab)
-                            if not adgn == device_group_name:
-                                return False
+                if len(active_bigips) > 1:
+                    # it should be in the same sync-failover group
+                    # as the rest of the active bigips
+                    device_group_name = \
+                        self.cluster_manager.get_device_group(bigip)
+                    for ab in active_bigips:
+                        adgn = self.cluster_manager.get_device_group(ab)
+                        if not adgn == device_group_name:
+                            return False
                 return True
             else:
                 return True
@@ -2009,10 +2021,21 @@ class iControlDriver(LBaaSBaseDriver):
         return self.network_helper.get_route_domain_count(bigip)
 
     def _init_traffic_groups(self, bigip):
-        self.__traffic_groups = self.cluster_manager.get_traffic_groups(bigip)
-        if 'traffic-group-local-only' in self.__traffic_groups:
-            self.__traffic_groups.remove('traffic-group-local-only')
-        self.__traffic_groups.sort()
+        try:
+            LOG.debug('retrieving traffic groups from %s' % bigip.hostanme)
+            self.__traffic_groups = \
+                self.cluster_manager.get_traffic_groups(bigip)
+            if 'traffic-group-local-only' in self.__traffic_groups:
+                LOG.debug('removing reference to non-floating traffic group')
+                self.__traffic_groups.remove('traffic-group-local-only')
+            self.__traffic_groups.sort()
+            LOG.debug('service placement will done on traffic group(s): %s'
+                      % self.__traffic_groups)
+        except Exception:
+            bigip.status = 'error'
+            bigip.status_message = \
+                'could not determine traffic groups for service placement'
+            raise
 
     def _validate_bigip_version(self, bigip, hostname):
         # Ensure the BIG-IP® has sufficient version

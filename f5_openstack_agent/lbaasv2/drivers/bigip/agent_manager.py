@@ -16,6 +16,7 @@
 #
 
 import datetime
+import sys
 import uuid
 
 from oslo_config import cfg
@@ -230,6 +231,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Initialize LbaasAgentManager."""
         super(LbaasAgentManager, self).__init__(conf)
         LOG.debug("Initializing LbaasAgentManager")
+        LOG.debug("runtime environment: %s" % sys.version)
 
         self.conf = conf
         self.context = ncontext.get_admin_context_without_session()
@@ -766,7 +768,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.conf.environment_group_number
             )
 
-            if global_agent and global_agent['host'] == self.agent_host:
+            if 'host' not in global_agent:
+                LOG.debug('No global agent available to sync config')
+                return True
+
+            if global_agent['host'] == self.agent_host:
                 LOG.debug('this agent is the global config agent')
                 # We're the global agent perform global cluster tasks
 
