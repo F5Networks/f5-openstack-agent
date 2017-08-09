@@ -2026,7 +2026,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _init_traffic_groups(self, bigip):
         try:
-            LOG.debug('retrieving traffic groups from %s' % bigip.hostanme)
+            LOG.debug('retrieving traffic groups from %s' % bigip.hostname)
             self.__traffic_groups = \
                 self.cluster_manager.get_traffic_groups(bigip)
             if 'traffic-group-local-only' in self.__traffic_groups:
