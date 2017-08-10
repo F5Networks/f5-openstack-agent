@@ -20,6 +20,7 @@ install:
     - pip install tox
 script:
     - tox -e style,unit
+    - python f5-openstack-agent-dist/scripts/universal_truth.py
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "7"
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "6"
     - f5-openstack-agent-dist/scripts/package_agent.sh "ubuntu" "14.04"
