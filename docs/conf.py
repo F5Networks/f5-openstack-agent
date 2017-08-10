@@ -86,7 +86,7 @@ rst_prolog = '''
     var home = "clouddocs.f5.com";
     var rtd = "f5-openstack-agent.readthedocs.io";
 
-    if (window.location.hostname === rtd) {window.location.assign("http://" + home + "/products/openstack/agent/liberty");}
+    if (window.location.hostname === rtd) {window.location.assign("http://" + home + "/products/openstack/agent/liberty);}
    </script>
 '''
 
