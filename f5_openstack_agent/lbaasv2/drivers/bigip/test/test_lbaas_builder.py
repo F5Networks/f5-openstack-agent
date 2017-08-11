@@ -59,7 +59,7 @@ def service():
         u"listeners": [{
             u"admin_state_up": True,
             u"connection_limit": -1,
-            u"default_pool_id": None,
+            u"default_pool_id": "2dbca6cd-30d8-4013-9c9a-df0850fabf52",
             u"default_tls_container_id": None,
             u"description": u"",
             u"id": u"5108c2fe-29bd-4e5b-94de-99034c561a15",
@@ -1190,3 +1190,121 @@ class TestLbaasBuilder(object):
         builder._assure_pools_created(svc)
         assert not mock_update.called
         assert mock_create.called
+
+    @mock.patch(VS_POOL_UPDATE_PATH)
+    @mock.patch(POOL_BLDR_PATH + '.create_pool')
+    @mock.patch(POOL_BLDR_PATH + '.update_pool')
+    def test__assure_pools_created_listener_update_with_pool_active(
+            self, mock_update, mock_create, mock_vs_update_pool, service):
+        '''create_pool is called on active pool and updating listener'''
+        svc = service
+        svc['pools'][0]['provisioning_status'] = 'ACTIVE'
+        svc['listeners'][0]['provisioning_status'] = 'PENDING_UPDATE'
+        svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._assure_pools_created(svc)
+        assert not mock_update.called
+        assert mock_create.called
+        assert mock_vs_update_pool.called
+        assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
+        assert svc['pools'][0]['provisioning_status'] == 'ACTIVE'
+
+    @mock.patch(VS_POOL_UPDATE_PATH)
+    @mock.patch(POOL_BLDR_PATH + '.create_pool')
+    @mock.patch(POOL_BLDR_PATH + '.update_pool')
+    def test__assure_pools_created_listener_create_with_pool_active(
+            self, mock_update, mock_create, mock_vs_update_pool, service):
+        '''create_pool is called with active pool and creating listener'''
+        svc = service
+        svc['pools'][0]['provisioning_status'] = 'ACTIVE'
+        svc['listeners'][0]['provisioning_status'] = 'PENDING_CREATE'
+        svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._assure_pools_created(svc)
+        assert not mock_update.called
+        assert mock_create.called
+        assert mock_vs_update_pool.called
+        assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
+        assert svc['pools'][0]['provisioning_status'] == 'ACTIVE'
+
+    @mock.patch(VS_POOL_UPDATE_PATH)
+    @mock.patch(POOL_BLDR_PATH + '.create_pool')
+    @mock.patch(POOL_BLDR_PATH + '.update_pool')
+    def test__assure_pools_created_listener_update_with_pool_active_409(
+            self, mock_update, mock_create, mock_vs_update_pool, service):
+        '''create_pool is called and does not fail for updating listener'''
+        svc = service
+        svc['pools'][0]['provisioning_status'] = 'ACTIVE'
+        svc['listeners'][0]['provisioning_status'] = 'PENDING_UPDATE'
+        svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
+        mock_create.side_effect = \
+            MockHTTPError(MockHTTPErrorResponse409(), 'Exists')
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._assure_pools_created(svc)
+        assert not mock_update.called
+        assert mock_create.called
+        assert mock_vs_update_pool.called
+        assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
+        assert svc['pools'][0]['provisioning_status'] == 'ACTIVE'
+
+    @mock.patch(VS_POOL_UPDATE_PATH)
+    @mock.patch(POOL_BLDR_PATH + '.create_pool')
+    @mock.patch(POOL_BLDR_PATH + '.update_pool')
+    def test__assure_pools_created_listener_create_with_pool_active_409(
+            self, mock_update, mock_create, mock_vs_update_pool, service):
+        '''create_pool is called and does not fail for creating listener'''
+        svc = service
+        svc['pools'][0]['provisioning_status'] = 'ACTIVE'
+        svc['listeners'][0]['provisioning_status'] = 'PENDING_CREATE'
+        svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
+        mock_create.side_effect = \
+            MockHTTPError(MockHTTPErrorResponse409(), 'Exists')
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._assure_pools_created(svc)
+        assert not mock_update.called
+        assert mock_create.called
+        assert mock_vs_update_pool.called
+        assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
+        assert svc['pools'][0]['provisioning_status'] == 'ACTIVE'
+
+    @mock.patch(VS_POOL_UPDATE_PATH)
+    @mock.patch(POOL_BLDR_PATH + '.create_pool')
+    @mock.patch(POOL_BLDR_PATH + '.update_pool')
+    def test__assure_pools_created_listener_update_with_pool_active_404(
+            self, mock_update, mock_create, mock_vs_update_pool, service):
+        '''exception raised with 404 seen on create_pool with vs update'''
+        svc = service
+        svc['pools'][0]['provisioning_status'] = 'ACTIVE'
+        svc['listeners'][0]['provisioning_status'] = 'PENDING_UPDATE'
+        svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
+        mock_create.side_effect = \
+            MockHTTPError(MockHTTPErrorResponse404(), 'Exists')
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        with pytest.raises(f5_ex.PoolCreationException) as ex:
+            builder._assure_pools_created(svc)
+            assert ex.value.message == 'Exists'
+        assert not mock_update.called
+        assert mock_create.called
+        assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
+        assert svc['pools'][0]['provisioning_status'] == 'ERROR'
+
+    @mock.patch(VS_POOL_UPDATE_PATH)
+    @mock.patch(POOL_BLDR_PATH + '.create_pool')
+    @mock.patch(POOL_BLDR_PATH + '.update_pool')
+    def test__assure_pools_created_listener_create_with_pool_active_404(
+            self, mock_update, mock_create, mock_vs_update_pool, service):
+        '''exception raised with 404 seen on create_pool with vs create'''
+        svc = service
+        svc['pools'][0]['provisioning_status'] = 'ACTIVE'
+        svc['listeners'][0]['provisioning_status'] = 'PENDING_CREATE'
+        svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
+        mock_create.side_effect = \
+            MockHTTPError(MockHTTPErrorResponse404(), 'Exists')
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        with pytest.raises(f5_ex.PoolCreationException) as ex:
+            builder._assure_pools_created(svc)
+            assert ex.value.message == 'Exists'
+        assert not mock_update.called
+        assert mock_create.called
+        assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
+        assert svc['pools'][0]['provisioning_status'] == 'ERROR'
