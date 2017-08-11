@@ -264,6 +264,12 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "member": member,
                    "pool": pool}
+            # Create a pool service dict since the pool may need to be updated
+            # based upon changes in the members.
+            pool_svc = {
+                "loadbalancer": loadbalancer,
+                "pool": pool,
+                "members": self._get_pool_members(service, pool['id'])}
 
             if 'port' not in member and \
                member['provisioning_status'] != plugin_const.PENDING_DELETE:
@@ -274,12 +280,14 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.delete_member(svc, bigips)
+                    self.pool_builder.update_pool(pool_svc, bigips)
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberDeleteException(err.message)
             else:
                 try:
                     self.pool_builder.create_member(svc, bigips)
+                    self.pool_builder.update_pool(pool_svc, bigips)
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # FIXME(RB)
@@ -291,6 +299,7 @@ class LBaaSBuilder(object):
                     else:
                         try:
                             self.pool_builder.update_member(svc, bigips)
+                            self.pool_builder.update_pool(pool_svc, bigips)
                         except Exception as err:
                             member['provisioning_status'] = plugin_const.ERROR
                             raise f5_ex.MemberUpdateException(err.message)
