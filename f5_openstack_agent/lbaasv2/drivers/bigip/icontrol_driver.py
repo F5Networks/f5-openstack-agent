@@ -555,8 +555,7 @@ class iControlDriver(LBaaSBaseDriver):
                         self.ha_validated = True
                     if not self.tg_initialized:
                         self._init_traffic_groups(bigip)
-                        LOG.debug('known traffic groups initialized',
-                                  ' from %s as %s' %
+                        LOG.debug('learned traffic groups from %s as %s' %
                                   (hostname, self.__traffic_groups))
                         self.tg_initialized = True
                     LOG.debug('initializing bigip %s' % hostname)
