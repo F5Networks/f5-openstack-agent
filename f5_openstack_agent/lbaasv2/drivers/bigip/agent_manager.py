@@ -620,7 +620,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # agent is bound, that does not exist in our service cache.
             for lb_id in errored_loadbalancer_ids:
                 if not self.cache.get_by_loadbalancer_id(lb_id):
-                    self.errored_service(lb_id)
+                    self.validate_service(lb_id)
 
             # This produces a list of loadbalancers with pending tasks to
             # be performed.
