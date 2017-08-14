@@ -17,6 +17,7 @@
 from conftest import remove_elements
 from conftest import setup_neutronless_test
 from copy import deepcopy
+from distutils.version import StrictVersion
 from f5.bigip import ManagementRoot
 from f5.utils.testutils.registrytools import register_device
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
@@ -46,17 +47,17 @@ FEATURE_OFF_COMMON_NET = OSLO_CONFIGS["feature_off_common_net"]
 FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
 FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
 FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
-FEATURE_OFF_COMMON_NET['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+FEATURE_OFF_COMMON_NET['icontrol_hostname'] = \
+    pytest.symbols.bigip_mgmt_ip_public
 
 
 tmos_version = ManagementRoot(
-                   pytest.symbols.bigip_mgmt_ip_public,
-                   pytest.symbols.bigip_username,
-                   pytest.symbols.bigip_password
-               ).tmos_version
+    pytest.symbols.bigip_mgmt_ip_public,
+    pytest.symbols.bigip_username,
+    pytest.symbols.bigip_password).tmos_version
 dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip_public.replace('.', '-')
 icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
-if tmos_version == '12.1.0':
+if StrictVersion(tmos_version) >= StrictVersion('12.1.0'):
     icontrol_fqdn = 'bigip1'
 neutron_services_filename =\
     os.path.join(osd(os.path.abspath(__file__)), 'neutron_services.json')
