@@ -251,3 +251,4 @@ def test_create_delete_basic_lb_nodisconnected(
         service, delete_partition=True, delete_event=True)
     assert not lb_pending
     assert not bigip.folder_exists(folder)
+    assert True is False
