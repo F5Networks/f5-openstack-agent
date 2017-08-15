@@ -283,8 +283,19 @@ class LBaaSBuilder(object):
             return
 
         members = service["members"]
+        pools = service["pools"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+
+        for pool in pools:
+            pool = self.get_pool_by_id(service, pool['id'])
+            svc = {"loadbalancer": loadbalancer,
+                   "pool": pool,
+                   "members": []}
+            for member in members:
+                if member['pool_id'] == pool['id']:
+                    svc['members'].append(member)
+            self.pool_builder.delete_orphaned_members(service, bigips)
 
         for member in members:
             pool = self.get_pool_by_id(service, member["pool_id"])
