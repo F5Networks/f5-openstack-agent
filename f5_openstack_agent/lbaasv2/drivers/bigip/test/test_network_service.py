@@ -406,6 +406,8 @@ class TestNetworkServiceBuilder(object):
         """
         tenant_id = 'f2a944c28b5d43ad808cc28ba1f03cce'
 
+        network_service.conf.f5_common_networks = False
+
         # shared (common) network always get RD 0
         network['shared'] = True
         network_service.assign_route_domain(tenant_id, network, subnet)
