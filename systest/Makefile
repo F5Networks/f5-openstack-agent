@@ -34,9 +34,9 @@
 #     the states "overcloud" and "undercloud", therefore elements of DEPLOYS
 #     look like the following: '12.1.1-overcloud' '11.5.4-undercloud'.
 #
-DEVICES := 12.1.1
+DEVICES := 12.1.2
 DEPLOYS := $(foreach v, $(DEVICES), $(v)-overcloud $(v)-undercloud)
-DEPLOYS += 12.1.1-overcloud_smoke
+DEPLOYS += 12.1.2-overcloud_smoke
 
 # Tell make that targets don't map to files
 .PHONY: setup \
