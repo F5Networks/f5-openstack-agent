@@ -64,7 +64,7 @@ def my_test_create_delete_basic_lb_no_namespace(bigip, services, icd_config, ico
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_mgmt_ip_public
+    hostname = bigip.get_device_name()
     icd_config['use_namespaces'] = False
 
     folder = '%s_%s' % (env_prefix, lb_reader.tenant_id())

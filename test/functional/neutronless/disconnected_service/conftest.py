@@ -19,14 +19,30 @@ import os
 import pytest
 import time
 
-from f5.bigip import ManagementRoot
-from f5.utils.testutils.registrytools import register_device
-from f5.utils.testutils.registrytools import AGENT_LB_DEL_ORDER
 from f5.utils.testutils.registrytools import order_by_weights
+from f5.utils.testutils.registrytools import register_device
 from icontrol.exceptions import iControlUnexpectedHTTPError
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import\
     iControlDriver
+
+
+AGENT_LB_DEL_ORDER = {'/mgmt/tm/ltm/virtual/': 1,
+                      '/mgmt/tm/ltm/pool': 2,
+                      'mgmt/tm/ltm/node/': 3,
+                      'monitor': 4,
+                      'virtual-address': 5,
+                      'mgmt/tm/net/self/': 6,
+                      '/mgmt/tm/net/fdb': 7,
+                      'mgmt/tm/net/tunnels/tunnel/': 8,
+                      'mgmt/tm/net/tunnels/vxlan/': 9,
+                      'mgmt/tm/net/tunnels/gre': 10,
+                      'mgmt/tm/net/vlan': 11,
+                      'route': 12,
+                      '/mgmt/tm/ltm/snatpool': 13,
+                      '/mgmt/tm/ltm/snat-translation': 14,
+                      '/mgmt/tm/net/route-domain': 15,
+                      '/mgmt/tm/sys/folder': 16}
 
 
 @pytest.fixture(scope='module')
