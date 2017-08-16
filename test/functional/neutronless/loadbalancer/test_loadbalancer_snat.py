@@ -47,7 +47,7 @@ def test_create_delete_lb_autosnat(bigip, services, icd_config, icontrol_driver)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_mgmt_ip_public
+    hostname = bigip.get_device_name()
 
     # Change the configuration so that Auto SNAT is used.
     icd_config['f5_snat_addresses_per_subnet'] = 0
@@ -137,7 +137,7 @@ def test_create_delete_lb_multisnat(bigip, services, icd_config, icontrol_driver
     fake_rpc = icontrol_driver.plugin_rpc
     icd_config['f5_snat_addresses_per_subnet'] = 5
     folder = '%s_%s' % (env_prefix, lb_reader.tenant_id())
-    hostname = pytest.symbols.bigip_mgmt_ip_public
+    hostname = bigip.get_device_name()
 
     # Make sure we are starting clean.
     assert not bigip.folder_exists(folder)
@@ -240,7 +240,7 @@ def test_create_delete_lb_snatoff(bigip, services, icd_config, icontrol_driver):
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_mgmt_ip_public
+    hostname = bigip.get_device_name()
 
     # Change the configuration so that Auto SNAT is used.
     icd_config['f5_snat_mode'] = "false"

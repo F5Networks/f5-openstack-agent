@@ -18,6 +18,7 @@ import re
 import urllib
 
 from f5.bigip import ManagementRoot
+from f5_openstack_agent.lbaasv2.drivers.bigip import cluster_manager
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import system_helper
 
@@ -83,3 +84,7 @@ class BigIpClient(object):
                             partition=partition)
 
         return False
+
+    def get_device_name(self):
+        cm = cluster_manager.ClusterManager()
+        return cm.get_device_name(self.bigip)

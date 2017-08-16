@@ -21,7 +21,6 @@ import os
 import pytest
 import requests
 
-from ..testlib.bigip_client import BigIpClient
 from ..testlib.fake_rpc import FakeRPCPlugin
 from ..testlib.service_reader import LoadbalancerReader
 from ..testlib.resource_validator import ResourceValidator
@@ -43,14 +42,6 @@ def services():
                      snat_pool_json)
     )
     return (json.load(open(neutron_services_filename)))
-
-
-@pytest.fixture(scope="module")
-def bigip():
-
-    return BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
-                       pytest.symbols.bigip_username,
-                       pytest.symbols.bigip_password)
 
 
 @pytest.fixture
