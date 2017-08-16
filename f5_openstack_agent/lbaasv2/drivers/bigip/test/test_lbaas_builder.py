@@ -1238,7 +1238,6 @@ class TestLbaasBuilder(object):
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
-        assert mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
         assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
@@ -1256,7 +1255,6 @@ class TestLbaasBuilder(object):
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
-        assert mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
         assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
