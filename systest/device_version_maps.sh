@@ -15,4 +15,4 @@
 export BIGIP_11_5_4="bigip-osready-11.5.4.2.0.291"
 export BIGIP_11_6_0="bigip-osready-11.6.0.0.0.401"
 export BIGIP_11_6_1="bigip-osready-11.6.1.1.0.326"
-export BIGIP_12_1_2="os_ready-BIGIP-12.1.2.0.0.249"
+export BIGIP_12_1_2="bigip-osready-12.1.2.0.0.249"
