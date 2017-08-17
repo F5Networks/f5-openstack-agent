@@ -39,7 +39,7 @@ LOG = logging.getLogger(__name__)
 def services():
     # ./f5-openstack-agent/test/functional/neutronless/conftest.py
     relative = get_relative_path()
-    snat_pool_json = str("{}/f5-openstack-agent/test/functional/testdata/"
+    snat_pool_json = str("{}/test/functional/testdata/"
                          "service_requests/snat_pool_common_networks.json")
     neutron_services_filename = (snat_pool_json.format(relative))
     return (json.load(open(neutron_services_filename)))
@@ -86,6 +86,8 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     return icd
 
 
+@pytest.mark.skip(reason=str("This tests' service objects trounce anothers"
+                             " WIP"))
 def test_tentant(bigip, services, icd_config, icontrol_driver):
     """Test creating and deleting SNAT pools with common network listener.
 

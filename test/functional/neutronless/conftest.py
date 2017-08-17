@@ -18,7 +18,7 @@ import os
 import pytest
 import re
 import traceback
-# import sys
+import sys
 
 from inspect import currentframe as cf
 from inspect import getframeinfo as gfi
@@ -278,7 +278,7 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
 @pytest.fixture()
 def icd_config():
     relative = get_relative_path()
-    basic_agent_config = str("{}/f5-openstack-agent/test/functional/config"
+    basic_agent_config = str("{}/test/functional/config"
                              "/basic_agent_config.json".format(relative))
     oslo_config_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -297,13 +297,32 @@ def icd_config():
     return config
 
 
+def _derive_relative_path_from(expected_relative, current):
+    relative_path = list()
+    for level in current.split("/"):
+        relative_path.append(level)
+        if _check_relative_path(expected_relative, relative_path):
+            break
+    else:
+        raise AssertionError(
+            "Could not find repo's relative path! Please be "
+            "within the repo! (cwd: {})".format(current))
+    return tuple(relative_path)
+
+
+def _check_relative_path(expected_relative, relative_path):
+    found = list(relative_path)
+    return \
+        os.path.isdir("{}/{}".format('/'.join(found), expected_relative))
+
+
 @pytest.fixture()
 def get_relative_path():
     """Discovers the relative path to the start of the repo's path and returns
 
     This test fixture will find the relative path of the beginning of the repo.
     This path is then returned.  If it is discovered that:
-    ./f5-openstack-agent/test/functional/neutronless/
+    ./test/functional/neutronless/
 
     Is not a full path, then it will raise and AssertionError.  If the user
     executes this within a non-existent or partial repo that is fake or
@@ -313,21 +332,27 @@ def get_relative_path():
     from an explicit point of reference from within the repo's many possible
     paths or tributaries.
     """
+
     current = os.getcwd()
-    repo_name = "f5-openstack-agent"
-    expected_relative = [repo_name, 'test', 'functional', 'neutronless']
-    relative_path = list()
-    for level in current.split("/"):
-        if level == repo_name:
-            break
-        relative_path.append(level)
-    else:
-        raise AssertionError(
-            "{} is not in your path! Please be "
-            "within the repo!".format(repo_name))
-    found = list(relative_path)
-    found.extend(expected_relative)
-    discovered = '/'.join(found)
-    assert os.path.isdir('/'.join(found)), \
-        "{} does not exist!".format(discovered)
+    expected_relative = 'test/functional/neutronless'
+    try:
+        relative_path = _derive_relative_path_from(expected_relative, current)
+        assert _check_relative_path(expected_relative, relative_path), \
+            "The discovered path: {} is not a relative path! (cwd: {})".format(
+                relative_path, current)
+    except AssertionError as Err:
+        # go for the BIG-O >> to see if we can salvage...
+        found = False
+        for destination in sys.argv[1:]:
+            if os.path.isfile(destination) or os.path.isdir(destination):
+                try:
+                    relative_path = \
+                        _derive_relative_path_from(expected_relative,
+                                                   destination)
+                    if _check_relative_path(expected_relative, relative_path):
+                        found = True
+                        break
+                except AssertionError:
+                    continue
+        assert found, "Both means failed; args as well as {}".format(Err)
     return '/'.join(relative_path)
