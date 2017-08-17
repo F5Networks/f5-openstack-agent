@@ -86,6 +86,8 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     return icd
 
 
+@pytest.mark.skip(reason=str("This tests' service objects trounce anothers"
+                             " WIP"))
 def test_tentant(bigip, services, icd_config, icontrol_driver):
     """Test creating and deleting SNAT pools with common network listener.
 
