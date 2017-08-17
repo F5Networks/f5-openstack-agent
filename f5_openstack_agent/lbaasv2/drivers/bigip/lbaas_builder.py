@@ -295,7 +295,7 @@ class LBaaSBuilder(object):
             for member in members:
                 if member['pool_id'] == pool['id']:
                     svc['members'].append(member)
-            self.pool_builder.delete_orphaned_members(service, bigips)
+            self.pool_builder.delete_orphaned_members(svc, bigips)
 
         for member in members:
             pool = self.get_pool_by_id(service, member["pool_id"])
