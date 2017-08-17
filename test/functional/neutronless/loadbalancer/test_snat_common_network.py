@@ -162,3 +162,9 @@ def test_snat_common_network(bigip, services, icd_config, icontrol_driver):
 
     # validate everything (including SNAT ppols) removed
     assert not bigip.folder_exists(folder)
+
+    # cleanup...
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service, delete_partition=True)
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service, delete_partition=True)
