@@ -13,7 +13,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from copy import deepcopy
 import json
 import logging
 import os
@@ -60,7 +59,7 @@ def test_listener_update(
         icd_config,
         icontrol_driver):
 
-    env_prefix = 'Project'
+    env_prefix = 'TEST'
     service_iter = iter(services)
 
     # Create loadbalancer
@@ -69,35 +68,35 @@ def test_listener_update(
 
     # Create listener (no name, description)
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert not hasattr(l, 'description')
     assert l.connectionLimit == 0
     assert l.enabled
 
     # Update name ('spring'). Description is changed to include name.
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert l.description == 'spring:'
     assert l.connectionLimit == 0
     assert l.enabled
 
     # Update description ('has sprung')
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert l.description == 'spring: has-sprung'
     assert l.connectionLimit == 0
     assert l.enabled
 
     # Update connection limit (200)
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert l.description == 'spring: has-sprung'
     assert l.connectionLimit == 200
     assert l.enabled
 
     # Update admin_state_up (False)
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert l.description == 'spring: has-sprung'
     assert l.connectionLimit == 200
     assert l.disabled
