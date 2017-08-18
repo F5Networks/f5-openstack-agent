@@ -34,9 +34,9 @@
 #     the states "overcloud" and "undercloud", therefore elements of DEPLOYS
 #     look like the following: '12.1.1-overcloud' '11.5.4-undercloud'.
 #
-DEVICES := 12.1.1
+DEVICES := 12.1.2
 DEPLOYS := $(foreach v, $(DEVICES), $(v)-overcloud $(v)-undercloud)
-DEPLOYS += 12.1.1-overcloud_smoke
+DEPLOYS += 12.1.2-overcloud_smoke
 
 # Tell make that targets don't map to files
 .PHONY: setup \
@@ -93,12 +93,12 @@ TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(SANITIZED_BRANCH)/testenv
 #    Tests use tox for python variants.
 setup:
 	@echo executing $@
-	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh
+	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh ;\
 	mkdir -p $(TESTENVLOGDIR)
 
 #### UNITTEST SECTION:
 unit-tests: setup
-	-@echo executing $@
+	@echo executing $@
 	export GP_SUFFIX=f5-openstack-agent_$(SANITIZED_BRANCH)-unit &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e unit --sitepackages -- \
@@ -118,7 +118,7 @@ unit-tests: setup
 #  NOTE: GUMBALLS SESSIONs are complete here, e.g.:
 #  v8.0.1-435-gab9141e_20170311
 $(DEPLOYS): setup
-	@echo executing $@ ;\
+	@echo executing $@
 	. $(MAKEFILE_DIR)/device_version_maps.sh &&
 	export BIGIP_VER=`python -c 'print("$@".split("-")[0].replace(".", "_"))'` &&
 	export DEVICEVERSION=BIGIP_$${BIGIP_VER} &&
@@ -132,20 +132,23 @@ $(DEPLOYS): setup
 
 # Currently does nothing in f5-openstack-agent
 run_undercloud_tests:
-	-@echo executing $@ ;\
+	-@echo executing $@
 	echo $${CLOUD}
 
 # This rule is run once per device type XX.Y.Z
 run_overcloud_tests:
-	-@echo executing $@ ;\
+	-@echo executing $@
 	$(MAKE) -C . setup_singlebigip_tests &&\
 	$(MAKE) -C . singlebigip
 	$(MAKE) -C . cleanup_singlebigip
 
 run_overcloud_smoke_tests:
-	@echo executing $@ ;\
+	@echo executing $@
+	# Run the smoke tests and capture the rc, in case tests fail or error out
 	$(MAKE) -C . setup_singlebigip_tests &&\
-	$(MAKE) -C . smoke
+	$(MAKE) -C . smoke ; SMOKE_RC=$$? ;\
+	$(MAKE) -C . cleanup_singlebigip ;\
+	exit $$SMOKE_RC
 
 #### TESTSBYINFRA SECTION
 #    Different test scenarios require different infrastructure.  Currently the
@@ -164,7 +167,7 @@ setup_singlebigip_tests:
 	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
 
 singlebigip:
-	@echo executing $@ ;\
+	@echo executing $@
 	export GP_SUFFIX=$@_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	$(MAKE) -C . run_neutronless_loadbalancer_tests ;\
@@ -175,15 +178,14 @@ singlebigip:
 	$(MAKE) -C . run_singlebigip_tests
 
 smoke:
-	@echo executing $@ ;\
+	@echo executing $@
 	export GP_SUFFIX=$@_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	$(MAKE) -C . run_smoke_tests
-	$(MAKE) -C . cleanup_singlebigip
 
 
 run_neutronless_loadbalancer_tests:
-	@echo executing $@ ;\
+	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
@@ -192,7 +194,7 @@ run_neutronless_loadbalancer_tests:
 	    ../test/functional/neutronless/loadbalancer/
 
 run_neutronless_listener_tests:
-	@echo executing $@ ;\
+	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
@@ -201,7 +203,7 @@ run_neutronless_listener_tests:
 	    ../test/functional/neutronless/listener/
 
 run_neutronless_member_tests:
-	@echo executing $@ ;\
+	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
@@ -210,7 +212,7 @@ run_neutronless_member_tests:
 	    ../test/functional/neutronless/member/
 
 run_neutronless_pool_tests:
-	@echo executing $@ ;\
+	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
@@ -219,7 +221,7 @@ run_neutronless_pool_tests:
 	    ../test/functional/neutronless/pool/
 
 run_singlebigip_tests:
-	@echo executing $@ ;\
+	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
@@ -229,7 +231,7 @@ run_singlebigip_tests:
 
 # disconnected_singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
 run_disconnected_service_tests:
-	@echo executing $@ ;\
+	@echo executing $@
 	export GP_SUFFIX=disconnected_$${GP_SUFFIX} &&
 	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
 	tox -e disconnected_service --sitepackage -- \
@@ -240,7 +242,7 @@ run_disconnected_service_tests:
 	    ../test/functional/neutronless/disconnected_service/
 
 run_smoke_tests:
-	@echo executing $@ ;\
+	@echo executing $@
 	tox -e singlebigip --sitepackage -- \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \

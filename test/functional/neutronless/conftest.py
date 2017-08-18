@@ -227,7 +227,6 @@ class Resource4TestTracker(object):
 
 @pytest.fixture
 def bigip(request):
-
     bigip = BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
                         pytest.symbols.bigip_username,
                         pytest.symbols.bigip_password)
