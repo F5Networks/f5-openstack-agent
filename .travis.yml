@@ -65,7 +65,7 @@ deploy:
       branch: master
       condition: $TRAVIS_TAG = ""
     script:
-    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $TRAVIS_BRANCH
+    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent newton
   # if this is a tagged release, the docs go to /products/openstack/agent/$TRAVIS_BRANCH/vX.Y
   - provider: script
     skip_cleanup: true
