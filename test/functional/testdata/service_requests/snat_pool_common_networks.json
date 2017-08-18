@@ -1,4 +1,4 @@
-[{
+{"loadbalancer": {
   "healthmonitors": [], 
   "listeners": [], 
   "loadbalancer": {
@@ -106,7 +106,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"listener": {
   "healthmonitors": [], 
   "listeners": [
     {
@@ -235,7 +235,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"pool": {
   "healthmonitors": [], 
   "listeners": [
     {
@@ -385,7 +385,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"member": {
   "healthmonitors": [], 
   "listeners": [
     {
@@ -624,7 +624,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"delete_member": {
   "healthmonitors": [], 
   "listeners": [
     {
@@ -871,7 +871,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"delete_pool": {
   "healthmonitors": [], 
   "listeners": [
     {
@@ -1021,7 +1021,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"delete_listener": {
   "healthmonitors": [], 
   "listeners": [
     {
@@ -1150,7 +1150,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"delete_loadbalancer": {
   "healthmonitors": [], 
   "listeners": [], 
   "loadbalancer": {
@@ -1258,7 +1258,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"cleanup0": {
   "healthmonitors": [], 
   "listeners": [], 
   "loadbalancer": {
@@ -1366,7 +1366,7 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-},{
+},"cleanup1": {
   "healthmonitors": [], 
   "listeners": [], 
   "loadbalancer": {}, 
@@ -1393,4 +1393,4 @@
   "pools": [], 
   "subnets": {}
 }
-]
+}
