@@ -73,7 +73,7 @@ PROJDIR := $(shell dirname $(realpath $(MAKEFILE_DIR)))
 TAGINFO := $(shell git describe --long --tags --first-parent)
 
 # git branch set here for use in build on PR
-BRANCH := mitaka
+BRANCH := stable/newton
 
 # The branch may contain the text 'stable/' before the OpenStack release name
 # To allow this type of branch name and any other to work with the cloud deployment
