@@ -21,7 +21,6 @@ import os
 import pytest
 import requests
 
-from ..testlib.bigip_client import BigIpClient
 from ..testlib.fake_rpc import FakeRPCPlugin
 from ..testlib.service_reader import LoadbalancerReader
 from ..testlib.resource_validator import ResourceValidator
@@ -36,21 +35,13 @@ LOG = logging.getLogger(__name__)
 def services():
     # ./f5-openstack-agent/test/functional/neutronless/conftest.py
     relative = get_relative_path()
-    snat_pool_json = str("{}/f5-openstack-agent/test/functional/testdata/"
+    snat_pool_json = str("{}/test/functional/testdata/"
                          "service_requests/snat_pool.json".format(relative))
     neutron_services_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      snat_pool_json)
     )
     return (json.load(open(neutron_services_filename)))
-
-
-@pytest.fixture(scope="module")
-def bigip():
-
-    return BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
-                       pytest.symbols.bigip_username,
-                       pytest.symbols.bigip_password)
 
 
 @pytest.fixture
@@ -171,3 +162,9 @@ def test_snat_common_network(bigip, services, icd_config, icontrol_driver):
 
     # validate everything (including SNAT ppols) removed
     assert not bigip.folder_exists(folder)
+
+    # cleanup...
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service, delete_partition=True)
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service, delete_partition=True)
