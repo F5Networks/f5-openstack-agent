@@ -47,7 +47,7 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_mgmt_ip_public
+    hostname = bigip.get_device_name()
 
     folder = '%s_%s' % (env_prefix, lb_reader.tenant_id())
 
@@ -149,7 +149,7 @@ def test_featureoff_create_delete_basic_lb(bigip, services, icd_config, icontrol
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_mgmt_ip_public
+    hostname = bigip.get_device_name()
     icd_config['f5_network_segment_physical_network'] = None
 
     folder = '%s_%s' % (env_prefix, lb_reader.tenant_id())
