@@ -384,22 +384,20 @@ class LBaaSBuilder(object):
                     raise f5_ex.PoolDeleteException(err.message)
 
     def _assure_listeners_deleted(self, service):
-        if 'listeners' not in service:
-            return
-
-        listeners = service["listeners"]
-        loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
-
-        for listener in listeners:
-            if listener['provisioning_status'] == plugin_const.PENDING_DELETE:
-                svc = {"loadbalancer": loadbalancer,
-                       "listener": listener}
-                try:
-                    self.listener_builder.delete_listener(svc, bigips)
-                except Exception as err:
-                    listener['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.VirtualServerDeleteException(err.message)
+        if 'listeners' in service:
+            listeners = service["listeners"]
+            loadbalancer = service["loadbalancer"]
+            for listener in listeners:
+                if listener['provisioning_status'] == \
+                        plugin_const.PENDING_DELETE:
+                    svc = {"loadbalancer": loadbalancer,
+                           "listener": listener}
+                    try:
+                        self.listener_builder.delete_listener(svc, bigips)
+                    except Exception as err:
+                        listener['provisioning_status'] = plugin_const.ERROR
+                        raise f5_ex.VirtualServerDeleteException(err.message)
         self.listener_builder.delete_orphaned_listeners(service, bigips)
 
     @staticmethod

@@ -225,21 +225,34 @@ class ListenerServiceBuilder(object):
             self.remove_session_persistence(service, bigips)
 
     def delete_orphaned_listeners(self, service, bigips):
-        listeners = service['listeners']
-        for listener in listeners:
-            svc = {"loadbalancer": service["loadbalancer"],
-                   "listener": listener}
-            vip = self.service_adapter.get_virtual_name(svc)
+        if 'listeners' not in service:
+            ip_address = service['loadbalancer']['vip_address']
+            if str(ip_address).endswith('%0'):
+                ip_address = ip_address[:-2]
             for bigip in bigips:
                 vses = bigip.tm.ltm.virtuals._get_collection()
                 for vs in vses:
+                    if str(vs.destination).startswith(ip_address):
+                        vs.delete()
+        else:
+            listeners = service['listeners']
+            for listener in listeners:
+                svc = {"loadbalancer": service["loadbalancer"],
+                       "listener": listener}
+                vip = self.service_adapter.get_virtual(svc)
+                for bigip in bigips:
+                    vses = bigip.tm.ltm.virtuals._get_collection()
                     orphaned = True
-                    if vip['name'] == vs.name:
-                        orphaned = False
-                if orphaned:
-                    self.vs_helper.delete(bigip,
-                                          name=vip["name"],
-                                          partition=vip["partition"])
+                    for vs in vses:
+                        if vip['destination'] == vs.destination:
+                            if vip['name'] == vs.name:
+                                orphaned = False
+                        else:
+                            orphaned = False
+                    if orphaned:
+                        for vs in vses:
+                            if vip['name'] == vs.name:
+                                vs.delete()
 
     def _add_profile(self, vip, profile_name, bigip, context='all'):
         """Add profile to virtual server instance. Assumes Common.
