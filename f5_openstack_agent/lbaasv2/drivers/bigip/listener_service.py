@@ -20,6 +20,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 from requests import HTTPError
+from samba.dcerpc.dcerpc import orphaned
 
 LOG = logging.getLogger(__name__)
 
@@ -222,6 +223,23 @@ class ListenerServiceBuilder(object):
                 LOG.debug("Set persist %s" % vip["name"])
         else:
             self.remove_session_persistence(service, bigips)
+
+    def delete_orphaned_listeners(self, service, bigips):
+        listeners = service['listeners']
+        for listener in listeners:
+            svc = {"loadbalancer": service["loadbalancer"],
+                   "listener": listener}
+            vip = self.service_adapter.get_virtual_name(svc)
+            for bigip in bigips:
+                vses = bigip.tm.ltm.virtuals._get_collection()
+                for vs in vses:
+                    orphaned = True
+                    if vip['name'] == vs.name:
+                        orphaned = False
+                if orphaned:
+                    self.vs_helper.delete(bigip,
+                                          name=vip["name"],
+                                          partition=vip["partition"])
 
     def _add_profile(self, vip, profile_name, bigip, context='all'):
         """Add profile to virtual server instance. Assumes Common.

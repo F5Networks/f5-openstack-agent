@@ -400,6 +400,7 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerDeleteException(err.message)
+        self.listener_builder.delete_orphaned_listeners(service, bigips)
 
     @staticmethod
     def _check_monitor_delete(service):
