@@ -20,7 +20,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 from requests import HTTPError
-from samba.dcerpc.dcerpc import orphaned
 
 LOG = logging.getLogger(__name__)
 
