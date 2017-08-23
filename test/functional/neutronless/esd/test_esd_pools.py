@@ -16,8 +16,6 @@
 from copy import deepcopy
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
-from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
-    EsdTagProcessor
 import json
 import logging
 import os
@@ -47,7 +45,7 @@ def services():
 def icd_config():
     oslo_config_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../config/basic_agent_config.json')
+                     '../../config/overcloud_basic_agent_config.json')
     )
     OSLO_CONFIGS = json.load(open(oslo_config_filename))
 
@@ -55,7 +53,6 @@ def icd_config():
     config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
     config['icontrol_username'] = pytest.symbols.bigip_username
     config['icontrol_password'] = pytest.symbols.bigip_password
-    config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
 
     return config
 
@@ -95,6 +92,7 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
 
     return icd
 
+
 @pytest.fixture
 def esd():
     esd_file = (
@@ -108,11 +106,6 @@ def test_esd_pools(bigip, services, icd_config, icontrol_driver, esd):
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)
-
-    esd_processor = EsdTagProcessor(
-        '../../../../etc/neutron/services/f5/esd/')
-    esd_processor.process_esd([bigip.bigip])
-    icontrol_driver.lbaas_builder.esd = esd_processor
 
     # create loadbalancer
     # lbaas-loadbalancer-create --name lb1 mgmt_v4_subnet
