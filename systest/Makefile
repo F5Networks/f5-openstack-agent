@@ -174,6 +174,7 @@ singlebigip:
 	$(MAKE) -C . run_neutronless_listener_tests ;\
 	$(MAKE) -C . run_neutronless_member_tests ;\
 	$(MAKE) -C . run_neutronless_pool_tests ;\
+	$(MAKE) -C . run_neutronless_esd_tests ;\
 	$(MAKE) -C . run_disconnected_service_tests ;\
 	$(MAKE) -C . run_singlebigip_tests
 
@@ -219,6 +220,15 @@ run_neutronless_pool_tests:
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ../test/functional/neutronless/pool/
+
+run_neutronless_esd_tests:
+	@echo executing $@
+	tox -e singlebigip --sitepackage -- \
+	    --cov $(PROJDIR)/f5_openstack_agent \
+		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
+		--autolog-outputdir $${GUMBALLS_PROJECT} \
+		--autolog-session $${GUMBALLS_SESSION} \
+	    ../test/functional/neutronless/esd/
 
 run_singlebigip_tests:
 	@echo executing $@
