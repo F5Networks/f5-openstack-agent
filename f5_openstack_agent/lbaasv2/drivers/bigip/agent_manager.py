@@ -501,6 +501,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def scrub_dead_agents_in_env_and_group(self, context):
         """Triggering a dead agent scrub on the controller."""
         LOG.debug("running periodic scrub_dead_agents_in_env_and_group")
+        if not self.plugin_rpc:
+            return
+
         self.plugin_rpc.scrub_dead_agents(self.conf.environment_prefix,
                                           self.conf.environment_group_number)
 
@@ -831,6 +834,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                                 hostnames=pools[poolid]['hostnames'])
             else:
                 LOG.debug('the global agent is %s' % (global_agent['host']))
+                return True
             # serialize config and save to disk
             self.lbdriver.backup_configuration()
         except Exception as e:
