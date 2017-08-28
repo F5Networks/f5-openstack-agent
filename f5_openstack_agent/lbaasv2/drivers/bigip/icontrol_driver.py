@@ -669,6 +669,8 @@ class iControlDriver(LBaaSBaseDriver):
         except Exception as exc:
             LOG.exception('could not communicate with ' +
                           'iControl device: %s' % hostname)
+            # since no bigip object was created, create a dummy object
+            # so we can store the status and status_message attributes
             errbigip = type('', (), {})()
             errbigip.hostname = hostname
             errbigip.status = 'error'
