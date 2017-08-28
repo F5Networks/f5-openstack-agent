@@ -529,8 +529,6 @@ class iControlDriver(LBaaSBaseDriver):
         try:
             # setup logging options
             if not self.conf.debug:
-                # sudslog = std_logging.getLogger('suds.client')
-                # sudslog.setLevel(std_logging.FATAL)
                 requests_log = std_logging.getLogger(
                     "requests.packages.urllib3")
                 requests_log.setLevel(std_logging.ERROR)
@@ -546,7 +544,7 @@ class iControlDriver(LBaaSBaseDriver):
             for hostname in self.hostnames:
                 # connect to each BIG-IP and set it status
                 bigip = self._open_bigip(hostname)
-                if bigip.status == 'active':
+                if bigip.status == 'connected':
                     # set the status down until we assure initialized
                     bigip.status = 'initializing'
                     bigip.status_message = 'initializing HA viability'
@@ -599,7 +597,7 @@ class iControlDriver(LBaaSBaseDriver):
                 for hostname in errored_bigips:
                     # try to connect and set status
                     bigip = self._open_bigip(hostname)
-                    if bigip.status == 'active':
+                    if bigip.status == 'connected':
                         # set the status down until we assure initialized
                         bigip.status = 'initializing'
                         bigip.status_message = 'initializing HA viability'
@@ -664,7 +662,7 @@ class iControlDriver(LBaaSBaseDriver):
                                    self.conf.icontrol_username,
                                    self.conf.icontrol_password,
                                    timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
-            bigip.status = 'active'
+            bigip.status = 'connected'
             bigip.status_message = 'connected to BIG-IP'
             self.__bigips[hostname] = bigip
             return bigip
