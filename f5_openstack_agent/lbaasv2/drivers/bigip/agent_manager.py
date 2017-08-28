@@ -432,7 +432,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 if not self.lbdriver.backend_integrity():
                     self.needs_resync = True
                     self.cache.services = {}
-                    self.needs_resync = True
                     self.lbdriver.flush_cache()
                     self.plugin_rpc.set_agent_admin_state(False)
                     self.admin_state_up = False
