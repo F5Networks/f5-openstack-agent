@@ -115,9 +115,3 @@ logs
 # vim
 *~
 *.swp
-
-# eclipse pydev
-.project
-.pydevproject
-.settings/
-

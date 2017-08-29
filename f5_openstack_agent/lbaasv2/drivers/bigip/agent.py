@@ -46,7 +46,11 @@ import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as f5constants
 LOG = oslo_logging.getLogger(__name__)
 
 OPTS = [
-
+    cfg.IntOpt(
+        'periodic_interval',
+        default=10,
+        help='Seconds between periodic task runs'
+    )
 ]
 
 
@@ -60,7 +64,7 @@ class F5AgentService(n_rpc.Service):
             self.manager.run_periodic_tasks,
             None,
             None
-        )   # tg = olso_service thread group to run periodic tasks
+        )   # Hmmm....  "tg"?
         super(F5AgentService, self).start()
 
 
