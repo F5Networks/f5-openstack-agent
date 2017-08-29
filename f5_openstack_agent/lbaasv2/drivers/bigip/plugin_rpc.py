@@ -437,6 +437,98 @@ class LBaaSv2PluginRPC(object):
         return service
 
     @log_helpers.log_method_call
+    def set_agent_admin_state(self, admin_state_up):
+        """Set the admin_state_up of for this agent"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('set_agent_admin_state',
+                               admin_state_up=admin_state_up,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "set_agent_admin_state")
+
+        return service
+
+    @log_helpers.log_method_call
+    def scrub_dead_agents(self, env, group):
+        """Set the admin_state_up of for this agent"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('scrub_dead_agents',
+                               env=env,
+                               group=group,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "scrub_dead_agents")
+
+        return service
+
+    @log_helpers.log_method_call
+    def get_clusterwide_agent(self, env, group):
+        """Determin which agent performce global tasks for the cluster"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('get_clusterwide_agent',
+                               env=env,
+                               group=group,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "scrub_dead_agents")
+
+        return service
+
+    @log_helpers.log_method_call
+    def validate_loadbalancers_state(self, loadbalancers):
+        """Get the status of a list of loadbalancers IDs in Neutron"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('validate_loadbalancers_state',
+                               loadbalancers=loadbalancers,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_loadbalancers_state")
+
+        return service
+
+    @log_helpers.log_method_call
+    def validate_pools_state(self, pools):
+        """Get the status of a list of pools IDs in Neutron"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('validate_pools_state',
+                               pools=pools,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_pool_state")
+
+        return service
+
+    @log_helpers.log_method_call
     def get_all_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of loadbalancers in Neutron."""
         loadbalancers = []
@@ -478,7 +570,7 @@ class LBaaSv2PluginRPC(object):
             )
         except messaging.MessageDeliveryFailure:
             LOG.error("agent->plugin RPC exception caught: ",
-                      "get_all_loadbalancers")
+                      "get_active_loadbalancers")
 
         return loadbalancers
 
@@ -501,6 +593,29 @@ class LBaaSv2PluginRPC(object):
             )
         except messaging.MessageDeliveryFailure:
             LOG.error("agent->plugin RPC exception caught: ",
-                      "get_all_loadbalancers")
+                      "get_pending_loadbalancers")
+
+        return loadbalancers
+
+    @log_helpers.log_method_call
+    def get_errored_loadbalancers(self, env=None, group=None, host=None):
+        """Retrieve a list of errored loadbalancers for this agent."""
+        loadbalancers = []
+
+        if not env:
+            env = self.env
+
+        try:
+            loadbalancers = self._call(
+                self.context,
+                self._make_msg('get_pending_loadbalancers',
+                               env=env,
+                               group=group,
+                               host=host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_errored_loadbalancers")
 
         return loadbalancers

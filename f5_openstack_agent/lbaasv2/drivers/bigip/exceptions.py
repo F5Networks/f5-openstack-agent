@@ -243,6 +243,10 @@ class RouteDeleteException(F5AgentException):
     pass
 
 
+class RouteDomainCacheMiss(F5AgentException):
+    pass
+
+
 class RouteDomainCreationException(F5AgentException):
     pass
 
@@ -488,7 +492,3 @@ class F5MissingDependencies(F5AgentException):
         self.frame = frame
         self.message = self.message_format % (errno, message, exception,
                                               frame.filename, frame.lineno)
-
-
-class RouteDomainCacheMiss(F5AgentException):
-    pass
