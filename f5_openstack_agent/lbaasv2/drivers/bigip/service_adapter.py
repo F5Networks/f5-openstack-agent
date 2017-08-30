@@ -92,6 +92,10 @@ class ServiceModelAdapter(object):
         if listener["use_snat"] and self.snat_count() > 0:
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
+        elif listener["use_snat"] and self.snat_count() == -1:
+            listener["snat_pool_name"] = "lb_" + loadbalancer["id"]
+
+
 
         # transfer session_persistence from pool to listener
         if "pool" in service and "session_persistence" in service["pool"]:

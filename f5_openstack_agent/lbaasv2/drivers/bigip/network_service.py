@@ -15,6 +15,7 @@
 
 import itertools
 import netaddr
+import re
 
 import constants_v2 as const
 from neutron.common.exceptions import NeutronException
@@ -196,6 +197,8 @@ class NetworkServiceBuilder(object):
         for subnetinfo in subnetsinfo:
             if self.conf.f5_snat_addresses_per_subnet > 0:
                 self._assure_subnet_snats(assure_bigips, service, subnetinfo)
+            elif self.conf.f5_snat_addresses_per_subnet == -1:
+                self._assure_lb_snats(assure_bigips, service, subnetinfo)
 
             if subnetinfo['is_for_member'] and not self.conf.f5_snat_mode:
                 try:
@@ -592,6 +595,37 @@ class NetworkServiceBuilder(object):
                 self.bigip_snat_manager.assure_bigip_snats(
                     assure_bigip, subnetinfo, snat_addrs, tenant_id)
 
+    def _assure_lb_snats(self, assure_bigips, service, subnetinfo):
+        # Ensure snat for loadbalancer exists on bigips
+        tenant_id = service['loadbalancer']['tenant_id']
+
+        lb_id = service['loadbalancer']['id']
+
+
+        assure_bigips = \
+            [bigip for bigip in assure_bigips
+                if tenant_id not in bigip.assured_tenant_snat_subnets or
+                lb_id not in
+                bigip.assured_tenant_snat_subnets[tenant_id]]
+
+        LOG.debug("_assure_subnet_snats: getting snat addrs for: %s" %
+                  lb_id)
+        if len(assure_bigips):
+
+            ip_address = service['loadbalancer']["vip_address"]
+
+            match = re.search("%[0-9]+$", str(ip_address))
+
+            if match is not None:
+                ip_address = ip_address[:-len(match.group(0))]
+
+            snat_addrs =  [ip_address]
+            for assure_bigip in assure_bigips:
+                self.bigip_snat_manager.assure_bigip_snats(
+                    assure_bigip, subnetinfo, snat_addrs, tenant_id, lb_id)
+
+        pass
+
     def _allocate_gw_addr(self, subnetinfo):
         # Create a name for the port and for the IP Forwarding
         # Virtual Server as well as the floating Self IP which
@@ -789,6 +823,7 @@ class NetworkServiceBuilder(object):
         # Assure shared configuration (which syncs) is deleted
         deleted_names = set()
         tenant_id = service['loadbalancer']['tenant_id']
+        lb_id = service['loadbalancer']['id']
 
         delete_gateway = self.bigip_selfip_manager.delete_gateway_on_subnet
         for subnetinfo in self._get_subnets_to_delete(bigip,
@@ -805,7 +840,7 @@ class NetworkServiceBuilder(object):
 
                 my_deleted_names, my_in_use_subnets = \
                     self.bigip_snat_manager.delete_bigip_snats(
-                        bigip, subnetinfo, tenant_id)
+                        bigip, subnetinfo, tenant_id,lb_id)
                 deleted_names = deleted_names.union(my_deleted_names)
                 for in_use_subnetid in my_in_use_subnets:
                     subnet_hints['check_for_delete_subnets'].pop(
