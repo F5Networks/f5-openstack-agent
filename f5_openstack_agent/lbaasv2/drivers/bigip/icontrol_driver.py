@@ -1599,7 +1599,7 @@ class iControlDriver(LBaaSBaseDriver):
                 self.tenant_manager.assure_tenant_created(service)
             except Exception as e:
                 LOG.error("Tenant folder creation exception: %s",
-                          e.message)
+                          str(e))
                 if lb_provisioning_status != plugin_const.PENDING_DELETE:
                     loadbalancer['provisioning_status'] = \
                         plugin_const.ERROR
