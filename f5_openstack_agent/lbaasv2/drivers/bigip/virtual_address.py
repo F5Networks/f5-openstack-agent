@@ -110,9 +110,6 @@ class VirtualAddress(object):
 
     def assure(self, bigip, delete=False):
 
-        LOG.debug('assuing virtual address %s on %s' %
-                  (self.model(), bigip.hostname))
-
         if delete:
             self.delete(bigip)
         else:

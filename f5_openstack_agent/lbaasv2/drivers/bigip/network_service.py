@@ -16,9 +16,8 @@
 import itertools
 import netaddr
 
+from neutron.common.exceptions import NeutronException
 from neutron.plugins.common import constants as plugin_const
-from neutron_lib.exceptions import NeutronException
-
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
@@ -75,46 +74,51 @@ class NetworkServiceBuilder(object):
     def initialize_vcmp(self):
         self.l2_service.initialize_vcmp_manager()
 
-    def initialize_tunneling(self, bigip):
+    def initialize_tunneling(self):
         # setup tunneling
         vtep_folder = self.conf.f5_vtep_folder
         vtep_selfip_name = self.conf.f5_vtep_selfip_name
+        local_ips = []
 
-        bigip.local_ip = None
+        for bigip in self.driver.get_all_bigips():
 
-        if not vtep_folder or vtep_folder.lower() == 'none':
-            vtep_folder = 'Common'
+            bigip.local_ip = None
 
-        if vtep_selfip_name and \
-                not vtep_selfip_name.lower() == 'none':
+            if not vtep_folder or vtep_folder.lower() == 'none':
+                vtep_folder = 'Common'
 
-            # profiles may already exist
-            # create vxlan_multipoint_profile`
-            self.network_helper.create_vxlan_multipoint_profile(
+            if vtep_selfip_name and \
+               not vtep_selfip_name.lower() == 'none':
+
+                # profiles may already exist
+                # create vxlan_multipoint_profile`
+                self.network_helper.create_vxlan_multipoint_profile(
                     bigip,
                     'vxlan_ovs',
                     partition='Common')
-            # create l2gre_multipoint_profile
-            self.network_helper.create_l2gre_multipoint_profile(
-                bigip,
-                'gre_ovs',
-                partition='Common')
+                # create l2gre_multipoint_profile
+                self.network_helper.create_l2gre_multipoint_profile(
+                    bigip,
+                    'gre_ovs',
+                    partition='Common')
 
-            # find the IP address for the selfip for each box
-            local_ip = self.bigip_selfip_manager.get_selfip_addr(
-                bigip,
-                vtep_selfip_name,
-                partition=vtep_folder
-            )
+                # find the IP address for the selfip for each box
+                local_ip = self.bigip_selfip_manager.get_selfip_addr(
+                    bigip,
+                    vtep_selfip_name,
+                    partition=vtep_folder
+                )
 
-            if local_ip:
-                bigip.local_ip = local_ip
-            else:
-                raise f5_ex.MissingVTEPAddress(
-                    'device %s missing vtep selfip %s'
-                    % (bigip.device_name,
-                       '/' + vtep_folder + '/' +
-                       vtep_selfip_name))
+                if local_ip:
+                    bigip.local_ip = local_ip
+                    local_ips.append(local_ip)
+                else:
+                    raise f5_ex.MissingVTEPAddress(
+                        'device %s missing vtep selfip %s'
+                        % (bigip.device_name,
+                           '/' + vtep_folder + '/' +
+                           vtep_selfip_name))
+        return local_ips
 
     def is_service_connected(self, service):
         networks = service.get('networks', {})
@@ -560,7 +564,7 @@ class NetworkServiceBuilder(object):
                 subnetinfo, tenant_id, snats_per_subnet)
 
             if len(snat_addrs) != snats_per_subnet:
-                raise f5_ex.SNATCreationException(
+                raise f5_ex.SNAT_CreationException(
                     "Unable to satisfy request to allocate %d "
                     "snats.  Actual SNAT count: %d SNATs" %
                     (snats_per_subnet, len(snat_addrs)))
