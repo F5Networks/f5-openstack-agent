@@ -186,8 +186,8 @@ class NetworkHelper(object):
 
     def _get_route_domain_name(self, name):
         # Returns the properly formatted route domain name
-        # for f5_common_networks, it should be rd-{}
-        if hasattr(self, 'conf') and self.conf.f5_common_networks and not \
+        # for external_gateway_mode, it should be rd-{}
+        if hasattr(self, 'conf') and self.conf.external_gateway_mode and not \
                 name.startswith('rd-'):
             rd_fmt = 'rd-{0}'
         else:
@@ -196,12 +196,12 @@ class NetworkHelper(object):
 
     def _get_route_name(self, name=None):
         # Returns the properly formatted route name
-        # Not implemented for any other scenario besides f5_common_networks
-        if not hasattr(self.conf, 'f5_common_networks') or \
-                not self.conf.f5_common_networks:
+        # Not implemented for any other scenario besides external_gateway_mode
+        if not hasattr(self, 'conf') or \
+                not self.conf.external_gateway_mode:
             raise NotImplementedError("Routes are not implemented outside of"
                                       "common networks!")
-        return "rt-{}".format(name) if name and not name.beginswith('rt-') \
+        return "rt-{}".format(name) if name and not name.startswith('rt-') \
             else name
 
     def route_domain_exists(self, bigip, partition=const.DEFAULT_PARTITION,
@@ -221,7 +221,7 @@ class NetworkHelper(object):
         """
         if partition == 'Common' and \
                 (not hasattr(self, 'conf') or
-                 not self.conf.f5_common_networks):
+                 not self.conf.external_gateway_mode):
             return True
         name = self._get_route_domain_name(name) if name else partition
         r = bigip.tm.net.route_domains.route_domain
@@ -239,7 +239,7 @@ class NetworkHelper(object):
         """
         # this only works when the domain was created with is_aux=False,
         # same as the original code.
-        if hasattr(self, 'conf') and self.conf.f5_common_networks:
+        if hasattr(self, 'conf') and self.conf.external_gateway_mode:
             name = self._get_route_domain_name(name) if name else partition
         elif partition == 'Common':
             name = '0'
@@ -312,7 +312,7 @@ class NetworkHelper(object):
             is_aux - whether or not it is 'aux' in definition
             name - name of the RD as it should have
         """
-        if name and self.conf.f5_common_networks:
+        if name and self.conf.external_gateway_mode:
             name = self._get_route_domain_name(name)
         else:
             name = partition
@@ -345,7 +345,7 @@ class NetworkHelper(object):
             strictness - level of strictness setting
             name - name of the RD as it should have
         """
-        if hasattr(self, 'conf') and self.conf.f5_common_networks:
+        if hasattr(self, 'conf') and self.conf.external_gateway_mode:
             name = self._get_route_domain_name(name) if name else partition
         else:
             name = partition
