@@ -971,7 +971,7 @@ class TestLbaasBuilder(object):
                     MockHTTPErrorResponse409())
                 service['members'][0]['provisioning_status'] = 'PENDING_UPDATE'
                 builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
-                with pytest.raises(f5_ex.MemberUpdateException):
+                with pytest.raises(Exception):
                     builder._assure_members(service, mock.MagicMock())
                     assert service['members'][0]['provisioning_status'] ==\
                         'ERROR'
@@ -1164,8 +1164,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
-        assert mock_update.called
-        assert not mock_create.called
+        assert mock_create.called
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     @mock.patch(POOL_BLDR_PATH + '.update_pool')
@@ -1237,11 +1236,8 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
         svc['listeners'][0]['provisioning_status'] = 'PENDING_UPDATE'
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
-        mock_create.side_effect = \
-            MockHTTPError(MockHTTPErrorResponse409(), 'Exists')
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
-        assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
         assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
@@ -1257,11 +1253,8 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
         svc['listeners'][0]['provisioning_status'] = 'PENDING_CREATE'
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
-        mock_create.side_effect = \
-            MockHTTPError(MockHTTPErrorResponse409(), 'Exists')
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
-        assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
         assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'

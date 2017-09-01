@@ -16,9 +16,7 @@
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
-import time
-
-from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as const
+from f5.multi_device.device_group import DeviceGroup
 
 LOG = logging.getLogger(__name__)
 
@@ -61,8 +59,13 @@ class ClusterManager(object):
 
     def save_config(self, bigip):
         try:
-            c = bigip.tm.sys.config
-            c.save()
+            # invalid for the version of f5-sdk in requirements
+            # c = bigip.tm.sys.config
+            # c.save()
+            bigip.tm.util.bash.exec_cmd(
+                command='run',
+                utilCmdArgs="-c 'tmsh save sys config'"
+            )
         except HTTPError as err:
             LOG.error("Error saving config."
                       "Repsponse status code: %s. Response "
@@ -105,116 +108,25 @@ class ClusterManager(object):
 
         return active
 
-    def sync(self, bigip, name, force_now=False):
-        state = ''
-        sync_start_time = time.time()
-        dev_name = self.get_device_name(bigip)
-        sleep_delay = const.SYNC_DELAY
-
-        attempts = 0
-        if force_now:
-            bigip.tm.cm.sync(name)
-            time.sleep(sleep_delay)
-            attempts += 1
-
-        while attempts < const.MAX_SYNC_ATTEMPTS:
-            state = self.get_sync_status(bigip)
-            if state in ['Standalone', 'In Sync']:
-                break
-
-            elif state == 'Awaiting Initial Sync':
-                attempts += 1
-                LOG.info(
-                    'Cluster',
-                    "Device %s - Synchronizing initial config to group %s"
-                    % (dev_name, name))
-                bigip.tm.cm.sync(name)
-                time.sleep(sleep_delay)
-
-            elif state in ['Disconnected',
-                           'Not All Devices Synced',
-                           'Changes Pending']:
-                attempts += 1
-
-                last_log_time = 0
-                now = time.time()
-                wait_start_time = now
-                # Keep checking the sync state in a quick loop.
-                # We want to detect In Sync as quickly as possible.
-                while now - wait_start_time < sleep_delay:
-                    # Only log once per second
-                    if now - last_log_time >= 1:
-                        LOG.info(
-                            'Cluster',
-                            'Device %s, Group %s not synced. '
-                            % (dev_name, name) +
-                            'Waiting. State is: %s'
-                            % state)
-                        last_log_time = now
-                    state = self.get_sync_status(bigip)
-                    if state in ['Standalone', 'In Sync']:
-                        break
-                    time.sleep(.5)
-                    now = time.time()
-                else:
-                    # if we didn't break out due to the group being in sync
-                    # then attempt to force a sync.
-                    bigip.tm.cm.sync(name)
-                    sleep_delay += const.SYNC_DELAY
-                    # no need to sleep here because we already spent the sleep
-                    # interval checking status.
-                    continue
-
-                # Only a break from the inner while loop due to Standalone or
-                # In Sync will reach here.
-                # Normal exit of the while loop reach the else statement
-                # above which continues the outer loop
-                break
-
-            elif state == 'Sync Failure':
-                LOG.info('Cluster',
-                         "Device %s - Synchronization failed for %s"
-                         % (dev_name, name))
-                LOG.debug('Cluster', 'SYNC SECONDS (Sync Failure): ' +
-                          str(time.time() - sync_start_time))
-                raise BigIPClusterSyncFailure(
-                    'Device service group %s' % name +
-                    ' failed after ' +
-                    '%s attempts.' % const.MAX_SYNC_ATTEMPTS +
-                    ' Correct sync problem manually' +
-                    ' according to sol13946 on ' +
-                    ' support.f5.com.')
-            else:
-                attempts += 1
-                LOG.info('Cluster',
-                         "Device %s " % dev_name +
-                         "Synchronizing config attempt %s to group %s:"
-                         % (attempts, name) + " current state: %s" % state)
-                bigip.tm.cm.sync(name)
-                time.sleep(sleep_delay)
-                sleep_delay += const.SYNC_DELAY
-        else:
-            if state == 'Disconnected':
-                LOG.debug('Cluster',
-                          'SYNC SECONDS(Disconnected): ' +
-                          str(time.time() - sync_start_time))
-                raise BigIPClusterSyncFailure(
-                    'Device service group %s' % name +
-                    ' could not reach a sync state' +
-                    ' because they can not communicate' +
-                    ' over the sync network. Please' +
-                    ' check connectivity.')
-            else:
-                LOG.debug('Cluster', 'SYNC SECONDS(Timeout): ' +
-                          str(time.time() - sync_start_time))
-                raise BigIPClusterSyncFailure(
-                    'Device service group %s' % name +
-                    ' could not reach a sync state after ' +
-                    '%s attempts.' % const.MAX_SYNC_ATTEMPTS +
-                    ' It is in %s state currently.' % state +
-                    ' Correct sync problem manually' +
-                    ' according to sol13946 on ' +
-                    ' support.f5.com.')
-
-        LOG.debug('Cluster', 'SYNC SECONDS(Success): ' +
-                  str(time.time() - sync_start_time))
+    def sync(self, bigips, name=None, partition=None):
+        if not bigips and not isinstance(bigips, list):
+            return False
+        if not partition:
+            partition = 'Common'
+        device_group_type = None
+        for bigip in bigips:
+            validated_db_present = False
+            dgs = bigip.tm.cm.device_groups.get_collection(partition=partition)
+            for dg in dgs:
+                if not name and dg.type == 'sync-failover':
+                    name = dg.name
+                if dg.name == name:
+                    validated_db_present = True
+                    device_group_type = dg.type
+            if not validated_db_present:
+                return False
+        # This will attempt to sync and wait for sync state to be valid
+        dg = DeviceGroup(devices=bigips,
+                         device_group_name=name,
+                         device_group_type=device_group_type,
+                         device_group_partition=partition)
