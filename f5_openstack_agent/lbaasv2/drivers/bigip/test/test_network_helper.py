@@ -34,6 +34,16 @@ class TestNetworkHelperConstructor(object):
         return f5_openstack_agent.lbaasv2.drivers.bigip.network_helper.\
             NetworkHelper()
 
+    def conf_less_target():
+        return f5_openstack_agent.lbaasv2.drivers.bigip.network_helper. \
+            NetworkHelper()
+
+    @staticmethod
+    @pytest.fixture
+    def m_bigip():
+        bigip = Mock()
+        return bigip
+
 
 class TestNetworkHelperBuilder(TestNetworkHelperConstructor):
     payload = dict(name='name', partition='partition')
@@ -100,15 +110,13 @@ class TestNetworkHelperBuilder(TestNetworkHelperConstructor):
 
 
 class TestNetworkHelper(TestNetworkHelperBuilder):
-    @staticmethod
-    def test__init__(target, conf_less_target):
+    def test__init__(self, target, conf_less_target):
         assert hasattr(target, 'conf')
         assert not hasattr(conf_less_target, 'conf')
 
-    @staticmethod
-    def test__get_route_domain_name(target, conf_less_target):
+    def test__get_route_domain_name(self, target, conf_less_target):
         name = 'foo'
-        target.conf.f5_common_networks = True
+        target.conf.external_gateway_mode = True
         rd_name = target._get_route_domain_name(name)
         assert rd_name == 'rd-{}'.format(name)
         non_rd_name = conf_less_target._get_route_domain_name(name)
@@ -116,28 +124,26 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
             rd_name
         assert non_rd_name == name
         assert rd_name == target._get_route_domain_name(name)
-        target.conf.f5_common_networks = False
+        target.conf.external_gateway_mode = False
         assert rd_name != target._get_route_domain_name(name)
 
-    @staticmethod
-    def test__get_route_name(target, conf_less_target):
+    def test__get_route_name(self, target, conf_less_target):
         name = 'foo'
-        target.conf.f5_common_networks = True
+        target.conf.external_gateway_mode = True
         rt_name = target._get_route_name(name)
         assert rt_name == 'rt-{}'.format(name)
         with pytest.raises(NotImplementedError):
             conf_less_target._get_route_name(name)
-        target.conf.f5_common_networks = False
+        target.conf.external_gateway_mode = False
         with pytest.raises(NotImplementedError):
             target._get_route_name(name)
 
-    @staticmethod
-    def test_route_defailts(conf_less_target):
+    def test_route_defailts(self, conf_less_target):
         target = conf_less_target
         """Tests the default template attribute 'route_defaults'"""
         assert not target.route_defaults.get('name', 'something')
-        assert "/{}".format(target.route_defialut.get('partition', 'diff')) \
-            == const.DEFAULT_PARTITION
+        assert target.route_defaults.get('partition', 'diff') \
+            == "/{}".format(const.DEFAULT_PARTITION)
 
     def test_route_domain_exists(self, mock_get_route_domain_name,
                                  populated_bigip):
@@ -147,7 +153,7 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
 
         def positive_case_with_domain_id(my_target, my_bigip, route_domain,
                                          payload):
-            my_target.conf.f5_common_networks = True
+            my_target.conf.external_gateway_mode = True
             my_target._get_route_domain_name.return_value = payload['name']
             route_domain.exists.return_value = True
             assert my_target.route_domain_exists(my_bigip, **payload)
@@ -166,7 +172,7 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
                 partition=payload['partition'], name=payload['partition'])
             # test short-cut case of Common
             # delattr(self, 'conf')
-            my_target.conf.f5_common_networks = False
+            my_target.conf.external_gateway_mode = False
             assert my_target.route_domain_exists(my_bigip, partition='Common')
 
         positive_case_with_domain_id(*test_args)
@@ -182,7 +188,7 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
 
         def positive_case_differing_name(
                 my_target, my_bigip, route_domain, payload):
-            my_target.conf.f5_common_networks = True
+            my_target.conf.external_gateway_mode = True
             route_domain.load.return_value = True
             my_target._get_route_domain_name.return_value = payload['name']
             assert my_target.get_route_domain(my_bigip, **payload)
@@ -232,7 +238,7 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
 
         def case_differing_name(
                 my_target, my_bigip, route_domain, payload, delete):
-            my_target.conf.f5_common_networks = True
+            my_target.conf.external_gateway_mode = True
             my_target._get_route_domain_name.return_value = payload['name']
             my_target.delete_route_domain(my_bigip, **payload)
             my_target._get_route_domain_name.assert_called_once_with(

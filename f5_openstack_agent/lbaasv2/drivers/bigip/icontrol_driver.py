@@ -183,6 +183,10 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'f5_common_external_networks', default=True,
         help='Treat external networks as common'
     ),
+    cfg.external_gateway_mode(
+        'external_gateway_mode', default=False,
+        help='All subnets have an external l3 route on gateway'
+    ),
     cfg.StrOpt(
         'icontrol_vcmp_hostname',
         help='The hostname (name or IP address) to use for vCMP Host '
