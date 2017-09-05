@@ -19,6 +19,7 @@ import uuid
 from distutils.version import LooseVersion
 from eventlet import greenthread
 from oslo_log import log as logging
+from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 LOG = logging.getLogger(__name__)
 OBJ_PREFIX = 'uuid_'
@@ -26,6 +27,24 @@ OBJ_PREFIX = 'uuid_'
 
 class IpNotInCidrNotation(Exception):
     pass
+
+
+def get_default_profiles(conf, listener_protocol):
+    defaults = {lb_const.PROTOCOL_HTTP:conf.f5_default_http_profiles,lb_const.PROTOCOL_HTTPS:conf.f5_default_https_profiles,lb_const.PROTOCOL_TERMINATED_HTTPS:conf.f5_default_terminated_https_profiles}
+
+    profiles = defaults.get(listener_protocol,['/Common/http','/Common/oneconnect'])
+
+    result = []
+
+    if(profiles is not None):
+        for profile in profiles:
+            l = profile[1:].split("/")
+            if len(l)==2:
+                result.append({'partition': l[0], 'profile': l[1]})
+    return result
+
+
+
 
 
 def strip_domain_address(ip_address):

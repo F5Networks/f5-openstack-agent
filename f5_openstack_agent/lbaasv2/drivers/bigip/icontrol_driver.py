@@ -280,6 +280,24 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Parent profile used when creating client SSL profiles '
         'for listeners with TERMINATED_HTTPS protocols.'
     ),
+    cfg.ListOpt(
+        'f5_default_http_profiles',
+        default='/Common/http,/Common/oneconnect',
+        help='Default profiles to use for HTTP Protocol VS'
+    ),
+
+    cfg.ListOpt(
+        'f5_default_https_profiles',
+        default='/Common/http,/Common/oneconnect',
+        help='Default profiles to use for HTTPS Protocol VS'
+    ),
+
+    cfg.ListOpt(
+        'f5_default_terminated_https_profiles',
+        default='/Common/http,/Common/oneconnect',
+        help='Default profiles to use for TERMINATED_HTTPS Protocol VS'
+    ),
+
     cfg.StrOpt(
         'os_tenant_name',
         default=None,
@@ -1176,7 +1194,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _common_service_handler(self, service,
                                 delete_partition=False,
-                                delete_event=False):
+                                delete_event=False,cli_sync=False):
 
         # Assure that the service is configured on bigip(s)
         start_time = time()
@@ -1247,12 +1265,12 @@ class iControlDriver(LBaaSBaseDriver):
                     {'check_for_delete_subnets': {},
                      'do_not_delete_subnets': []}
 
-            LOG.debug("XXXXXXXXX: Pre assure service")
+
             # pdb.set_trace()
             self.lbaas_builder.assure_service(service,
                                               traffic_group,
                                               all_subnet_hints)
-            LOG.debug("XXXXXXXXX: Post assure service")
+
 
             if self.network_builder:
                 start_time = time()
@@ -1282,7 +1300,7 @@ class iControlDriver(LBaaSBaseDriver):
                 self.tenant_manager.assure_tenant_cleanup(service,
                                                           all_subnet_hints)
 
-            if do_service_update:
+            if do_service_update and not cli_sync:
                 self.update_service_status(service)
 
             lb_provisioning_status = loadbalancer.get("provisioning_status",

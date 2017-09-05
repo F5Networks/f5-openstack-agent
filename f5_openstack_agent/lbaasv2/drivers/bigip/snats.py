@@ -129,6 +129,25 @@ class BigipSnatManager(object):
 
         self._assure_bigip_snats(bigip, subnetinfo, snat_info, tenant_id,lb_id)
 
+        # try to delete any incorrectly named SNAT pools
+        if self.driver.conf.f5_snat_addresses_per_subnet == -1:
+           pool_name = self._get_snat_pool_name(tenant_id)
+        elif self.driver.conf.f5_snat_addresses_per_subnet > 0:
+            pool_name = "lb_"+lb_id
+
+        try:
+            if self.snatpool_manager.exists(bigip,name=pool_name, partition=snat_info['pool_folder']):
+                snatpool = self.snatpool_manager.load(bigip, pool_name, snat_info['pool_folder'])
+                if snatpool is not None:
+                    snatpool.delete()
+
+        except Exception as exc:
+                pass
+
+
+
+
+
     def _assure_bigip_snats(self, bigip, subnetinfo, snat_info, tenant_id,lb_id=None):
         # Configure the ip addresses for snat
         network = subnetinfo['network']
@@ -248,17 +267,9 @@ class BigipSnatManager(object):
     def _delete_bigip_snats(self, bigip, subnetinfo, tenant_id, lb_id=None):
         # Assure snats deleted in standalone mode """
         subnet = subnetinfo['subnet']
-        network = subnetinfo['network']
-
         key = self._get_pool_uuid(subnet,lb_id)
 
-        partition = self.driver.service_adapter.get_folder_name(
-                tenant_id
-            )
-
-        if self.driver.conf.f5_snat_addresses_per_subnet > 0:
-            partition = 'Common'
-        elif self.driver.conf.f5_snat_addresses_per_subnet == -1:
+        if self.driver.conf.f5_snat_addresses_per_subnet == -1 and lb_id is not None:
             partition = (
                 self.driver.service_adapter.get_folder_name(tenant_id)
             )
@@ -388,7 +399,7 @@ class BigipSnatManager(object):
                     snat_count += 1
         return snat_count
 
-    def _get_snat_pool_name(self, tenant_id, lb_id):
+    def _get_snat_pool_name(self, tenant_id, lb_id=None):
         if lb_id is not None and self.driver.conf.f5_snat_addresses_per_subnet == -1:
             return "lb_"+lb_id
         else:
@@ -396,7 +407,7 @@ class BigipSnatManager(object):
                 tenant_id
             )
 
-    def _get_pool_uuid(self,subnet, lb_id):
+    def _get_pool_uuid(self,subnet, lb_id=None):
         if lb_id is not None and self.driver.conf.f5_snat_addresses_per_subnet == -1:
             return lb_id
         else:

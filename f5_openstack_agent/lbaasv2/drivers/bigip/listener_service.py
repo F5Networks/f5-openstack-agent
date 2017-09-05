@@ -21,7 +21,11 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 from requests import HTTPError
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
+
 LOG = logging.getLogger(__name__)
+
+
 
 
 class ListenerServiceBuilder(object):
@@ -66,7 +70,14 @@ class ListenerServiceBuilder(object):
                 self.vs_helper.create(bigip, vip)
             except HTTPError as err:
                 if err.response.status_code == 409:
-                    LOG.debug("Virtual server already exists")
+                    LOG.debug("Virtual server already exists updating")
+                    try:
+                        self.vs_helper.update(bigip, vip)
+                    except Exception as e:
+                        LOG.warn("Update triggered in create failed, this could be due to timing issues in assure_service")
+                        LOG.warn('VS info %s',service['listener'])
+                        LOG.warn('Exception %s',e)
+
                 else:
                     LOG.exception("Virtual server creation error: %s" %
                                   err.message)
@@ -208,9 +219,15 @@ class ListenerServiceBuilder(object):
                     if listener['protocol'] == 'TCP':
                         self._remove_profile(vip, 'fastL4', bigip)
 
-                    # HTTP listeners should have http and oneconnect profiles
-                    self._add_profile(vip, 'http', bigip)
-                    self._add_profile(vip, 'oneconnect', bigip)
+                    # Add default profiles
+
+                    profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
+
+                    if(len(profiles) >0 ):
+                       for profile in profiles:
+                            self._add_profile(vip, profile.get('profile'), bigip)
+
+
 
                 if persistence_type == 'APP_COOKIE' and \
                         'cookie_name' in persistence:
@@ -601,16 +618,16 @@ class ListenerServiceBuilder(object):
         if 'lbaas_fallback_persist' in esd:
             update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
 
-        # always use http and oneconnect for non TCP listener
+        # always use defauklts for non TCP listener
         listener = svc["listener"]
         if profiles and not listener['protocol'] == 'TCP':
 
-            profiles.append({'name': 'http',
-                             'partition': 'Common',
-                             'context': 'all'})
-            profiles.append({'name': 'oneconnect',
-                             'partition': 'Common',
-                             'context': 'all'})
+            default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
+
+            if(len(default_profiles) >0 ):
+                for profile in default_profiles:
+                    profiles.append({'name':profile.get('profile'),'partition':profile.get('partition'),'context':'all'})
+
         if profiles:
             update_attrs['profiles'] = profiles
 

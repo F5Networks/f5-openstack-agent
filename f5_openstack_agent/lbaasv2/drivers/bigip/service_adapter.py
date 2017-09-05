@@ -436,7 +436,13 @@ class ServiceModelAdapter(object):
             vip['profiles'] = ['/Common/fastL4']
         else:
             # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
-            vip['profiles'] = ['/Common/http', '/Common/oneconnect']
+
+            default_profiles = utils.get_default_profiles(self.conf,listener['protocol'])
+            profiles=[]
+            for profile in default_profiles:
+                profiles.append('/{}/{}'.format(profile.get('partition'), profile.get('profile')))
+
+            vip['profiles'] = profiles
 
         # mask
         if "ip_address" in vip:
