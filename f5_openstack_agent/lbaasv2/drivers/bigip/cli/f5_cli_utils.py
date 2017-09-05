@@ -16,7 +16,7 @@ ACTION_MODULE = 'f5_openstack_agent.lbaasv2.drivers.bigip.cli.actions.'
 class Execute(argparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         super(Execute, self).__init__(option_strings, dest, **kwargs)
-        self.actions = {"sync":"sync.Sync","delete":"delete.Delete"}
+        self.actions = {"sync":"sync.Sync","sync-all":"sync_all.SyncAll","delete":"delete.Delete"}
 
     def __call__(self, parser, namespace, values, option_string=None):
         action = self.actions.get(values)
@@ -32,10 +32,13 @@ def main():
     parser = argparse.ArgumentParser(prog='f5_utils', description='Operations utilities for F5 LBAAS driver.')
 
     parser.add_argument('command',
-                       help='command to execute',action=Execute,choices=["sync", "delete"])
+                       help='command to execute',action=Execute,choices=["sync", "sync-all", "delete"])
 
     parser.add_argument('--lb-id',dest='lb_id',
                        help='router id',action='store')
+
+    parser.add_argument('--project-id',dest='project_id',
+                       help='project id',action='store')
 
     parser.add_argument('--config-file', dest='config', action='append',
                        default=["/etc/neutron/f5-oslbaasv2-agent.ini", "/etc/neutron/neutron.conf"],

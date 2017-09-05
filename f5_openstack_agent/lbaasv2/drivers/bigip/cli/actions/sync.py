@@ -14,6 +14,11 @@ class Sync(base_action.BaseAction):
         super(Sync, self).__init__(namespace)
 
     def execute(self):
+        if self.lb_id is None:
+            print("Please specify an LB id with --lb_id")
+            exit(1)
+
+        print("Starting sync attempt for load balancer {}".format(self.lb_id))
 
         service = self.manager.plugin_rpc.get_service_by_loadbalancer_id(
                 self.lb_id

@@ -37,6 +37,7 @@ class BaseAction(object):
     def __init__(self,namespace):
 
         self.lb_id = namespace.lb_id
+        self.project_id = namespace.project_id
         self.config_files = namespace.config
         self.conf = cfg.CONF
 
