@@ -254,6 +254,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.service_resync_interval)
 
+        # Load the driver.
+        self._load_driver(conf)
+
         # Set the agent ID
         if self.conf.agent_id:
             self.agent_host = self.conf.agent_id
@@ -296,9 +299,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         # Setup RPC for communications to and from controller
         self._setup_rpc()
-
-        # Load the driver.
-        self._load_driver(conf)
 
         # Set driver context for RPC.
         self.lbdriver.set_context(self.context)
