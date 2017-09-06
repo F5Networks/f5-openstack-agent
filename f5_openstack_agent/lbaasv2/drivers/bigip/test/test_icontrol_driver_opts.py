@@ -24,7 +24,8 @@ opts = target.OPTS
 
 # For new entries, put the expected default and help=True or False for whether
 # it should have a help statement.
-expected = {'f5_common_networks': dict(default=False, help=True)}
+expected = {'f5_common_networks': dict(default=False, help=True),
+            'external_gateway_mode': dict(defualt=False, help=True)}
 
 
 def test_opts_type():
