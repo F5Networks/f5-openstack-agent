@@ -27,16 +27,16 @@ LOG = logging.getLogger(__name__)
 
 
 class LoadBalancerServiceBuilder(object):
-    """Create loadbalancer related objects on BIG-IP®s
+    """Create loadbalancer related objects on BIG-IPs
 
     Handles requests to create and delete LBaaS v2 tenant partition
-    folders on one or more BIG-IP® systems.
+    folders on one or more BIG-IP systems.
     """
     def __init__(self):
         self.folder_helper = BigIPResourceHelper(ResourceType.folder)
 
     def create_partition(self, service, bigips):
-        """Create tenant partition on set of BIG-IP®s.
+        """Create tenant partition on set of BIG-IPs.
 
         Creates a partition if it is not named "Common".
 
@@ -50,7 +50,7 @@ class LoadBalancerServiceBuilder(object):
                 self.folder_helper.create(bigip, folder)
 
     def delete_partition(self, service, bigips):
-        """Deletes partition from a set of BIG-IP® systems.
+        """Deletes partition from a set of BIG-IP systems.
 
         Deletes partition if it is not named "Common".
 

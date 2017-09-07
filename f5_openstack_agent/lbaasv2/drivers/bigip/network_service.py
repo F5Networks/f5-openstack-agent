@@ -262,10 +262,12 @@ class NetworkServiceBuilder(object):
             return
 
         LOG.debug("Assign route domain get from cache %s" % network)
-        route_domain_id = self.get_route_domain_from_cache(network)
-        if route_domain_id is not None:
+        try:
+            route_domain_id = self.get_route_domain_from_cache(network)
             network['route_domain_id'] = route_domain_id
             return
+        except f5_ex.RouteDomainCacheMiss as exc:
+            LOG.debug(exc.message)
 
         LOG.debug("max namespaces: %s" % self.conf.max_namespaces_per_tenant)
         LOG.debug("max namespaces == 1: %s" %
@@ -282,7 +284,6 @@ class NetworkServiceBuilder(object):
             return
 
         LOG.debug("assign route domain checking for available route domain")
-
         check_cidr = netaddr.IPNetwork(subnet['cidr'])
         placed_route_domain_id = None
         for route_domain_id in self.rds_cache[tenant_id]:
@@ -470,14 +471,16 @@ class NetworkServiceBuilder(object):
 
     def get_route_domain_from_cache(self, network):
         # Get route domain from cache by network
-        route_domain_id = None
         net_short_name = self.get_neutron_net_short_name(network)
         for tenant_id in self.rds_cache:
             tenant_cache = self.rds_cache[tenant_id]
             for route_domain_id in tenant_cache:
                 if net_short_name in tenant_cache[route_domain_id]:
                     return route_domain_id
-        return route_domain_id
+
+        # Not found
+        raise f5_ex.RouteDomainCacheMiss(
+            "No route domain cache entry for {0}".format(net_short_name))
 
     def remove_from_rds_cache(self, network, subnet):
         # Get route domain from cache by network
@@ -703,7 +706,9 @@ class NetworkServiceBuilder(object):
                 self.l2_service.add_bigip_fdbs(
                     bigip, net_folder, fdb_info, member)
             else:
-                member['provisioning_status'] = plugin_const.ERROR
+                LOG.warning('LBaaS member, %s, is not associated with Neutron '
+                            'port. No fdb entries will be created for this '
+                            'member.' % member['address'])
 
     def delete_bigip_member_l2(self, bigip, loadbalancer, member):
         # Delete pool member l2 records
@@ -722,11 +727,11 @@ class NetworkServiceBuilder(object):
                 self.l2_service.delete_bigip_fdbs(
                     bigip, net_folder, fdb_info, member)
             else:
-                LOG.error('Member on SDN has no port. Manual '
-                          'removal on the BIG-IP will be '
-                          'required. Was the vm instance '
-                          'deleted before the pool member '
-                          'was deleted?')
+                LOG.warning('LBaaS member, %s, is not assoicated with '
+                            'Neutron port. If any fdb entries were '
+                            'created for this member, they may need to be '
+                            'removed from the BIG-IP device.'
+                            % member['address'])
 
     def update_bigip_vip_l2(self, bigip, loadbalancer):
         # Update vip l2 records
@@ -956,7 +961,6 @@ class NetworkServiceBuilder(object):
         networks = dict()
         loadbalancer = service['loadbalancer']
         service_adapter = self.service_adapter
-
         lb_status = loadbalancer['provisioning_status']
         if lb_status != plugin_const.PENDING_DELETE:
             if 'network_id' in loadbalancer:
@@ -968,9 +972,9 @@ class NetworkServiceBuilder(object):
                     service,
                     loadbalancer['vip_subnet_id']
                 )
-                networks[network['id']] = {'network': network,
-                                           'subnet': subnet,
-                                           'is_for_member': False}
+                networks[subnet['id']] = {'network': network,
+                                          'subnet': subnet,
+                                          'is_for_member': False}
 
         for member in service['members']:
             if member['provisioning_status'] != plugin_const.PENDING_DELETE:
@@ -983,7 +987,8 @@ class NetworkServiceBuilder(object):
                         service,
                         member['subnet_id']
                     )
-                    networks[network['id']] = {'network': network,
-                                               'subnet': subnet,
-                                               'is_for_member': True}
+                    networks[subnet['id']] = {'network': network,
+                                              'subnet': subnet,
+                                              'is_for_member': True}
+
         return networks.values()

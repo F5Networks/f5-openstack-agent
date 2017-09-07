@@ -15,7 +15,6 @@
 
 
 from ..testlib.service_reader import LoadbalancerReader
-from copy import deepcopy
 import json
 import logging
 import os
@@ -39,6 +38,7 @@ def services():
     )
     return (json.load(open(neutron_services_filename)))
 
+
 @pytest.fixture
 def disconnected_service_no_seg():
     neutron_services_filename = (
@@ -46,22 +46,6 @@ def disconnected_service_no_seg():
                      '../../testdata/service_requests/create_delete_disconnected_noseg_lb.json')
     )
     return (json.load(open(neutron_services_filename)))
-
-@pytest.fixture(scope="module")
-def icd_config():
-    oslo_config_filename = (
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../config/basic_agent_config.json')
-    )
-    OSLO_CONFIGS = json.load(open(oslo_config_filename))
-
-    config = deepcopy(OSLO_CONFIGS)
-    config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
-    config['icontrol_username'] = pytest.symbols.bigip_username
-    config['icontrol_password'] = pytest.symbols.bigip_password
-    config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
-
-    return config
 
 
 def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
@@ -72,7 +56,7 @@ def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_hostname
+    hostname = bigip.get_device_name()
     icd_config['f5_network_segment_physical_network'] = None
 
     folder = '%s_%s' % (env_prefix, lb_reader.tenant_id())
@@ -104,7 +88,6 @@ def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
     assert rd.id == 1
     assert rd.strict == "disabled"
 
-
     # Assert that a self ip was created.
     selfip_name = "local-%s-%s" % (hostname, lb_reader.subnet_id())
     assert not bigip.resource_exists(ResourceType.selfip, selfip_name)
@@ -127,9 +110,10 @@ def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
 
     # Assert that update loadbalancer status was called once
     assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
-    assert fake_rpc.get_call_count('loadbalancer_destroyed') == 1    
+    assert fake_rpc.get_call_count('loadbalancer_destroyed') == 1
 
     assert not bigip.folder_exists(folder)
+
 
 def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_driver):
 
@@ -138,7 +122,7 @@ def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_dri
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
-    hostname = pytest.symbols.bigip_hostname
+    hostname = bigip.get_device_name()
     icd_config['f5_network_segment_physical_network'] = \
         "physnet1"
 
@@ -191,7 +175,7 @@ def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_dri
 
     # Assert that update loadbalancer status was called once
     assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
-    
+
     # Assert tunnel created.
     vlan_name = 'vlan-%d' % (lb_reader.network_seg_id())
     fq_vlan_name = '/%s/%s' % (folder, vlan_name)
@@ -200,7 +184,6 @@ def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_dri
                               vlan_name,
                               partition=folder)
     assert vlan
-
 
     # Assert route domain created
     rd_name = folder
@@ -232,7 +215,6 @@ def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_dri
                                   snatpool_name,
                                   partition=folder)
     assert snatpool
-    snat_members = snatpool.members
 
     # Delete the loadbalancer
     service = service_iter.next()
@@ -241,6 +223,6 @@ def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_dri
 
     # Assert that update loadbalancer status was called once
     assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
-    assert fake_rpc.get_call_count('loadbalancer_destroyed') == 1    
+    assert fake_rpc.get_call_count('loadbalancer_destroyed') == 1
 
     assert not bigip.folder_exists(folder)

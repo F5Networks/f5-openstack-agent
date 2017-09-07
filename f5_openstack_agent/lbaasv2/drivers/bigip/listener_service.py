@@ -25,11 +25,11 @@ LOG = logging.getLogger(__name__)
 
 
 class ListenerServiceBuilder(object):
-    u"""Create LBaaS v2 Listener on BIG-IP®s.
+    u"""Create LBaaS v2 Listener on BIG-IPs.
 
     Handles requests to create, update, delete LBaaS v2 listener
-    objects on one or more BIG-IP® systems. Maps LBaaS listener
-    defined in service object to a BIG-IP® virtual server.
+    objects on one or more BIG-IP systems. Maps LBaaS listener
+    defined in service object to a BIG-IP virtual server.
     """
 
     def __init__(self, service_adapter, cert_manager, parent_ssl_profile=None):
@@ -42,9 +42,9 @@ class ListenerServiceBuilder(object):
                   parent_ssl_profile)
 
     def create_listener(self, service, bigips):
-        u"""Create listener on set of BIG-IP®s.
+        u"""Create listener on set of BIG-IPs.
 
-        Create a BIG-IP® virtual server to represent an LBaaS
+        Create a BIG-IP virtual server to represent an LBaaS
         Listener object.
 
         :param service: Dictionary which contains a both a listener
@@ -75,7 +75,7 @@ class ListenerServiceBuilder(object):
                 self.add_ssl_profile(tls, bigip)
 
     def get_listener(self, service, bigip):
-        u"""Retrieve BIG-IP® virtual from a single BIG-IP® system.
+        u"""Retrieve BIG-IP virtual from a single BIG-IP system.
 
         :param service: Dictionary which contains a both a listener
         and load balancer definition.
@@ -88,7 +88,7 @@ class ListenerServiceBuilder(object):
         return obj
 
     def delete_listener(self, service, bigips):
-        u"""Delete Listener from a set of BIG-IP® systems.
+        u"""Delete Listener from a set of BIG-IP systems.
 
         Delete virtual server that represents a Listener object.
 
@@ -148,7 +148,7 @@ class ListenerServiceBuilder(object):
         self._add_profile(vip, name, bigip, context='clientside')
 
     def update_listener(self, service, bigips):
-        u"""Update Listener from a single BIG-IP® system.
+        u"""Update Listener from a single BIG-IP system.
 
         Updates virtual servers that represents a Listener object.
 
@@ -203,13 +203,13 @@ class ListenerServiceBuilder(object):
             for bigip in bigips:
                 # For TCP listeners, must remove fastL4 profile before adding
                 # adding http/oneconnect profiles.
-                if listener['protocol'] == 'TCP':
-                    self._remove_profile(vip, 'fastL4', bigip)
+                if persistence_type != 'SOURCE_IP':
+                    if listener['protocol'] == 'TCP':
+                        self._remove_profile(vip, 'fastL4', bigip)
 
-                # Standard virtual servers should already have these profiles,
-                # but make sure profiles in place for all virtual server types.
-                self._add_profile(vip, 'http', bigip)
-                self._add_profile(vip, 'oneconnect', bigip)
+                    # HTTP listeners should have http and oneconnect profiles
+                    self._add_profile(vip, 'http', bigip)
+                    self._add_profile(vip, 'oneconnect', bigip)
 
                 if persistence_type == 'APP_COOKIE' and \
                         'cookie_name' in persistence:

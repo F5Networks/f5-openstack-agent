@@ -28,10 +28,10 @@ LOG = logging.getLogger(__name__)
 
 
 class PoolServiceBuilder(object):
-    """Create LBaaS v2 pools and related objects on BIG-IP®s.
+    """Create LBaaS v2 pools and related objects on BIG-IPs.
 
     Handles requests to create, update, delete LBaaS v2 pools,
-    health monitors, and members on one or more BIG-IP® systems.
+    health monitors, and members on one or more BIG-IP systems.
     """
 
     def __init__(self, service_adapter):
@@ -44,9 +44,9 @@ class PoolServiceBuilder(object):
         self.node_helper = BigIPResourceHelper(ResourceType.node)
 
     def create_pool(self, service, bigips):
-        """Create a pool on set of BIG-IP®s.
+        """Create a pool on set of BIG-IPs.
 
-        Creates a BIG-IP® pool to represent an LBaaS pool object.
+        Creates a BIG-IP pool to represent an LBaaS pool object.
 
         :param service: Dictionary which contains a both a pool
         and load balancer definition.
@@ -57,9 +57,9 @@ class PoolServiceBuilder(object):
             self.pool_helper.create(bigip, pool)
 
     def delete_pool(self, service, bigips):
-        """Delete a pool on set of BIG-IP®s.
+        """Delete a pool on set of BIG-IPs.
 
-        Deletes a BIG-IP® pool defined by LBaaS pool object.
+        Deletes a BIG-IP pool defined by LBaaS pool object.
 
         :param service: Dictionary which contains a both a pool
         and load balancer definition.
@@ -73,7 +73,7 @@ class PoolServiceBuilder(object):
                                     partition=pool["partition"])
 
     def update_pool(self, service, bigips):
-        """Update BIG-IP® pool.
+        """Update BIG-IP pool.
 
         :param service: Dictionary which contains a both a pool
         and load balancer definition.
@@ -126,7 +126,7 @@ class PoolServiceBuilder(object):
 
     # Note: can't use BigIPResourceHelper class because members
     # are created within pool objects. Following member methods
-    # use the F5® SDK directly.
+    # use the F5 SDK directly.
     def create_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
@@ -182,7 +182,7 @@ class PoolServiceBuilder(object):
             if m.exists(name=urllib.quote(member["name"]), partition=part):
                 m = m.load(name=urllib.quote(member["name"]),
                            partition=part)
-                member.pop("address")
+                member.pop("address", None)
                 m.modify(**member)
 
     def _get_monitor_helper(self, service):

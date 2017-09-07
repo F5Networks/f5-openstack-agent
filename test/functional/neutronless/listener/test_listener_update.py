@@ -13,7 +13,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from copy import deepcopy
 import json
 import logging
 import os
@@ -38,24 +37,6 @@ def services():
     return (json.load(open(neutron_services_filename)))
 
 
-@pytest.fixture()
-def icd_config():
-    oslo_config_filename = (
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../config/basic_agent_config.json')
-    )
-    OSLO_CONFIGS = json.load(open(oslo_config_filename))
-
-    config = deepcopy(OSLO_CONFIGS)
-    config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
-    config['icontrol_username'] = pytest.symbols.bigip_username
-    config['icontrol_password'] = pytest.symbols.bigip_password
-    config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
-    config['environment_prefix'] = 'Project'
-
-    return config
-
-
 def get_next_listener(service_iterator, icontrol_driver, bigip, env_prefix):
 
     service = service_iterator.next()
@@ -78,7 +59,7 @@ def test_listener_update(
         icd_config,
         icontrol_driver):
 
-    env_prefix = icd_config['environment_prefix']
+    env_prefix = 'TEST'
     service_iter = iter(services)
 
     # Create loadbalancer
@@ -87,35 +68,35 @@ def test_listener_update(
 
     # Create listener (no name, description)
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert not hasattr(l, 'description')
     assert l.connectionLimit == 0
     assert l.enabled
 
     # Update name ('spring'). Description is changed to include name.
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert l.description == 'spring:'
     assert l.connectionLimit == 0
     assert l.enabled
 
     # Update description ('has sprung')
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert l.description == 'spring: has-sprung'
     assert l.connectionLimit == 0
     assert l.enabled
 
     # Update connection limit (200)
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert l.description == 'spring: has-sprung'
     assert l.connectionLimit == 200
     assert l.enabled
 
     # Update admin_state_up (False)
     l = get_next_listener(service_iter, icontrol_driver, bigip, env_prefix)
-    assert l.name.startswith('Project_')
+    assert l.name.startswith('TEST_')
     assert l.description == 'spring: has-sprung'
     assert l.connectionLimit == 200
     assert l.disabled

@@ -1,0 +1,1222 @@
+[{
+  "healthmonitors": [], 
+  "listeners": [], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "create lb", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "OFFLINE", 
+    "provider": null, 
+    "provisioning_status": "PENDING_CREATE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": false, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "unbound", 
+      "binding:vnic_type": "normal", 
+      "device_id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "device_owner": "neutron:LOADBALANCERV2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": null, 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "ac3e1482-a5ef-4834-8ddb-8ee70385e38c"
+      ], 
+      "status": "DOWN", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [], 
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [
+    {
+      "admin_state_up": true, 
+      "connection_limit": -1, 
+      "default_pool_id": null, 
+      "default_tls_container_id": null, 
+      "description": "", 
+      "id": "45ba5e63-e469-4e84-891b-0346f84018bf", 
+      "loadbalancer_id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "name": "", 
+      "operating_status": "OFFLINE", 
+      "protocol": "TCP", 
+      "protocol_port": 23, 
+      "provisioning_status": "PENDING_CREATE", 
+      "sni_containers": [], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "create listener", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [
+      {
+        "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+      }
+    ], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_UPDATE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-161.int.lineratesystems.com:6e61137a-827e-5c19-a269-4ca5ac4f3441", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "066f6bea-4f62-5278-a785-b12f6a681971", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "ac3e1482-a5ef-4834-8ddb-8ee70385e38c"
+      ], 
+      "status": "ACTIVE", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [], 
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [
+    {
+      "admin_state_up": true, 
+      "connection_limit": -1, 
+      "default_pool_id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "default_tls_container_id": null, 
+      "description": "", 
+      "id": "45ba5e63-e469-4e84-891b-0346f84018bf", 
+      "loadbalancer_id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "protocol_port": 80, 
+      "provisioning_status": "ACTIVE", 
+      "sni_containers": [], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "create pool", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [
+      {
+        "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+      }
+    ], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_UPDATE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-161.int.lineratesystems.com:6e61137a-827e-5c19-a269-4ca5ac4f3441", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "066f6bea-4f62-5278-a785-b12f6a681971", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "ac3e1482-a5ef-4834-8ddb-8ee70385e38c"
+      ], 
+      "status": "ACTIVE", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [], 
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [
+    {
+      "admin_state_up": true, 
+      "description": "", 
+      "healthmonitor_id": null, 
+      "id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "lb_algorithm": "ROUND_ROBIN", 
+      "listeners": [
+        {
+          "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+        }
+      ], 
+      "members": [], 
+      "name": "", 
+      "operating_status": "OFFLINE", 
+      "protocol": "TCP", 
+      "provisioning_status": "PENDING_CREATE", 
+      "session_persistence": {
+        "cookie_name": null, 
+        "type": "SOURCE_IP"
+      }, 
+      "sessionpersistence": {
+        "cookie_name": null, 
+        "pool": null, 
+        "pool_id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+        "type": "SOURCE_IP"
+      }, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [
+    {
+      "admin_state_up": true, 
+      "connection_limit": -1, 
+      "default_pool_id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "default_tls_container_id": null, 
+      "description": "", 
+      "id": "45ba5e63-e469-4e84-891b-0346f84018bf", 
+      "loadbalancer_id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "protocol_port": 80, 
+      "provisioning_status": "ACTIVE", 
+      "sni_containers": [], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "update pool session persistence, HTTP_COOKIE", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [
+      {
+        "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+      }
+    ], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_UPDATE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-161.int.lineratesystems.com:6e61137a-827e-5c19-a269-4ca5ac4f3441", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "066f6bea-4f62-5278-a785-b12f6a681971", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "908dcdfa-ed5a-44d6-99e4-cbd6feacff40"
+      ], 
+      "status": "ACTIVE", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [],
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [
+    {
+      "admin_state_up": true, 
+      "description": "", 
+      "healthmonitor_id": null, 
+      "id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "lb_algorithm": "ROUND_ROBIN", 
+      "listeners": [
+        {
+          "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+        }
+      ], 
+      "members": [],
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "provisioning_status": "PENDING_UPDATE", 
+      "session_persistence": {
+        "cookie_name": null, 
+        "type": "HTTP_COOKIE"
+      }, 
+      "sessionpersistence": {
+        "cookie_name": null, 
+        "pool": null, 
+        "pool_id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+        "type": "HTTP_COOKIE"
+      }, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [
+    {
+      "admin_state_up": true, 
+      "connection_limit": -1, 
+      "default_pool_id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "default_tls_container_id": null, 
+      "description": "", 
+      "id": "45ba5e63-e469-4e84-891b-0346f84018bf", 
+      "loadbalancer_id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "protocol_port": 80, 
+      "provisioning_status": "ACTIVE", 
+      "sni_containers": [], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "Update pool session persistence, APP_COOKIE", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [
+      {
+        "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+      }
+    ], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_UPDATE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-161.int.lineratesystems.com:6e61137a-827e-5c19-a269-4ca5ac4f3441", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "066f6bea-4f62-5278-a785-b12f6a681971", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "908dcdfa-ed5a-44d6-99e4-cbd6feacff40"
+      ], 
+      "status": "ACTIVE", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [],
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [
+    {
+      "admin_state_up": true, 
+      "description": "", 
+      "healthmonitor_id": null, 
+      "id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "lb_algorithm": "ROUND_ROBIN", 
+      "listeners": [
+        {
+          "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+        }
+      ], 
+      "members": [],
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "provisioning_status": "PENDING_UPDATE", 
+      "session_persistence": {
+        "cookie_name": "JSESSIONID", 
+        "type": "APP_COOKIE"
+      }, 
+      "sessionpersistence": {
+        "cookie_name": "JSESSIONID", 
+        "pool": null, 
+        "pool_id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+        "type": "APP_COOKIE"
+      }, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [
+    {
+      "admin_state_up": true, 
+      "connection_limit": -1, 
+      "default_pool_id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "default_tls_container_id": null, 
+      "description": "", 
+      "id": "45ba5e63-e469-4e84-891b-0346f84018bf", 
+      "loadbalancer_id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "protocol_port": 80, 
+      "provisioning_status": "ACTIVE", 
+      "sni_containers": [], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "Remove pool session persistence", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [
+      {
+        "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+      }
+    ], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_UPDATE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-161.int.lineratesystems.com:6e61137a-827e-5c19-a269-4ca5ac4f3441", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "066f6bea-4f62-5278-a785-b12f6a681971", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "908dcdfa-ed5a-44d6-99e4-cbd6feacff40"
+      ], 
+      "status": "ACTIVE", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [],
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [
+    {
+      "admin_state_up": true, 
+      "description": "", 
+      "healthmonitor_id": null, 
+      "id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "lb_algorithm": "ROUND_ROBIN", 
+      "listeners": [
+        {
+          "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+        }
+      ], 
+      "members": [],
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "provisioning_status": "PENDING_UPDATE", 
+      "session_persistence": null, 
+      "sessionpersistence": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [
+    {
+      "admin_state_up": true, 
+      "connection_limit": -1, 
+      "default_pool_id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "default_tls_container_id": null, 
+      "description": "", 
+      "id": "45ba5e63-e469-4e84-891b-0346f84018bf", 
+      "loadbalancer_id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "protocol_port": 80, 
+      "provisioning_status": "ACTIVE", 
+      "sni_containers": [], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "Delete pool and member", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [
+      {
+        "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+      }
+    ], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_UPDATE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-161.int.lineratesystems.com:6e61137a-827e-5c19-a269-4ca5ac4f3441", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "066f6bea-4f62-5278-a785-b12f6a681971", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "908dcdfa-ed5a-44d6-99e4-cbd6feacff40"
+      ], 
+      "status": "ACTIVE", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [],
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [
+    {
+      "admin_state_up": true, 
+      "description": "", 
+      "healthmonitor_id": null, 
+      "id": "b52d1d60-7823-40f9-b7ca-d23bbbe8d01b", 
+      "lb_algorithm": "ROUND_ROBIN", 
+      "listeners": [
+        {
+          "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+        }
+      ], 
+      "members": [],
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "provisioning_status": "PENDING_DELETE", 
+      "session_persistence": null, 
+      "sessionpersistence": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [
+    {
+      "admin_state_up": true, 
+      "connection_limit": -1, 
+      "default_pool_id": null, 
+      "default_tls_container_id": null, 
+      "description": "", 
+      "id": "45ba5e63-e469-4e84-891b-0346f84018bf", 
+      "loadbalancer_id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "name": "", 
+      "operating_status": "ONLINE", 
+      "protocol": "TCP", 
+      "protocol_port": 80, 
+      "provisioning_status": "PENDING_DELETE", 
+      "sni_containers": [], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  ], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "Delete listener", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [
+      {
+        "id": "45ba5e63-e469-4e84-891b-0346f84018bf"
+      }
+    ], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_UPDATE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-161.int.lineratesystems.com:6e61137a-827e-5c19-a269-4ca5ac4f3441", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "066f6bea-4f62-5278-a785-b12f6a681971", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "908dcdfa-ed5a-44d6-99e4-cbd6feacff40"
+      ], 
+      "status": "ACTIVE", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [], 
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "Delete lb", 
+    "gre_vteps": [], 
+    "id": "54e91746-e33f-4e0a-b04a-9ecba797f752", 
+    "listeners": [], 
+    "name": "", 
+    "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_DELETE", 
+    "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+    "vip_address": "10.2.4.4", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-161.int.lineratesystems.com:6e61137a-827e-5c19-a269-4ca5ac4f3441", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "066f6bea-4f62-5278-a785-b12f6a681971", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-4.openstacklocal.", 
+          "hostname": "host-10-2-4-4", 
+          "ip_address": "10.2.4.4"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.4", 
+          "subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+        }
+      ], 
+      "id": "1744d36e-965c-466b-97cc-4e847a883310", 
+      "mac_address": "fa:16:3e:69:4c:8c", 
+      "name": "loadbalancer-54e91746-e33f-4e0a-b04a-9ecba797f752", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "security_groups": [
+        "908dcdfa-ed5a-44d6-99e4-cbd6feacff40"
+      ], 
+      "status": "ACTIVE", 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }, 
+    "vip_port_id": "1744d36e-965c-466b-97cc-4e847a883310", 
+    "vip_subnet_id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+    "vxlan_vteps": [
+      "201.0.159.1", 
+      "201.0.155.10", 
+      "201.0.160.1", 
+      "201.0.162.1"
+    ]
+  }, 
+  "members": [], 
+  "networks": {
+    "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce": {
+      "admin_state_up": true, 
+      "id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "mtu": 0, 
+      "name": "tempest-TestSessionPersistence-1891736304-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 10, 
+      "router:external": false, 
+      "shared": false, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "b591c062-c7fd-494e-b3f2-87e7a3b81869"
+      ], 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [], 
+  "subnets": {
+    "b591c062-c7fd-494e-b3f2-87e7a3b81869": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.14", 
+          "start": "10.2.4.2"
+        }
+      ], 
+      "cidr": "10.2.4.0/28", 
+      "dns_nameservers": [], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "b591c062-c7fd-494e-b3f2-87e7a3b81869", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "tempest-TestSessionPersistence-1891736304-subnet", 
+      "network_id": "f5f5d05e-f3a0-407d-9f33-0c8fd7cba2ce", 
+      "shared": false, 
+      "subnetpool_id": null, 
+      "tenant_id": "26e7ccac8d54491cb1447ebc738a6803"
+    }
+  }
+}]
