@@ -76,6 +76,8 @@ class LBaaSBuilder(object):
 
         self._assure_l7policies_deleted(service)
 
+        self._assure_pools_created(service)
+
         self._assure_listeners_deleted(service)
 
         self._assure_loadbalancer_deleted(service)
@@ -163,16 +165,38 @@ class LBaaSBuilder(object):
 
                 try:
                     # create or update pool
-                    try:
-                        if pool['provisioning_status'] \
-                                != plugin_const.PENDING_UPDATE:
-                            self.pool_builder.create_pool(svc, bigips)
-                        else:
-                            self.pool_builder.update_pool(svc, bigips)
-                    except HTTPError as err:
-                        if err.response.status_code != 409:
-                            raise f5_ex.PoolCreationException(err.message)
+                    if pool['provisioning_status'] \
+                            != plugin_const.PENDING_UPDATE:
+                        self.pool_builder.create_pool(svc, bigips)
+                    else:
+                        self.pool_builder.update_pool(svc, bigips)
+                except HTTPError as err:
+                    if err.response.status_code != 409:
+                        pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = \
+                            plugin_const.ERROR
+                        raise f5_ex.PoolCreationException(err.message)
+                except Exception as err:
+                    pool['provisioning_status'] = plugin_const.ERROR
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ERROR
+                    raise f5_ex.PoolCreationException(str(err))
 
+    def _assure_pools_configured(self, service):
+        if "pools" not in service:
+            return
+
+        pools = service["pools"]
+        loadbalancer = service["loadbalancer"]
+
+        bigips = self.driver.get_config_bigips()
+
+        for pool in pools:
+            if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
+                svc = {"loadbalancer": loadbalancer,
+                       "pool": pool}
+                svc['members'] = self._get_pool_members(service, pool['id'])
+                try:
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
                         loadbalancer, pool)
