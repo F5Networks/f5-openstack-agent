@@ -14,15 +14,15 @@
 # limitations under the License.
 #
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
-from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
-    LBaaSBuilder
-
 import copy
 import mock
 import pytest
 
 from requests import HTTPError
+
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
+    LBaaSBuilder
 
 POOL_BLDR_PATH = 'f5_openstack_agent.lbaasv2.drivers.bigip.pool_service.' \
     'PoolServiceBuilder'
@@ -48,6 +48,21 @@ def service():
             u"sni_containers": [],
             u"tenant_id": u"980e3f914f3e40359c3c2d9470fb2e8a"
         }],
+        u'networks': {
+            'cdf1eb6d-9b17-424a-a054-778f3d3a5490': {
+                "admin_state_up": True,
+                "id": 'cdf1eb6d-9b17-424a-a054-778f3d3a5490',
+                'mtu': 0,
+                'name': 'foodogzoo',
+                'provider:network_type': 'vxlan',
+                'provider:physical_network': None,
+                'router:external': False,
+                'shared': True,
+                'status': 'ACTIVE',
+                'subnets': ['4dc7caad-f9a9-4050-914e-b60eb6cf8ef7'],
+                'tenant_id': '980e3f914f3e40359c3c2d9470fb2e8a',
+                'vlan_transparent': None,
+                     }},
         u'loadbalancer': {
             u'admin_state_up': True,
             u'description': u'',
