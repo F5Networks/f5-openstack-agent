@@ -14,13 +14,16 @@
 # limitations under the License.
 #
 
-from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
-    ServiceModelAdapter
-
-
 import copy
 import mock
 import pytest
+import uuid
+
+from mock import Mock
+
+
+from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
+    ServiceModelAdapter
 
 
 @pytest.fixture
@@ -94,6 +97,111 @@ def service():
 
 
 class TestServiceAdapter(object):
+
+    @staticmethod
+    @pytest.fixture
+    def target():
+        conf = Mock()
+        conf.environment_prefix = 'pre-'
+        target = ServiceModelAdapter(conf)
+        return target
+
+    @staticmethod
+    @pytest.fixture
+    def basic_service():
+        tenant_id = str(uuid.uuid4())
+        return {'loadbalancer': dict(id=str(uuid.uuid4()),
+                                     tenant_id=tenant_id,
+                                     vip_address='192.168.1.1%0'),
+                'pools': [dict(id=str(uuid.uuid4()),
+                               session_persistence=True)],
+                'listener': dict(id=str(uuid.uuid4()),
+                                 connection_limit=4,
+                                 protocol='HTTPS',
+                                 protocol_port='8080',
+                                 admin_state_up=True)}
+
+    def test_init_pool_name(self, target):
+        partition = str(uuid.uuid4())
+        network_id = str(uuid.uuid4())
+        id = 'pre-pool'
+        loadbalancer = dict(tenant_id=partition, network_id=network_id)
+        pool = dict(id='pool')
+        target.get_folder_name = Mock(return_value=partition)
+        target.prefix = 'pre-'
+        expected = dict(name=id, partition=partition)
+        assert target.init_pool_name(loadbalancer, pool) == expected
+
+    def test_get_virtual(self, target, basic_service):
+        tenant_id = basic_service['loadbalancer']['tenant_id']
+        target.get_folder_name = Mock(return_value=tenant_id)
+        target.snat_mode = Mock(return_value=True)
+        basic_service['pool'] = basic_service['pools'][0]
+        vip = 'vip'
+        target._map_virtual = Mock(return_value=vip)
+        target._add_bigip_items = Mock()
+        assert target.get_virtual(basic_service) == vip
+        assert basic_service['pool']['session_persistence'] == \
+            basic_service['listener']['session_persistence']
+        assert basic_service['listener']['snat_pool_name'] == tenant_id
+        target._map_virtual.assert_called_once_with(
+            basic_service['loadbalancer'], basic_service['listener'],
+            pool=basic_service['pool'])
+        target._add_bigip_items.assert_called_once_with(
+            basic_service['listener'], vip)
+
+    def test_init_virtual_name(self, target, basic_service):
+        listener = basic_service['listener']
+        loadbalancer = basic_service['loadbalancer']
+        tenant_id = loadbalancer['tenant_id']
+        target.get_folder_name = Mock(return_value=tenant_id)
+        target.prefix = 'pre-'
+        name = target.prefix + listener['id']
+        assert target._init_virtual_name(loadbalancer, listener) == \
+            dict(name=name, partition=tenant_id)
+        target.get_folder_name.assert_called_once_with(tenant_id)
+
+    def test_init_virtual_name_with_pool(self, target, basic_service):
+        loadbalancer = basic_service['loadbalancer']
+        listener = basic_service['listener']
+        pool = basic_service['pools'][0]
+        target._init_virtual_name = Mock(return_value=dict())
+        target.init_pool_name = Mock(return_value='pool')
+        assert target._init_virtual_name_with_pool(
+            loadbalancer, listener, pool) == dict(pool='pool')
+        target._init_virtual_name.assert_called_once_with(
+            loadbalancer, listener)
+        target.init_pool_name.assert_called_once_with(
+            loadbalancer, pool)
+
+    def test_get_vip_default_pool(self, target, basic_service):
+        pool = basic_service['pools'][0]
+        basic_service['pool'] = pool
+        loadbalancer = basic_service['loadbalancer']
+        listener = basic_service['listener']
+        vip = 'vip'
+        target._init_virtual_name_with_pool = Mock(return_value=vip)
+        assert vip == target.get_vip_default_pool(basic_service)
+        target._init_virtual_name_with_pool.assert_called_once_with(
+            loadbalancer, listener, pool=pool)
+
+    def test_map_virtual(self, target, basic_service):
+        pool = basic_service['pools'][0]
+        loadbalancer = basic_service['loadbalancer']
+        listener = basic_service['listener']
+        description = 'description'
+        target.get_resource_description = Mock(return_value=description)
+        target._init_virtual_name_with_pool = Mock(return_value=dict())
+        cx_limit = listener['connection_limit']
+        proto_port = listener['protocol_port']
+        vip_address = loadbalancer['vip_address'].replace('%0', '')
+        listener['pool'] = pool
+        expected = dict(
+            destination=vip_address + ':' + proto_port, ipProtocol='tcp',
+            connectionLimit=cx_limit, description=description, enabled=True,
+            pool=pool)
+        assert expected == target._map_virtual(
+                loadbalancer, listener, pool=pool)
 
     def test_vs_http_profiles(self, service):
         adapter = ServiceModelAdapter(mock.MagicMock())

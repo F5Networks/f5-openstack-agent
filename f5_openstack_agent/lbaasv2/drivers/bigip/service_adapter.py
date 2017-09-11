@@ -64,10 +64,11 @@ class ServiceModelAdapter(object):
         return (network_id in self.conf.common_network_ids)
 
     def init_pool_name(self, loadbalancer, pool):
-        name = self.prefix + pool["id"]
+        partition = self.get_folder_name(loadbalancer['tenant_id'])
+        name = self.prefix + pool["id"] if pool else ''
 
         return {"name": name,
-                "partition": self.get_folder_name(loadbalancer['tenant_id'])}
+                "partition": partition}
 
     def get_resource_description(self, resource):
         if not isinstance(resource, dict):
@@ -87,6 +88,7 @@ class ServiceModelAdapter(object):
     def get_virtual(self, service):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
+        pool = service.get('pool', None)
 
         listener["use_snat"] = self.snat_mode()
         if listener["use_snat"] and self.snat_count() > 0:
@@ -98,7 +100,7 @@ class ServiceModelAdapter(object):
             listener["session_persistence"] = \
                 service["pool"]["session_persistence"]
 
-        vip = self._map_virtual(loadbalancer, listener)
+        vip = self._map_virtual(loadbalancer, listener, pool=pool)
         self._add_bigip_items(listener, vip)
         return vip
 
@@ -112,9 +114,14 @@ class ServiceModelAdapter(object):
 
     def _init_virtual_name(self, loadbalancer, listener):
         name = self.prefix + listener["id"]
+        partition = self.get_folder_name(loadbalancer['tenant_id'])
 
-        return {"name": name,
-                "partition": self.get_folder_name(loadbalancer['tenant_id'])}
+        return dict(name=name, partition=partition)
+
+    def _init_virtual_name_with_pool(self, loadbalancer, listener, pool=None):
+        vip = self._init_virtual_name(loadbalancer, listener)
+        vip['pool'] = self.init_pool_name(loadbalancer, pool)
+        return vip
 
     def get_traffic_group(self, service):
         tg = "traffic-group-local-only"
@@ -129,12 +136,8 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
         pool = service["pool"]
-        vip = self._init_virtual_name(loadbalancer, listener)
-        if "default_pool_id" in listener:
-            p = self.init_pool_name(loadbalancer, pool)
-            vip["pool"] = p["name"]
-        else:
-            vip["pool"] = ""
+        vip = self._init_virtual_name_with_pool(
+            loadbalancer, listener, pool=pool)
 
         return vip
 
@@ -342,8 +345,9 @@ class ServiceModelAdapter(object):
         else:
             return 'round-robin'
 
-    def _map_virtual(self, loadbalancer, listener):
-        vip = self._init_virtual_name(loadbalancer, listener)
+    def _map_virtual(self, loadbalancer, listener, pool=None):
+        vip = self._init_virtual_name_with_pool(
+            loadbalancer, listener, pool=pool)
 
         vip["description"] = self.get_resource_description(listener)
 
