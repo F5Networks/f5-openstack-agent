@@ -279,6 +279,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'PENDING_CREATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert mock_create.called
         assert not mock_update.called
 
@@ -291,6 +292,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert mock_update.called
         assert not mock_create.called
 
@@ -303,6 +305,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
 
@@ -315,5 +318,6 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'ERROR'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
