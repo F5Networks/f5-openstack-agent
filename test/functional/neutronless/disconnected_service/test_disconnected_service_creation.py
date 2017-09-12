@@ -135,7 +135,7 @@ SEG_INDEPENDENT_LB_URIS_COMMON_NET =\
 SEG_LISTENER_URIS = \
     set([u'https://localhost/mgmt/tm/ltm/virtual/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9?ver='+tmos_version])
+         '~SAMPLE_LISTENER?ver='+tmos_version])
 
 NOSEG_LB_URIS =\
     set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
@@ -409,7 +409,7 @@ def test_nosegid_listener(setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert not rpc.update_listener_status.called
-    assert not rpc.update_loadbalancer_status.called    
+    assert not rpc.update_loadbalancer_status.called
 
 
 @pytest.mark.skip(reason="The polling will occur in the agent")
@@ -583,7 +583,7 @@ def test_featureoff_grm_lb(setup_l2adjacent_test, bigip):
             icontroldriver._common_service_handler,
             service, True)
 
-    after_destroy_registry = register_device(bigip)    
+    after_destroy_registry = register_device(bigip)
     post_destroy_uris = (set(after_destroy_registry.keys()) -
                    set(start_registry.keys()))
 

@@ -79,8 +79,16 @@ f5_sdk_version = '2.3.3'
 # F5 icontrol REST version should be set here
 f5_icontrol_version = '1.3.0'
 
-#rst_prolog = '''
-#'''
+rst_prolog = '''
+.. raw:: html
+
+   <script type="text/javascript">
+    var home = "clouddocs.f5.com";
+    var rtd = "f5-openstack-agent.readthedocs.io";
+
+    if (window.location.hostname === rtd) {window.location.assign("http://" + home + "/products/openstack/agent/liberty);}
+   </script>
+'''
 
 # OpenStack release
 
@@ -240,7 +248,7 @@ html_show_copyright = True
 #html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'F5-OpenStack-BIG-IP-Controllerdoc'
+htmlhelp_basename = 'F5AgentOpenStackNeutrondoc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -262,7 +270,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'F5-OpenStack-BIG-IP-Controller.tex', u'F5 Agent for OpenStack Neutron Documentation',
+    (master_doc, 'F5Agent-OpenStackNeutron.tex', u'F5 Agent for OpenStack Neutron Documentation',
      u'F5 Networks', 'manual'),
 ]
 
@@ -379,7 +387,7 @@ rst_epilog = '''
 .. |release-notes| raw:: html
 
     <a class="btn btn-success" href="https://github.com/F5Networks/f5-openstack-agent/releases/tag/v%(version)s/">Release Notes</a>
-.. _Hierarchical Port Binding: /cloud/openstack/v1/lbaas/hierarchical-port-binding.html
+.. _Hierarchical Port Binding: /cloud/openstack/latest/lbaas/hierarchical-port-binding.html
 .. _external provider network: https://docs.openstack.org/newton/networking-guide/intro-os-networking.html#provider-networks
 .. _Cisco ACI: http://www.cisco.com/c/en/us/solutions/data-center-virtualization/application-centric-infrastructure/index.html
 .. _system configuration: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/bigip-system-initial-configuration-13-0-0/2.html

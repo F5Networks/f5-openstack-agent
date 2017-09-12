@@ -302,8 +302,6 @@ class TestNetworkHelper(TestNetworkHelperConstructor):
                                               payload['rd_id'])
             expected_payload = dict(
                 name=expected_name, partition=payload['partition'])
-            pytest.set_trace()
-            print(expected_payload)
             my_target.create_route(my_bigip, **payload)
             my_target.route_exists.assert_called_once_with(
                 my_bigip, **expected_payload)

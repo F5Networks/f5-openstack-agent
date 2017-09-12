@@ -181,7 +181,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'f5_common_external_networks', default=True,
         help='Treat external networks as common'
     ),
-    cfg.external_gateway_mode(
+    cfg.BoolOpt(
         'external_gateway_mode', default=False,
         help='All subnets have an external l3 route on gateway'
     ),
@@ -408,6 +408,7 @@ class iControlDriver(LBaaSBaseDriver):
                  % (len(self.__bigips), self.conf.icontrol_username))
         LOG.info('iControlDriver dynamic agent configurations:%s'
                  % self.agent_configurations)
+        self.initialized = True
 
         # read enhanced services definitions
         esd_dir = os.path.join(self.get_config_dir(), 'esd')

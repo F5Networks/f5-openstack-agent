@@ -13,7 +13,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import os
 import pytest
+import sys
 
 
 @pytest.fixture
@@ -104,3 +106,34 @@ def pool_member_service():
             u'sessionpersistence': None,
             u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd'}
         }
+
+
+def check_for_relative_path(start, path_ending):
+    starting = start.split('/')
+    relative_path = list()
+    for path in starting:
+        relative_path.append(path)
+        if os.path.isdir("{}{}".format('/'.join(relative_path), path_ending)):
+            return relative_path
+    raise AssertionError("Could not establish relative path from({})".format(
+                         start))
+
+
+@pytest.fixture
+def get_relative_path():
+    cwd = os.getcwd()
+    expected_finishing_path = "/f5_openstack_agent/lbaasv2/drivers/bigip/test"
+    try:
+        relative_path = check_for_relative_path(cwd, expected_finishing_path)
+    except AssertionError as Err:
+        errors = [Err]
+        for arg in sys.argv[1:]:
+            if os.path.isdir(arg):
+                try:
+                    relative_path = \
+                        check_for_relative_path(arg, expected_finishing_path)
+                except AssertionError as Err:
+                    errors.append(Err)
+        if errors:
+            assert AssertionError("Could not derive path ({})".format(errors))
+    return '/'.join(relative_path)

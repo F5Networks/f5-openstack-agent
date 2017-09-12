@@ -307,6 +307,8 @@ class LBaaSBuilder(object):
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberCreationException(err.message)
 
+                member['provisioning_status'] = plugin_const.ACTIVE
+
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
                                       member["network_id"],
