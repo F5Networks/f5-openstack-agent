@@ -504,3 +504,37 @@ class LBaaSv2PluginRPC(object):
                       "get_all_loadbalancers")
 
         return loadbalancers
+
+    @log_helpers.log_method_call
+    def get_loadbalancers_by_network(self, network_id, env=None, group=None,
+                                     host=None):
+        """Retrieve tuple(list) of loadbalancers by network_id
+
+        This object method will attempt to return the list of loadbalancers
+        associated with the provided network_id that match to also provided
+        env, group, and host.
+
+        Args:
+            <network_id> := Str(the network_id)
+        Optional KWArgs:
+            <env=env>:= API-defined env
+            <group=group>:= API-defined group
+            <host=host>:= API-defined host
+        Returns:
+            <loadbalancers>:= tuple([discovered loadbalancers])
+        """
+        env = env if env else self.env
+        group = group if group else self.group
+        host = host if host else self.host
+        loadbalancers = []
+        try:
+            loadbalancers = self._call(
+                self.context,
+                self._make_msg('get_loadbalancers_by_network', env=env,
+                               network_id=network_id, group=group, host=host),
+                topic=self.topic)
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_loadbalancers_by_network")
+        # not always assured an empty list...
+        return tuple(loadbalancers) if loadbalancers else tuple()
