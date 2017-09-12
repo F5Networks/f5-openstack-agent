@@ -120,10 +120,14 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
+            pool = self.get_pool_by_id(
+                service, listener.get('default_pool_id', None))
             svc = {"loadbalancer": loadbalancer,
                    "listener": listener,
                    "networks": networks}
 
+            if pool:
+                svc['pool'] = pool
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
                 try:
                     self.listener_builder.update_listener(svc, bigips)
@@ -425,7 +429,7 @@ class LBaaSBuilder(object):
 
     @staticmethod
     def get_pool_by_id(service, pool_id):
-        if "pools" in service:
+        if pool_id and "pools" in service:
             pools = service["pools"]
             for pool in pools:
                 if pool["id"] == pool_id:
