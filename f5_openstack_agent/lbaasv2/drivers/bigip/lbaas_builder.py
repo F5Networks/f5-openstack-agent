@@ -639,7 +639,6 @@ class LBaaSBuilder(object):
             op_status = lb_const.NO_MONITOR
 
         return op_status
-<<<<<<< HEAD
 
     def get_l7policy_for_rule(self, l7policies, l7rule):
         policy_id = l7rule['policy_id']
@@ -660,5 +659,3 @@ class LBaaSBuilder(object):
 
     def is_esd(self, name):
         return self.esd.get_esd(name) is not None
-=======
->>>>>>> Neutron Pool member's status attribute not reflecting BIG-IP Pool member state
