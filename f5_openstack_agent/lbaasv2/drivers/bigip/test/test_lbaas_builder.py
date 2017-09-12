@@ -1116,6 +1116,7 @@ class TestLbaasBuilder(object):
         with mock.patch(VS_POOL_UPDATE_PATH) as mock_update_vs_pool:
             builder = LBaaSBuilder(mock.MagicMock(), mock_driver)
             builder._assure_pools_created(shared_pool_service)
+            builder._assure_pools_configured(shared_pool_service)
             svc = {
                 'listener': shared_pool_service['listeners'][0],
                 'members': [],
@@ -1152,6 +1153,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'PENDING_CREATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert mock_create.called
         assert not mock_update.called
 
@@ -1164,6 +1166,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert mock_update.called
         assert not mock_create.called
 
@@ -1176,6 +1179,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
 
@@ -1188,6 +1192,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'ERROR'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
 
@@ -1203,6 +1208,7 @@ class TestLbaasBuilder(object):
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
@@ -1221,6 +1227,7 @@ class TestLbaasBuilder(object):
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
@@ -1241,6 +1248,7 @@ class TestLbaasBuilder(object):
             MockHTTPError(MockHTTPErrorResponse409(), 'Exists')
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
@@ -1261,6 +1269,7 @@ class TestLbaasBuilder(object):
             MockHTTPError(MockHTTPErrorResponse409(), 'Exists')
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
@@ -1283,6 +1292,7 @@ class TestLbaasBuilder(object):
         with pytest.raises(f5_ex.PoolCreationException) as ex:
             builder._assure_pools_created(svc)
             assert ex.value.message == 'Exists'
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
@@ -1304,6 +1314,7 @@ class TestLbaasBuilder(object):
         with pytest.raises(f5_ex.PoolCreationException) as ex:
             builder._assure_pools_created(svc)
             assert ex.value.message == 'Exists'
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
