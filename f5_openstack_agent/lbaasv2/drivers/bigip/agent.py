@@ -17,8 +17,16 @@
 import errno
 import inspect
 import sys
+import urllib3
+import requests
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as exceptions
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 try:
     from oslo_config import cfg

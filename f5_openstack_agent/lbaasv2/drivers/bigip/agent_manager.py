@@ -621,7 +621,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
 
 
-    @log_helpers.log_method_call
+    
     def refresh_service(self, lb_id):
         try:
             service = self.plugin_rpc.get_service_by_loadbalancer_id(

@@ -1395,7 +1395,7 @@ class iControlDriver(LBaaSBaseDriver):
                     self.plugin_rpc.update_health_monitor_status(
                         health_monitor['id'])
 
-    @log_helpers.log_method_call
+   
     def _update_pool_status(self, pools):
         """Update pool status in OpenStack """
         for pool in pools:
@@ -1415,7 +1415,7 @@ class iControlDriver(LBaaSBaseDriver):
                 elif provisioning_status == plugin_const.ERROR:
                     self.plugin_rpc.update_pool_status(pool['id'])
 
-    @log_helpers.log_method_call
+   
     def _update_listener_status(self, service):
         """Update listener status in OpenStack """
         listeners = service['listeners']
@@ -1440,7 +1440,7 @@ class iControlDriver(LBaaSBaseDriver):
                         provisioning_status,
                         lb_const.OFFLINE)
 
-    @log_helpers.log_method_call
+   
     def _update_l7rule_status(self, l7rules):
         """Update l7rule status in OpenStack """
         for l7rule in l7rules:
@@ -1461,7 +1461,7 @@ class iControlDriver(LBaaSBaseDriver):
                     self.plugin_rpc.update_l7rule_status(
                         l7rule['id'], l7rule['policy_id'])
 
-    @log_helpers.log_method_call
+   
     def _update_l7policy_status(self, l7policies):
         LOG.debug("_update_l7policy_status")
         """Update l7policy status in OpenStack """
@@ -1482,7 +1482,7 @@ class iControlDriver(LBaaSBaseDriver):
                 elif provisioning_status == plugin_const.ERROR:
                     self.plugin_rpc.update_l7policy_status(l7policy['id'])
 
-    @log_helpers.log_method_call
+   
     def _update_loadbalancer_status(self, service, timed_out=False):
         """Update loadbalancer status in OpenStack """
         loadbalancer = service.get('loadbalancer', {})
