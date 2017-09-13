@@ -126,6 +126,14 @@ class LBaaSBuilder(object):
                    "listener": listener,
                    "networks": networks}
 
+
+            has_esd=False
+            l7_profiles = listener.get('l7_policies', [])
+            for policy in l7_profiles:
+                if self.is_esd(policy.get('name', None)):
+                    has_esd = True
+
+
             default_pool_id = listener.get('default_pool_id', '')
             if default_pool_id:
                 pool = self.get_pool_by_id(service, default_pool_id)
@@ -134,7 +142,7 @@ class LBaaSBuilder(object):
 
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
                 try:
-                    self.listener_builder.update_listener(svc, bigips)
+                    self.listener_builder.update_listener(svc, bigips, has_esd=has_esd)
                 except Exception as err:
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR

@@ -158,7 +158,7 @@ class ListenerServiceBuilder(object):
         # add ssl profile to virtual server
         self._add_profile(vip, name, bigip, context='clientside')
 
-    def update_listener(self, service, bigips):
+    def update_listener(self, service, bigips,has_esd=False):
         u"""Update Listener from a single BIG-IP® system.
 
         Updates virtual servers that represents a Listener object.
@@ -168,6 +168,9 @@ class ListenerServiceBuilder(object):
         :param bigips: Array of BigIP class instances to update.
         """
         vip = self.service_adapter.get_virtual(service)
+
+        if has_esd and service['listener']['protocol'] == lb_const.PROTOCOL_TCP:
+            vip['profiles'] = ["/Common/tcp"]
 
         for bigip in bigips:
             self.vs_helper.update(bigip, vip)
@@ -618,7 +621,7 @@ class ListenerServiceBuilder(object):
         if 'lbaas_fallback_persist' in esd:
             update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
 
-        # always use defauklts for non TCP listener
+        # always use defaults for non TCP listener
         listener = svc["listener"]
         if profiles and not listener['protocol'] == 'TCP':
 
