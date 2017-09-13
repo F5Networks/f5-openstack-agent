@@ -172,7 +172,10 @@ class ListenerServiceBuilder(object):
         if has_esd and service['listener']['protocol'] == lb_const.PROTOCOL_TCP:
             vip['profiles'] = ["/Common/tcp"]
 
+
+        network_id = service['loadbalancer']['network_id']
         for bigip in bigips:
+            self.service_adapter.get_vlan(vip, bigip, network_id)
             self.vs_helper.update(bigip, vip)
 
     def update_listener_pool(self, service, name, bigips):
