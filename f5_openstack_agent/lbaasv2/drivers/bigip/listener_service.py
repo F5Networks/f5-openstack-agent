@@ -602,13 +602,14 @@ class ListenerServiceBuilder(object):
             update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
 
         if profiles:
-            # always use http and oneconnect
-            profiles.append({'name': 'http',
-                             'partition': 'Common',
-                             'context': 'all'})
-            profiles.append({'name': 'oneconnect',
-                             'partition': 'Common',
-                             'context': 'all'})
+            # always use http and oneconnect for non-tcp user:
+            if not svc.get('listener', dict()).get('protocol', '') == 'TCP':
+                profiles.append({'name': 'http',
+                                 'partition': 'Common',
+                                 'context': 'all'})
+                profiles.append({'name': 'oneconnect',
+                                 'partition': 'Common',
+                                 'context': 'all'})
             update_attrs['profiles'] = profiles
 
         # iRules
@@ -638,6 +639,12 @@ class ListenerServiceBuilder(object):
         if tls:
             tls['name'] = vs['name']
             tls['partition'] = vs['partition']
+
+        if svc.get('listener', dict()).get('protocol', '') == 'TCP':
+            # Revert VS back to fastL4.  Must do an update to replace profiles
+            # instead of using add/remove profile.  Leave http profiles in
+            # place for non-TCP listeners.
+            vs['profiles'] = ['/Common/fastL4']
 
         # remove iRules
         if 'lbaas_irule' in esd:
