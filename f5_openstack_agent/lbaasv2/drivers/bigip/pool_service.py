@@ -170,10 +170,11 @@ class PoolServiceBuilder(object):
 
     def update_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
-        member = self.service_adapter.get_member(service)
 
         part = pool["partition"]
         for bigip in bigips:
+            # Relocated due to HA F5s
+            member = self.service_adapter.get_member(service)
             p = self.pool_helper.load(bigip,
                                       name=pool["name"],
                                       partition=part)

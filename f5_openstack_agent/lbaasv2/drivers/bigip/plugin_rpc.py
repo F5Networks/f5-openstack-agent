@@ -24,7 +24,7 @@ from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as constants
 
-LOG = logging.getLogger
+LOG = logging.getLogger(__name__)
 
 
 class LBaaSv2PluginRPC(object):
