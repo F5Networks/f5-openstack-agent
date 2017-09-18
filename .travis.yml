@@ -21,6 +21,10 @@ install:
 script:
     - tox -e style,unit
     - python f5-openstack-agent-dist/scripts/universal_truth.py
+    - echo "setup.cfg:"
+    - cat setup.cfg
+    - echo "stdeb.cfg:"
+    - cat f5-openstack-agent-dist/deb_dist/stdeb.cfg
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "7"
     - f5-openstack-agent-dist/scripts/package_agent.sh "redhat" "6"
     - f5-openstack-agent-dist/scripts/package_agent.sh "ubuntu" "14.04"
