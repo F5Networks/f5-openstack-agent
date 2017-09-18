@@ -57,7 +57,7 @@ not suggested to use this function if you intend to get control back again.
 
 def _construct_cfgs_from_json(args):
     Args = namedtuple('Args', 'setup, reqs, fmt, start')
-    rpm = Args(args['setup_cfg'], args['setup_requirements'], '%s%s',
+    rpm = Args(args['setup_cfg'], args['setup_requirements'], '%s %s',
                'requires = ')
     deb = Args(args['stdeb_cfg'], args['setup_requirements'], '%s (%s), ',
                'Depends:\n    ')
