@@ -36,7 +36,7 @@ from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
-
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -465,6 +465,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         return self.lbdriver.tunnel_sync()
 
     @log_helpers.log_method_call
+    @utils.instrument_execution_time
     def sync_state(self):
         """Sync state of BIG-IP with that of the neutron database."""
         resync = False
@@ -558,6 +559,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         return resync
 
     @log_helpers.log_method_call
+    @utils.instrument_execution_time
     def validate_service(self, lb_id):
 
         try:
@@ -621,7 +623,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
 
 
-    
+    @utils.instrument_execution_time
     def refresh_service(self, lb_id):
         try:
             service = self.plugin_rpc.get_service_by_loadbalancer_id(

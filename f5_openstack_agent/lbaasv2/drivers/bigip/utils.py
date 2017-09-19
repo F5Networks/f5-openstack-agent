@@ -15,11 +15,15 @@
 #
 from time import time
 import uuid
+import eventlet
 
 from distutils.version import LooseVersion
 from eventlet import greenthread
+
 from oslo_log import log as logging
 from neutron_lbaas.services.loadbalancer import constants as lb_const
+
+from threading import Thread, current_thread
 
 LOG = logging.getLogger(__name__)
 OBJ_PREFIX = 'uuid_'
@@ -44,6 +48,19 @@ def get_default_profiles(conf, listener_protocol):
     return result
 
 
+def instrument_execution_time(method):
+
+    def timed(*args, **kw):
+        ts = time()
+        result = method(*args, **kw)
+        te = time()
+
+        LOG.debug('******* PROFILE %r : %r %2.2f sec' % \
+              (current_thread().name, method.__name__, te-ts))
+        return result
+
+    return timed
+
 
 
 
@@ -64,8 +81,69 @@ def strip_domain_address(ip_address):
     else:
         return ip_address.split('%')[0]
 
+def serialized (method_name):
+    """Outer wrapper in order to specify method name."""
 
-def serialized(method_name):
+    def real_serialized(method):
+        """Decorator to serialize calls to configure via iControl."""
+        def wrapper(*args, **kwargs):
+                        # args[0] must be an instance of iControlDriver
+            my_request_id = uuid.uuid4()
+
+            service = None
+            if len(args) > 0:
+                last_arg = args[-1]
+                if isinstance(last_arg, dict) and ('loadbalancer' in last_arg):
+                    service = last_arg
+            if 'service' in kwargs:
+                service = kwargs['service']
+
+            lb_id = 'generic'
+
+            if service is not None:
+                lb = service.get('loadbalancer')
+                if lb is not None:
+                    lb_id = lb.get('id')
+
+            queue = args[0].queues.get(lb_id)
+            if queue is None:
+                queue = eventlet.queue.Queue(1)
+                args[0].queues[lb_id] = queue
+
+            wait_start = time()
+            queue.put(my_request_id)
+            LOG.debug('Waited %.2f secs to put request %s on to queue %s %s'
+                          % (time() - wait_start, my_request_id, lb_id, queue))
+
+
+            try:
+
+                start_time = time()
+
+                result = method(*args, **kwargs)
+                LOG.debug('%s request %s took %.5f secs'
+                          % (str(method_name), my_request_id,
+                             time() - start_time))
+
+            except Exception:
+                LOG.error('%s request %s FAILED'
+                          % (str(method_name), my_request_id))
+                raise
+            finally:
+                wait_start = time()
+                wait_request = queue.get()
+                LOG.debug('Waited %.2f secs to get  request %s'
+                          % (time() - wait_start,wait_request))
+
+
+            return result
+
+        return wrapper
+
+    return real_serialized
+
+
+def serialized_old(method_name):
     """Outer wrapper in order to specify method name."""
     def real_serialized(method):
         """Decorator to serialize calls to configure via iControl."""

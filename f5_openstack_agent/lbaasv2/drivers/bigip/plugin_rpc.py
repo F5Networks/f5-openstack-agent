@@ -23,7 +23,7 @@ from neutron.plugins.common import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as constants
-
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 LOG = logging.getLogger
 
 
@@ -418,6 +418,7 @@ class LBaaSv2PluginRPC(object):
         )
 
     @log_helpers.log_method_call
+    @utils.instrument_execution_time
     def get_service_by_loadbalancer_id(self,
                                        loadbalancer_id=None):
         """Retrieve the service definition for this loadbalancer."""
@@ -437,6 +438,7 @@ class LBaaSv2PluginRPC(object):
         return service
 
     @log_helpers.log_method_call
+    @utils.instrument_execution_time
     def get_all_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of loadbalancers in Neutron."""
         loadbalancers = []
@@ -460,6 +462,7 @@ class LBaaSv2PluginRPC(object):
         return loadbalancers
 
     @log_helpers.log_method_call
+    @utils.instrument_execution_time
     def get_active_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of active loadbalancers for this agent."""
         loadbalancers = []
@@ -483,6 +486,7 @@ class LBaaSv2PluginRPC(object):
         return loadbalancers
 
     @log_helpers.log_method_call
+    @utils.instrument_execution_time
     def get_pending_loadbalancers(self, env=None, group=None, host=None):
         """Retrieve a list of pending loadbalancers for this agent."""
         loadbalancers = []

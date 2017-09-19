@@ -31,7 +31,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.snats import BigipSnatManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
-
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 LOG = logging.getLogger(__name__)
 
 
@@ -154,6 +154,7 @@ class NetworkServiceBuilder(object):
 
         return True
 
+    @utils.instrument_execution_time
     def prep_service_networking(self, service, traffic_group):
         """Assure network connectivity is established on all bigips."""
         if self.conf.f5_global_routed_mode:
@@ -667,6 +668,7 @@ class NetworkServiceBuilder(object):
                 LOG.exception(ermsg)
         return True
 
+    @utils.instrument_execution_time
     def post_service_networking(self, service, all_subnet_hints):
         # Assure networks are deleted from big-ips
         if self.conf.f5_global_routed_mode:
@@ -707,6 +709,7 @@ class NetworkServiceBuilder(object):
             self.driver.plugin_rpc.delete_port_by_name(
                 port_name=port_name)
 
+    @utils.instrument_execution_time
     def update_bigip_l2(self, service):
         # Update fdb entries on bigip
         loadbalancer = service['loadbalancer']
@@ -855,6 +858,7 @@ class NetworkServiceBuilder(object):
 
         return deleted_names
 
+    @utils.instrument_execution_time
     def _assure_delete_nets_nonshared(self, bigip, service, subnet_hints):
         # Delete non shared base objects for networks
         deleted_names = set()
@@ -947,7 +951,7 @@ class NetworkServiceBuilder(object):
 
         return True
 
-
+    @utils.instrument_execution_time
     def _get_subnets_to_delete(self, bigip, service, subnet_hints):
         # Clean up any Self IP, SNATs, networks, and folder for
         # services items that we deleted.
@@ -971,6 +975,7 @@ class NetworkServiceBuilder(object):
 
         return subnets_to_delete
 
+    @utils.instrument_execution_time
     def _ips_exist_on_subnet(self, bigip, service, subnet, route_domain):
         # Does the big-ip have any IP addresses on this subnet?
         LOG.debug("_ips_exist_on_subnet entry %s rd %s"

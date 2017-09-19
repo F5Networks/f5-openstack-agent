@@ -27,6 +27,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import listener_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
+
 from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ class LBaaSBuilder(object):
         self.l7service = l7policy_service.L7PolicyService(conf)
         self.esd = None
 
+    @utils.instrument_execution_time
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
         start_time = time()
@@ -85,7 +88,7 @@ class LBaaSBuilder(object):
         LOG.debug("    _assure_service took %.5f secs" %
                   (time() - start_time))
         return all_subnet_hints
-
+    @utils.instrument_execution_time
     def _assure_loadbalancer_created(self, service, all_subnet_hints):
         if 'loadbalancer' not in service:
             return
@@ -112,6 +115,7 @@ class LBaaSBuilder(object):
         if loadbalancer['provisioning_status'] != plugin_const.PENDING_DELETE:
             loadbalancer['provisioning_status'] = plugin_const.ACTIVE
 
+    @utils.instrument_execution_time
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
             return
@@ -163,6 +167,7 @@ class LBaaSBuilder(object):
             if listener['provisioning_status'] != plugin_const.PENDING_DELETE:
                 listener['provisioning_status'] = plugin_const.ACTIVE
 
+    @utils.instrument_execution_time
     def _assure_pools_created(self, service):
         if "pools" not in service:
             return
@@ -204,6 +209,7 @@ class LBaaSBuilder(object):
 
                 pool['provisioning_status'] = plugin_const.ACTIVE
 
+    @utils.instrument_execution_time
     def _assure_pools_configured(self, service):
         if "pools" not in service:
             return
@@ -247,7 +253,7 @@ class LBaaSBuilder(object):
                     raise f5_ex.PoolCreationException(err.message)
 
                 pool['provisioning_status'] = plugin_const.ACTIVE
-
+    @utils.instrument_execution_time
     def _get_pool_members(self, service, pool_id):
         '''Return a list of members associated with given pool.'''
 
@@ -257,6 +263,7 @@ class LBaaSBuilder(object):
                 members.append(member)
         return members
 
+    @utils.instrument_execution_time
     def _update_listener_pool(self, service, listener_id, pool_name, bigips):
         listener = self.get_listener_by_id(service, listener_id)
         if listener is not None:
@@ -270,6 +277,7 @@ class LBaaSBuilder(object):
                 listener['provisioning_status'] = plugin_const.ERROR
                 raise f5_ex.VirtualServerUpdateException(err.message)
 
+    @utils.instrument_execution_time
     def _assure_monitors(self, service):
         if not (("pools" in service) and ("healthmonitors" in service)):
             return
@@ -305,7 +313,7 @@ class LBaaSBuilder(object):
                     raise f5_ex.MonitorCreationException(err.message)
 
                 monitor['provisioning_status'] = plugin_const.ACTIVE
-
+    @utils.instrument_execution_time
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
             return
@@ -363,7 +371,7 @@ class LBaaSBuilder(object):
                                       True)
 
 
-
+    @utils.instrument_execution_time
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
                 plugin_const.PENDING_DELETE):
@@ -384,6 +392,7 @@ class LBaaSBuilder(object):
         for bigip in bigips:
             vip_address.assure(bigip, delete=True)
 
+    @utils.instrument_execution_time
     def _assure_pools_deleted(self, service):
         if 'pools' not in service:
             return
@@ -418,7 +427,7 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     pool['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolDeleteException(err.message)
-
+    @utils.instrument_execution_time
     def _assure_listeners_deleted(self, service):
         if 'listeners' not in service:
             return
@@ -487,6 +496,7 @@ class LBaaSBuilder(object):
                          'subnet_id': subnet_id,
                          'is_for_member': is_member}
 
+    @utils.instrument_execution_time
     def listener_exists(self, bigip, service):
         """Test the existence of the listener defined by service."""
         try:
@@ -499,6 +509,7 @@ class LBaaSBuilder(object):
 
         return True
 
+    @utils.instrument_execution_time
     def _assure_l7policies_created(self, service):
         if 'l7policies' not in service:
             return
@@ -527,7 +538,7 @@ class LBaaSBuilder(object):
                     raise f5_ex.L7PolicyCreationException(err.message)
 
                 l7policy['provisioning_status'] = plugin_const.ACTIVE
-
+    @utils.instrument_execution_time
     def _assure_l7policies_deleted(self, service):
         if 'l7policies' not in service:
             return
@@ -562,7 +573,7 @@ class LBaaSBuilder(object):
                     service['loadbalancer']['provisioning_status'] = \
                         plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
-
+    @utils.instrument_execution_time
     def _assure_l7rules_created(self, service):
         if 'l7policy_rules' not in service:
             return
@@ -589,7 +600,7 @@ class LBaaSBuilder(object):
                     raise f5_ex.L7PolicyCreationException(err.message)
 
                 l7rule['provisioning_status'] = plugin_const.ACTIVE
-
+    @utils.instrument_execution_time
     def _assure_l7rules_deleted(self, service):
         if 'l7policy_rules' not in service:
             return
@@ -612,7 +623,7 @@ class LBaaSBuilder(object):
                     service['loadbalancer']['provisioning_status'] = \
                         plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
-
+    @utils.instrument_execution_time
     def get_listener_stats(self, service, stats):
         """Get statistics for a loadbalancer service.
 
@@ -646,7 +657,7 @@ class LBaaSBuilder(object):
                 collected_stats[stat] += vs_stats[stat]
 
         return collected_stats
-
+    @utils.instrument_execution_time
     def update_operating_status(self, service):
         bigip = self.driver.get_active_bigip()
         loadbalancer = service["loadbalancer"]
