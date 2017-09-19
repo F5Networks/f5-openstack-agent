@@ -95,7 +95,9 @@ class FakeRPCPlugin(object):
                               subnet_id=None,
                               mac_address=None,
                               name=None,
-                              fixed_address_count=1):
+                              fixed_address_count=1,
+                              device_id=None,
+                              binding_profile={}):
 
         # Enforce specific call parameters
         if not subnet_id:

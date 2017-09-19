@@ -98,6 +98,7 @@ class BigipSelfIpManager(object):
             raise KeyError("network and subnet need to be specified")
 
         tenant_id = service['loadbalancer']['tenant_id']
+        lb_id = service['loadbalancer']['id']
 
         # If we have already assured this subnet.. return.
         # Note this cache is periodically cleared in order to
@@ -106,7 +107,7 @@ class BigipSelfIpManager(object):
                 subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
             return True
 
-        selfip_address = self._get_bigip_selfip_address(bigip, subnet)
+        selfip_address = self._get_bigip_selfip_address(bigip, subnet, lb_id)
         if 'route_domain_id' not in network:
             LOG.error("network route domain is not set")
             raise KeyError()
@@ -138,7 +139,7 @@ class BigipSelfIpManager(object):
             self.l3_binding.bind_address(subnet_id=subnet['id'],
                                          ip_address=selfip_address)
 
-    def _get_bigip_selfip_address(self, bigip, subnet):
+    def _get_bigip_selfip_address(self, bigip, subnet, device_id):
         u"""Ensure a selfip address is allocated on Neutron network."""
         # Get ip address for selfip to use on BIG-IP.
         selfip_address = ""
@@ -151,7 +152,9 @@ class BigipSelfIpManager(object):
                 subnet_id=subnet['id'],
                 mac_address=None,
                 name=selfip_name,
-                fixed_address_count=1)
+                fixed_address_count=1,
+                device_id=device_id
+            )
 
         if port and 'fixed_ips' in port:
             fixed_ip = port['fixed_ips'][0]

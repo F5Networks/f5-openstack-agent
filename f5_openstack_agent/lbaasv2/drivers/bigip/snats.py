@@ -65,7 +65,7 @@ class BigipSnatManager(object):
         LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
         return ''
 
-    def get_snat_addrs(self, subnetinfo, tenant_id, snat_count):
+    def get_snat_addrs(self, subnetinfo, tenant_id, snat_count, lb_id):
         # Get the ip addresses for snat """
         subnet = subnetinfo['subnet']
         snat_addrs = []
@@ -85,7 +85,7 @@ class BigipSnatManager(object):
                     subnet_id=subnet['id'],
                     mac_address=None,
                     name=index_snat_name,
-                    fixed_address_count=1)
+                    fixed_address_count=1, device_id=lb_id)
                 if new_port is not None:
                     ip_address = new_port['fixed_ips'][0]['ip_address']
 
