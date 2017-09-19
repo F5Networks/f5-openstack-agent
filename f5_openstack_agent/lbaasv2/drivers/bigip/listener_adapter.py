@@ -25,6 +25,6 @@ class ListenerAdapter(ServiceModelAdapter):
                      listener.get('tenant_id', ''))}
 
         if l7policy:
-            f5_vs['l7policy_name'] = "wrapper_policy"
+            f5_vs['l7policy_name'] = "wrapper_policy_"+listener.get('id','')
 
         return f5_vs

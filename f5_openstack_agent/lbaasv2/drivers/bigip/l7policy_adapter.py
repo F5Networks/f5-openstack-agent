@@ -159,15 +159,22 @@ class L7PolicyServiceAdapter(ServiceModelAdapter):
                 'wrapper_policy.'
             raise PolicyHasNoRules(msg)
 
-    def _adapt_policy(self):
+    def _adapt_policy(self,service):
         '''Setup the wrapper policy, which will contain rules.'''
 
         if not self.service['l7rules']:
             msg = 'No Rules given to implement. A Policy cannot be attached ' \
                 'to a Virtual until it has one or more Rules.'
             raise PolicyHasNoRules(msg)
+
+        listener_id = ''
+        for l7_policy in service['l7policies']:
+            listener_id = l7_policy.get('listener_id','')
+            break
+
+
         self.policy_dict = {}
-        self.policy_dict['name'] = 'wrapper_policy'
+        self.policy_dict['name'] = 'wrapper_policy_'+listener_id
         self.policy_dict['partition'] = self.folder
         self.policy_dict['strategy'] = 'first-match'
         self.policy_dict['rules'] = []
@@ -181,9 +188,9 @@ class L7PolicyServiceAdapter(ServiceModelAdapter):
         self.service = service
         self.folder = self.get_folder_name(
             self.service['l7policies'][0]['tenant_id'])
-        self._adapt_policy()
+        self._adapt_policy(service)
         return self.policy_dict
 
     def translate_name(self, l7policy):
-        return {'name': 'wrapper_policy',
+        return {'name': 'wrapper_policy_'+l7policy.get('listener_id',''),
                 'partition': self.get_folder_name(l7policy['tenant_id'])}
