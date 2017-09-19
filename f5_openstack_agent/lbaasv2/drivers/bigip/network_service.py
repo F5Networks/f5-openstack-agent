@@ -550,6 +550,7 @@ class NetworkServiceBuilder(object):
         tenant_id = service['loadbalancer']['tenant_id']
         subnet = subnetinfo['subnet']
         snats_per_subnet = self.conf.f5_snat_addresses_per_subnet
+        lb_id = service['loadbalancer']['id']
 
         assure_bigips = \
             [bigip for bigip in assure_bigips
@@ -561,7 +562,7 @@ class NetworkServiceBuilder(object):
                   subnet['id'])
         if len(assure_bigips):
             snat_addrs = self.bigip_snat_manager.get_snat_addrs(
-                subnetinfo, tenant_id, snats_per_subnet)
+                subnetinfo, tenant_id, snats_per_subnet, lb_id)
 
             if len(snat_addrs) != snats_per_subnet:
                 raise f5_ex.SNAT_CreationException(

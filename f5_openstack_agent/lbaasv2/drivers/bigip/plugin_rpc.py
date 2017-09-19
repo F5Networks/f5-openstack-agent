@@ -348,7 +348,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def create_port_on_subnet(self, subnet_id=None,
                               mac_address=None, name=None,
-                              fixed_address_count=1):
+                              fixed_address_count=1,
+                              device_id=None, binding_profile={}):
         """Add a neutron port to the subnet."""
         port = None
         try:
@@ -359,7 +360,9 @@ class LBaaSv2PluginRPC(object):
                                mac_address=mac_address,
                                name=name,
                                fixed_address_count=fixed_address_count,
-                               host=self.host),
+                               host=self.host,
+                               device_id=device_id,
+                               binding_profile=binding_profile),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
