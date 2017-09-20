@@ -51,6 +51,6 @@ Configuration
       icontrol_password = admin
       #
 
-#. Set up the |agent-long| to use :ref:`L2-adjacent mode <l2-adjacent-mode>` or :ref:`Global Routed mode <global-routed-mode>`.
+#. Set up the |agent-long| to use :ref:`L2-adjacent mode <l2-adjacent-setup>` or :ref:`Global Routed mode <global-routed-setup>`.
 
 .. _vCMP: /cloud/openstack/v1/lbaas/lbaas-manage-vcmp.html

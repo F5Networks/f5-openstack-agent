@@ -1,4 +1,4 @@
-.. _l2-adjacent-mode:
+.. _l2-adjacent-setup:
 
 .. index::
    single: f5-openstack-agent; L2-adjacent mode

@@ -1,4 +1,4 @@
-.. _global-routed-mode:
+.. _global-routed-setup:
 
 .. index::
    single: f5-openstack-agent; global routed mode
