@@ -16,6 +16,7 @@
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from neutron_lbaas.services.loadbalancer import constants as lb_const
@@ -63,15 +64,21 @@ class ListenerServiceBuilder(object):
         for bigip in bigips:
             self.service_adapter.get_vlan(vip, bigip, network_id)
             try:
-                self.vs_helper.create(bigip, vip)
-            except HTTPError as err:
-                if err.response.status_code == 409:
-                    LOG.debug("Virtual server already exists..updating")
-                    self.update_listener(service, [bigip])
+                if not self.vs_helper.exists(
+                        bigip, vip['name'], vip['partition']):
+                    try:
+                        self.vs_helper.create(bigip, vip)
+                    except Exception as err:
+                        raise f5_ex.VirtualServerCreationException(err.message)
                 else:
-                    LOG.exception("Virtual server creation error: %s" %
-                                  err.message)
-                    raise
+                    try:
+                        self.update_listener(service, [bigip])
+                    except Exception as err:
+                        raise f5_ex.VirtualServerUpdateException(err.message)
+            except Exception as err:
+                LOG.exception("Virtual server exits error: %s" %
+                              err.message)
+                raise
             if tls:
                 self.add_ssl_profile(tls, bigip)
 
