@@ -1151,7 +1151,7 @@ class iControlDriver(LBaaSBaseDriver):
                     vs_dest_compare = '/' + partition + '/' + va.name
                     for vs in vses:
                         if str(vs.destination).startswith(vs_dest_compare):
-                            if vs.pool:
+                            if hasattr(vs, 'pool'):
                                 pool = resource_helper.BigIPResourceHelper(
                                     resource_helper.ResourceType.pool).load(
                                     bigip, os.path.basename(vs.pool),
