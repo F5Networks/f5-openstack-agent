@@ -22,12 +22,15 @@ When running in external gateway mode, the |agent-long| creates routes between t
 Set-up
 ------
 
+Using external gateway mode requires the use of `common networks </cloud/openstack/latest/lbaas/manage-common-net-objects.rst>`_.
+
+Whether you're installing the |agent-short| for the first time or updating an existing agent-short, turning on common networks has the same effect.
+After the |agent-short| restarts, it reads information about the network from the Neutron database and populates objects in the BIG-IP :code:`/Common` partition accordingly.
+
 .. note::
 
-   Using external gateway mode requires the use of `common networks </cloud/openstack/latest/lbaas/manage-common-net-objects.rst>`_.
-
-   Whether you're installing the |agent-short| for the first time or updating an existing agent-short, turning on common networks has the same effect.
-   After the |agent-short| restarts, it reads information about the network from the Neutron database and populates objects in the BIG-IP :code:`/Common` partition accordingly.
+   External gateway mode can be used in conjunction with the network architectures typically used for global routed mode (L2 connection only) or L2-adjacent mode (L2 or L3).
+   You can adapt the :ref:`configuration file examples <agent-config-examples>`, which are based on the settings used for the |agent| functional tests, as needed for your environment.
 
 .. _fresh install ext-gateway:
 
