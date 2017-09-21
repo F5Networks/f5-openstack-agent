@@ -731,7 +731,27 @@ class MockHTTPErrorResponse500(HTTPError):
         self.status_code = 500
 
 
-class TestLbaasBuilder(object):
+class TestLBaaSBuilderConstructor(object):
+    @staticmethod
+    @pytest.fixture
+    @patch('f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.'
+           'LBaaSBuilder.__init__')
+    def fully_mocked_target(init):
+        init.return_value = None
+        return LBaaSBuilder()
+
+    @staticmethod
+    @pytest.fixture
+    def assure_mocked_target(fully_mocked_target):
+        target = fully_mocked_target
+        target.driver = Mock()
+        target.service_adapter = Mock()
+        target._update_subnet_hints = Mock()
+        target._set_status_as_active = Mock()
+        return target
+
+
+class TestLbaasBuilder(TestLBaaSBuilderConstructor):
     neutron_plugin_constants = neutron.plugins.common.constants
 
     @pytest.fixture
@@ -1028,7 +1048,7 @@ class TestLbaasBuilder(object):
         svc = l7policy_create_service
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_l7policies_created(svc)
-        assert svc['l7policies'][0]['provisioning_status'] == 'PENDING_CREATE'
+        assert svc['l7policies'][0]['provisioning_status'] == 'ACTIVE'
         assert svc['loadbalancer']['provisioning_status'] == 'ACTIVE'
 
     def test_create_policy_error_status(self, l7policy_create_service):
@@ -1075,7 +1095,7 @@ class TestLbaasBuilder(object):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_l7rules_created(svc)
         assert svc['l7policy_rules'][0]['provisioning_status'] == \
-            'PENDING_CREATE'
+            'ACTIVE'
         assert svc['loadbalancer']['provisioning_status'] == 'ACTIVE'
 
     def test_create_rule_error_status(self, l7rule_create_service):
