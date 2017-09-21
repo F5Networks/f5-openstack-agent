@@ -14,6 +14,135 @@
 #   limitations under the License.
 
 import pytest
+import uuid
+
+from neutron.plugins.common import constants as plugin_const
+
+
+class TestingWithServiceConstructor(object):
+    """An object class meant for the use of constructing service objects
+
+    This object class is meant to assist tests in orchestrating the appropraite
+    steps to create a unique service object.  From there, the tests themselves
+    can perform additional operations to make the service object what they
+    need.
+    """
+    defaultservice = \
+        dict(listeners=[], loadbalancer={}, pools=[], networks={}, subnets={},
+             healthmonitors=[], members=[], l7policies=[], l7policy_rules=[])
+
+    @staticmethod
+    @pytest.fixture
+    def new_id():
+        return str(uuid.uuid4())
+
+    @staticmethod
+    @pytest.fixture
+    def esd():
+        # Generate a esd mocked item that is pretty lame until more
+        # intelligence is needed.
+        return dict(lbaas_stcp='lbaas_stcp', lbaas_ctcp='lbaas_ctcp',
+                    lbaas_cssl_profile='lbaas_cssl_profile',
+                    lbaas_persist='lbaas_persist',
+                    lbaas_fallback_persist='lbaas_fallback_persist',
+                    lbaas_irule=['rule1', 'rule2'],
+                    lbaas_policy=['policy1', 'policy2'],
+                    lbaas_sssl_profile='lbaas_sssl_profile')
+
+    @classmethod
+    @pytest.fixture
+    def service_with_network(cls, new_id):
+        service = cls.defaultservice.copy()
+        new_network = dict(id=new_id, name='network', mtu=0, shared=False,
+                           status='ACTIVE', subnets=[], tenant_id=cls.new_id(),
+                           vlan_transparent=None)
+        service['networks'][new_id] = new_network
+        return service
+
+    @staticmethod
+    @pytest.fixture
+    def service_with_subnet(new_id, service_with_network):
+        network_id = service_with_network['networks'].keys()[0]
+        network = service_with_network['networks'][network_id]
+        tenant_id = network['tenant_id']
+        allocation_pools = [dict(start='10.22.22.2', end='10.22.22.48')]
+        dns_servers = ['10.22.22.2']
+        host_routes = []
+        new_subnet = \
+            dict(allocation_pools=allocation_pools, tenant_id=tenant_id,
+                 dns_servers=dns_servers, host_routes=host_routes,
+                 cidr='10.22.22.0/22', gateway='10.22.22.1', id=new_id,
+                 ip_version=4, ipv6_address_mode=None, ipv6_ra_mode=None,
+                 enable_dhcp=True)
+        network['subnets'].append(new_subnet)
+        service_with_network['subnets'][new_id] = new_subnet
+        return service_with_network
+
+    @classmethod
+    @pytest.fixture
+    def service_with_loadbalancer(cls, new_id, service_with_subnet):
+        network_id = service_with_subnet['networks'].keys()[0]
+        subnet_id = service_with_subnet['subnets'].keys()[0]
+        network = service_with_subnet['networks'][network_id]
+        tenant_id = network['tenant_id']
+        vip_address = '10.22.22.4'
+        device_id = cls.new_id()
+        hostname = 'host-{}'.format(vip_address.replace('.', '-'))
+        dns_assignment = \
+            dict(fqdn="{}.openstacklocal.".format(hostname),
+                 hostname=hostname, ip_address=vip_address)
+        fixed_ips = [dict(ip_address=vip_address, subnet_id=subnet_id)]
+        vip_port = \
+            dict(admin_state_up=True, allowed_address_pairs=[],
+                 device_id=device_id, divcie_owner='newutron:LOADBALANCERV2',
+                 dns_assignment=dns_assignment, dns_name=None,
+                 extra_dhcp_opts=[], id=cls.new_id(), network_id=network_id,
+                 name='loadbalancer-'.format(new_id), security_groups=[],
+                 mac_address='xx:xx:xx:xx:xx:xx', status='UP',
+                 tenant_id=tenant_id, fixed_ips=fixed_ips)
+        new_lb = \
+            dict(admin_state_up=True, description='', gre_vteps=[], id=new_id,
+                 listeners=[], name='lb1', network_id=network_id,
+                 operating_status='OFFLINE', provider=None, vip_port=vip_port,
+                 provisioning_status=plugin_const.PENDING_CREATE,
+                 vip_address=vip_address, dns_name=None,
+                 dns_assignment=[dns_assignment],
+                 tenant_id=tenant_id, vip_id=vip_port['id'],
+                 vip_subnet_id=subnet_id, vxlan_vteps=[])
+        service_with_subnet['loadbalancer'] = new_lb
+        return service_with_subnet
+
+    @staticmethod
+    @pytest.fixture
+    def service_with_listener(new_id, service_with_loadbalancer):
+        svc = service_with_loadbalancer
+        lb = svc['loadbalancer']
+        lb['listeners'].append(new_id)
+        tenant_id = lb['tenant_id']
+        lb_id = lb['id']
+        lb['provisioning_status'] = plugin_const.PENDING_UPDATE
+        new_listener = \
+            dict(admin_state_up=True, connection_limit=-1,
+                 default_pool_id=None, default_tls_container_id=None,
+                 description='', id=new_id, loadbalaner_id=lb_id,
+                 name='l1', operating_status='OFFLINE', protocol='HTTP',
+                 protocol_port=8080, sni_containers=[], tenant_id=tenant_id,
+                 provisioning_status=plugin_const.PENDING_CREATE)
+        svc['listeners'].append(new_listener)
+        return svc
+
+    def service_with_pool(new_id, service_with_listener):
+        # update as needed for more intelligence...
+        svc = service_with_listener
+        li = svc['listeners'][0]
+        tenant_id = li['tenant_id']
+        li['default_pool_id'] = new_id
+        li['provisioning_status'] = plugin_const.PENDING_UPDATE
+        new_pool = {'id': new_id, 'listeners': [dict(id=li['id'])],
+                    'provisioning_status': plugin_const.PENDING_CREATE,
+                    'tenant_id': tenant_id}
+        svc['pools'].append(new_pool)
+        return svc
 
 
 @pytest.fixture

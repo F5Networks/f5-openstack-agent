@@ -20,11 +20,20 @@ import pytest
 from mock import Mock
 from mock import patch
 
+import neutron.plugins.common.constants as plugin_const
+
 import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as agent_manager
 import f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc as plugin_rpc
 
+import f5_openstack_agent.lbaasv2.drivers.bigip.test.conftest as ct
 
-class TestLbaasAgentManagerConstructor(object):
+
+class TestLbaasAgentManagerConstructor(ct.TestingWithServiceConstructor):
+    @staticmethod
+    @pytest.fixture
+    def target_class():
+        return agent_manager.LbaasAgentManager
+
     @staticmethod
     @pytest.fixture
     @patch('f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager.'
@@ -173,6 +182,40 @@ class TestLbaasAgentManager(TestLbaasAgentManagerBuilder):
 
         full_path(fully_mocked_target)
 
+    def test_validate_service(self, fully_mocked_target, mock_logger):
+        def setup_target(target):
+            target.plugin_rpc = Mock()
+            target.lbdriver = Mock()
+            target.has_provisioning_status_of_error = Mock(return_value=True)
+            target.lbdriver.service_exists.return_value = True
+            target.lbdriver.service_rename_required.return_value = False
+            target.cache = Mock()
+            target.agent_host = 'host'
+
+        def reset_target(target):
+            target.lbdriver.sync.reset_mock()
+            self.logger.debug.reset_mock()
+
+        def negative_path(target):
+            # needs to be fix to cover all logical paths...
+            setup_target(target)
+            lb_id = 1
+            target.validate_service(lb_id)
+            target.lbdriver.sync.assert_called_once_with(
+                target.plugin_rpc.get_service_by_loadbalancer_id.return_value)
+
+        def positive_path(target):
+            # needs to be fixed to coverall logical paths...
+            lb_id = 1
+            target.has_provisioning_status_of_error.return_value = False
+            target.validate_service(lb_id)
+            target.lbdriver.sync.assert_not_called
+            assert 'Found service' in self.logger.debug.call_args[0][0]
+
+        negative_path(fully_mocked_target)
+        reset_target(fully_mocked_target)
+        positive_path(fully_mocked_target)
+
     def test_validate_services(self, fully_mocked_target):
         lb_ids = [1, 2]
         fully_mocked_target.cache = Mock()
@@ -259,3 +302,29 @@ class TestLbaasAgentManager(TestLbaasAgentManagerBuilder):
                 assert expected_call in call_args_list[cnt][0]
 
         functional_path(fully_mocked_target, fully_mocked_plugin_rpc)
+
+    def test_has_provisioning_error(self, target_class, service_with_listener):
+        svc = service_with_listener
+
+        def reset_svc(svc):
+            listener = svc['listeners'][0]
+            loadbalancer = svc['loadbalancer']
+            listener['provisioning_status'] = plugin_const.ACTIVE
+            loadbalancer['provisioning_status'] = plugin_const.ACTIVE
+
+        def negative_list_scenario(target, svc):
+            reset_svc(svc)
+            svc['listeners'][0]['provisioning_status'] = plugin_const.ERROR
+            assert target.has_provisioning_status_of_error(svc)
+            assert svc['loadbalancer']['provisioning_status'] == \
+                plugin_const.ERROR
+
+        def negative_dict_scenario(target, svc):
+            reset_svc(svc)
+            svc['loadbalancer']['provisioning_status'] = plugin_const.ERROR
+            assert target.has_provisioning_status_of_error(svc)
+            assert svc['loadbalancer']['provisioning_status'] == \
+                plugin_const.ERROR
+
+        negative_list_scenario(target_class, svc)
+        negative_dict_scenario(target_class, svc)
