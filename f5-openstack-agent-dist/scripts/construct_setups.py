@@ -28,6 +28,11 @@ from collections import deque
 from collections import namedtuple
 from pip.req import parse_requirements as p_reqs
 
+default_setup_cfg = deque()
+default_stdeb_cfg = deque()
+default_setup_cfg.append('[bdist_rpm]\n')
+default_stdeb_cfg.append('[DEFAULT]\n')
+
 
 def construct_cfgs(**kargs):
     """construct_cfgs
@@ -84,6 +89,13 @@ def _read_in_cfgs(cfg):
                 line = fh.readline()
     except IOError:
         pass  # we then have empty contents... all well...
+    if not cfgs:
+        if cfg.endswith('setup.cfg'):
+            cfgs = default_setup_cfg
+        elif cfg.endswith('stdeb.cfg'):
+            cfgs = default_stdeb_cfg
+        else:
+            cfgs = deque()
     return cfgs
 
 
@@ -139,14 +151,20 @@ def _construct_file(setup_cfg, setup, fmt, start):
     if not os.path.isfile(setup) or not os.access(setup, os.R_OK):
         print(setup + " does not exist or is not readable")
         exit_cleanly(error_number=errno.ENOSYS)
-    contents = _read_in_cfgs(setup_cfg) if os.path.isfile(setup_cfg) else \
-        deque()
+    contents = _read_in_cfgs(setup_cfg)
     parsed_reqs = map(lambda x: (x.req), p_reqs(setup, session="pkg"))
     if not parsed_reqs:
         print("Nothing to do!\n%s\nDoes not contain any reqs parsable!" %
               setup)
         exit_cleanly(error_number=0)
     try:
+        base_dir = os.path.dirname(setup_cfg)
+        if not os.path.isdir(base_dir):
+            try:
+                os.mkdir(base_dir)
+            except OSError as Error:
+                if Error.errno != errno.EEXIST:
+                    raise
         with open(setup_cfg, 'w') as fh:
             pkg_type = ''
             if contents:
