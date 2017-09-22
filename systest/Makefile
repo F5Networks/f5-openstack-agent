@@ -93,19 +93,9 @@ TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(SANITIZED_BRANCH)/testenv
 #    Tests use tox for python variants.
 setup:
 	@echo executing $@
-	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh ;\
-	mkdir -p $(TESTENVLOGDIR)
-
-#### UNITTEST SECTION:
-unit-tests: setup
-	@echo executing $@
-	export GP_SUFFIX=f5-openstack-agent_$(SANITIZED_BRANCH)-unit &&
-	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
-	tox -e unit --sitepackages -- \
-		--cov $(PROJDIR)/f5_openstack_agent \
-		--autolog-outputdir $${GUMBALLS_PROJECT} \
-		--autolog-session $(TAGINFO)_`date +"%Y%m%d-%H%M%S"` \
-	    $(PROJDIR)/f5_openstack_agent
+	mkdir -p $(TESTENVLOGDIR) && \
+	sudo -H pip install -e $(PROJDIR)
+	sudo chown -Rf jenkins:jenkins $(PROJDIR)
 
 #### MULTIPLEXING SECTION:
 #    there are (DEVICES * CLOUDTYPES) rules in this section. They have targets
@@ -147,7 +137,6 @@ run_overcloud_smoke_tests:
 	# Run the smoke tests and capture the rc, in case tests fail or error out
 	$(MAKE) -C . setup_singlebigip_tests &&\
 	$(MAKE) -C . smoke ; SMOKE_RC=$$? ;\
-	$(MAKE) -C . cleanup_singlebigip ;\
 	exit $$SMOKE_RC
 
 #### TESTSBYINFRA SECTION
@@ -253,15 +242,14 @@ run_disconnected_service_tests:
 
 run_smoke_tests:
 	@echo executing $@
-	tox -e singlebigip --sitepackage -- \
+	cd $(PROJDIR)/test/functional/neutronless && \
+	ls -la && \
+	py.test \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-		../test/functional/neutronless/loadbalancer/ \
-		../test/functional/neutronless/listener/ \
-		../test/functional/neutronless/pool/ \
-		../test/functional/neutronless/member/
+		./loadbalancer/ ./listener/ ./pool/ ./member/
 
 cleanup_singlebigip:
 	@echo executing $@

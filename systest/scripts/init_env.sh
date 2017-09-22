@@ -19,4 +19,3 @@ if [ -e $CI_ENV_FILE ]; then
 fi
 
 # - print env vars
-printenv | sort | grep -v OS_PASSWORD
