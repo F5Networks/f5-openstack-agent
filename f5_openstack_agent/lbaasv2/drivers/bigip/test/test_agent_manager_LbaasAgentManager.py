@@ -326,5 +326,16 @@ class TestLbaasAgentManager(TestLbaasAgentManagerBuilder):
             assert svc['loadbalancer']['provisioning_status'] == \
                 plugin_const.ERROR
 
+        def awkward_network_nest(target, svc):
+            reset_svc(svc)
+            svc['loadbalancer']['provisioning_status'] = plugin_const.ERROR
+            listener_id = svc['listeners'][0]['id']
+            awkward = {listener_id: svc['listeners'][0]}
+            svc['listeners'][0] = awkward
+            assert target.has_provisioning_status_of_error(svc)
+            assert svc['loadbalancer']['provisioning_status'] == \
+                plugin_const.ERROR
+
         negative_list_scenario(target_class, svc)
         negative_dict_scenario(target_class, svc)
+        awkward_network_nest(target_class, svc)

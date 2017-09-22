@@ -27,10 +27,10 @@ from oslo_service import periodic_task
 from oslo_utils import importutils
 
 from neutron.agent import rpc as agent_rpc
-from neutron.plugins.common import constants as plugin_const
 from neutron.common import exceptions as q_exception
 from neutron.common import topics
 from neutron import context as ncontext
+from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
@@ -622,10 +622,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 error_status = handle_error(error_status, obj)
             elif expected_tree[item] == list and \
                     isinstance(obj, list):
-                for cnt, obj in enumerate(obj):
-                    if len(obj) == 1:
-                        obj = obj[cnt][obj]
-                    error_status = handle_error(error_status, obj)
+                for item in obj:
+                    if len(item) == 1:
+                        # {'networks': [{'id': {<network_obj>}}]}
+                        item = item[item.keys()[0]]
+                    error_status = handle_error(error_status, item)
         if error_status:
             loadbalancer['provisioning_status'] = plugin_const.ERROR
         return error_status

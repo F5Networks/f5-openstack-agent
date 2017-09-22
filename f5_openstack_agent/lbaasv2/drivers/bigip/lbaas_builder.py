@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import traceback
-
 from time import time
 
 from oslo_log import log as logging
@@ -116,7 +114,7 @@ class LBaaSBuilder(object):
                                   loadbalancer["network_id"],
                                   all_subnet_hints,
                                   False)
-        self._set_status_as_active(loadbalancer)
+        self._set_status_as_active(loadbalancer, force=True)
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
@@ -230,7 +228,6 @@ class LBaaSBuilder(object):
                         )
                         raise f5_ex.PoolCreationException(err.message)
                 except Exception as err:
-                    print traceback.format_exc()
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolCreationException(err.message)
