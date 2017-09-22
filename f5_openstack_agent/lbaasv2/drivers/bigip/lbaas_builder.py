@@ -87,8 +87,13 @@ class LBaaSBuilder(object):
         return all_subnet_hints
 
     @staticmethod
-    def _set_status_as_active(svc_obj):
-        svc_obj['provisioning_status'] = plugin_const.ACTIVE
+    def _set_status_as_active(svc_obj, force=False):
+        # If forced, then set to ACTIVE else hold ERROR
+        preserve_statuses = \
+            tuple([plugin_const.ERROR, plugin_const.PENDING_DELETE])
+        ps = svc_obj['provisioning_status']
+        svc_obj['provisioning_status'] = plugin_const.ACTIVE \
+            if ps not in preserve_statuses or force else ps
 
     @staticmethod
     def _is_not_pending_delete(svc_obj):
@@ -121,7 +126,7 @@ class LBaaSBuilder(object):
                                   loadbalancer["network_id"],
                                   all_subnet_hints,
                                   False)
-        self._set_status_as_active(loadbalancer)
+        self._set_status_as_active(loadbalancer, force=True)
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
@@ -273,6 +278,7 @@ class LBaaSBuilder(object):
         monitors = service["healthmonitors"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+        force_active_status = False
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
@@ -287,6 +293,7 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_healthmonitor(svc, bigips)
+                    force_active_status = True
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # pool['provisioning_status'] = plugin_const.ERROR
@@ -299,7 +306,7 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorCreationException(err.message)
-            self._set_status_as_active(monitor)
+            self._set_status_as_active(monitor, force=force_active_status)
 
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
@@ -308,6 +315,7 @@ class LBaaSBuilder(object):
         members = service["members"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+        force_active = False
 
         for member in members:
             pool = self.get_pool_by_id(service, member["pool_id"])
@@ -338,6 +346,7 @@ class LBaaSBuilder(object):
                 try:
                     self.pool_builder.create_member(svc, bigips)
                     self.pool_builder.update_pool(pool_svc, bigips)
+                    force_active = True
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # FIXME(RB)
@@ -364,7 +373,7 @@ class LBaaSBuilder(object):
                                       member["network_id"],
                                       all_subnet_hints,
                                       True)
-            self._set_status_as_active(member)
+            self._set_status_as_active(member, force=force_active)
 
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
@@ -503,6 +512,7 @@ class LBaaSBuilder(object):
     def _assure_l7policies_created(self, service):
         if 'l7policies' not in service:
             return
+        force_active = False
 
         bigips = self.driver.get_config_bigips()
         l7policies = service['l7policies']
@@ -521,12 +531,13 @@ class LBaaSBuilder(object):
                     else:
                         self.l7service.create_l7policy(
                             l7policy, service, bigips)
+                        force_active = True
                 except Exception as err:
                     l7policy['provisioning_status'] = plugin_const.ERROR
                     service['loadbalancer']['provisioning_status'] = \
                         plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
-            self._set_status_as_active(l7policy)
+            self._set_status_as_active(l7policy, force=force_active)
 
     def _assure_l7policies_deleted(self, service):
         if 'l7policies' not in service:
@@ -566,6 +577,7 @@ class LBaaSBuilder(object):
     def _assure_l7rules_created(self, service):
         if 'l7policy_rules' not in service:
             return
+        force_active = False
 
         bigips = self.driver.get_config_bigips()
         l7rules = service['l7policy_rules']
@@ -582,12 +594,13 @@ class LBaaSBuilder(object):
                         continue
 
                     self.l7service.create_l7rule(l7rule, service, bigips)
+                    force_active = True
                 except Exception as err:
                     l7rule['provisioning_status'] = plugin_const.ERROR
                     service['loadbalancer']['provisioning_status'] = \
                         plugin_const.ERROR
                     raise f5_ex.L7PolicyCreationException(err.message)
-            self._set_status_as_active(l7rule)
+            self._set_status_as_active(l7rule, force=force_active)
 
     def _assure_l7rules_deleted(self, service):
         if 'l7policy_rules' not in service:
