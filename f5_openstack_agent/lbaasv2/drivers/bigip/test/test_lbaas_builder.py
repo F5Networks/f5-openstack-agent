@@ -226,6 +226,38 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG = \
                 self.log
 
+    def test_set_status_as_active(self, fully_mocked_target):
+        preserved = ['PENDING_DELETE', 'ERROR']
+
+        def new_svc_obj(status):
+            state = getattr(neutron.plugins.common.constants, status)
+            return dict(provisioning_status=state, id=1)
+
+        def is_state(svc_obj, state):
+            state = getattr(neutron.plugins.common.constants, state)
+            return svc_obj['provisioning_status'] == state
+
+        def preserve_status(target):
+            for state in preserved:
+                svc = new_svc_obj(state)
+                target._set_status_as_active(svc, force=False)
+                assert is_state(svc, state)
+
+        def forced_through_preserved_status(target):
+            for state in preserved:
+                svc = new_svc_obj(state)
+                target._set_status_as_active(svc, force=True)
+                assert is_state(svc, 'ACTIVE')
+
+        def other_status(target):
+            svc = new_svc_obj('PENDING_UPDATE')
+            target._set_status_as_active(svc)
+            assert is_state(svc, 'ACTIVE')
+
+        preserve_status(fully_mocked_target)
+        forced_through_preserved_status(fully_mocked_target)
+        other_status(fully_mocked_target)
+
     def test_assure_listeners_created(self, service, create_self):
         listener = service.get('listeners')[0]
         target = self.builder

@@ -77,8 +77,13 @@ class LBaaSBuilder(object):
         return all_subnet_hints
 
     @staticmethod
-    def _set_status_as_active(svc_obj):
-        svc_obj['provisioning_status'] = plugin_const.ACTIVE
+    def _set_status_as_active(svc_obj, force=False):
+        # If forced, then set to ACTIVE else hold ERROR
+        preserve_statuses = \
+            tuple([plugin_const.ERROR, plugin_const.PENDING_DELETE])
+        ps = svc_obj['provisioning_status']
+        svc_obj['provisioning_status'] = plugin_const.ACTIVE \
+            if ps not in preserve_statuses or force else ps
 
     @staticmethod
     def _is_not_pending_delete(svc_obj):
@@ -111,7 +116,7 @@ class LBaaSBuilder(object):
                                   loadbalancer["network_id"],
                                   all_subnet_hints,
                                   False)
-        self._set_status_as_active(loadbalancer)
+        self._set_status_as_active(loadbalancer, force=True)
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
@@ -262,6 +267,7 @@ class LBaaSBuilder(object):
         monitors = service["healthmonitors"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+        force_active_status = False
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
@@ -276,6 +282,7 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_healthmonitor(svc, bigips)
+                    force_active_status = True
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # pool['provisioning_status'] = plugin_const.ERROR
@@ -288,7 +295,7 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorCreationException(err.message)
-            self._set_status_as_active(monitor)
+            self._set_status_as_active(monitor, force=force_active_status)
 
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
@@ -297,6 +304,7 @@ class LBaaSBuilder(object):
         members = service["members"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+        force_active = False
 
         for member in members:
             pool = self.get_pool_by_id(service, member["pool_id"])
@@ -327,6 +335,7 @@ class LBaaSBuilder(object):
                 try:
                     self.pool_builder.create_member(svc, bigips)
                     self.pool_builder.update_pool(pool_svc, bigips)
+                    force_active = True
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # FIXME(RB)
@@ -351,7 +360,7 @@ class LBaaSBuilder(object):
                                       member["network_id"],
                                       all_subnet_hints,
                                       True)
-            self._set_status_as_active(member)
+            self._set_status_as_active(member, force=force_active)
 
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
