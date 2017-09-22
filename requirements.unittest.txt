@@ -1,5 +1,4 @@
-#Install the agent
--e .
+-c https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=mitaka-eol
 
 # app
 git+https://github.com/openstack/neutron@mitaka-eol

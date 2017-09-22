@@ -1,4 +1,4 @@
--e .
+-c https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=mitaka-eol
 # OpenStack dependancies
 git+https://github.com/openstack/neutron@mitaka-eol
 git+https://github.com/openstack/oslo.log.git@mitaka-eol
