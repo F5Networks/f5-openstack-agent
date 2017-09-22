@@ -511,6 +511,24 @@ class LBaaSv2PluginRPC(object):
         return service
 
     @log_helpers.log_method_call
+    def validate_listeners_state(self, listeners):
+        """Get the status of a list of listener IDs in Neutron"""
+        service = {}
+        try:
+            service = self._call(
+                self.context,
+                self._make_msg('validate_pools_state',
+                               listeners=listeners,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_pool_state")
+
+        return service
+
+    @log_helpers.log_method_call
     def validate_pools_state(self, pools):
         """Get the status of a list of pools IDs in Neutron"""
         service = {}

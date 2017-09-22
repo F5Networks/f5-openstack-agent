@@ -1061,6 +1061,33 @@ class iControlDriver(LBaaSBaseDriver):
                                 }
         return deployed_pool_dict
 
+    @serialized('get_all_deployed_listeners')
+    @is_operational
+    def get_all_deployed_listeners(self):
+        LOG.debug('getting all deployed listeners on BIG-IPs')
+        deployed_ls_dict = {}
+        for bigip in self.get_all_bigips():
+            folders = self.system_helper.get_folders(bigip)
+            for folder in folders:
+                tenant_id = folder[len(self.service_adapter.prefix):]
+                if str(folder).startswith(self.service_adapter.prefix):
+                    resource = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.virtual)
+                    deployed_lsts = resource.get_resources(bigip, folder)
+                    if deployed_lsts:
+                        for ls in deployed_lsts:
+                            ls_id = ls.name[len(self.service_adapter.prefix):]
+                            if ls_id in deployed_ls_dict:
+                                deployed_ls_dict[ls_id][
+                                    'hostnames'].append(bigip.hostname)
+                            else:
+                                deployed_ls_dict[ls_id] = {
+                                    'id': ls_id,
+                                    'tenant_id': tenant_id,
+                                    'hostnames': [bigip.hostname]
+                                }
+        return deployed_ls_dict
+
     @serialized('get_all_deployed_loadbalancers')
     @is_operational
     def get_all_deployed_loadbalancers(self, purge_orphaned_folders=False):
@@ -1131,6 +1158,26 @@ class iControlDriver(LBaaSBaseDriver):
                 except Exception as exc:
                     LOG.exception('Exception purging pool %s' % str(exc))
 
+    @serialized('purge_orphaned_listener')
+    @is_operational
+    def purge_orphaned_listener(self, tenant_id=None, listener_id=None,
+                                hostnames=[]):
+        for bigip in self.get_all_bigips():
+            if bigip.hostname in hostnames:
+                try:
+                    listener_name = self.service_adapter.prefix + listener_id
+                    partition = self.service_adapter.prefix + tenant_id
+                    listener = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.virtual).load(
+                            bigip, listener_name, partition)
+                    listener.delete()
+                except HTTPError as err:
+                    if err.response.status_code == 404:
+                        LOG.debug('listener %s not on BIG-IP %s.'
+                                  % (listener_id, bigip.hostname))
+                except Exception as exc:
+                    LOG.exception('Exception purging pool %s' % str(exc))
+
     @serialized('purge_orphaned_loadbalancer')
     @is_operational
     def purge_orphaned_loadbalancer(self, tenant_id=None,
@@ -1151,7 +1198,7 @@ class iControlDriver(LBaaSBaseDriver):
                     vs_dest_compare = '/' + partition + '/' + va.name
                     for vs in vses:
                         if str(vs.destination).startswith(vs_dest_compare):
-                            if vs.pool:
+                            if hasattr(vs, 'pool'):
                                 pool = resource_helper.BigIPResourceHelper(
                                     resource_helper.ResourceType.pool).load(
                                     bigip, os.path.basename(vs.pool),
