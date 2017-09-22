@@ -8,6 +8,7 @@ git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@mitaka
 
 pytest==3.0.3
 pytest-cov==2.3.1
+coverage==4.2
 python-coveralls==2.8.0
 
 # COMMUNITY CONSTRAINED SECTION
