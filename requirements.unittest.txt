@@ -1,4 +1,3 @@
-#Install the agent
 -e .
 
 # app
@@ -7,10 +6,16 @@ git+https://github.com/openstack/oslo.log.git@mitaka-eol
 git+https://github.com/openstack/neutron-lbaas.git@mitaka-eol
 git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@mitaka
 
-mock==2.0.0
 pytest==3.0.3
 pytest-cov==2.3.1
-responses==0.5.1
-coverage==4.2
 python-coveralls==2.8.0
-eventlet==0.19.0
+
+# COMMUNITY CONSTRAINED SECTION
+# Community constrained packages, packages specified here MUST not specify a
+# version.  The versions of these packages are specified at the constraints
+# URL.  If you add a version here it will be ignored, and therefore be
+# misleading to readers of this file.
+-c https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=mitaka-eol
+
+mock==IGNORED      # See section comment
+coverage==IGNORED  # See section comment
