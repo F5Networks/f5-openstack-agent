@@ -22,5 +22,6 @@ python-coveralls==2.8.0
 # misleading to readers of this file.
 -c https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=mitaka-eol
 
+git+https://github.com/openstack/oslo.log.git@mitaka-eol
 mock==IGNORED      # See section comment
 coverage==IGNORED  # See section comment
