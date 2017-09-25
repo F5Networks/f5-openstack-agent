@@ -12,36 +12,51 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import f5_openstack_agent
+import os
 import setuptools
 
+import pip
+
+import f5_openstack_agent
+cwd = os.getcwd()
+print("{}".format(cwd))
+try:
+    req_array = \
+        pip.req.parse_requirements('./setup_requirements.txt', session='setup')
+    install_requires = map(lambda x: str(x.req), req_array)
+except pip.exceptions.InstallationError:
+    if 'tox' in cwd or 'rpm' in cwd:
+        # rpm has setup.cfg to grab dependencies from
+        # `tox -e style`, we're only worried about our changes
+        install_requires = []
 setuptools.setup(
     version=f5_openstack_agent.__version__,
     name="f5-openstack-agent",
-    description = ("F5 Networks Agent for OpenStack services"),
-    license = 'Apache License, Version 2.0',
+    description=("F5 Networks Agent for OpenStack services"),
+    license='Apache License, Version 2.0',
     author="F5 Networks",
     author_email="f5_openstack_agent@f5.com",
-    data_files=[('/etc/neutron/services/f5', ['etc/neutron/services/f5/f5-openstack-agent.ini']),
+    data_files=[('/etc/neutron/services/f5',
+                 ['etc/neutron/services/f5/f5-openstack-agent.ini']),
                 ('/etc/init.d', ['etc/init.d/f5-oslbaasv2-agent']),
-                ('/usr/lib/systemd/system', ['lib/systemd/system/f5-openstack-agent.service']),
+                ('/usr/lib/systemd/system',
+                    ['lib/systemd/system/f5-openstack-agent.service']),
                 ('/usr/bin/f5', ['bin/debug_bundler.py'])],
-    packages=setuptools.find_packages(exclude=['*.test', '*.test.*', 'test*', 'test']),
-    classifiers=[
-        'Environment :: OpenStack',
-	'Intended Audience :: Information Technology',
-	'Intended Audience :: System Administrators',
-	'License :: OSI Approved :: Apache Software License',
-	'Operating System :: POSIX :: Linux',
-	'Programming Language :: Python',
-	'Programming Language :: Python :: 2',
-	'Programming Language :: Python :: 2.7'
-    ],
+    packages=setuptools.find_packages(
+        exclude=['*.test', '*.test.*', 'test*', 'test']),
+    classifiers='''Environment :: OpenStack
+Intended Audience :: Information Technology
+Intended Audience :: System Administrators
+License :: OSI Approved :: Apache Software License
+Operating System :: POSIX :: Linux
+Programming Language :: Python
+Programming Language :: Python :: 2
+Programming Language :: Python :: 2.7'''.split('\n'),
     entry_points={
         'console_scripts': [
-            'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main'
+            str('f5-oslbaasv2-agent = '
+                'f5_openstack_agent.lbaasv2.drivers.bigip.agent:main')
         ]
     },
-    install_requires=['f5-sdk==2.3.3']
+    install_requires=['f5-sdk==2.3.3'],
 )
-
