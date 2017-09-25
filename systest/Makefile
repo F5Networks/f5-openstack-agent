@@ -40,7 +40,7 @@ DEPLOYS += 12.1.2-overcloud_smoke
 
 # Tell make that targets don't map to files
 .PHONY: setup \
-	unit_test \
+	unit-tests \
         $(DEPLOYS) \
         run_overcloud_tests \
         run_undercloud_tests \
@@ -91,11 +91,16 @@ TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(SANITIZED_BRANCH)/testenv
 #    require different packages for different suites, all packages are
 #    installed.  Each deploy maps to its own GUMBALLS project.
 #    Tests use tox for python variants.
+
+unit-tests:
+	@echo executing $@
+	./scripts/unit_test_run_wrapper.sh
+
 setup:
 	@echo executing $@
 	mkdir -p $(TESTENVLOGDIR) && \
-	sudo -H pip install -e $(PROJDIR)
-	sudo chown -Rf jenkins:jenkins $(PROJDIR)
+	sudo -H pip install -e $(PROJDIR) && \
+	sudo chown -Rf jenkins:jenkins $(PROJDIR)/f5_openstack_agent*
 
 #### MULTIPLEXING SECTION:
 #    there are (DEVICES * CLOUDTYPES) rules in this section. They have targets
@@ -137,6 +142,7 @@ run_overcloud_smoke_tests:
 	# Run the smoke tests and capture the rc, in case tests fail or error out
 	$(MAKE) -C . setup_singlebigip_tests &&\
 	$(MAKE) -C . smoke ; SMOKE_RC=$$? ;\
+	$(MAKE) -C . cleanup_singlebigip ;\
 	exit $$SMOKE_RC
 
 #### TESTSBYINFRA SECTION
@@ -150,7 +156,8 @@ run_overcloud_smoke_tests:
 #    singlebigip_f5-openstack-agent_liberty-12.1.1-overcloud
 setup_singlebigip_tests:
 	@echo executing $@
-	echo running testenv create with stack name $${TESTENV_NAME} &&
+	echo running testenv create with stack name $${TESTENV_NAME} && \
+	source /home/jenkins/openrc.sh && \
 	testenv --debug create --name $${TESTENV_NAME} \
 	        --params bigip_img:$${!DEVICEVERSION} \
 	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
@@ -181,7 +188,8 @@ run_neutronless_loadbalancer_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ../test/functional/neutronless/loadbalancer/
+	    ./test/functional/neutronless/loadbalancer/
+	
 
 run_neutronless_listener_tests:
 	@echo executing $@
