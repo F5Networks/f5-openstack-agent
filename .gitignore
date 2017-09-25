@@ -34,7 +34,6 @@ virtual_envs
 *.iws
 
 ## Plugin-specific files:
-.contain
 
 # IntelliJ
 /out/
