@@ -120,6 +120,85 @@ class ResourceValidator(object):
         else:
             return ResourceType.http_monitor
 
+    def assert_esd_applied(self, esd, listener, folder):
+        # check that vs exists
+        listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
+        assert self.bigip.resource_exists(
+            ResourceType.virtual, listener_name, partition=folder)
+        vs = self.bigip.get_resource(
+            ResourceType.virtual, listener_name, partition=folder)
+
+        profiles = vs.profiles_s.get_collection()
+        policies = vs.policies_s.get_collection()
+
+        if 'lbaas_ctcp' in esd:
+            assert self.is_in_collection(profiles, esd['lbaas_ctcp'])
+
+        if 'lbaas_stcp' in esd:
+            assert self.is_in_collection(profiles, esd['lbaas_stcp'])
+
+        if 'lbaas_cssl_profile' in esd:
+            assert self.is_in_collection(profiles, esd['lbaas_cssl_profile'])
+
+        if 'lbaas_sssl_profile' in esd:
+            assert self.is_in_collection(profiles, esd['lbaas_sssl_profile'])
+
+        if 'lbaas_persist' in esd:
+            assert vs.persist[0]['name'] == esd['lbaas_persist']
+
+        if 'lbaas_fallback_persist' in esd:
+            assert vs.fallbackPersistence == \
+                   '/Common/' + esd['lbaas_fallback_persist']
+
+        if 'lbaas_irule' in esd:
+            for rule in esd['lbaas_irule']:
+                rule_name = '/Common/' + rule
+                assert rule_name in vs.rules
+
+    def assert_esd_removed(self, esd, listener, folder):
+        listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
+        assert self.bigip.resource_exists(
+            ResourceType.virtual, listener_name, partition=folder)
+        vs = self.bigip.get_resource(
+            ResourceType.virtual, listener_name, partition=folder)
+
+        profiles = vs.profiles_s.get_collection()
+
+        if 'lbaas_ctcp' in esd:
+            assert not self.is_in_collection(profiles, esd['lbaas_ctcp'])
+
+        if 'lbaas_stcp' in esd:
+            assert not self.is_in_collection(profiles, esd['lbaas_stcp'])
+
+        if 'lbaas_cssl_profile' in esd:
+            assert not self.is_in_collection(profiles,
+                                             esd['lbaas_cssl_profile'])
+
+        if 'lbaas_sssl_profile' in esd:
+            assert not self.is_in_collection(profiles,
+                                             esd['lbaas_sssl_profile'])
+
+        if 'lbaas_persist' in esd:
+            persist = getattr(vs, 'persist', None)
+            if persist:
+                assert vs.persist[0]['name'] != esd['lbaas_persist']
+
+        if 'lbaas_fallback_persist' in esd:
+            fallback_persist = getattr(vs, 'fallbackPersistence', None)
+            if fallback_persist:
+                assert fallback_persist != \
+                       '/Common/' + esd['lbaas_fallback_persist']
+
+        if 'lbaas_irule' in esd:
+            assert not getattr(vs, 'rules', None)
+
+    def is_in_collection(self, collection, name):
+        for item in collection:
+            if item.name == name:
+                return True
+
+        return False
+
     def assert_session_persistence(
             self, listener, persist_name, app_cookie, folder):
         listener_name = '{0}_{1}'.format(self.prefix, listener['id'])

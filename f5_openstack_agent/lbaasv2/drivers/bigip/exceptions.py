@@ -1,4 +1,4 @@
-# Copyright 2014 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -372,6 +372,38 @@ class VXLANDeleteException(F5AgentException):
 
 
 class BigIPNotLicensedForVcmp(F5AgentException):
+    pass
+
+
+class NoActionFoundForPolicy(F5AgentException):
+    pass
+
+
+class PolicyHasNoRules(F5AgentException):
+    pass
+
+
+class L7PolicyCreationException(F5AgentException):
+    pass
+
+
+class L7PolicyQueryException(F5AgentException):
+    pass
+
+
+class L7PolicyUpdateException(F5AgentException):
+    pass
+
+
+class L7PolicyDeleteException(F5AgentException):
+    pass
+
+
+class esdJSONFileEmptyException(F5AgentException):
+    pass
+
+
+class esdJSONFileInvalidException(F5AgentException):
     pass
 
 

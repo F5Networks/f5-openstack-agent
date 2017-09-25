@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright 2016-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,6 +45,20 @@ class ResourceType(Enum):
     route_domain = 19
     tunnel = 20
     virtual_address = 21
+    l7policy = 22
+    client_ssl_profile = 23
+    server_ssl_profile = 24
+    tcp_profile = 25
+    persistence = 26
+    cookie_persistence = 27
+    dest_addr_persistence = 28
+    hash_persistence = 29
+    msrdp_persistence = 30
+    sip_persistence = 31
+    source_addr_persistence = 32
+    ssl_persistence = 33
+    universal_persistence = 34
+    ssl_cert_file = 35
 
 
 class BigIPResourceHelper(object):
@@ -161,6 +175,14 @@ class BigIPResourceHelper(object):
 
         return resources
 
+    def exists_in_collection(self, bigip, name, partition='Common'):
+        collection = self.get_resources(bigip, partition='Common')
+        for item in collection:
+            if item.name == name:
+                return True
+
+        return False
+
     def _resource(self, bigip):
         return {
             ResourceType.nat: lambda bigip: bigip.tm.ltm.nats.nat,
@@ -196,7 +218,35 @@ class BigIPResourceHelper(object):
             ResourceType.tunnel:
                 lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel,
             ResourceType.virtual_address:
-                lambda bigip: bigip.tm.ltm.virtual_address_s.virtual_address
+                lambda bigip: bigip.tm.ltm.virtual_address_s.virtual_address,
+            ResourceType.l7policy:
+                lambda bigip: bigip.tm.ltm.policys.policy,
+            ResourceType.client_ssl_profile:
+                lambda bigip: bigip.tm.ltm.profile.client_ssls.client_ssl,
+            ResourceType.server_ssl_profile:
+                lambda bigip: bigip.tm.ltm.profile.server_ssls.server_ssl,
+            ResourceType.tcp_profile:
+                lambda bigip: bigip.tm.ltm.profile.tcps.tcp,
+            ResourceType.persistence:
+                lambda bigip: bigip.tm.ltm.persistence,
+            ResourceType.cookie_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.cookies.cookie,
+            ResourceType.dest_addr_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.dest_addrs.dest_addr,
+            ResourceType.hash_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.hashs.hash,
+            ResourceType.msrdp_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.msrdp,
+            ResourceType.sip_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.sips,
+            ResourceType.source_addr_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.source_addr,
+            ResourceType.ssl_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.ssl,
+            ResourceType.universal_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.universal,
+            ResourceType.ssl_cert_file:
+                lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -235,6 +285,34 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.net.tunnels.tunnels,
             ResourceType.virtual_address:
                 lambda bigip: bigip.tm.ltm.virtual_address_s,
+            ResourceType.l7policy:
+                lambda bigip: bigip.tm.ltm.policys,
+            ResourceType.client_ssl_profile:
+                lambda bigip: bigip.tm.ltm.profile.client_ssls,
+            ResourceType.server_ssl_profile:
+                lambda bigip: bigip.tm.ltm.profile.server_ssls,
+            ResourceType.tcp_profile:
+                lambda bigip: bigip.tm.ltm.profile.tcps,
+            ResourceType.persistence:
+                lambda bigip: bigip.tm.ltm.persistence,
+            ResourceType.cookie_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.cookies,
+            ResourceType.dest_addr_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.dest_addrs,
+            ResourceType.hash_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.hashs,
+            ResourceType.msrdp_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.msrdps,
+            ResourceType.sip_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.sips,
+            ResourceType.source_addr_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.source_addrs,
+            ResourceType.ssl_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.ssls,
+            ResourceType.universal_persistence:
+                lambda bigip: bigip.tm.ltm.persistence.universals,
+            ResourceType.ssl_cert_file:
+                lambda bigip: bigip.tm.sys.file.ssl_certs
         }
 
         if self.resource_type in collection_map:

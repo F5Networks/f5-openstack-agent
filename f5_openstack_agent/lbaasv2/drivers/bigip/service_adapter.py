@@ -103,9 +103,12 @@ class ServiceModelAdapter(object):
         return vip
 
     def get_virtual_name(self, service):
-        listener = service["listener"]
-        loadbalancer = service["loadbalancer"]
-        return self._init_virtual_name(loadbalancer, listener)
+        vs_name = None
+        if "listener" in service:
+            listener = service["listener"]
+            loadbalancer = service["loadbalancer"]
+            vs_name = self._init_virtual_name(loadbalancer, listener)
+        return vs_name
 
     def _init_virtual_name(self, loadbalancer, listener):
         name = self.prefix + listener["id"]
@@ -519,3 +522,6 @@ class ServiceModelAdapter(object):
                 tls['sni_containers'] = listener['sni_containers']
 
         return tls
+
+    def get_name(self, uuid):
+        return self.prefix + str(uuid)
