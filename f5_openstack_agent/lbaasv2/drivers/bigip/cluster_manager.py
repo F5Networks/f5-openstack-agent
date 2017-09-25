@@ -61,8 +61,12 @@ class ClusterManager(object):
 
     def save_config(self, bigip):
         try:
-            c = bigip.tm.sys.config
-            c.save()
+            # c = bigip.tm.sys.config
+            # c.save()
+            bigip.tm.util.bash.exec_cmd(
+                command='run',
+                utilCmdArgs="-c 'tmsh save sys config'"
+            )
         except HTTPError as err:
             LOG.error("Error saving config."
                       "Repsponse status code: %s. Response "
