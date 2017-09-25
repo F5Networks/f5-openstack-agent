@@ -1,6 +1,6 @@
 # coding=utf-8
 #
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2017 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
+from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
+    EsdTagProcessor
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
@@ -60,6 +62,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
+
 
 LOG = logging.getLogger(__name__)
 
@@ -169,6 +172,10 @@ OPTS = [  # XXX maybe we should make this a dictionary
     cfg.BoolOpt(
         'f5_route_domain_strictness', default=False,
         help='Strict route domain isolation'
+    ),
+    cfg.BoolOpt(
+        'f5_common_networks', default=False,
+        help='All networks defined under Common partition'
     ),
     cfg.BoolOpt(
         'f5_common_external_networks', default=True,
@@ -397,6 +404,16 @@ class iControlDriver(LBaaSBaseDriver):
                  % (len(self.__bigips), self.conf.icontrol_username))
         LOG.info('iControlDriver dynamic agent configurations:%s'
                  % self.agent_configurations)
+
+        # read enhanced services definitions
+        esd_dir = os.path.join(self.get_config_dir(), 'esd')
+        esd = EsdTagProcessor(esd_dir)
+        try:
+            esd.process_esd(self.get_all_bigips())
+            self.lbaas_builder.init_esd(esd)
+        except f5ex.esdJSONFileInvalidException as err:
+            LOG.error("Unable to initialize ESD. Error: %s.", err.message)
+
         self.initialized = True
 
     def connect_bigips(self):
@@ -1278,6 +1295,9 @@ class iControlDriver(LBaaSBaseDriver):
 
     def update_service_status(self, service, timed_out=False):
         """Update status of objects in OpenStack """
+
+        LOG.debug("_update_service_status")
+
         if not self.plugin_rpc:
             LOG.error("Cannot update status in Neutron without "
                       "RPC handler.")
@@ -1299,6 +1319,10 @@ class iControlDriver(LBaaSBaseDriver):
         if 'listeners' in service:
             # Call update_listener_status
             self._update_listener_status(service)
+        if 'l7policy_rules' in service:
+            self._update_l7rule_status(service['l7policy_rules'])
+        if 'l7policies' in service:
+            self._update_l7policy_status(service['l7policies'])
 
         self._update_loadbalancer_status(service, timed_out)
 
@@ -1397,6 +1421,48 @@ class iControlDriver(LBaaSBaseDriver):
                         listener['id'],
                         provisioning_status,
                         lb_const.OFFLINE)
+
+    @log_helpers.log_method_call
+    def _update_l7rule_status(self, l7rules):
+        """Update l7rule status in OpenStack """
+        for l7rule in l7rules:
+            if 'provisioning_status' in l7rule:
+                provisioning_status = l7rule['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_l7rule_status(
+                            l7rule['id'],
+                            l7rule['policy_id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    self.plugin_rpc.l7rule_destroyed(
+                        l7rule['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_l7rule_status(
+                        l7rule['id'], l7rule['policy_id'])
+
+    @log_helpers.log_method_call
+    def _update_l7policy_status(self, l7policies):
+        LOG.debug("_update_l7policy_status")
+        """Update l7policy status in OpenStack """
+        for l7policy in l7policies:
+            if 'provisioning_status' in l7policy:
+                provisioning_status = l7policy['provisioning_status']
+                if (provisioning_status == plugin_const.PENDING_CREATE or
+                        provisioning_status == plugin_const.PENDING_UPDATE):
+                        self.plugin_rpc.update_l7policy_status(
+                            l7policy['id'],
+                            plugin_const.ACTIVE,
+                            lb_const.ONLINE
+                        )
+                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    LOG.debug("calling l7policy_destroyed")
+                    self.plugin_rpc.l7policy_destroyed(
+                        l7policy['id'])
+                elif provisioning_status == plugin_const.ERROR:
+                    self.plugin_rpc.update_l7policy_status(l7policy['id'])
 
     @log_helpers.log_method_call
     def _update_loadbalancer_status(self, service, timed_out=False):
@@ -1567,9 +1633,82 @@ class iControlDriver(LBaaSBaseDriver):
                    f5const.MIN_TMOS_MINOR_VERSION))
         return major_version, minor_version
 
+    @serialized('create_l7policy')
+    @is_connected
+    def create_l7policy(self, l7policy, service):
+        """Create lb l7policy"""
+        LOG.debug("Creating l7policy")
+        self._common_service_handler(service)
+
+    @serialized('update_l7policy')
+    @is_connected
+    def update_l7policy(self, old_l7policy, l7policy, service):
+        """Update lb l7policy"""
+        LOG.debug("Updating l7policy")
+        self._common_service_handler(service)
+
+    @serialized('delete_l7policy')
+    @is_connected
+    def delete_l7policy(self, l7policy, service):
+        """Delete lb l7policy"""
+        LOG.debug("Deleting l7policy")
+        self._common_service_handler(service)
+
+    @serialized('create_l7rule')
+    @is_connected
+    def create_l7rule(self, pool, service):
+        """Create lb l7rule"""
+        LOG.debug("Creating l7rule")
+        self._common_service_handler(service)
+
+    @serialized('update_l7rule')
+    @is_connected
+    def update_l7rule(self, old_l7rule, l7rule, service):
+        """Update lb l7rule"""
+        LOG.debug("Updating l7rule")
+        self._common_service_handler(service)
+
+    @serialized('delete_l7rule')
+    @is_connected
+    def delete_l7rule(self, l7rule, service):
+        """Delete lb l7rule"""
+        LOG.debug("Deleting l7rule")
+        self._common_service_handler(service)
+
     def trace_service_requests(self, service):
         with open(self.file_name, 'r+') as fp:
             fp.seek(-1, 2)
             fp.write(',')
             json.dump(service, fp, sort_keys=True, indent=2)
             fp.write(']')
+
+    def get_config_dir(self):
+        """Determines F5 agent configuration directory.
+
+        Oslo cfg has a config_dir option, but F5 agent is not currently
+        started with this option. To be complete, the code will check if
+        config_dir is defined, and use that value as long as it is a single
+        string (no idea what to do if it is not a str). If not defined,
+        get the full dir path of the INI file, which is currently used when
+        starting F5 agent. If neither option is available,
+        use /etc/neutron/services/f5.
+
+        :return: str defining configuration directory.
+        """
+        if self.conf.config_dir and isinstance(self.conf.config_dir, str):
+            # use config_dir parameter if defined, and is a string
+            return self.conf.config_dir
+        elif self.conf.config_file:
+            # multiple config files (neutron and agent) are usually defined
+            if isinstance(self.conf.config_file, list):
+                # find agent config (f5-openstack-agent.ini)
+                config_files = self.conf.config_file
+                for file_name in config_files:
+                    if 'f5-openstack-agent.ini' in file_name:
+                        return os.path.dirname(file_name)
+            elif isinstance(self.conf.config_file, str):
+                # not a list, just a single string
+                return os.path.dirname(self.conf.config_file)
+
+        # if all else fails
+        return '/etc/neutron/services/f5'

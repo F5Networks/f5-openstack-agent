@@ -1258,4 +1258,139 @@
       "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
     }
   }
-}]
+},{
+  "healthmonitors": [], 
+  "listeners": [], 
+  "loadbalancer": {
+    "admin_state_up": true, 
+    "description": "", 
+    "gre_vteps": [], 
+    "id": "8856d03c-86f8-4533-93bc-31cfb3a1956b", 
+    "listeners": [], 
+    "name": "lb1", 
+    "network_id": "232fba57-9e7e-4ecd-8450-4a53176af55a", 
+    "operating_status": "ONLINE", 
+    "provider": "f5networks", 
+    "provisioning_status": "PENDING_DELETE", 
+    "tenant_id": "97210b7b76294cc9ba0a023a75f6d097", 
+    "vip_address": "10.2.4.105", 
+    "vip_port": {
+      "admin_state_up": true, 
+      "allowed_address_pairs": [], 
+      "binding:host_id": "host-168.int.lineratesystems.com:9cb0a8ec-40d1-5e9e-af8f-c452582821d2", 
+      "binding:profile": {}, 
+      "binding:vif_details": {}, 
+      "binding:vif_type": "binding_failed", 
+      "binding:vnic_type": "normal", 
+      "device_id": "cd6b5c48-4190-5346-9278-24acec015ee6", 
+      "device_owner": "network:f5lbaasv2", 
+      "dns_assignment": [
+        {
+          "fqdn": "host-10-2-4-105.openstacklocal.", 
+          "hostname": "host-10-2-4-105", 
+          "ip_address": "10.2.4.105"
+        }
+      ], 
+      "dns_name": "", 
+      "extra_dhcp_opts": [], 
+      "fixed_ips": [
+        {
+          "ip_address": "10.2.4.105", 
+          "subnet_id": "4dc7caad-f9a9-4050-914e-b60eb6cf8ef7"
+        }
+      ], 
+      "id": "693a22bf-6a54-4b65-a14e-2a0e296d1d03", 
+      "mac_address": "fa:16:3e:07:1c:2f", 
+      "name": "loadbalancer-8856d03c-86f8-4533-93bc-31cfb3a1956b", 
+      "network_id": "232fba57-9e7e-4ecd-8450-4a53176af55a", 
+      "security_groups": [
+        "242578f0-9807-4b48-9386-1cc2f3092068"
+      ], 
+      "status": "PENDING_DELETE", 
+      "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
+    }, 
+    "vip_port_id": "693a22bf-6a54-4b65-a14e-2a0e296d1d03", 
+    "vip_subnet_id": "4dc7caad-f9a9-4050-914e-b60eb6cf8ef7", 
+    "vxlan_vteps": [
+      "201.0.166.1", 
+      "201.0.168.1", 
+      "201.0.169.1", 
+      "201.0.151.10"
+    ]
+  }, 
+  "members": [], 
+  "networks": {
+    "232fba57-9e7e-4ecd-8450-4a53176af55a": {
+      "admin_state_up": true, 
+      "id": "232fba57-9e7e-4ecd-8450-4a53176af55a", 
+      "mtu": 0, 
+      "name": "tempest-mgmt-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 23, 
+      "router:external": false, 
+      "shared": true, 
+      "status": "ACTIVE", 
+      "subnets": [
+        "4dc7caad-f9a9-4050-914e-b60eb6cf8ef7"
+      ], 
+      "tenant_id": "97210b7b76294cc9ba0a023a75f6d097", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [], 
+  "subnets": {
+    "4dc7caad-f9a9-4050-914e-b60eb6cf8ef7": {
+      "allocation_pools": [
+        {
+          "end": "10.2.4.150", 
+          "start": "10.2.4.100"
+        }
+      ], 
+      "cidr": "10.2.4.0/24", 
+      "dns_nameservers": [
+        "10.190.20.5", 
+        "10.190.0.20"
+      ], 
+      "enable_dhcp": true, 
+      "gateway_ip": "10.2.4.1", 
+      "host_routes": [], 
+      "id": "4dc7caad-f9a9-4050-914e-b60eb6cf8ef7", 
+      "ip_version": 4, 
+      "ipv6_address_mode": null, 
+      "ipv6_ra_mode": null, 
+      "name": "mgmt_v4_subnet", 
+      "network_id": "232fba57-9e7e-4ecd-8450-4a53176af55a", 
+      "shared": true, 
+      "subnetpool_id": null, 
+      "tenant_id": "97210b7b76294cc9ba0a023a75f6d097"
+    }
+  }
+},{
+  "healthmonitors": [], 
+  "listeners": [], 
+  "loadbalancer": {}, 
+  "members": [], 
+  "networks": {
+    "232fba57-9e7e-4ecd-8450-4a53176af55a": {
+      "admin_state_up": true, 
+      "id": "232fba57-9e7e-4ecd-8450-4a53176af55a", 
+      "mtu": 0, 
+      "name": "tempest-mgmt-network", 
+      "provider:network_type": "vxlan", 
+      "provider:physical_network": null, 
+      "provider:segmentation_id": 23, 
+      "router:external": false, 
+      "shared": true, 
+      "status": "PENDING_DELETE", 
+      "subnets": [
+        "4dc7caad-f9a9-4050-914e-b60eb6cf8ef7"
+      ], 
+      "tenant_id": "97210b7b76294cc9ba0a023a75f6d097", 
+      "vlan_transparent": null
+    }
+  }, 
+  "pools": [], 
+  "subnets": {}
+}
+]
