@@ -21,7 +21,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 
 
-class TestEsdFileHanlder(unittest.TestCase):
+class TestEsdFileHandler(unittest.TestCase):
 
     def test_invalid_dir_name(self):
         # invliad directory name
