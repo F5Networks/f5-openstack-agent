@@ -974,9 +974,15 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             LOG.debug('received update_fdb_entries: %s host: %s'
                       % (fdb_entries, host))
-            self.lbdriver.fdb_update(fdb_entries)
+            # self.lbdriver.fdb_update(fdb_entries)
+            LOG.warning("update_fdb_entries: the LBaaSv2 Agent does not "
+                        "handle an update of the IP address of a neutron "
+                        "port. This port is generally tied to a member. If "
+                        "the IP address of a member was changed, be sure to "
+                        "also recreate the member in neutron-lbaas with the "
+                        "new address.")
         except q_exception.NeutronException as exc:
-            LOG.error("update_fdb_entrie: NeutronException: %s" % exc.msg)
+            LOG.error("update_fdb_entries: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("update_fdb_entrie: Exception: %s" % exc.message)
 
