@@ -146,31 +146,28 @@ class LBaaSBuilder(object):
 
             if pool:
                 svc['pool'] = pool
-            if self._is_not_pending_delete(listener) and \
-                    self._is_not_error(listener):
-                if listener['provisioning_status'] == \
-                        plugin_const.PENDING_UPDATE:
-                    try:
-                        self.listener_builder.update_listener(svc, bigips)
-                    except Exception as err:
-                        loadbalancer['provisioning_status'] = \
-                            plugin_const.ERROR
-                        listener['provisioning_status'] = plugin_const.ERROR
-                        raise f5_ex.VirtualServerUpdateException(err.message)
+            if listener['provisioning_status'] == \
+                    plugin_const.PENDING_UPDATE:
+                try:
+                    self.listener_builder.update_listener(svc, bigips)
+                except Exception as err:
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ERROR
+                    listener['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.VirtualServerUpdateException(err.message)
 
-                elif listener['provisioning_status'] != \
-                        plugin_const.PENDING_DELETE:
-                    try:
-                        # create_listener() will do an update if VS exists
-                        self.listener_builder.create_listener(svc, bigips)
-                        listener['operating_status'] = \
-                            svc['listener']['operating_status']
-                    except Exception as err:
-                        loadbalancer['provisioning_status'] = \
-                            plugin_const.ERROR
-                        listener['provisioning_status'] = plugin_const.ERROR
-                        raise f5_ex.VirtualServerCreationException(err.message)
-                self._set_status_as_active(listener)
+            elif self._is_not_pending_delete(listener):
+                try:
+                    # create_listener() will do an update if VS exists
+                    self.listener_builder.create_listener(svc, bigips)
+                    listener['operating_status'] = \
+                        svc['listener']['operating_status']
+                except Exception as err:
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ERROR
+                    listener['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.VirtualServerCreationException(err.message)
+            self._set_status_as_active(listener)
 
     def _assure_pools_created(self, service):
         if "pools" not in service:

@@ -623,10 +623,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 error_status = handle_error(error_status, obj)
             elif expected_tree[item] == list and \
                     isinstance(obj, list):
-                for cnt, obj in enumerate(obj):
-                    if len(obj) == 1:
-                        obj = obj[cnt][obj]
-                    error_status = handle_error(error_status, obj)
+                for item in obj:
+                    if len(item) == 1:
+                        # {'networks': [{'id': {<network_obj>}}]}
+                        item = item[item.keys()[0]]
+                    error_status = handle_error(error_status, item)
         if error_status:
             loadbalancer['provisioning_status'] = plugin_const.ERROR
         return error_status
