@@ -564,7 +564,7 @@ class NetworkServiceBuilder(object):
                 subnetinfo, tenant_id, snats_per_subnet)
 
             if len(snat_addrs) != snats_per_subnet:
-                raise f5_ex.SNAT_CreationException(
+                raise f5_ex.SNATCreationException(
                     "Unable to satisfy request to allocate %d "
                     "snats.  Actual SNAT count: %d SNATs" %
                     (snats_per_subnet, len(snat_addrs)))
@@ -657,113 +657,47 @@ class NetworkServiceBuilder(object):
         loadbalancer = service['loadbalancer']
         service_adapter = self.service_adapter
 
-        for bigip in self.driver.get_all_bigips():
-            for member in service['members']:
-                LOG.debug("update_bigip_l2 update service members")
-                member['network'] = service_adapter.get_network_from_service(
-                    service,
-                    member['network_id']
-                )
-                member_status = member['provisioning_status']
-                if member_status == plugin_const.PENDING_DELETE:
-                    self.delete_bigip_member_l2(bigip, loadbalancer, member)
-                else:
-                    self.update_bigip_member_l2(bigip, loadbalancer, member)
+        bigips = self.driver.get_all_bigips()
 
-            if "network_id" not in loadbalancer:
-                LOG.error("update_bigip_l2, expected network ID")
-                return
+        update_members = []
+        delete_members = []
+        update_loadbalancer = None
+        delete_loadbalancer = None
 
-            LOG.debug("update_bigip_l2 get network for ID %s" %
-                      loadbalancer["network_id"])
-            loadbalancer['network'] = service_adapter.get_network_from_service(
-                service,
-                loadbalancer['network_id']
+        if "network_id" not in loadbalancer:
+            LOG.error("update_bigip_l2, expected network ID")
+            return
+
+        if loadbalancer.get('provisioning_status', None) == \
+                plugin_const.PENDING_DELETE:
+            delete_loadbalancer = loadbalancer
+        else:
+            update_loadbalancer = loadbalancer
+
+        members = service['members']
+        for member in members:
+            member['network'] = service_adapter.get_network_from_service(
+                service, member['network_id'])
+            if member.get('provisioning_status', None) == \
+                    plugin_const.PENDING_DELETE:
+                delete_members.append(member)
+            else:
+                update_members.append(member)
+
+        loadbalancer['network'] = service_adapter.get_network_from_service(
+            service,
+            loadbalancer['network_id']
             )
-            lb_status = loadbalancer['provisioning_status']
-            if lb_status == plugin_const.PENDING_DELETE:
-                self.delete_bigip_vip_l2(bigip, loadbalancer)
-            else:
-                LOG.debug("update_bigip_l2 calling update_bigip_vip_l2")
-                self.update_bigip_vip_l2(bigip, loadbalancer)
-            LOG.debug("update_bigip_l2 complete")
 
-    def update_bigip_member_l2(self, bigip, loadbalancer, member):
-        # update pool member l2 records
-        network = member['network']
-        if network:
-            if self.l2_service.is_common_network(network):
-                net_folder = 'Common'
-            else:
-                net_folder = self.service_adapter.get_folder_name(
-                    loadbalancer['tenant_id']
-                )
+        if delete_loadbalancer or delete_members:
+            self.l2_service.delete_fdb_entries(
+                bigips, delete_loadbalancer, delete_members)
 
-            if 'port' in member:
-                fdb_info = {'network': network,
-                            'ip_address': member['address'],
-                            'mac_address': member['port']['mac_address']}
-                self.l2_service.add_bigip_fdbs(
-                    bigip, net_folder, fdb_info, member)
-            else:
-                LOG.warning('LBaaS member, %s, is not associated with Neutron '
-                            'port. No fdb entries will be created for this '
-                            'member.' % member['address'])
+        if update_loadbalancer or update_members:
+            self.l2_service.add_fdb_entries(
+                bigips, update_loadbalancer, update_members)
 
-    def delete_bigip_member_l2(self, bigip, loadbalancer, member):
-        # Delete pool member l2 records
-        network = member['network']
-        if network:
-            if 'port' in member:
-                if self.l2_service.is_common_network(network):
-                    net_folder = 'Common'
-                else:
-                    net_folder = self.service_adapter.get_folder_name(
-                        loadbalancer['tenant_id']
-                    )
-                fdb_info = {'network': network,
-                            'ip_address': member['address'],
-                            'mac_address': member['port']['mac_address']}
-                self.l2_service.delete_bigip_fdbs(
-                    bigip, net_folder, fdb_info, member)
-            else:
-                LOG.warning('LBaaS member, %s, is not assoicated with '
-                            'Neutron port. If any fdb entries were '
-                            'created for this member, they may need to be '
-                            'removed from the BIG-IP device.'
-                            % member['address'])
-
-    def update_bigip_vip_l2(self, bigip, loadbalancer):
-        # Update vip l2 records
-        network = loadbalancer['network']
-        if network:
-            if self.l2_service.is_common_network(network):
-                net_folder = 'Common'
-            else:
-                net_folder = self.service_adapter.get_folder_name(
-                    loadbalancer['tenant_id']
-                )
-            fdb_info = {'network': network,
-                        'ip_address': None,
-                        'mac_address': None}
-            self.l2_service.add_bigip_fdbs(
-                bigip, net_folder, fdb_info, loadbalancer)
-
-    def delete_bigip_vip_l2(self, bigip, loadbalancer):
-        # Delete loadbalancer l2 records
-        network = loadbalancer['network']
-        if network:
-            if self.l2_service.is_common_network(network):
-                net_folder = 'Common'
-            else:
-                net_folder = self.service_adapter.get_folder_name(
-                    loadbalancer['tenant_id']
-                )
-            fdb_info = {'network': network,
-                        'ip_address': None,
-                        'mac_address': None}
-            self.l2_service.delete_bigip_fdbs(
-                bigip, net_folder, fdb_info, loadbalancer)
+        LOG.debug("update_bigip_l2 complete")
 
     def _assure_delete_nets_shared(self, bigip, service, subnet_hints):
         # Assure shared configuration (which syncs) is deleted
