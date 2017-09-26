@@ -321,6 +321,9 @@ def is_connected(method):
 
 class iControlDriver(LBaaSBaseDriver):
     '''gets rpc plugin from manager (which instantiates, via importutils'''
+    positive_plugin_const_state = \
+        tuple([plugin_const.ACTIVE, plugin_const.PENDING_CREATE,
+               plugin_const.PENDING_UPDATE])
 
     def __init__(self, conf, registerOpts=True):
         # The registerOpts parameter allows a test to
@@ -1337,10 +1340,10 @@ class iControlDriver(LBaaSBaseDriver):
             if 'provisioning_status' in member:
                 provisioning_status = member['provisioning_status']
 
-                if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                if provisioning_status in self.positive_plugin_const_state:
 
-                    if timed_out:
+                    if timed_out and \
+                            provisioning_status != plugin_const.ACTIVE:
                         member['provisioning_status'] = plugin_const.ERROR
                         operating_status = lb_const.OFFLINE
                     else:
@@ -1366,8 +1369,7 @@ class iControlDriver(LBaaSBaseDriver):
         for health_monitor in health_monitors:
             if 'provisioning_status' in health_monitor:
                 provisioning_status = health_monitor['provisioning_status']
-                if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                if provisioning_status in self.positive_plugin_const_state:
                         self.plugin_rpc.update_health_monitor_status(
                             health_monitor['id'],
                             plugin_const.ACTIVE,
@@ -1388,8 +1390,7 @@ class iControlDriver(LBaaSBaseDriver):
         for pool in pools:
             if 'provisioning_status' in pool:
                 provisioning_status = pool['provisioning_status']
-                if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                if provisioning_status in self.positive_plugin_const_state:
                         self.plugin_rpc.update_pool_status(
                             pool['id'],
                             plugin_const.ACTIVE,
@@ -1409,8 +1410,7 @@ class iControlDriver(LBaaSBaseDriver):
         for listener in listeners:
             if 'provisioning_status' in listener:
                 provisioning_status = listener['provisioning_status']
-                if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                if provisioning_status in self.positive_plugin_const_state:
                         self.plugin_rpc.update_listener_status(
                             listener['id'],
                             plugin_const.ACTIVE,
@@ -1433,8 +1433,7 @@ class iControlDriver(LBaaSBaseDriver):
         for l7rule in l7rules:
             if 'provisioning_status' in l7rule:
                 provisioning_status = l7rule['provisioning_status']
-                if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                if provisioning_status in self.positive_plugin_const_state:
                         self.plugin_rpc.update_l7rule_status(
                             l7rule['id'],
                             l7rule['policy_id'],
@@ -1455,8 +1454,7 @@ class iControlDriver(LBaaSBaseDriver):
         for l7policy in l7policies:
             if 'provisioning_status' in l7policy:
                 provisioning_status = l7policy['provisioning_status']
-                if (provisioning_status == plugin_const.PENDING_CREATE or
-                        provisioning_status == plugin_const.PENDING_UPDATE):
+                if provisioning_status in self.positive_plugin_const_state:
                         self.plugin_rpc.update_l7policy_status(
                             l7policy['id'],
                             plugin_const.ACTIVE,
@@ -1476,8 +1474,7 @@ class iControlDriver(LBaaSBaseDriver):
         provisioning_status = loadbalancer.get('provisioning_status',
                                                plugin_const.ERROR)
 
-        if (provisioning_status == plugin_const.PENDING_CREATE or
-                provisioning_status == plugin_const.PENDING_UPDATE):
+        if provisioning_status in self.positive_plugin_const_state:
             if timed_out:
                 operating_status = (lb_const.OFFLINE)
                 if provisioning_status == plugin_const.PENDING_CREATE:

@@ -569,9 +569,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 lb_id
             )
             self.cache.put(service, self.agent_host)
-            if not self.lbdriver.service_exists(service):
-                LOG.error('active loadbalancer %s is not on BIG-IP...syncing'
-                          % lb_id)
+            if not self.lbdriver.service_exists(service) or \
+                    self.has_provisioning_status_of_error(service):
+                LOG.info("active loadbalancer '{}' is not on BIG-IP"
+                         " or has error state...syncing".format(lb_id))
 
                 if self.lbdriver.service_rename_required(service):
                     self.lbdriver.service_object_teardown(service)
@@ -586,11 +587,49 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
                 self.lbdriver.sync(service)
             else:
-                LOG.debug("Found service definition for %s" % (lb_id))
+                LOG.debug("Found service definition for '{}', state is ACTIVE"
+                          " move on.".format(lb_id))
         except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.exception("Service validation error: %s" % exc.message)
+
+    @staticmethod
+    def has_provisioning_status_of_error(service):
+        """Takes a service and determines if it is in an ERROR status
+
+        This staticmethod will go through a service object and determine if it
+        has an ERROR status anywhere within the object.
+        """
+        expected_tree = dict(loadbalancer=dict, members=list, pools=list,
+                             listeners=list, healthmonitors=list,
+                             l7policies=list, l7policy_rules=list)
+        error_status = False  # assume we're in the clear unless otherwise...
+        loadbalancer = service.get('loadbalancer', dict())
+
+        def handle_error(error_status, obj):
+            provisioning_status = obj.get('provisioning_status')
+            if provisioning_status == plugin_const.ERROR:
+                obj_id = obj.get('id', 'unknown')
+                LOG.warning("Service object has object of type(id) {}({})"
+                            " that is in '{}' status.".format(
+                                item, obj_id, plugin_const.ERROR))
+                error_status = True
+            return error_status
+
+        for item in expected_tree:
+            obj = service.get(item, expected_tree[item]())
+            if expected_tree[item] == dict and isinstance(service[item], dict):
+                error_status = handle_error(error_status, obj)
+            elif expected_tree[item] == list and \
+                    isinstance(obj, list):
+                for cnt, obj in enumerate(obj):
+                    if len(obj) == 1:
+                        obj = obj[cnt][obj]
+                    error_status = handle_error(error_status, obj)
+        if error_status:
+            loadbalancer['provisioning_status'] = plugin_const.ERROR
+        return error_status
 
     @log_helpers.log_method_call
     def refresh_service(self, lb_id):
