@@ -758,7 +758,7 @@ class L2ServiceBuilder(object):
                 fdbs[tunnel_name]['folder'] = self._get_network_folder(network)
                 fdbs[tunnel_name]['records'] = {}
 
-            records = fdbs['tunnel_name']['records']
+            records = fdbs[tunnel_name]['records']
             mac_addr = member['port']['mac_address']
             self.append_fdb_records(network,
                                     member,
@@ -773,7 +773,9 @@ class L2ServiceBuilder(object):
         vteps = _get_vteps(network, vtep_source)
         for vtep in vteps:
             if not mac_addr:
-                mac_addr = _get_tunnel_fake_mac(network, vtep)
-            records[mac_addr] = {'name': mac_addr,
-                                 'endpoint': vtep,
-                                 'ip_address': ip_address}
+                mac_addr_key = _get_tunnel_fake_mac(network, vtep)
+            else:
+                mac_addr_key = mac_addr
+
+            records[mac_addr_key] = {'endpoint': vtep,
+                                     'ip_address': ip_address}
