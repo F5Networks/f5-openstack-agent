@@ -659,8 +659,8 @@ class NetworkServiceBuilder(object):
 
         bigips = self.driver.get_all_bigips()
 
-        update_members = []
-        delete_members = []
+        update_members = list()
+        delete_members = list()
         update_loadbalancer = None
         delete_loadbalancer = None
 
