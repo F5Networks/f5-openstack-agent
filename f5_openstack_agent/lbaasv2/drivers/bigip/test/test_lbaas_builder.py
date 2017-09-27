@@ -811,7 +811,7 @@ class TestLbaasBuilder(object):
         builder.get_l7policy_for_rule.assert_called_once_with(
             mock_service['l7policies'], mock_service['l7policy_rules'][0])
         l7policy.get.assert_called_once_with('name', None)
-        builder.driver.get_config_bigips.assert_called_once()
+        assert builder.driver.get_config_bigips.call_count == 1
         # Clear our mocks...
         self.reset_mocks(builder.is_esd, builder.get_l7policy_for_rule,
                          l7policy.get, builder.driver.get_config_bigips,
