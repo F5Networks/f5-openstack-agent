@@ -517,7 +517,7 @@ class LBaaSv2PluginRPC(object):
         try:
             service = self._call(
                 self.context,
-                self._make_msg('validate_pools_state',
+                self._make_msg('validate_listeners_state',
                                listeners=listeners,
                                host=self.host),
                 topic=self.topic

@@ -819,7 +819,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 listeners = self.lbdriver.get_all_deployed_listeners()
                 if listeners:
                     # Ask Neutron for the status of all deployed listeners
-                    listener_status = self.plugin_rpc.validate_listener_state(
+                    listener_status = self.plugin_rpc.validate_listeners_state(
                         list(listeners.keys()))
                     LOG.debug('validated_pools_state returned: %s'
                               % listener_status)
