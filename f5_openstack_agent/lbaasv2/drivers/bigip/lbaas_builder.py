@@ -76,7 +76,7 @@ class LBaaSBuilder(object):
 
         self._assure_l7policies_deleted(service)
 
-        self._assure_pools_created(service)
+        self._assure_pools_configured(service)
 
         self._assure_listeners_deleted(service)
 
