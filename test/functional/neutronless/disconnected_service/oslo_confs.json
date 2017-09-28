@@ -66,6 +66,7 @@
         "environment_specific_plugin": true, 
         "f5_bigip_lbaas_device_driver": "f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.iControlDriver", 
         "f5_common_external_networks": true, 
+        "f5_common_networks": false, 
         "f5_device_type": "external", 
         "f5_external_physical_mappings": [
             "default:1.1:true"
@@ -242,6 +243,7 @@
         "environment_specific_plugin": true, 
         "f5_bigip_lbaas_device_driver": "f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.iControlDriver", 
         "f5_common_external_networks": true, 
+        "f5_common_networks": false, 
         "f5_device_type": "external", 
         "f5_external_physical_mappings": [
             "default:1.1:true"
@@ -418,6 +420,7 @@
         "environment_specific_plugin": true, 
         "f5_bigip_lbaas_device_driver": "f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.iControlDriver", 
         "f5_common_external_networks": true, 
+        "f5_common_networks": false, 
         "f5_device_type": "external", 
         "f5_external_physical_mappings": [
             "default:1.1:true"
@@ -594,6 +597,7 @@
         "environment_specific_plugin": true, 
         "f5_bigip_lbaas_device_driver": "f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.iControlDriver", 
         "f5_common_external_networks": true, 
+        "f5_common_networks": false, 
         "f5_device_type": "external", 
         "f5_external_physical_mappings": [
             "default:1.1:true"
