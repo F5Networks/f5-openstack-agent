@@ -20,7 +20,7 @@ import pytest
 from mock import Mock
 from mock import patch
 
-from neutron.common import constants as plugin_const
+from neutron.plugins.common import constants as plugin_const
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as agent_manager
 import f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc as plugin_rpc
