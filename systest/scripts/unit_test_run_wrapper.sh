@@ -5,7 +5,7 @@ export TIMESTAMP=`date +"%Y%m%d-%H%M%S"`
 export SESSIONLOGDIR=${TAGINFO}_$TIMESTAMP
 
 export STAGENAME=f5-openstack-agent_mitaka-unit
-sudo -E cd $(PROJDIR) && \
+sudo -E cd /home/jenkins/f5-openstack-agent && \
 docker run -u jenkins -v `pwd`:/home/jenkins/f5-openstack-agent \
 docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/mitaka \
 $STAGENAME $SESSIONLOGDIR
