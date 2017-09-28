@@ -7,4 +7,4 @@ set -ex
 mkdir -p $CI_RESULTS_DIR/
 cp -r $WORKSPACE/systest/test_results/* $CI_RESULTS_DIR/
 mkdir -p ${COVERAGERESULTS}
-mv .coverage ${COVERAGERESULTS}
+mv .coverage* ${COVERAGERESULTS}
