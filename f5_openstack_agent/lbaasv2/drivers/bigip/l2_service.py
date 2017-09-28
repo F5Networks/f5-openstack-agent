@@ -763,12 +763,13 @@ class L2ServiceBuilder(object):
                 fdbs[tunnel_name]['records'] = dict()
 
             records = fdbs[tunnel_name]['records']
-            mac_addr = member['port']['mac_address']
-            self.append_member_fdb_records(network,
-                                           member,
-                                           records,
-                                           mac_addr,
-                                           ip_address=member['address'])
+            if 'port' in member and 'mac_address' in member['port']:
+                mac_addr = member['port']['mac_address']
+                self.append_member_fdb_records(network,
+                                               member,
+                                               records,
+                                               mac_addr,
+                                               ip_address=member['address'])
 
         return fdbs
 
