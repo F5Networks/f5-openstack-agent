@@ -24,7 +24,7 @@ from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as constants
 
-LOG = logging.getLogger
+LOG = logging.getLogger(__name__)
 
 
 class LBaaSv2PluginRPC(object):
@@ -372,6 +372,26 @@ class LBaaSv2PluginRPC(object):
         return port
 
     @log_helpers.log_method_call
+    def create_port_on_network(self, network_id=None, mac_address=None,
+                               name=None, host=None):
+        """Add a neutron port to the network."""
+        port = None
+        try:
+            port = self._call(
+                self.context,
+                self._make_msg('create_port_on_network',
+                               network_id=network_id,
+                               mac_address=mac_address,
+                               name=name,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "create_port_on_subnet_with_specific_ip")
+
+        return port
+
     def create_port_on_subnet_with_specific_ip(self, subnet_id=None,
                                                mac_address=None,
                                                name=None,
