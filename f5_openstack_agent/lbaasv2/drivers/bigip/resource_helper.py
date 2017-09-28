@@ -62,6 +62,7 @@ class ResourceType(Enum):
     http_profile = 36
     one_connect_profile = 37
     http_compression_profile = 38
+    fastl4_profile = 39
 
 
 class BigIPResourceHelper(object):
@@ -255,7 +256,9 @@ class BigIPResourceHelper(object):
             ResourceType.one_connect_profile:
                 lambda bigip: bigip.tm.ltm.profile.one_connects.one_connect,
             ResourceType.http_compression_profile:
-                lambda bigip: bigip.tm.ltm.profile.http_compressions.http_compression
+                lambda bigip: bigip.tm.ltm.profile.http_compressions.http_compression,
+            ResourceType.fastl4_profile:
+                lambda bigip: bigip.tm.ltm.profile.fastl4s.fastl4,
 
         }[self.resource_type](bigip)
 
@@ -328,7 +331,9 @@ class BigIPResourceHelper(object):
             ResourceType.one_connect_profile:
                 lambda bigip: bigip.tm.ltm.profile.one_connects,
             ResourceType.http_compression_profile:
-                lambda bigip: bigip.tm.ltm.profile.http_compressions
+                lambda bigip: bigip.tm.ltm.profile.http_compressions,
+            ResourceType.fastl4_profile:
+                lambda bigip: bigip.tm.ltm.profile.fastl4s,
 
         }
 

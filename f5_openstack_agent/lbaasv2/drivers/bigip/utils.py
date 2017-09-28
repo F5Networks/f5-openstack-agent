@@ -34,17 +34,24 @@ class IpNotInCidrNotation(Exception):
 
 
 def get_default_profiles(conf, listener_protocol):
-    defaults = {lb_const.PROTOCOL_HTTP:conf.f5_default_http_profiles,lb_const.PROTOCOL_HTTPS:conf.f5_default_https_profiles,lb_const.PROTOCOL_TERMINATED_HTTPS:conf.f5_default_terminated_https_profiles}
+    http_defaults = {lb_const.PROTOCOL_HTTP:conf.f5_default_http_profile,lb_const.PROTOCOL_HTTPS:conf.f5_default_https_profile,lb_const.PROTOCOL_TERMINATED_HTTPS:conf.f5_default_terminated_https_profile}
 
-    profiles = defaults.get(listener_protocol,['/Common/http','/Common/oneconnect'])
+    http_profile = http_defaults.get(listener_protocol,'/Common/http')
+    oneconnect_profile= conf.f5_default_oneconnect_profile
 
-    result = []
+    result = {}
 
-    if(profiles is not None):
-        for profile in profiles:
-            l = profile[1:].split("/")
-            if len(l)==2:
-                result.append({'partition': l[0], 'profile': l[1]})
+
+
+    l = http_profile[1:].split("/")
+    if len(l)==2:
+        result['http']={'partition': l[0], 'name': l[1],'context':'all'}
+
+    l = oneconnect_profile[1:].split("/")
+    if len(l)==2:
+        result['oneconnect']={'partition': l[0], 'name': l[1],'context':'all'}
+
+
     return result
 
 

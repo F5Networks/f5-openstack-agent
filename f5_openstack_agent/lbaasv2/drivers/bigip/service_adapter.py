@@ -439,8 +439,8 @@ class ServiceModelAdapter(object):
 
             default_profiles = utils.get_default_profiles(self.conf,listener['protocol'])
             profiles=[]
-            for profile in default_profiles:
-                profiles.append('/{}/{}'.format(profile.get('partition'), profile.get('profile')))
+            for profile in default_profiles.values():
+                profiles.append('/{}/{}'.format(profile.get('partition'), profile.get('name')))
 
             vip['profiles'] = profiles
 

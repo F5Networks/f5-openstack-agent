@@ -233,9 +233,9 @@ class ListenerServiceBuilder(object):
 
                     profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
 
-                    if(len(profiles) >0 ):
-                       for profile in profiles:
-                            self._add_profile(vip, profile.get('profile'), bigip)
+
+                    for profile in profiles.values():
+                        self._add_profile(vip, profile.get('name'), bigip)
 
 
 
@@ -591,58 +591,77 @@ class ListenerServiceBuilder(object):
         for svc in listeners:
             svc['loadbalancer'] = loadbalancer
             esds = svc.get('esds', [])
-            profiles = []
+            listener = svc.get('listener', [])
+
+            fastl4 = {'partition':'Common','name':'fastL4','context':'all'}
+            stcp_profiles = []
+            ctcp_profiles = []
+            cssl_profiles = []
+            sssl_profiles = []
+            http_profile = {}
+            oneconnect_profile = {}
+            compression_profile = {}
+            persistence_profiles = []
+
             policies = []
             irules = []
             # get virtual server name
             update_attrs = self.service_adapter.get_virtual_name(svc)
 
             for esd in esds:
-                # start with server tcp profile
-                if 'lbaas_stcp' in esd:
-                    # set serverside tcp profile
-                    profiles.append({'name': esd['lbaas_stcp'],
-                                     'partition': 'Common',
-                                     'context': 'serverside'})
-                    # restrict client profile
-                    ctcp_context = 'clientside'
-                else:
-                    # no serverside profile; use client profile for both
-                    ctcp_context = 'all'
+                # start with server tcp profile, only add if not already got some
+                ctcp_context = 'all'
 
-                # must define client profile; default to tcp if not in ESD
-                if 'lbaas_ctcp' in esd:
-                    ctcp_profile = esd['lbaas_ctcp']
-                else:
-                    ctcp_profile = 'tcp'
-                profiles.append({'name':  ctcp_profile,
-                                 'partition': 'Common',
-                                 'context': ctcp_context})
-                # http profiles
-                if 'lbaas_http' in esd:
-                    profiles.append({'name':  esd['lbaas_http'],
+                if 'lbaas_fastl4' in esd:
+                    if esd['lbaas_fastl4']=='':
+                        fastl4= {}
+
+
+
+                if len(stcp_profiles)==0:
+                    if 'lbaas_stcp' in esd:
+                        # set serverside tcp profile
+                        stcp_profiles.append({'name': esd['lbaas_stcp'],
+                                         'partition': 'Common',
+                                         'context': 'serverside'})
+                        # restrict client profile
+                        ctcp_context = 'clientside'
+
+
+                if len(ctcp_profiles)==0:
+                    # must define client profile; default to tcp if not in ESD
+                    if 'lbaas_ctcp' in esd:
+                        ctcp_profile = esd['lbaas_ctcp']
+                    else:
+                        ctcp_profile = 'tcp'
+                    ctcp_profiles.append({'name':  ctcp_profile,
                                      'partition': 'Common',
-                                     'context': 'all'})
+                                     'context': ctcp_context})
+                # http profiles
+                if 'lbaas_http' in esd and not bool(http_profile):
+                    http_profile = {'name':  esd['lbaas_http'],
+                                     'partition': 'Common',
+                                     'context': 'all'}
 
                 # one connect profiles
-                if 'lbaas_one_connect' in esd:
-                    profiles.append({'name':  esd['lbaas_one_connect'],
+                if 'lbaas_one_connect' in esd and not bool(oneconnect_profile) :
+                    oneconnect_profile = {'name':  esd['lbaas_one_connect'],
                                      'partition': 'Common',
-                                     'context': 'all'})
+                                     'context': 'all'}
 
                 # http compression profiles
-                if 'lbaas_http_compression' in esd:
-                    profiles.append({'name':  esd['lbaas_http_compression'],
+                if 'lbaas_http_compression' in esd and not bool(compression_profile):
+                    compression_profile = {'name':  esd['lbaas_http_compression'],
                                      'partition': 'Common',
-                                     'context': 'all'})
+                                     'context': 'all'}
 
                 # SSL profiles
                 if 'lbaas_cssl_profile' in esd:
-                    profiles.append({'name': esd['lbaas_cssl_profile'],
+                    cssl_profiles.append({'name': esd['lbaas_cssl_profile'],
                                      'partition': 'Common',
                                      'context': 'clientside'})
                 if 'lbaas_sssl_profile' in esd:
-                    profiles.append({'name': esd['lbaas_sssl_profile'],
+                    sssl_profiles.append({'name': esd['lbaas_sssl_profile'],
                                      'partition': 'Common',
                                      'context': 'serverside'})
 
@@ -651,17 +670,6 @@ class ListenerServiceBuilder(object):
                     update_attrs['persist'] = [{'name': esd['lbaas_persist']}]
                 if 'lbaas_fallback_persist' in esd:
                     update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
-
-                # # always use defaults for non TCP listener
-                # listener = svc["listener"]
-                # if profiles and not listener['protocol'] == 'TCP':
-                #
-                #     default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
-                #
-                #     if(len(default_profiles) >0 ):
-                #         for profile in default_profiles:
-                #             profiles.append({'name':profile.get('profile'),'partition':profile.get('partition'),'context':'all'})
-                #
 
                 # iRules
                 if 'lbaas_irule' in esd:
@@ -672,6 +680,32 @@ class ListenerServiceBuilder(object):
                 if 'lbaas_policy' in esd:
                     for policy in esd['lbaas_policy']:
                         policies.append({'name': policy, 'partition': 'Common'})
+
+
+
+
+            profiles=[]
+
+            if listener['protocol'] == lb_const.PROTOCOL_TCP:
+                if bool(fastl4):
+                    profiles.append(fastl4)
+                else:
+                    profiles = ctcp_profiles+ctcp_profiles
+            else:
+                default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
+
+                if bool(http_profile):
+                    profiles.append(http_profile)
+                else:
+                    profiles.append( default_profiles['http'])
+
+                if bool(oneconnect_profile):
+                    profiles.append(oneconnect_profile)
+                else:
+                    profiles.append(default_profiles['oneconnect'])
+
+                if bool(compression_profile):
+                    profiles.append(compression_profile)
 
             if profiles:
                 update_attrs['profiles'] = profiles
@@ -686,136 +720,136 @@ class ListenerServiceBuilder(object):
 
 
 
-    def apply_esd(self, svc, esd, bigips):
-        profiles = []
-
-        # get virtual server name
-        update_attrs = self.service_adapter.get_virtual_name(svc)
-
-        # start with server tcp profile
-        if 'lbaas_stcp' in esd:
-            # set serverside tcp profile
-            profiles.append({'name': esd['lbaas_stcp'],
-                             'partition': 'Common',
-                             'context': 'serverside'})
-            # restrict client profile
-            ctcp_context = 'clientside'
-        else:
-            # no serverside profile; use client profile for both
-            ctcp_context = 'all'
-
-        # must define client profile; default to tcp if not in ESD
-        if 'lbaas_ctcp' in esd:
-            ctcp_profile = esd['lbaas_ctcp']
-        else:
-            ctcp_profile = 'tcp'
-        profiles.append({'name':  ctcp_profile,
-                         'partition': 'Common',
-                         'context': ctcp_context})
-        # http profiles
-        if 'lbaas_http' in esd:
-            profiles.append({'name':  esd['lbaas_http'],
-                             'partition': 'Common',
-                             'context': 'all'})
-
-        # one connect profiles
-        if 'lbaas_one_connect' in esd:
-            profiles.append({'name':  esd['lbaas_one_connect'],
-                             'partition': 'Common',
-                             'context': 'all'})
-
-        # http compression profiles
-        if 'lbaas_http_compression' in esd:
-            profiles.append({'name':  esd['lbaas_http_compression'],
-                             'partition': 'Common',
-                             'context': 'all'})
-
-        # SSL profiles
-        if 'lbaas_cssl_profile' in esd:
-            profiles.append({'name': esd['lbaas_cssl_profile'],
-                             'partition': 'Common',
-                             'context': 'clientside'})
-        if 'lbaas_sssl_profile' in esd:
-            profiles.append({'name': esd['lbaas_sssl_profile'],
-                             'partition': 'Common',
-                             'context': 'serverside'})
-
-        # persistence
-        if 'lbaas_persist' in esd:
-            update_attrs['persist'] = [{'name': esd['lbaas_persist']}]
-        if 'lbaas_fallback_persist' in esd:
-            update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
-
-        # always use defaults for non TCP listener
-        listener = svc["listener"]
-        if profiles and not listener['protocol'] == 'TCP':
-
-            default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
-
-            if(len(default_profiles) >0 ):
-                for profile in default_profiles:
-                    profiles.append({'name':profile.get('profile'),'partition':profile.get('partition'),'context':'all'})
-
-        if profiles:
-            update_attrs['profiles'] = profiles
-
-        # iRules
-        if 'lbaas_irule' in esd:
-            irules = []
-            for irule in esd['lbaas_irule']:
-                irules.append('/Common/' + irule)
-            update_attrs['rules'] = irules
-
-        # L7 policies
-        if 'lbaas_policy' in esd:
-            policies = []
-            for policy in esd['lbaas_policy']:
-                policies.append({'name': policy, 'partition': 'Common'})
-            update_attrs['policies'] = policies
-
-        # udpate BIG-IPs
-        for bigip in bigips:
-            self.vs_helper.update(bigip, update_attrs)
-
-    def remove_esd(self, svc, esd, bigips):
-        # original service object definition of listener
-        vs = self.service_adapter.get_virtual(svc)
-
-        # add back SSL profile for TLS?
-        tls = self.service_adapter.get_tls(svc)
-        if tls:
-            tls['name'] = vs['name']
-            tls['partition'] = vs['partition']
-
-        listener = svc["listener"]
-
-        if listener['protocol'] == 'TCP':
-            # Revert VS back to fastL4. Must do an update to replace
-            # profiles instead of using add/remove profile. Leave http
-            # profiles in place for non-TCP listeners.
-            vs['profiles'] = ['/Common/fastL4']
-
-        # remove iRules
-        if 'lbaas_irule' in esd:
-            vs['rules'] = []
-
-        # remove policies
-        if 'lbaas_policy' in esd:
-            vs['policies'] = []
-
-        # reset persistence to original definition
-        if 'pool' in svc:
-            vip_persist = self.service_adapter.get_session_persistence(svc)
-            vs.update(vip_persist)
-
-        for bigip in bigips:
-            try:
-                # update VS back to original listener definition
-                self.vs_helper.update(bigip, vs)
-
-                # add back SSL profile for TLS
-                if tls:
-                    self.add_ssl_profile(tls, bigip)
-            except Exception as err:
-                LOG.exception("Virtual server update error: %s" % err.message)
-                raise
+    # def apply_esd(self, svc, esd, bigips):
+    #     profiles = []
+    #
+    #     # get virtual server name
+    #     update_attrs = self.service_adapter.get_virtual_name(svc)
+    #
+    #     # start with server tcp profile
+    #     if 'lbaas_stcp' in esd:
+    #         # set serverside tcp profile
+    #         profiles.append({'name': esd['lbaas_stcp'],
+    #                          'partition': 'Common',
+    #                          'context': 'serverside'})
+    #         # restrict client profile
+    #         ctcp_context = 'clientside'
+    #     else:
+    #         # no serverside profile; use client profile for both
+    #         ctcp_context = 'all'
+    #
+    #     # must define client profile; default to tcp if not in ESD
+    #     if 'lbaas_ctcp' in esd:
+    #         ctcp_profile = esd['lbaas_ctcp']
+    #     else:
+    #         ctcp_profile = 'tcp'
+    #     profiles.append({'name':  ctcp_profile,
+    #                      'partition': 'Common',
+    #                      'context': ctcp_context})
+    #     # http profiles
+    #     if 'lbaas_http' in esd:
+    #         profiles.append({'name':  esd['lbaas_http'],
+    #                          'partition': 'Common',
+    #                          'context': 'all'})
+    #
+    #     # one connect profiles
+    #     if 'lbaas_one_connect' in esd:
+    #         profiles.append({'name':  esd['lbaas_one_connect'],
+    #                          'partition': 'Common',
+    #                          'context': 'all'})
+    #
+    #     # http compression profiles
+    #     if 'lbaas_http_compression' in esd:
+    #         profiles.append({'name':  esd['lbaas_http_compression'],
+    #                          'partition': 'Common',
+    #                          'context': 'all'})
+    #
+    #     # SSL profiles
+    #     if 'lbaas_cssl_profile' in esd:
+    #         profiles.append({'name': esd['lbaas_cssl_profile'],
+    #                          'partition': 'Common',
+    #                          'context': 'clientside'})
+    #     if 'lbaas_sssl_profile' in esd:
+    #         profiles.append({'name': esd['lbaas_sssl_profile'],
+    #                          'partition': 'Common',
+    #                          'context': 'serverside'})
+    #
+    #     # persistence
+    #     if 'lbaas_persist' in esd:
+    #         update_attrs['persist'] = [{'name': esd['lbaas_persist']}]
+    #     if 'lbaas_fallback_persist' in esd:
+    #         update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
+    #
+    #     # always use defaults for non TCP listener
+    #     listener = svc["listener"]
+    #     if profiles and not listener['protocol'] == 'TCP':
+    #
+    #         default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
+    #
+    #         if(len(default_profiles) >0 ):
+    #             for profile in default_profiles:
+    #                 profiles.append({'name':profile.get('profile'),'partition':profile.get('partition'),'context':'all'})
+    #
+    #     if profiles:
+    #         update_attrs['profiles'] = profiles
+    #
+    #     # iRules
+    #     if 'lbaas_irule' in esd:
+    #         irules = []
+    #         for irule in esd['lbaas_irule']:
+    #             irules.append('/Common/' + irule)
+    #         update_attrs['rules'] = irules
+    #
+    #     # L7 policies
+    #     if 'lbaas_policy' in esd:
+    #         policies = []
+    #         for policy in esd['lbaas_policy']:
+    #             policies.append({'name': policy, 'partition': 'Common'})
+    #         update_attrs['policies'] = policies
+    #
+    #     # udpate BIG-IPs
+    #     for bigip in bigips:
+    #         self.vs_helper.update(bigip, update_attrs)
+    #
+    # def remove_esd(self, svc, esd, bigips):
+    #     # original service object definition of listener
+    #     vs = self.service_adapter.get_virtual(svc)
+    #
+    #     # add back SSL profile for TLS?
+    #     tls = self.service_adapter.get_tls(svc)
+    #     if tls:
+    #         tls['name'] = vs['name']
+    #         tls['partition'] = vs['partition']
+    #
+    #     listener = svc["listener"]
+    #
+    #     if listener['protocol'] == 'TCP':
+    #         # Revert VS back to fastL4. Must do an update to replace
+    #         # profiles instead of using add/remove profile. Leave http
+    #         # profiles in place for non-TCP listeners.
+    #         vs['profiles'] = ['/Common/fastL4']
+    #
+    #     # remove iRules
+    #     if 'lbaas_irule' in esd:
+    #         vs['rules'] = []
+    #
+    #     # remove policies
+    #     if 'lbaas_policy' in esd:
+    #         vs['policies'] = []
+    #
+    #     # reset persistence to original definition
+    #     if 'pool' in svc:
+    #         vip_persist = self.service_adapter.get_session_persistence(svc)
+    #         vs.update(vip_persist)
+    #
+    #     for bigip in bigips:
+    #         try:
+    #             # update VS back to original listener definition
+    #             self.vs_helper.update(bigip, vs)
+    #
+    #             # add back SSL profile for TLS
+    #             if tls:
+    #                 self.add_ssl_profile(tls, bigip)
+    #         except Exception as err:
+    #             LOG.exception("Virtual server update error: %s" % err.message)
+    #             raise

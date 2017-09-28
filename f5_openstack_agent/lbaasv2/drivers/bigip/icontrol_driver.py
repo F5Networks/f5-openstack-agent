@@ -280,23 +280,30 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Parent profile used when creating client SSL profiles '
         'for listeners with TERMINATED_HTTPS protocols.'
     ),
-    cfg.ListOpt(
-        'f5_default_http_profiles',
-        default='/Common/http,/Common/oneconnect',
+    cfg.StrOpt(
+        'f5_default_http_profile',
+        default='/Common/http',
         help='Default profiles to use for HTTP Protocol VS'
     ),
 
-    cfg.ListOpt(
-        'f5_default_https_profiles',
-        default='/Common/http,/Common/oneconnect',
+    cfg.StrOpt(
+        'f5_default_https_profile',
+        default='/Common/http',
         help='Default profiles to use for HTTPS Protocol VS'
     ),
 
-    cfg.ListOpt(
-        'f5_default_terminated_https_profiles',
-        default='/Common/http,/Common/oneconnect',
+    cfg.StrOpt(
+        'f5_default_terminated_https_profile',
+        default='/Common/http',
         help='Default profiles to use for TERMINATED_HTTPS Protocol VS'
     ),
+
+    cfg.StrOpt(
+        'f5_default_oneconnect_profile',
+        default='/Common/oneconnect',
+        help='Default oneconnect profile for HTTP virtual servers'
+    )
+    ,
 
     cfg.StrOpt(
         'os_tenant_name',

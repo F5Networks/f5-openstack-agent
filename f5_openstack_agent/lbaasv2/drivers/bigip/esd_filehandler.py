@@ -184,6 +184,9 @@ class EsdTagProcessor(EsdJSONValidation):
         # verify value exists on BIG-IP
         if isinstance(value, list):
             is_valid = self.is_valid_value_list(bigip, value, resource_type)
+        elif value=='':
+            # ESD Processing we will handle this as a special case and use this to toggle things like fastl4
+            is_valid = True
         else:
             is_valid = self.is_valid_value(bigip, value, resource_type)
 
@@ -202,6 +205,9 @@ class EsdTagProcessor(EsdJSONValidation):
     # we are implementing the tags that can be applied only to listeners
 
     valid_esd_tags = {
+       'lbaas_fastl4': {
+            'resource_type': ResourceType.fastl4_profile,
+            'value_type': types.StringTypes},
         'lbaas_ctcp': {
             'resource_type': ResourceType.tcp_profile,
             'value_type': types.StringTypes},
