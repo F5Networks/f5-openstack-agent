@@ -188,7 +188,7 @@ run_neutronless_loadbalancer_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ./test/functional/neutronless/loadbalancer/ && \
+	    ./test/functional/neutronless/loadbalancer/ ;\
 	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 	
 
@@ -199,7 +199,7 @@ run_neutronless_listener_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ./test/functional/neutronless/listener/ && \
+	    ./test/functional/neutronless/listener/ ;\
 	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_neutronless_member_tests:
@@ -209,7 +209,7 @@ run_neutronless_member_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ./test/functional/neutronless/member/ && \
+	    ./test/functional/neutronless/member/ ;\
 	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_neutronless_pool_tests:
@@ -219,7 +219,7 @@ run_neutronless_pool_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ./test/functional/neutronless/pool/ && \
+	    ./test/functional/neutronless/pool/ ;\
 	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_neutronless_esd_tests:
@@ -229,7 +229,7 @@ run_neutronless_esd_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ./test/functional/neutronless/esd/ && \
+	    ./test/functional/neutronless/esd/ ;\
 	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_singlebigip_tests:
@@ -239,7 +239,7 @@ run_singlebigip_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ./test/functional/singlebigip/ && \
+	    ./test/functional/singlebigip/ ;\
 	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 # disconnected_singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
@@ -252,7 +252,7 @@ run_disconnected_service_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ./test/functional/neutronless/disconnected_service/ && \
+	    ./test/functional/neutronless/disconnected_service/ ;\
 	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_smoke_tests:
