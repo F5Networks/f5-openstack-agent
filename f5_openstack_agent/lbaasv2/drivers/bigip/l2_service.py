@@ -783,6 +783,6 @@ class L2ServiceBuilder(object):
     def append_member_fdb_records(self, network, member, records,
                                   mac_addr, ip_address=''):
         vteps = _get_vteps(network, member)
-        if len(vteps) > 0:
-            records[mac_addr] = {'endpoint': vteps[0],
+        for vtep in vteps:
+            records[mac_addr] = {'endpoint': vtep,
                                  'ip_address': ip_address}
