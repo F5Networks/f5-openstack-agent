@@ -10,8 +10,7 @@ pipeline {
                 + " -v /srv/mesos/trtl/results:/home/jenkins/results" \
                 + " -v /srv/nfs:/testlab" \
                 + " -v /var/run/docker.sock:/var/run/docker.sock" \
-                + " --env-file /srv/kubernetes/infra/jenkins-worker/config/openstack-test.env" \
-                + " -u jenkins"
+                + " --env-file /srv/kubernetes/infra/jenkins-worker/config/openstack-test.env"
         }
     }
     options {
