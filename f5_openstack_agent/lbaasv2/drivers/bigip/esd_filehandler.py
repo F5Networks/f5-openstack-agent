@@ -210,6 +210,18 @@ class EsdTagProcessor(EsdJSONValidation):
             'resource_type': ResourceType.tcp_profile,
             'value_type': types.StringTypes},
 
+       'lbaas_http': {
+            'resource_type': ResourceType.http_profile,
+            'value_type': types.StringTypes},
+
+       'lbaas_one_connect': {
+            'resource_type': ResourceType.one_connect_profile,
+            'value_type': types.StringTypes},
+
+       'lbaas_http_compression': {
+            'resource_type': ResourceType.http_compression_profile,
+            'value_type': types.StringTypes},
+
         'lbaas_cssl_profile': {
             'resource_type': ResourceType.client_ssl_profile,
             'value_type': types.StringTypes},

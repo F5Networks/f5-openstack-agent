@@ -59,6 +59,9 @@ class ResourceType(Enum):
     ssl_persistence = 33
     universal_persistence = 34
     ssl_cert_file = 35
+    http_profile = 36
+    one_connect_profile = 37
+    http_compression_profile = 38
 
 
 class BigIPResourceHelper(object):
@@ -246,7 +249,14 @@ class BigIPResourceHelper(object):
             ResourceType.universal_persistence:
                 lambda bigip: bigip.tm.ltm.persistence.universal,
             ResourceType.ssl_cert_file:
-                lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert
+                lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert,
+            ResourceType.http_profile:
+                lambda bigip: bigip.tm.ltm.profile.https.http,
+            ResourceType.one_connect_profile:
+                lambda bigip: bigip.tm.ltm.profile.one_connects.one_connect,
+            ResourceType.http_compression_profile:
+                lambda bigip: bigip.tm.ltm.profile.http_compressions.http_compression
+
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -312,7 +322,14 @@ class BigIPResourceHelper(object):
             ResourceType.universal_persistence:
                 lambda bigip: bigip.tm.ltm.persistence.universals,
             ResourceType.ssl_cert_file:
-                lambda bigip: bigip.tm.sys.file.ssl_certs
+                lambda bigip: bigip.tm.sys.file.ssl_certs,
+            ResourceType.http_profile:
+                lambda bigip: bigip.tm.ltm.profile.https,
+            ResourceType.one_connect_profile:
+                lambda bigip: bigip.tm.ltm.profile.one_connects,
+            ResourceType.http_compression_profile:
+                lambda bigip: bigip.tm.ltm.profile.http_compressions
+
         }
 
         if self.resource_type in collection_map:

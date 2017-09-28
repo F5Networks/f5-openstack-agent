@@ -81,6 +81,8 @@ class LBaaSBuilder(object):
 
         self._assure_l7policies_deleted(service)
 
+        self._assure_esds_applied(service)
+
         self._assure_listeners_deleted(service)
 
         self._assure_loadbalancer_deleted(service)
@@ -509,6 +511,41 @@ class LBaaSBuilder(object):
 
         return True
 
+    def _assure_esds_applied(self, service):
+
+        LOG.debug('1*****************************')
+        if 'l7policies' not in service:
+            return
+
+        bigips = self.driver.get_config_bigips()
+        l7policies = service['l7policies']
+        svcs = {'loadbalancer': service['loadbalancer'],'listeners': {}}
+        LOG.debug('2*****************************')
+        for l7policy in l7policies:
+            if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
+                try:
+                    name = l7policy.get('name', None)
+                    if name and self.is_esd(name):
+                        esd = self.get_esd(name)
+                        if esd is not None:
+                            listeners = svcs.get('listeners')
+                            listener = self.get_listener_by_id(service, l7policy.get('listener_id', ''))
+                            if listener.get('id') in listeners.keys():
+                                svcs.get('listeners').get(listener.get('id')).get('esds').append(esd)
+                            else:
+                                # pool is needed to reset session persistence
+                                pool = None
+                                if listener['default_pool_id']:
+                                    pool = self.get_pool_by_id( service, listener.get('default_pool_id', ''))
+                                svcs.get('listeners')[listener.get('id')]={'listener':listener,'pool':pool,'esds':[esd]}
+                except Exception as err:
+                    LOG.debug('Error processing ESD :%s', err)
+
+        LOG.debug('3***************************** %s', svcs)
+
+        self.listener_builder.apply_esds(svcs, bigips)
+
+
     @utils.instrument_execution_time
     def _assure_l7policies_created(self, service):
         if 'l7policies' not in service:
@@ -521,13 +558,8 @@ class LBaaSBuilder(object):
                 try:
                     name = l7policy.get('name', None)
                     if name and self.is_esd(name):
-                        listener = self.get_listener_by_id(
-                            service, l7policy.get('listener_id', ''))
+                        continue
 
-                        svc = {"loadbalancer": service["loadbalancer"],
-                               "listener": listener}
-                        esd = self.get_esd(name)
-                        self.listener_builder.apply_esd(svc, esd, bigips)
                     else:
                         self.l7service.create_l7policy(
                             l7policy, service, bigips)
@@ -538,6 +570,7 @@ class LBaaSBuilder(object):
                     raise f5_ex.L7PolicyCreationException(err.message)
 
                 l7policy['provisioning_status'] = plugin_const.ACTIVE
+
     @utils.instrument_execution_time
     def _assure_l7policies_deleted(self, service):
         if 'l7policies' not in service:
@@ -550,19 +583,7 @@ class LBaaSBuilder(object):
                 try:
                     name = l7policy.get('name', None)
                     if name and self.is_esd(name):
-                        listener = self.get_listener_by_id(
-                            service, l7policy.get('listener_id', ''))
-                        svc = {"loadbalancer": service["loadbalancer"],
-                               "listener": listener}
-
-                        # pool is needed to reset session persistence
-                        if listener['default_pool_id']:
-                            pool = self.get_pool_by_id(
-                                service, listener.get('default_pool_id', ''))
-                            if pool:
-                                svc['pool'] = pool
-                        esd = self.get_esd(name)
-                        self.listener_builder.remove_esd(svc, esd, bigips)
+                        continue
                     else:
                         # Note: use update_l7policy because a listener can have
                         # multiple policies
@@ -573,6 +594,7 @@ class LBaaSBuilder(object):
                     service['loadbalancer']['provisioning_status'] = \
                         plugin_const.ERROR
                     raise f5_ex.L7PolicyDeleteException(err.message)
+
     @utils.instrument_execution_time
     def _assure_l7rules_created(self, service):
         if 'l7policy_rules' not in service:
