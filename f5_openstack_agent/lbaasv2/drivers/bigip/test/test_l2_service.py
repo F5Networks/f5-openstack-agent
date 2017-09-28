@@ -135,9 +135,9 @@ def service():
                       u'weight': 1},
                      {u'address': u'10.2.2.4',
                       u'admin_state_up': True,
-                      u'id': u'1e7bfa17-a38f-4728-a3a7-aad85da69712',
+                      u'id': u'1e7bfa17-a38f-4728-a3a7-aad85da69714',
                       u'name': u'',
-                      u'network_id': u'81f42a8a-9b17-424a-a054-778f3d3a5490',
+                      u'network_id': u'cdf1eb6d-9b17-424a-a054-778f3d3a5490',
                       u'operating_status': u'ONLINE',
                       u'pool_id': u'2dbca6cd-30d8-4013-9c9a-df0850fabf52',
                       u'protocol_port': 8080,
@@ -145,7 +145,7 @@ def service():
                       u'subnet_id': u'81f42a8a-fc98-4281-8de4-2b946e931457',
                       u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd',
                       u'port':  {'mac_address': 'fa:16:3e:0d:fa:c6'},
-                      u'gre_vteps': ['192.168.130.60'],
+                      u'vxlan_vteps': ['192.168.130.60'],
                       u'weight': 1}],
         u'networks': {
             u'cdf1eb6d-9b17-424a-a054-778f3d3a5490': {
@@ -158,17 +158,6 @@ def service():
                 'shared': False, 'provider:network_type': 'vxlan',
                 'id': 'b2efb43c-60a7-4032-be03-b3ccb2990c03',
                 'provider:segmentation_id': 5218
-            },
-            u'81f42a8a-9b17-424a-a054-778f3d3a5490': {
-                'status': 'ACTIVE',
-                'subnets': ['82b3db18-e97d-4288-81ab-12b04758f595'],
-                'name': 'lifecycle', 'provider:physical_network': None,
-                'admin_state_up': True,
-                'tenant_id': 'd1cae4d1238243419b3894ecea85c4aa', 'mtu': 1500,
-                'router:external': False, 'vlan_transparent': None,
-                'shared': False, 'provider:network_type': 'gre',
-                'id': 'b2efb43c-60a7-4032-be03-b3ccb2990c03',
-                'provider:segmentation_id': 2130
             }
         },
         u'pools': [{u'admin_state_up': True,
@@ -206,19 +195,13 @@ class TestL2ServiceBuilder(object):
         tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
 
         # two networks, two sets of records
-        assert len(tunnel_records) == 2
+        assert len(tunnel_records) == 1
 
-        # vxlan records has both lb and one member
+        # vxlan records has lb and two members
         tunnel_name = _get_tunnel_name(members[0]['network'])
         assert tunnel_name == 'tunnel-vxlan-5218'
         vxlan_records = tunnel_records[tunnel_name]['records']
-        assert len(vxlan_records) == (len(loadbalancer.get('vxlan_vteps')) + 1)
-
-        # gre recoreds has only second member
-        tunnel_name = _get_tunnel_name(members[1]['network'])
-        assert tunnel_name == 'tunnel-gre-2130'
-        gre_records = tunnel_records[tunnel_name]['records']
-        assert len(gre_records) == 1
+        assert len(vxlan_records) == (len(loadbalancer.get('vxlan_vteps')) + 2)
 
     def test_empty_fdb_records(self, l2_service):
         loadbalancer = None
@@ -255,19 +238,13 @@ class TestL2ServiceBuilder(object):
         tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
 
         # two networks, two sets of records
-        assert len(tunnel_records) == 2
+        assert len(tunnel_records) == 1
 
-        # vxlan records has only first member
+        # vxlan records has both members
         tunnel_name = _get_tunnel_name(members[0]['network'])
         assert tunnel_name == 'tunnel-vxlan-5218'
         vxlan_records = tunnel_records[tunnel_name]['records']
-        assert len(vxlan_records) == 1
-
-        # gre records has only second member
-        tunnel_name = _get_tunnel_name(members[1]['network'])
-        assert tunnel_name == 'tunnel-gre-2130'
-        gre_records = tunnel_records[tunnel_name]['records']
-        assert len(gre_records) == 1
+        assert len(vxlan_records) == 2
 
     def test_add_fdb_entries(self, l2_service, service, bigips):
         loadbalancer = service['loadbalancer']
