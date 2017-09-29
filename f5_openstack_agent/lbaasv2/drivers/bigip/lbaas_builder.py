@@ -81,7 +81,7 @@ class LBaaSBuilder(object):
 
         self._assure_l7policies_deleted(service)
 
-        self._assure_esds_applied(service)
+        self.assure_esds_applied(service)
 
         self._assure_listeners_deleted(service)
 
@@ -511,16 +511,20 @@ class LBaaSBuilder(object):
 
         return True
 
-    def _assure_esds_applied(self, service):
+    def assure_esds_applied(self, service):
 
-        LOG.debug('1*****************************')
         if 'l7policies' not in service:
             return
 
         bigips = self.driver.get_config_bigips()
         l7policies = service['l7policies']
         svcs = {'loadbalancer': service['loadbalancer'],'listeners': {}}
-        LOG.debug('2*****************************')
+        for listener in service.get('listeners'):
+            pool = None
+            if listener['default_pool_id']:
+                pool = self.get_pool_by_id( service, listener.get('default_pool_id', ''))
+            svcs.get('listeners')[listener.get('id')]={'listener':listener,'pool':pool,'esds':[]}
+
         for l7policy in l7policies:
             if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
@@ -532,16 +536,9 @@ class LBaaSBuilder(object):
                             listener = self.get_listener_by_id(service, l7policy.get('listener_id', ''))
                             if listener.get('id') in listeners.keys():
                                 svcs.get('listeners').get(listener.get('id')).get('esds').append(esd)
-                            else:
-                                # pool is needed to reset session persistence
-                                pool = None
-                                if listener['default_pool_id']:
-                                    pool = self.get_pool_by_id( service, listener.get('default_pool_id', ''))
-                                svcs.get('listeners')[listener.get('id')]={'listener':listener,'pool':pool,'esds':[esd]}
                 except Exception as err:
                     LOG.debug('Error processing ESD :%s', err)
 
-        LOG.debug('3***************************** %s', svcs)
 
         self.listener_builder.apply_esds(svcs, bigips)
 

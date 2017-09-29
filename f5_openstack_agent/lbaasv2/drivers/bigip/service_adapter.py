@@ -419,7 +419,7 @@ class ServiceModelAdapter(object):
         if 'session_persistence' in listener:
             persistence_type = listener['session_persistence']
             if persistence_type == 'APP_COOKIE':
-                virtual_type = 'standard'
+                #virtual_type = 'standard'
                 vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
 
             elif persistence_type == 'SOURCE_IP':

@@ -226,8 +226,8 @@ class ListenerServiceBuilder(object):
                 # For TCP listeners, must remove fastL4 profile before adding
                 # adding http/oneconnect profiles.
                 if persistence_type != 'SOURCE_IP':
-                    if listener['protocol'] == 'TCP':
-                        self._remove_profile(vip, 'fastL4', bigip)
+                    #if listener['protocol'] == 'TCP':
+                        #self._remove_profile(vip, 'fastL4', bigip)
 
                     # Add default profiles
 
@@ -639,21 +639,30 @@ class ListenerServiceBuilder(object):
                                      'context': ctcp_context})
                 # http profiles
                 if 'lbaas_http' in esd and not bool(http_profile):
-                    http_profile = {'name':  esd['lbaas_http'],
-                                     'partition': 'Common',
-                                     'context': 'all'}
+                    if esd['lbaas_http'] == '':
+                        http_profile = {}
+                    else:
+                        http_profile = {'name':  esd['lbaas_http'],
+                                         'partition': 'Common',
+                                         'context': 'all'}
 
                 # one connect profiles
                 if 'lbaas_one_connect' in esd and not bool(oneconnect_profile) :
-                    oneconnect_profile = {'name':  esd['lbaas_one_connect'],
-                                     'partition': 'Common',
-                                     'context': 'all'}
+                    if esd['lbaas_one_connect'] == '':
+                        oneconnect_profile = {}
+                    else:
+                        oneconnect_profile = {'name':  esd['lbaas_one_connect'],
+                                         'partition': 'Common',
+                                         'context': 'all'}
 
                 # http compression profiles
                 if 'lbaas_http_compression' in esd and not bool(compression_profile):
-                    compression_profile = {'name':  esd['lbaas_http_compression'],
-                                     'partition': 'Common',
-                                     'context': 'all'}
+                    if esd['lbaas_http_compression'] == '':
+                        compression_profile = {}
+                    else:
+                        compression_profile = {'name':  esd['lbaas_http_compression'],
+                                         'partition': 'Common',
+                                         'context': 'all'}
 
                 # SSL profiles
                 if 'lbaas_cssl_profile' in esd:
@@ -690,7 +699,7 @@ class ListenerServiceBuilder(object):
                 if bool(fastl4):
                     profiles.append(fastl4)
                 else:
-                    profiles = ctcp_profiles+ctcp_profiles
+                    profiles = stcp_profiles + ctcp_profiles
             else:
                 default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
 
@@ -707,6 +716,7 @@ class ListenerServiceBuilder(object):
                 if bool(compression_profile):
                     profiles.append(compression_profile)
 
+            LOG.debug('Torsten **********************: %s', profiles)
             if profiles:
                 update_attrs['profiles'] = profiles
 
