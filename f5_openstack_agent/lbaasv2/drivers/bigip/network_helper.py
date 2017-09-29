@@ -687,10 +687,11 @@ class NetworkHelper(object):
             arps_to_delete = {}
             new_records = []
 
+            delete_records = fdb_entries[tunnel_name]['records']
             for record in existing_records:
-                for mac in fdb_entries[tunnel_name]['records']:
-                    if record['name'] == mac and mac['ip_address']:
-                        arps_to_delete[mac] = mac['ip_address']
+                for mac_addr, entry in delete_records.iteritems():
+                    if record['name'] == mac_addr and entry['ip_address']:
+                        arps_to_delete[mac_addr] = entry['ip_address']
                         break
                 else:
                     new_records.append(record)
