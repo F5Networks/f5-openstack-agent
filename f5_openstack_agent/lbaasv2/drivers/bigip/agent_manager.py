@@ -438,6 +438,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.needs_resync = True
             if self.sync_state():
                 self.needs_resync = True
+            # clean any objects orphaned on devices and persist configs
+            if self.clean_orphaned_objects_and_save_device_config():
+                self.needs_resync = True
 
     @periodic_task.periodic_task(spacing=30)
     def update_operating_status(self, context):
@@ -646,12 +649,113 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.cache.remove_by_loadbalancer_id(lb_id)
 
     @log_helpers.log_method_call
-    def remove_orphans(self, all_loadbalancers):
+    def clean_orphaned_objects_and_save_device_config(self):
+
+        cleaned = False
 
         try:
-            self.lbdriver.remove_orphans(all_loadbalancers)
-        except Exception as exc:
-            LOG.error("Exception: removing orphans: %s" % exc.message)
+            #
+            # Global cluster refresh tasks
+            #
+
+            global_agent = self.plugin_rpc.get_clusterwide_agent(
+                self.conf.environment_prefix,
+                self.conf.environment_group_number
+            )
+
+            if 'host' not in global_agent:
+                LOG.debug('No global agent available to sync config')
+                return True
+
+            if global_agent['host'] == self.agent_host:
+                LOG.debug('this agent is the global config agent')
+                # We're the global agent perform global cluster tasks
+
+                # There are two independent types of service objects
+                # the LBaaS implments: 1) loadbalancers + 2) pools
+                # We will first try to find any orphaned pools
+                # and remove them.
+
+                # Ask BIG-IP for all deployed loadbalancers (virtual addresses)
+                lbs = self.lbdriver.get_all_deployed_loadbalancers(
+                    purge_orphaned_folders=True)
+                if lbs:
+                    # Ask Neutron for the status of each deployed loadbalancer
+                    lbs_status = self.plugin_rpc.validate_loadbalancers_state(
+                        list(lbs.keys()))
+                    LOG.debug('validate_loadbalancers_state returned: %s'
+                              % lbs_status)
+                    lbs_removed = False
+                    for lbid in lbs_status:
+                        # If the statu is Unknown, it no longer exists
+                        # in Neutron and thus should be removed from the BIG-IP
+                        if lbs_status[lbid] in ['Unknown']:
+                            LOG.debug('removing orphaned loadbalancer %s'
+                                      % lbid)
+                            # This will remove pools, virtual servers and
+                            # virtual addresses
+                            self.lbdriver.purge_orphaned_loadbalancer(
+                                tenant_id=lbs[lbid]['tenant_id'],
+                                loadbalancer_id=lbid,
+                                hostnames=lbs[lbid]['hostnames'])
+                            lbs_removed = True
+                    if lbs_removed:
+                        # If we have removed load balancers, then scrub
+                        # for tenant folders we can delete because they
+                        # no longer contain loadbalancers.
+                        self.lbdriver.get_all_deployed_loadbalancers(
+                            purge_orphaned_folders=True)
+
+                # Ask the BIG-IP for all deployed listeners to make
+                # sure we are not orphaning listeners which have
+                # valid loadbalancers in a OK state
+                listeners = self.lbdriver.get_all_deployed_listeners()
+                if listeners:
+                    # Ask Neutron for the status of all deployed listeners
+                    listener_status = self.plugin_rpc.validate_listeners_state(
+                        list(listeners.keys()))
+                    LOG.debug('validated_pools_state returned: %s'
+                              % listener_status)
+                    for listenerid in listener_status:
+                        # If the pool status is Unknown, it no longer exists
+                        # in Neutron and thus should be removed from BIG-IP
+                        if listener_status[listenerid] in ['Unknown']:
+                            LOG.debug('removing orphaned listener %s'
+                                      % listenerid)
+                            self.lbdriver.purge_orphaned_listener(
+                                tenant_id=listeners[listenerid]['tenant_id'],
+                                listener_id=listenerid,
+                                hostnames=listeners[listenerid]['hostnames'])
+
+                # Ask the BIG-IP for all deployed pools not associated
+                # to a virtual server
+                pools = self.lbdriver.get_all_deployed_pools()
+                if pools:
+                    # Ask Neutron for the status of all deployed pools
+                    pools_status = self.plugin_rpc.validate_pools_state(
+                        list(pools.keys()))
+                    LOG.debug('validated_pools_state returned: %s'
+                              % pools_status)
+                    for poolid in pools_status:
+                        # If the pool status is Unknown, it no longer exists
+                        # in Neutron and thus should be removed from BIG-IP
+                        if pools_status[poolid] in ['Unknown']:
+                            LOG.debug('removing orphaned pool %s' % poolid)
+                            self.lbdriver.purge_orphaned_pool(
+                                tenant_id=pools[poolid]['tenant_id'],
+                                pool_id=poolid,
+                                hostnames=pools[poolid]['hostnames'])
+
+            else:
+                LOG.debug('the global agent is %s' % (global_agent['host']))
+                return True
+            # serialize config and save to disk
+            self.lbdriver.backup_configuration()
+        except Exception as e:
+            LOG.error("Unable to sync state: %s" % e.message)
+            cleaned = True
+
+        return cleaned
 
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):
