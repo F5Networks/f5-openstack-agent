@@ -512,36 +512,38 @@ class LBaaSBuilder(object):
         return True
 
     def assure_esds_applied(self, service):
+        try:
+            if 'l7policies' not in service:
+                return
 
-        if 'l7policies' not in service:
-            return
+            bigips = self.driver.get_config_bigips()
+            l7policies = service['l7policies']
+            svcs = {'loadbalancer': service['loadbalancer'],'listeners': {}}
+            for listener in service.get('listeners'):
+                pool = None
+                if listener['default_pool_id']:
+                    pool = self.get_pool_by_id( service, listener.get('default_pool_id', ''))
+                svcs.get('listeners')[listener.get('id')]={'listener':listener,'pool':pool,'esds':[]}
 
-        bigips = self.driver.get_config_bigips()
-        l7policies = service['l7policies']
-        svcs = {'loadbalancer': service['loadbalancer'],'listeners': {}}
-        for listener in service.get('listeners'):
-            pool = None
-            if listener['default_pool_id']:
-                pool = self.get_pool_by_id( service, listener.get('default_pool_id', ''))
-            svcs.get('listeners')[listener.get('id')]={'listener':listener,'pool':pool,'esds':[]}
-
-        for l7policy in l7policies:
-            if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
-                try:
-                    name = l7policy.get('name', None)
-                    if name and self.is_esd(name):
-                        esd = self.get_esd(name)
-                        if esd is not None:
-                            listeners = svcs.get('listeners')
-                            listener = self.get_listener_by_id(service, l7policy.get('listener_id', ''))
-                            if listener.get('id') in listeners.keys():
-                                svcs.get('listeners').get(listener.get('id')).get('esds').append(esd)
-                except Exception as err:
-                    LOG.debug('Error processing ESD :%s', err)
+            for l7policy in l7policies:
+                if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
+                    try:
+                        name = l7policy.get('name', None)
+                        if name and self.is_esd(name):
+                            esd = self.get_esd(name)
+                            if esd is not None:
+                                listeners = svcs.get('listeners')
+                                listener = self.get_listener_by_id(service, l7policy.get('listener_id', ''))
+                                if listener.get('id') in listeners.keys():
+                                    svcs.get('listeners').get(listener.get('id')).get('esds').append(esd)
+                    except Exception as err:
+                        LOG.debug('Error processing ESD :%s', err)
 
 
-        self.listener_builder.apply_esds(svcs, bigips)
-
+            self.listener_builder.apply_esds(svcs, bigips)
+        except Exception as err:
+            LOG.exception(err)
+            service['loadbalancer']['provisioning_status']=plugin_const.ERROR
 
     @utils.instrument_execution_time
     def _assure_l7policies_created(self, service):

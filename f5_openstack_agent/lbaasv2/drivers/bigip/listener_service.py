@@ -703,18 +703,20 @@ class ListenerServiceBuilder(object):
             else:
                 default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
 
-                if bool(http_profile):
-                    profiles.append(http_profile)
-                else:
+            if bool(http_profile):
+                profiles.append(http_profile)
+            else:
+                if listener['protocol'] != lb_const.PROTOCOL_TCP:
                     profiles.append( default_profiles['http'])
 
-                if bool(oneconnect_profile):
-                    profiles.append(oneconnect_profile)
-                else:
+            if bool(oneconnect_profile):
+                profiles.append(oneconnect_profile)
+            else:
+                if listener['protocol'] != lb_const.PROTOCOL_TCP:
                     profiles.append(default_profiles['oneconnect'])
 
-                if bool(compression_profile):
-                    profiles.append(compression_profile)
+            if bool(compression_profile):
+                profiles.append(compression_profile)
 
             LOG.debug('Torsten **********************: %s', profiles)
             if profiles:
