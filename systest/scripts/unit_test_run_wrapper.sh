@@ -11,5 +11,8 @@ sudo -E docker pull  docker-registry.pdbld.f5net.com/openstack-test-agentunitrun
 sudo -E docker run -u jenkins -v `pwd`:/home/jenkins/f5-openstack-agent \
 docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/mitaka:latest \
 $STAGENAME $SESSIONLOGDIR
-mkdir -p ${COVERAGERESULTS}-unit
-mv .coverage ${COVERAGERESULTS}-unit
+sudo -E chown -Rf jenkins:jenkins .
+if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
+    mkdir -p ${COVERAGERESULTS}
+    mv .coverage ${COVERAGERESULTS}/.coverage_unit
+fi
