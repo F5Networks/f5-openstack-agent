@@ -357,6 +357,7 @@ class ServiceModelAdapter(object):
 
 
 
+
         vip["description"] = self.get_resource_description(listener)
 
         if "protocol" in listener:
@@ -394,6 +395,8 @@ class ServiceModelAdapter(object):
 
         if "pool" in listener:
             vip["pool"] = listener["pool"]
+        else:
+            vip["pool"] = None
 
         return vip
 

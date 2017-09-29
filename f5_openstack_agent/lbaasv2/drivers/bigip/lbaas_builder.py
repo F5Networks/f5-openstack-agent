@@ -43,7 +43,7 @@ class LBaaSBuilder(object):
         self.driver = driver
         self.l2_service = l2_service
         self.service_adapter = driver.service_adapter
-        self.listener_builder = listener_service.ListenerServiceBuilder(
+        self.listener_builder = listener_service.ListenerServiceBuilder(self,
             self.service_adapter,
             driver.cert_manager,
             conf.f5_parent_ssl_profile)
@@ -81,7 +81,7 @@ class LBaaSBuilder(object):
 
         self._assure_l7policies_deleted(service)
 
-        self.assure_esds_applied(service)
+
 
         self._assure_listeners_deleted(service)
 
@@ -133,11 +133,6 @@ class LBaaSBuilder(object):
                    "networks": networks}
 
 
-            has_esd=False
-            l7_profiles = listener.get('l7_policies', [])
-            for policy in l7_profiles:
-                if self.is_esd(policy.get('name', None)):
-                    has_esd = True
 
 
             default_pool_id = listener.get('default_pool_id', '')
@@ -148,10 +143,11 @@ class LBaaSBuilder(object):
 
             if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
                 try:
-                    self.listener_builder.update_listener(svc, bigips, has_esd=has_esd)
+                    self.listener_builder.update_listener(svc, bigips)
                 except Exception as err:
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR
+                    LOG.exception(err)
                     raise f5_ex.VirtualServerUpdateException(err.message)
 
             elif listener['provisioning_status'] != \
@@ -242,11 +238,14 @@ class LBaaSBuilder(object):
                         # update virtual sever pool name, session persistence
                         self.listener_builder.update_session_persistence(
                             svc, bigips)
+
+
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         pool['provisioning_status'] = plugin_const.ERROR
                         loadbalancer['provisioning_status'] = (
                             plugin_const.ERROR)
+                        LOG.exception(err)
                         raise f5_ex.PoolCreationException(err.message)
 
                 except Exception as err:
@@ -510,40 +509,6 @@ class LBaaSBuilder(object):
             return False
 
         return True
-
-    def assure_esds_applied(self, service):
-        try:
-            if 'l7policies' not in service:
-                return
-
-            bigips = self.driver.get_config_bigips()
-            l7policies = service['l7policies']
-            svcs = {'loadbalancer': service['loadbalancer'],'listeners': {}}
-            for listener in service.get('listeners'):
-                pool = None
-                if listener['default_pool_id']:
-                    pool = self.get_pool_by_id( service, listener.get('default_pool_id', ''))
-                svcs.get('listeners')[listener.get('id')]={'listener':listener,'pool':pool,'esds':[]}
-
-            for l7policy in l7policies:
-                if l7policy['provisioning_status'] != plugin_const.PENDING_DELETE:
-                    try:
-                        name = l7policy.get('name', None)
-                        if name and self.is_esd(name):
-                            esd = self.get_esd(name)
-                            if esd is not None:
-                                listeners = svcs.get('listeners')
-                                listener = self.get_listener_by_id(service, l7policy.get('listener_id', ''))
-                                if listener.get('id') in listeners.keys():
-                                    svcs.get('listeners').get(listener.get('id')).get('esds').append(esd)
-                    except Exception as err:
-                        LOG.debug('Error processing ESD :%s', err)
-
-
-            self.listener_builder.apply_esds(svcs, bigips)
-        except Exception as err:
-            LOG.exception(err)
-            service['loadbalancer']['provisioning_status']=plugin_const.ERROR
 
     @utils.instrument_execution_time
     def _assure_l7policies_created(self, service):

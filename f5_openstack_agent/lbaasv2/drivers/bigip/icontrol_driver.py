@@ -1661,40 +1661,22 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     def create_l7policy(self, l7policy, service):
         """Create lb l7policy"""
-        if self.lbaas_builder.is_esd(l7policy.get('name')):
-            try:
-                self.lbaas_builder.assure_esds_applied(service)
-            finally:
-                self.update_service_status(service)
-        else:
-            LOG.debug("Creating l7policy")
-            self._common_service_handler(service)
+        LOG.debug("Creating l7policy")
+        self._common_service_handler(service)
 
     @serialized('update_l7policy')
     @is_connected
     def update_l7policy(self, old_l7policy, l7policy, service):
         """Update lb l7policy"""
-        if self.lbaas_builder.is_esd(l7policy.get('name')):
-            try:
-                self.lbaas_builder.assure_esds_applied(service)
-            finally:
-                self.update_service_status(service)
-        else:
-            LOG.debug("Updating l7policy")
-            self._common_service_handler(service)
+        LOG.debug("Updating l7policy")
+        self._common_service_handler(service)
 
     @serialized('delete_l7policy')
     @is_connected
     def delete_l7policy(self, l7policy, service):
         """Delete lb l7policy"""
-        if self.lbaas_builder.is_esd(l7policy.get('name')):
-            try:
-                self.lbaas_builder.assure_esds_applied(service)
-            finally:
-                self.update_service_status(service)
-        else:
-            LOG.debug("Deleting l7policy")
-            self._common_service_handler(service)
+        LOG.debug("Deleting l7policy")
+        self._common_service_handler(service)
 
     @serialized('create_l7rule')
     @is_connected
