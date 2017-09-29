@@ -114,7 +114,7 @@ class LBaaSBuilder(object):
                                   loadbalancer["network_id"],
                                   all_subnet_hints,
                                   False)
-        self._set_status_as_active(loadbalancer, force=True)
+        self._set_status_as_active(loadbalancer)
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
@@ -209,6 +209,10 @@ class LBaaSBuilder(object):
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
                 svc['members'] = self._get_pool_members(service, pool['id'])
+
+                # get associated listener for pool
+                self.add_listener_pool(service, svc)
+
                 try:
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
