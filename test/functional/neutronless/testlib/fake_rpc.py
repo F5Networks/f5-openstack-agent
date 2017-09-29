@@ -95,7 +95,9 @@ class FakeRPCPlugin(object):
                               subnet_id=None,
                               mac_address=None,
                               name=None,
-                              fixed_address_count=1):
+                              fixed_address_count=1,
+                              device_id=None,
+                              binding_profile={}):
 
         # Enforce specific call parameters
         if not subnet_id:
@@ -108,6 +110,27 @@ class FakeRPCPlugin(object):
             raise InvalidArgumentError
 
         ip_address = next(self._subnets[subnet_id])
+
+        retval = {'fixed_ips': [{'ip_address': ip_address}]}
+        self._ports[name] = [retval]
+
+        return retval
+
+    @track_call
+    def create_port_on_network(self,
+                               network_id=None,
+                               mac_address=None,
+                               name=None,
+                               host=None):
+        # Enforce specific call parameters
+        if not network_id:
+            raise InvalidArgumentError
+        if mac_address:
+            raise InvalidArgumentError
+        if not name:
+            raise InvalidArgumentError
+
+        ip_address = "127.0.0.1"
 
         retval = {'fixed_ips': [{'ip_address': ip_address}]}
         self._ports[name] = [retval]

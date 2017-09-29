@@ -65,10 +65,10 @@ def fetch_agent_dependencies(dist_dir, version, release, agent_pkg):
             if match:
                 groups = list(match.groups())
                 my_dep = ReqDetails(*groups)
-                if 'f5-sdk' in my_dep.name and '=' in my_dep.oper:
+                if 'f5-sdk' in my_dep.name and '=' in my_dep.oper and \
+                        '!=' not in my_dep.oper:
                     f5_sdk_version = my_dep.version
-                else:
-                    requires.append(my_dep)
+                requires.append(my_dep)
         break
 
     # we know we will always need this...
@@ -86,9 +86,11 @@ def fetch_agent_dependencies(dist_dir, version, release, agent_pkg):
     github_sdk_url = (sdk_github_addr % re.sub("-\d+", "", f5_sdk_version))
     f5_sdk_pkg = "python-f5-sdk-rest_%s_1404_all.deb" % \
         (f5_sdk_version)
+    f5_sdk_version_bld = "{}-1".format(f5_sdk_version) \
+        if '-1' not in f5_sdk_version else f5_sdk_version
     curlCmd = \
         ("curl -L -o /tmp/%s %s/python-f5-sdk_%s_1404_all.deb" %
-         (f5_sdk_pkg, github_sdk_url, f5_sdk_version))
+         (f5_sdk_pkg, github_sdk_url, f5_sdk_version_bld))
 
     print("Fetching f5-sdk package from github")
     (output, status) = runCommand(curlCmd)
