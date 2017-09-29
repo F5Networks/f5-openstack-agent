@@ -825,7 +825,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target.listener_builder = Mock()
         target.listener_builder.update_listener.side_effect = AssertionError
         target.get_pool_by_id = Mock()
-        pool = target.get_pool_by_id()
+        pool = target.get_pool_by_id.return_value
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
             neutron.plugins.common.constants.PENDING_UPDATE
@@ -835,7 +835,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             listener=listener, networks=service['networks'])
         target.listener_builder.update_listener.assert_called_once_with(
             expected_svc, expected_bigips)
-        target.get_pool_by_id.call_argsassert_called_once()
+        assert target.get_pool_by_id.call_count == 1
         # Test non-DELETE case
         listener.pop('operating_status')
         listener['provisioning_status'] = \

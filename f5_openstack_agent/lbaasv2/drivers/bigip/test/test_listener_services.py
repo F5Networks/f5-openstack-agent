@@ -90,7 +90,7 @@ class TestListenerServiceBuilderBuilder(TestListenerServiceBuilderConstructor):
 
 class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
     def test__init__(self, target):
-        self.logger.debug.assert_called_once()
+        assert self.logger.debug.call_count == 1
         assert 'ListenerServiceBuilder' in self.logger.debug.call_args[0][0]
         assert isinstance(target.cert_manager, Mock)
         assert isinstance(target.parent_ssl_profile, Mock)
@@ -197,7 +197,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             target.add_ssl_profile = Mock(side_effect=AssertionError)
             with pytest.raises(AssertionError):
                 target.remove_esd(svc, esd, bigips)
-            self.logger.exception.assert_called_once()
+            assert self.logger.exception.call_count == 1
             target.service_adapter.get_virtual.assert_called_once_with(svc)
             target.service_adapter.get_session_persistence.\
                 assert_called_once_with(svc)

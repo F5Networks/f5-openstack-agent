@@ -141,7 +141,7 @@ class TestPluginRpc(TestPluginRpcConstructor):
             """
             target._make_msg.side_effect = messaging.MessageDeliveryFailure
             target.get_loadbalancers_by_network(network_id)
-            logger.error.assert_called_once()
+            assert logger.error.call_count == 1
 
         positive_case_no_loadbalancers(target, get_uuid, populated_payload)
         positive_case_loadbalancers(target, get_uuid, empty_payload)

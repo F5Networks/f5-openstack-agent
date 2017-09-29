@@ -113,7 +113,7 @@ class TestVirtualAddress(TestVirtualAddressBuilder):
             result = virtual_address.update(bigip)
             virtual_address.load.assert_called_once_with(bigip)
             assert result is virtual_address.create.return_value
-            self.logger.error.assert_called_once()
+            assert self.logger.error.call_count == 1
 
         def positive_update(virtual_address, bigip):
             TestVirtualAddressBuilder.mock_scenario(virtual_address)

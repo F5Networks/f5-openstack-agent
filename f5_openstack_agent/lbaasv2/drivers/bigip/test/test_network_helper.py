@@ -69,7 +69,7 @@ class TestNetworkHelperBuilder(TestNetworkHelperConstructor):
     @pytest.fixture
     def conf_less_target():
         return f5_openstack_agent.lbaasv2.drivers.bigip.network_helper. \
-            networkHelper()
+            NetworkHelper()
 
     def cleanup(self):
         if hasattr(self, 'freeze_logger'):
@@ -381,7 +381,7 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
             expected_payload.update(dict(name=expected_name))
             my_target.get_route.assert_called_once_with(
                 my_bigip, **expected_payload)
-            delete.assert_called_once()
+            assert delete.call_count == 1
 
         negative_case(*test_args)
         reset_tests(*test_args)

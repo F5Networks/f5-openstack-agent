@@ -112,7 +112,7 @@ class TestLbaasAgentManager(TestLbaasAgentManagerBuilder):
             target._get_remote_loadbalancers.side_effect = \
                 AssertionError(expected)
             assert target.sync_state() is False
-            logger.error.assert_called_once()
+            assert logger.error.call_count == 1
             assert expected in logger.error.call_args[0][0]
 
         positive_path(target, self.logger)
