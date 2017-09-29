@@ -692,6 +692,7 @@ class iControlDriver(LBaaSBaseDriver):
             ic_host['platform'] = self.system_helper.get_platform(hostbigip)
             ic_host['serial_number'] = self.system_helper.get_serial_number(
                 hostbigip)
+            ic_host['device_interfaces'] = hostbigip.device_interfaces
             icontrol_endpoints[host] = ic_host
 
         self.agent_configurations['tunneling_ips'] = local_ips

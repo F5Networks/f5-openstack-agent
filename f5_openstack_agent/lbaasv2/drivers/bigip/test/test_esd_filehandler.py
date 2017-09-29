@@ -21,7 +21,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 
 
-class TestEsdFileHanlder(unittest.TestCase):
+class TestEsdFileHandler(unittest.TestCase):
 
     def test_invalid_dir_name(self):
         # invliad directory name
@@ -30,33 +30,39 @@ class TestEsdFileHanlder(unittest.TestCase):
 
     def test_no_files(self):
         # verify no files in empty directory
-        reader = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/empty_dir')
+        reader = EsdJSONValidation(
+                'f5_openstack_agent/lbaasv2/drivers/bigip/test/json/empty_dir')
         assert not reader.esdJSONFileList
 
     def test_no_json_files(self):
         # verify no files are read in dir that contains non-JSON files
-        reader = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/no_json')
+        reader = EsdJSONValidation(
+                'f5_openstack_agent/lbaasv2/drivers/bigip/test/json/no_json')
         assert not reader.esdJSONFileList
 
     def test_mix_json_files(self):
         # verify single JSON file
-        reader = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/mix_json/')
+        reader = EsdJSONValidation(
+                'f5_openstack_agent/lbaasv2/drivers/bigip/test/json/mix_json/')
         self.assertEqual(1, len(reader.esdJSONFileList))
 
     def test_json_only_files(self):
         # expect three files
-        reader = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/valid')
+        reader = EsdJSONValidation(
+                'f5_openstack_agent/lbaasv2/drivers/bigip/test/json/valid')
         self.assertEqual(3, len(reader.esdJSONFileList))
 
     def test_invalid_json(self):
-        handler = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/invalid')
+        handler = EsdJSONValidation(
+                'f5_openstack_agent/lbaasv2/drivers/bigip/test/json/invalid')
 
         # verify exception raised
         with self.assertRaises(f5_ex.esdJSONFileInvalidException):
             handler.read_json()
 
     def test_valid_json(self):
-        handler = EsdJSONValidation('lbaasv2/drivers/bigip/test/json/valid/')
+        handler = EsdJSONValidation(
+                'f5_openstack_agent/lbaasv2/drivers/bigip/test/json/valid/')
         dict = handler.read_json()
 
         # verify keys in the final dictionary
@@ -67,7 +73,7 @@ class TestEsdFileHanlder(unittest.TestCase):
     def test_empty_json(self):
         # verify empty file is read
         handler = EsdJSONValidation(
-            'lbaasv2/drivers/bigip/test/json/empty_file/')
+            'f5_openstack_agent/lbaasv2/drivers/bigip/test/json/empty_file/')
         self.assertEqual(1, len(handler.esdJSONFileList))
 
         # verify empty dict is returned

@@ -57,13 +57,14 @@ def fetch_agent_dependencies(dist_dir, version, release, agent_pkg):
     else:
         print("Success")
 
+    f5_sdk_version = None  # default for later evaluation for a clean exit...
     for line in output.split('\n'):
         print(line, dep_match_re.pattern)
         match = dep_match_re.match(line)
         if match:
             groups = list(match.groups())
             my_dep = ReqDetails(groups[0], groups[2], groups[3])
-            if 'f5-sdk' in my_dep.name:
+            if 'f5-sdk' in my_dep.name and re.search(' [><]?=', line):
                 f5_sdk_version = my_dep.version
             else:
                 requires.append(my_dep)
