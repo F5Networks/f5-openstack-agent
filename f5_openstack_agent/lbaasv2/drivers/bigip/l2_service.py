@@ -62,6 +62,12 @@ def _get_tunnel_fake_mac(network, local_ip):
     return mac_prefix + ':'.join("%02x" % octet for octet in mac)
 
 
+def _get_vteps(network, vtep_source):
+    net_type = network['provider:network_type']
+    vtep_type = net_type + '_vteps'
+    return vtep_source.get(vtep_type, list())
+
+
 class L2ServiceBuilder(object):
 
     def __init__(self, driver, f5_global_routed_mode):
@@ -564,106 +570,6 @@ class L2ServiceBuilder(object):
             return
         self.vcmp_manager.disassoc_vlan_with_vcmp_guest(bigip, vlan_name)
 
-    def add_bigip_fdbs(self, bigip, net_folder, fdb_info, vteps_by_type):
-        # Add fdb records for a mac/ip with specified vteps
-        network = fdb_info['network']
-        net_type = network['provider:network_type']
-        vteps_key = net_type + '_vteps'
-        if vteps_key in vteps_by_type:
-            vteps = vteps_by_type[vteps_key]
-            if net_type == 'gre':
-                self.add_gre_fdbs(bigip, net_folder, fdb_info, vteps)
-            elif net_type == 'vxlan':
-                self.add_vxlan_fdbs(bigip, net_folder, fdb_info, vteps)
-
-    def add_gre_fdbs(self, bigip, net_folder, fdb_info, vteps):
-        # Add gre fdb records
-        network = fdb_info['network']
-        ip_address = fdb_info['ip_address']
-        mac_address = fdb_info['mac_address']
-        tunnel_name = _get_tunnel_name(network)
-        for vtep in vteps:
-            if mac_address:
-                mac_addr = mac_address
-            else:
-                mac_addr = _get_tunnel_fake_mac(network, vtep)
-            self.network_helper.add_fdb_entry(
-                bigip,
-                tunnel_name=tunnel_name,
-                partition=net_folder,
-                mac_address=mac_addr,
-                vtep_ip_address=vtep,
-                arp_ip_address=ip_address)
-
-    def add_vxlan_fdbs(self, bigip, net_folder, fdb_info, vteps):
-        # Add vxlan fdb records
-        network = fdb_info['network']
-        ip_address = fdb_info['ip_address']
-        mac_address = fdb_info['mac_address']
-        tunnel_name = _get_tunnel_name(network)
-        for vtep in vteps:
-            if mac_address:
-                mac_addr = mac_address
-            else:
-                mac_addr = _get_tunnel_fake_mac(network, vtep)
-
-            self.network_helper.add_fdb_entry(
-                bigip,
-                tunnel_name=tunnel_name,
-                partition=net_folder,
-                mac_address=mac_addr,
-                vtep_ip_address=vtep,
-                arp_ip_address=ip_address)
-
-    def delete_bigip_fdbs(self, bigip, net_folder, fdb_info, vteps_by_type):
-        # Delete fdb records for a mac/ip with specified vteps
-        network = fdb_info['network']
-        net_type = network['provider:network_type']
-        vteps_key = net_type + '_vteps'
-        if vteps_key in vteps_by_type:
-            vteps = vteps_by_type[vteps_key]
-            if net_type == 'gre':
-                self.delete_gre_fdbs(bigip, net_folder, fdb_info, vteps)
-            elif net_type == 'vxlan':
-                self.delete_vxlan_fdbs(bigip, net_folder, fdb_info, vteps)
-
-    def delete_gre_fdbs(self, bigip, net_folder, fdb_info, vteps):
-        # delete gre fdb records
-        network = fdb_info['network']
-        ip_address = fdb_info['ip_address']
-        mac_address = fdb_info['mac_address']
-        tunnel_name = _get_tunnel_name(network)
-        for vtep in vteps:
-            if mac_address:
-                mac_addr = mac_address
-            else:
-                mac_addr = _get_tunnel_fake_mac(network, vtep)
-
-            self.network_helper.delete_fdb_entry(
-                bigip,
-                tunnel_name=tunnel_name,
-                mac_address=mac_addr,
-                arp_ip_address=ip_address,
-                partition=net_folder)
-
-    def delete_vxlan_fdbs(self, bigip, net_folder, fdb_info, vteps):
-        # delete vxlan fdb records
-        network = fdb_info['network']
-        ip_address = fdb_info['ip_address']
-        mac_address = fdb_info['mac_address']
-        tunnel_name = _get_tunnel_name(network)
-        for vtep in vteps:
-            if mac_address:
-                mac_addr = mac_address
-            else:
-                mac_addr = _get_tunnel_fake_mac(network, vtep)
-            self.network_helper.delete_fdb_entry(
-                bigip,
-                tunnel_name=tunnel_name,
-                mac_address=mac_addr,
-                arp_ip_address=ip_address,
-                partition=net_folder)
-
     def add_bigip_fdb(self, bigip, fdb):
         # Add entries from the fdb relevant to the bigip
         for fdb_operation in \
@@ -801,3 +707,82 @@ class L2ServiceBuilder(object):
             LOG.error(error_message)
             raise f5_ex.InvalidNetworkType(error_message)
         return network_name, preserve_network_name
+
+    def _get_network_folder(self, network):
+        if self.is_common_network(network):
+            return 'Common'
+        else:
+            return self.service_adapter.get_folder_name(network['tenant_id'])
+
+    def add_fdb_entries(self, bigips, loadbalancer, members):
+        """Update fdb entries for loadbalancer and member VTEPs.
+
+        :param bigips: one or more BIG-IPs to update.
+        :param loadbalancer: Loadbalancer with VTEPs to update. Can be None.
+        :param members: List of members. Can be emtpy ([]).
+        """
+        tunnel_records = self.create_fdb_records(loadbalancer, members)
+        if tunnel_records:
+            for bigip in bigips:
+                self.network_helper.add_fdb_entries(bigip,
+                                                    fdb_entries=tunnel_records)
+
+    def delete_fdb_entries(self, bigips, loadbalancer, members):
+        """Remove fdb entries for loadbalancer and member VTEPs.
+
+        :param bigips: one or more BIG-IPs to update.
+        :param loadbalancer: Loadbalancer with VTEPs to remove. Can be None.
+        :param members: List of members. Can be emtpy ([]).
+        """
+        tunnel_records = self.create_fdb_records(loadbalancer, members)
+        if tunnel_records:
+            for bigip in bigips:
+                self.network_helper.delete_fdb_entries(
+                    bigip,
+                    fdb_entries=tunnel_records)
+
+    def create_fdb_records(self, loadbalancer, members):
+        fdbs = dict()
+
+        if loadbalancer:
+            network = loadbalancer['network']
+            tunnel_name = _get_tunnel_name(network)
+            fdbs[tunnel_name] = dict()
+            fdbs[tunnel_name]['folder'] = self._get_network_folder(network)
+            records = dict()
+            fdbs[tunnel_name]['records'] = records
+            self.append_loadbalancer_fdb_records(
+                network, loadbalancer, records)
+
+        for member in members:
+            network = member['network']
+            tunnel_name = _get_tunnel_name(network)
+            if tunnel_name not in fdbs:
+                fdbs[tunnel_name] = dict()
+                fdbs[tunnel_name]['folder'] = self._get_network_folder(network)
+                fdbs[tunnel_name]['records'] = dict()
+
+            records = fdbs[tunnel_name]['records']
+            if 'port' in member and 'mac_address' in member['port']:
+                mac_addr = member['port']['mac_address']
+                self.append_member_fdb_records(network,
+                                               member,
+                                               records,
+                                               mac_addr,
+                                               ip_address=member['address'])
+
+        return fdbs
+
+    def append_loadbalancer_fdb_records(self, network, loadbalancer, records):
+        vteps = _get_vteps(network, loadbalancer)
+        for vtep in vteps:
+            # create an arbitrary MAC address for VTEP
+            mac_addr = _get_tunnel_fake_mac(network, vtep)
+            records[mac_addr] = {'endpoint': vtep, 'ip_address': ''}
+
+    def append_member_fdb_records(self, network, member, records,
+                                  mac_addr, ip_address=''):
+        vteps = _get_vteps(network, member)
+        for vtep in vteps:
+            records[mac_addr] = {'endpoint': vtep,
+                                 'ip_address': ip_address}
