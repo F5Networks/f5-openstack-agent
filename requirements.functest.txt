@@ -8,12 +8,6 @@ git+https://github.com/openstack/neutron-lbaas.git@stable/newton
 # F5 LBaaS dependancies
 git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@stable/newton
 
-# Test utilities
-git+https://github.com/F5Networks/pytest-symbols.git
-
-pytest>=3.0.5,<4
-pytest-cov>=2.4.0,<3
-python-coveralls==2.8.0
 
 # COMMUNITY CONSTRAINED SECTION
 # Community constrained packages, packages specified here MUST not specify a
@@ -23,5 +17,10 @@ python-coveralls==2.8.0
 -c https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/newton
 
 git+https://github.com/openstack/oslo.log.git@stable/newton
+pytest==IGNORED    # See section comment
 mock==IGNORED      # See section comment
 coverage==IGNORED  # See section comment
+
+# Test utilities
+pytest-cov>=2.4.0,<3
+python-coveralls==2.8.0
