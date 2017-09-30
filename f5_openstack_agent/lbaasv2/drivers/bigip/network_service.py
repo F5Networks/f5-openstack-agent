@@ -120,6 +120,17 @@ class NetworkServiceBuilder(object):
                            vtep_selfip_name))
         return local_ips
 
+    def assure_opflex_network_port(self, network_id, network):
+        port = None
+
+        port_name = "bigip-opflex-{}".format(network_id)
+
+        port = self.driver.plugin_rpc.create_port_on_network(
+            network_id=network_id,
+            name=port_name)
+
+        return port
+
     def is_service_connected(self, service):
         networks = service.get('networks', {})
         supported_net_types = ['vlan', 'vxlan', 'gre', 'opflex']
@@ -138,6 +149,12 @@ class NetworkServiceBuilder(object):
             if not segmentation_id:
                 if network_type in supported_net_types and \
                    self.conf.f5_network_segment_physical_network:
+
+                    if network_type == "opflex":
+                        # This is called only when the HPB config item
+                        # f5_network_segment_physical_network is set.
+                        self.assure_opflex_network_port(network_id, network)
+
                     return False
 
                 LOG.error("Misconfiguration: Segmentation ID is "
@@ -550,6 +567,7 @@ class NetworkServiceBuilder(object):
         tenant_id = service['loadbalancer']['tenant_id']
         subnet = subnetinfo['subnet']
         snats_per_subnet = self.conf.f5_snat_addresses_per_subnet
+        lb_id = service['loadbalancer']['id']
 
         assure_bigips = \
             [bigip for bigip in assure_bigips
@@ -561,7 +579,7 @@ class NetworkServiceBuilder(object):
                   subnet['id'])
         if len(assure_bigips):
             snat_addrs = self.bigip_snat_manager.get_snat_addrs(
-                subnetinfo, tenant_id, snats_per_subnet)
+                subnetinfo, tenant_id, snats_per_subnet, lb_id)
 
             if len(snat_addrs) != snats_per_subnet:
                 raise f5_ex.SNAT_CreationException(
@@ -841,6 +859,13 @@ class NetworkServiceBuilder(object):
                                                    ip_address=selfip_address)
 
                 deleted_names.add(local_selfip_name)
+
+                if self.conf.f5_network_segment_physical_network:
+                    opflex_net_id = network.get('id')
+                    if opflex_net_id:
+                        opflex_net_port = "bigip-opflex-{}".format(
+                            opflex_net_id)
+                        deleted_names.add(opflex_net_port)
 
                 self.l2_service.delete_bigip_network(bigip, network)
 
