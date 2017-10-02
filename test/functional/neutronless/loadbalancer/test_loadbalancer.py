@@ -63,6 +63,17 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
     assert call_record.get("operating_status", None) == 'ONLINE'
     assert call_record.get("provisioning_status", None) == 'ACTIVE'
 
+    assert fake_rpc.get_call_count('create_port_on_subnet') == 2
+
+    # Check the selfip call params
+    call_record = fake_rpc.get_calls('create_port_on_subnet')[0]
+    assert call_record.get("device_id", None) == lb_reader.id()
+
+    # Check the snat call params
+    call_record = fake_rpc.get_calls('create_port_on_subnet')[1]
+    assert call_record.get("device_id", None) == lb_reader.id()
+
+
     # Assert folder created
     assert bigip.folder_exists(folder)
 
