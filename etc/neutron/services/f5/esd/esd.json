@@ -12,7 +12,7 @@
     "lbaas_http": "http_xforward"
   },
   "dev_one": {
-    "lbaas_oneconnect": "cc_oneconnect"
+    "lbaas_one_connect": "cc_oneconnect"
   },
   "dev_compress": {
     "lbaas_http_compression": "cc_httpcompression"
