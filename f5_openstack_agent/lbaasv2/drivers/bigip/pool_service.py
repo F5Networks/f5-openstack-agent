@@ -185,6 +185,37 @@ class PoolServiceBuilder(object):
                 member.pop("address", None)
                 m.modify(**member)
 
+    def delete_orphaned_members(self, service, bigips):
+        pool = self.service_adapter.get_pool(service)
+        srv_members = service['members']
+        part = pool['partition']
+        for bigip in bigips:
+            p = self.pool_helper.load(bigip, name=pool['name'], partition=part)
+            deployed_members = p.members_s.get_collection()
+            for dm in deployed_members:
+                orphaned = True
+                for sm in srv_members:
+                    svc = {"loadbalancer": service["loadbalancer"],
+                           "pool": service["pool"],
+                           "member": sm}
+                    member = self.service_adapter.get_member(svc)
+                    if member['name'] == dm.name:
+                        orphaned = False
+                if orphaned:
+                    node_name = dm.address
+                    dm.delete()
+                    try:
+                        self.node_helper.delete(bigip,
+                                                name=urllib.quote(node_name),
+                                                partition=part)
+                    except HTTPError as err:
+                        # Possilbe error if node is shared with another member.
+                        # If so, ignore the error.
+                        if err.response.status_code == 400:
+                            LOG.debug(err.message)
+                        else:
+                            raise
+
     def _get_monitor_helper(self, service):
         monitor_type = self.service_adapter.get_monitor_type(service)
         if monitor_type == "HTTPS":

@@ -60,16 +60,20 @@ class LBaaSBaseDriver(object):
         """Get Stats for a loadbalancer Service """
         raise NotImplementedError()
 
+    def get_all_deployed_loadbalancers(self, purge_orphaned_folders=True):
+        """Get all Loadbalancers defined on devices"""
+        raise NotImplemented
+
+    def purge_orphaned_loadbalancer(self, tenant_id, loadbalancer_id):
+        """Remove all loadbalancers without references in Neutron"""
+        raise NotImplemented
+
     def exists(self, service):
         """Check If LBaaS Service is Defined on Driver Target """
         raise NotImplementedError()
 
     def sync(self, service):
         """Force Sync a Service on Driver Target """
-        raise NotImplementedError()
-
-    def remove_orphans(self, known_services):
-        """Remove Unknown Service from Driver Target """
         raise NotImplementedError()
 
     def create_vip(self, vip, service):
