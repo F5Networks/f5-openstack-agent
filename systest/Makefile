@@ -40,7 +40,7 @@ DEPLOYS += 12.1.2-overcloud_smoke
 
 # Tell make that targets don't map to files
 .PHONY: setup \
-	unit_test \
+	unit-tests \
         $(DEPLOYS) \
         run_overcloud_tests \
         run_undercloud_tests \
@@ -91,21 +91,16 @@ TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(SANITIZED_BRANCH)/testenv
 #    require different packages for different suites, all packages are
 #    installed.  Each deploy maps to its own GUMBALLS project.
 #    Tests use tox for python variants.
+
+unit-tests:
+	@echo executing $@
+	./scripts/unit_test_run_wrapper.sh
+
 setup:
 	@echo executing $@
-	sudo -E -H $(SCRIPT_DIR)/install_test_infra.sh ;\
-	mkdir -p $(TESTENVLOGDIR)
-
-#### UNITTEST SECTION:
-unit-tests: setup
-	@echo executing $@
-	export GP_SUFFIX=f5-openstack-agent_$(SANITIZED_BRANCH)-unit &&
-	export GUMBALLS_PROJECT=$(RESULTS_DIR)/$${GP_SUFFIX} &&
-	tox -e unit --sitepackages -- \
-		--cov $(PROJDIR)/f5_openstack_agent \
-		--autolog-outputdir $${GUMBALLS_PROJECT} \
-		--autolog-session $(TAGINFO)_`date +"%Y%m%d-%H%M%S"` \
-	    $(PROJDIR)/f5_openstack_agent
+	mkdir -p $(TESTENVLOGDIR) && \
+	sudo -H pip install -e $(PROJDIR) && \
+	sudo chown -Rf jenkins:jenkins $(PROJDIR)/f5_openstack_agent*
 
 #### MULTIPLEXING SECTION:
 #    there are (DEVICES * CLOUDTYPES) rules in this section. They have targets
@@ -161,7 +156,8 @@ run_overcloud_smoke_tests:
 #    singlebigip_f5-openstack-agent_liberty-12.1.1-overcloud
 setup_singlebigip_tests:
 	@echo executing $@
-	echo running testenv create with stack name $${TESTENV_NAME} &&
+	echo running testenv create with stack name $${TESTENV_NAME} && \
+	source /home/jenkins/openrc.sh && \
 	testenv --debug create --name $${TESTENV_NAME} \
 	        --params bigip_img:$${!DEVICEVERSION} \
 	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
@@ -192,7 +188,9 @@ run_neutronless_loadbalancer_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ../test/functional/neutronless/loadbalancer/
+	    ./test/functional/neutronless/loadbalancer/ ;\
+	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
+	
 
 run_neutronless_listener_tests:
 	@echo executing $@
@@ -201,7 +199,8 @@ run_neutronless_listener_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ../test/functional/neutronless/listener/
+	    ./test/functional/neutronless/listener/ ;\
+	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_neutronless_member_tests:
 	@echo executing $@
@@ -210,7 +209,8 @@ run_neutronless_member_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ../test/functional/neutronless/member/
+	    ./test/functional/neutronless/member/ ;\
+	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_neutronless_pool_tests:
 	@echo executing $@
@@ -219,7 +219,8 @@ run_neutronless_pool_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ../test/functional/neutronless/pool/
+	    ./test/functional/neutronless/pool/ ;\
+	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_neutronless_esd_tests:
 	@echo executing $@
@@ -228,7 +229,8 @@ run_neutronless_esd_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ../test/functional/neutronless/esd/
+	    ./test/functional/neutronless/esd/ ;\
+	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_singlebigip_tests:
 	@echo executing $@
@@ -237,7 +239,8 @@ run_singlebigip_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ../test/functional/singlebigip/
+	    ./test/functional/singlebigip/ ;\
+	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 # disconnected_singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
 run_disconnected_service_tests:
@@ -249,19 +252,19 @@ run_disconnected_service_tests:
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-	    ../test/functional/neutronless/disconnected_service/
+	    ./test/functional/neutronless/disconnected_service/ ;\
+	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
 
 run_smoke_tests:
 	@echo executing $@
-	tox -e singlebigip --sitepackage -- \
+	cd $(PROJDIR)/test/functional/neutronless && \
+	ls -la && \
+	py.test \
 	    --cov $(PROJDIR)/f5_openstack_agent \
 		--symbols $(MAKEFILE_DIR)/testenv_symbols/testenv_symbols.json \
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
-		../test/functional/neutronless/loadbalancer/ \
-		../test/functional/neutronless/listener/ \
-		../test/functional/neutronless/pool/ \
-		../test/functional/neutronless/member/
+		./loadbalancer/ ./listener/ ./pool/ ./member/
 
 cleanup_singlebigip:
 	@echo executing $@

@@ -26,6 +26,9 @@ version |release|
 -----------------
 
 
+.. image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=mitaka
+:target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=mitaka
+         
 Introduction
 ------------
 
