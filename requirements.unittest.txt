@@ -18,3 +18,4 @@ python-coveralls==2.9.1
 
 mock==IGNORED      # See section comment
 coverage==IGNORED  # See section comment
+pytest==IGNORED    # See section comment
