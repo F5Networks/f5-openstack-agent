@@ -513,6 +513,7 @@ class NetworkHelper(object):
             partition=const.DEFAULT_PARTITION):
         """Returns list of virtual server addresses"""
         vs = bigip.tm.ltm.virtuals
+        va = bigip.tm.ltm.virtual_address_s.virtual_address
         virtual_servers = vs.get_collection(partition=partition)
         virtual_services = []
 
@@ -521,6 +522,16 @@ class NetworkHelper(object):
             virtual_address = {name: {}}
             dest = os.path.basename(virtual_server.destination)
             (vip_addr, vip_port) = self.split_addr_port(dest)
+
+            # extract from the bigip the address, if possible
+            try:
+                vaddr = va.load(name=vip_addr, partition=partition)
+            except HTTPError as err:
+                if not str(err.response.status_code) == '404':
+                    # we may have a valid ip address, if so this will happen
+                    raise
+            else:
+                vip_addr = vaddr.raw['address']
 
             virtual_address[name]['address'] = vip_addr
             virtual_address[name]['netmask'] = virtual_server.mask
