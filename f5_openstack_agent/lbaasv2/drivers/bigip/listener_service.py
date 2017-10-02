@@ -590,25 +590,12 @@ class ListenerServiceBuilder(object):
 
     def apply_esds(self, service):
 
-        LOG.debug("**************************")
-        LOG.debug(service)
-
         listener = service['listener']
 
         l7policies = listener.get('l7_policies')
 
         if l7policies is None:
             return
-
-        esds=[]
-
-        # pool = None
-        # if listener['default_pool_id']:
-        #     pool = self.get_pool_by_id( service, listener.get('default_pool_id', ''))
-        # svcs.get('listeners')[listener.get('id')]={'listener':listener,'pool':pool,'esds':[]}
-
-
-
 
         fastl4 = {'partition':'Common','name':'fastL4','context':'all'}
         stcp_profiles = []
@@ -641,8 +628,6 @@ class ListenerServiceBuilder(object):
                         if esd['lbaas_fastl4']=='':
                             fastl4= {}
 
-
-
                     if len(stcp_profiles)==0:
                         if 'lbaas_stcp' in esd:
                             # set serverside tcp profile
@@ -651,7 +636,6 @@ class ListenerServiceBuilder(object):
                                              'context': 'serverside'})
                             # restrict client profile
                             ctcp_context = 'clientside'
-
 
                     if len(ctcp_profiles)==0:
                         # must define client profile; default to tcp if not in ESD
@@ -740,7 +724,6 @@ class ListenerServiceBuilder(object):
         if bool(compression_profile):
             profiles.append(compression_profile)
 
-        LOG.debug('Torsten **********************: %s', profiles)
         if profiles:
             update_attrs['profiles'] = profiles
 
