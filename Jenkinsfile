@@ -43,7 +43,7 @@ pipeline {
                     ssh-add
 
                     # - run tests
-                    make -C systest $JOB_BASE_NAME
+                    make -C systest ${JOB_BASE_NAME}
 
                     # - record results only if it's not a smoke test
                     if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
