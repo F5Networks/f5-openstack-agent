@@ -142,7 +142,6 @@ run_overcloud_smoke_tests:
 	# Run the smoke tests and capture the rc, in case tests fail or error out
 	$(MAKE) -C . setup_singlebigip_tests &&\
 	$(MAKE) -C . smoke ; SMOKE_RC=$$? ;\
-	$(MAKE) -C . cleanup_singlebigip ;\
 	exit $$SMOKE_RC
 
 #### TESTSBYINFRA SECTION
