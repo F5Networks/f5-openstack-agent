@@ -12,7 +12,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 SYMBOLS = json.load(open('testenv_symbols/testenv_symbols.json'))
 count = 0
 while True:
-    print("polling: %s" % count)
+    print("polling for mgmt/tm/sys availability: %s" % count)
     try:
         ManagementRoot(SYMBOLS["bigip_mgmt_ip_public"], "admin", "admin")
         break
