@@ -52,10 +52,4 @@ pipeline {
                 '''}
             }
     }
-    post {
-        always {
-            // cleanup workspace
-            dir("${env.WORKSPACE}") { deleteDir() }
-        }
-    }
 }
