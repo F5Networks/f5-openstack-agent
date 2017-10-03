@@ -5,7 +5,7 @@ pipeline {
         docker {
             label "docker"
             registryUrl "https://docker-registry.pdbld.f5net.com"
-            image "openstack-test-agenttestrunner-prod/mitaka:latest"
+            image "openstack-test-agenttestrunner-zancas/mitaka:latest"
             args "-v /etc/localtime:/etc/localtime:ro" \
                 + " -v /srv/mesos/trtl/results:/home/jenkins/results" \
                 + " -v /srv/nfs:/testlab" \
@@ -43,7 +43,8 @@ pipeline {
                     ssh-add
 
                     # - run tests
-                    make -C systest $JOB_BASE_NAME
+                    echo ${JOB_BASE_NAME%$_smoke*}
+                    make -C systest ${JOB_BASE_NAME%$_smoke*}
 
                     # - record results only if it's not a smoke test
                     if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
