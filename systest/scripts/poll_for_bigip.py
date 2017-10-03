@@ -5,6 +5,10 @@ import time
 
 from f5.bigip import ManagementRoot
 from icontrol.exceptions import iControlUnexpectedHTTPError
+
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 SYMBOLS = json.load(open('testenv_symbols/testenv_symbols.json'))
 count = 0
 while True:
