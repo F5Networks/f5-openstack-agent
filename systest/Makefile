@@ -160,7 +160,8 @@ setup_singlebigip_tests:
 	source /home/jenkins/openrc.sh && \
 	testenv --debug create --name $${TESTENV_NAME} \
 	        --params bigip_img:$${!DEVICEVERSION} \
-	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
+	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log && \
+	sleep 30
 
 singlebigip:
 	@echo executing $@
@@ -269,5 +270,6 @@ run_smoke_tests:
 cleanup_singlebigip:
 	@echo executing $@
 	echo running testenv delete with stack name $${TESTENV_NAME}
+	source /home/jenkins/openrc.sh && \
 	testenv --debug delete --name $${TESTENV_NAME} \
 		$${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
