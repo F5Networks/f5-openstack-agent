@@ -157,6 +157,10 @@ run_overcloud_smoke_tests:
 setup_singlebigip_tests:
 	@echo executing $@
 	echo running testenv create with stack name $${TESTENV_NAME} && \
+	echo DEVICEVERSION && \
+	echo $${!DEVICEVERSION} && \
+	echo TESTENV_CONF: && \
+	echo $${TESTENV_CONF} && \
 	source /home/jenkins/openrc.sh && \
 	testenv --debug create --name $${TESTENV_NAME} \
 	        --params bigip_img:$${!DEVICEVERSION} \
