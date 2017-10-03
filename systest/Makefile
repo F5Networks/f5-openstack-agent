@@ -142,7 +142,6 @@ run_overcloud_smoke_tests:
 	# Run the smoke tests and capture the rc, in case tests fail or error out
 	$(MAKE) -C . setup_singlebigip_tests &&\
 	$(MAKE) -C . smoke ; SMOKE_RC=$$? ;\
-	$(MAKE) -C . cleanup_singlebigip ;\
 	exit $$SMOKE_RC
 
 #### TESTSBYINFRA SECTION
@@ -156,9 +155,13 @@ run_overcloud_smoke_tests:
 #    singlebigip_f5-openstack-agent_liberty-12.1.1-overcloud
 setup_singlebigip_tests:
 	@echo executing $@
-	echo running testenv create with stack name $${TESTENV_NAME} && \
+	echo running testenv create with stack name $${TESTENV_NAME}_$${TIMESTAMP} && \
+	echo DEVICEVERSION && \
+	echo $${!DEVICEVERSION} && \
+	echo TESTENV_CONF: && \
+	echo $${TESTENV_CONF} && \
 	source /home/jenkins/openrc.sh && \
-	testenv --debug create --name $${TESTENV_NAME} \
+	testenv --debug create --name $${TESTENV_NAME}_$${TIMESTAMP} \
 	        --params bigip_img:$${!DEVICEVERSION} \
 	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
 
@@ -268,6 +271,7 @@ run_smoke_tests:
 
 cleanup_singlebigip:
 	@echo executing $@
-	echo running testenv delete with stack name $${TESTENV_NAME}
-	testenv --debug delete --name $${TESTENV_NAME} \
+	echo running testenv delete with stack name $${TESTENV_NAME}_$${TIMESTAMP}
+	source /home/jenkins/openrc.sh && \
+	testenv --debug delete --name $${TESTENV_NAME}_$${TIMESTAMP} \
 		$${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
