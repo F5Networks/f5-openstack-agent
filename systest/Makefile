@@ -164,7 +164,8 @@ setup_singlebigip_tests:
 	testenv --debug create --name $${TESTENV_NAME} \
 	        --params bigip_img:$${!DEVICEVERSION} \
 	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log && \
-	sleep 300
+	sleep 300 && \
+	echo slept 300
 
 singlebigip:
 	@echo executing $@
