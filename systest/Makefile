@@ -156,15 +156,15 @@ run_overcloud_smoke_tests:
 #    singlebigip_f5-openstack-agent_liberty-12.1.1-overcloud
 setup_singlebigip_tests:
 	@echo executing $@
-	echo running testenv create with stack name $${TESTENV_NAME} && \
+	echo running testenv create with stack name $${TESTENV_NAME}a && \
 	echo DEVICEVERSION && \
 	echo $${!DEVICEVERSION} && \
 	echo TESTENV_CONF: && \
 	echo $${TESTENV_CONF} && \
 	source /home/jenkins/openrc.sh && \
-	testenv --debug create --name $${TESTENV_NAME} \
+	testenv --debug create --name $${TESTENV_NAME}a \
 	        --params bigip_img:$${!DEVICEVERSION} \
-	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log && \
+	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}a.log && \
 	sleep 30
 
 singlebigip:
@@ -273,7 +273,7 @@ run_smoke_tests:
 
 cleanup_singlebigip:
 	@echo executing $@
-	echo running testenv delete with stack name $${TESTENV_NAME}
+	echo running testenv delete with stack name $${TESTENV_NAME}a
 	source /home/jenkins/openrc.sh && \
-	testenv --debug delete --name $${TESTENV_NAME} \
-		$${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
+	testenv --debug delete --name $${TESTENV_NAME}a \
+		$${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}a.log
