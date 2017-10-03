@@ -163,9 +163,7 @@ setup_singlebigip_tests:
 	source /home/jenkins/openrc.sh && \
 	testenv --debug create --name $${TESTENV_NAME}_$${TIMESTAMP} \
 	        --params bigip_img:$${!DEVICEVERSION} \
-	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log && \
-	sleep 300 && \
-	echo slept 300
+	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
 
 singlebigip:
 	@echo executing $@
