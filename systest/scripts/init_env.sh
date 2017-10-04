@@ -18,7 +18,11 @@ export CI_BUILD_SUMMARY="${CI_RESULTS_DIR}/ci-build.yaml"
 # The following logic enables combined coverage reporting.
 covbase="/testlab/openstack/testresults/coverage/${CI_PROJECT}/${CI_BRANCH}/${PROJ_HASH}"
 mkdir -p ${covbase}
-COVPREFIX="[paths]\n"\
+COVPREFIX="[run]\n"\
+"omit = \n"\
+"\t/*/f5-openstack-agent/*test*\n"\
+"\n"\
+"[paths]\n"\
 "paths = \n"\
 "\t${covbase}/source_code\n"\
 "\t/*/f5-openstack-agent\n"\
