@@ -20,8 +20,7 @@ covbase="/testlab/openstack/testresults/coverage/${CI_PROJECT}/${CI_BRANCH}/${PR
 mkdir -p ${covbase}
 COVPREFIX="[run]\n"\
 "omit = \n"\
-"\t/*/f5-openstack-agent/*test*\n"\
-"\t/*/f5-openstack-agent/lbaasv2/drivers/bigip/test/*\n"\
+"\t/*/f5_openstack_agent/lbaasv2/drivers/bigip/test/*\n"\
 "\n"\
 "[paths]\n"\
 "paths = \n"\
