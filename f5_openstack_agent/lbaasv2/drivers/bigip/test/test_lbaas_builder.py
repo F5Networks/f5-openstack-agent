@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
+import copy
+import mock
+import pytest
+import uuid
+
 from mock import Mock
 from mock import patch
 from requests import HTTPError
@@ -26,9 +31,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
 
-import copy
-import mock
-import pytest
 
 LOG = f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG
 
@@ -73,6 +75,21 @@ def service():
             u"sni_containers": [],
             u"tenant_id": u"980e3f914f3e40359c3c2d9470fb2e8a"
         }],
+        u'networks': {
+            'cdf1eb6d-9b17-424a-a054-778f3d3a5490': {
+                "admin_state_up": True,
+                "id": 'cdf1eb6d-9b17-424a-a054-778f3d3a5490',
+                'mtu': 0,
+                'name': 'foodogzoo',
+                'provider:network_type': 'vxlan',
+                'provider:physical_network': None,
+                'router:external': False,
+                'shared': True,
+                'status': 'ACTIVE',
+                'subnets': ['4dc7caad-f9a9-4050-914e-b60eb6cf8ef7'],
+                'tenant_id': '980e3f914f3e40359c3c2d9470fb2e8a',
+                'vlan_transparent': None,
+                     }},
         u'loadbalancer': {
             u'admin_state_up': True,
             u'description': u'',
@@ -714,7 +731,27 @@ class MockHTTPErrorResponse500(HTTPError):
         self.status_code = 500
 
 
-class TestLbaasBuilder(object):
+class TestLBaaSBuilderConstructor(object):
+    @staticmethod
+    @pytest.fixture
+    @patch('f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.'
+           'LBaaSBuilder.__init__')
+    def fully_mocked_target(init):
+        init.return_value = None
+        return LBaaSBuilder()
+
+    @staticmethod
+    @pytest.fixture
+    def assure_mocked_target(fully_mocked_target):
+        target = fully_mocked_target
+        target.driver = Mock()
+        target.service_adapter = Mock()
+        target._update_subnet_hints = Mock()
+        target._set_status_as_active = Mock()
+        return target
+
+
+class TestLbaasBuilder(TestLBaaSBuilderConstructor):
     neutron_plugin_constants = neutron.plugins.common.constants
 
     @pytest.fixture
@@ -747,6 +784,67 @@ class TestLbaasBuilder(object):
     def teardown(self):
         neutron.plugins.common.constants = self.neutron_plugin_constants
         f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG = LOG
+
+    def test_set_status_as_active(self, fully_mocked_target):
+        preserved = ['PENDING_DELETE', 'ERROR']
+
+        def new_svc_obj(status):
+            state = getattr(neutron.plugins.common.constants, status)
+            return dict(provisioning_status=state, id=1)
+
+        def is_state(svc_obj, state):
+            state = getattr(neutron.plugins.common.constants, state)
+            return svc_obj['provisioning_status'] == state
+
+        def preserve_status(target):
+            for state in preserved:
+                svc = new_svc_obj(state)
+                target._set_status_as_active(svc, force=False)
+                assert is_state(svc, state)
+
+        def forced_through_preserved_status(target):
+            for state in preserved:
+                svc = new_svc_obj(state)
+                target._set_status_as_active(svc, force=True)
+                assert is_state(svc, 'ACTIVE')
+
+        def other_status(target):
+            svc = new_svc_obj('PENDING_UPDATE')
+            target._set_status_as_active(svc)
+            assert is_state(svc, 'ACTIVE')
+
+        preserve_status(fully_mocked_target)
+        forced_through_preserved_status(fully_mocked_target)
+        other_status(fully_mocked_target)
+
+    def test_assure_listeners_created(self, service, create_self):
+        listener = service.get('listeners')[0]
+        target = self.builder
+        service['listener'] = listener
+        # Test UPDATE case
+        target.listener_builder = Mock()
+        target.listener_builder.update_listener.side_effect = AssertionError
+        target.get_pool_by_id = Mock()
+        pool = target.get_pool_by_id.return_value
+        expected_bigips = target.driver.get_config_bigips()
+        listener['provisioning_status'] = \
+            neutron.plugins.common.constants.PENDING_UPDATE
+        with pytest.raises(f5_ex.VirtualServerUpdateException):
+            target._assure_listeners_created(service)
+        expected_svc = dict(loadbalancer=service['loadbalancer'], pool=pool,
+                            listener=listener, networks=service['networks'])
+        target.listener_builder.update_listener.assert_called_once_with(
+            expected_svc, expected_bigips)
+        assert target.get_pool_by_id.call_count == 1
+        # Test non-DELETE case
+        listener.pop('operating_status')
+        listener['provisioning_status'] = \
+            neutron.plugins.common.constants.PENDING_CREATE
+        create_listener = target.listener_builder.create_listener
+        target.listener_builder.create_listener.clear_mock()
+        with pytest.raises(f5_ex.VirtualServerCreationException):
+            target._assure_listeners_created(service)
+        create_listener.assert_called_once_with(expected_svc, expected_bigips)
 
     """Test _assure_members in LBaaSBuilder"""
     @pytest.mark.skip(reason="Test is not valid without port object")
@@ -982,7 +1080,7 @@ class TestLbaasBuilder(object):
         svc = l7policy_create_service
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_l7policies_created(svc)
-        assert svc['l7policies'][0]['provisioning_status'] == 'PENDING_CREATE'
+        assert svc['l7policies'][0]['provisioning_status'] == 'ACTIVE'
         assert svc['loadbalancer']['provisioning_status'] == 'ACTIVE'
 
     def test_create_policy_error_status(self, l7policy_create_service):
@@ -1029,7 +1127,7 @@ class TestLbaasBuilder(object):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_l7rules_created(svc)
         assert svc['l7policy_rules'][0]['provisioning_status'] == \
-            'PENDING_CREATE'
+            'ACTIVE'
         assert svc['loadbalancer']['provisioning_status'] == 'ACTIVE'
 
     def test_create_rule_error_status(self, l7rule_create_service):
@@ -1116,6 +1214,7 @@ class TestLbaasBuilder(object):
         with mock.patch(VS_POOL_UPDATE_PATH) as mock_update_vs_pool:
             builder = LBaaSBuilder(mock.MagicMock(), mock_driver)
             builder._assure_pools_created(shared_pool_service)
+            builder._assure_pools_configured(shared_pool_service)
             svc = {
                 'listener': shared_pool_service['listeners'][0],
                 'members': [],
@@ -1152,6 +1251,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'PENDING_CREATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert mock_create.called
         assert not mock_update.called
 
@@ -1164,6 +1264,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert mock_update.called
         assert not mock_create.called
 
@@ -1176,6 +1277,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
 
@@ -1188,6 +1290,7 @@ class TestLbaasBuilder(object):
         svc['pools'][0]['provisioning_status'] = 'ERROR'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
 
@@ -1203,6 +1306,7 @@ class TestLbaasBuilder(object):
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
@@ -1221,6 +1325,7 @@ class TestLbaasBuilder(object):
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
@@ -1241,6 +1346,7 @@ class TestLbaasBuilder(object):
             MockHTTPError(MockHTTPErrorResponse409(), 'Exists')
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
@@ -1261,6 +1367,7 @@ class TestLbaasBuilder(object):
             MockHTTPError(MockHTTPErrorResponse409(), 'Exists')
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._assure_pools_created(svc)
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert mock_vs_update_pool.called
@@ -1283,6 +1390,7 @@ class TestLbaasBuilder(object):
         with pytest.raises(f5_ex.PoolCreationException) as ex:
             builder._assure_pools_created(svc)
             assert ex.value.message == 'Exists'
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
@@ -1304,7 +1412,16 @@ class TestLbaasBuilder(object):
         with pytest.raises(f5_ex.PoolCreationException) as ex:
             builder._assure_pools_created(svc)
             assert ex.value.message == 'Exists'
+        builder._assure_pools_configured(svc)
         assert not mock_update.called
         assert mock_create.called
         assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
         assert svc['pools'][0]['provisioning_status'] == 'ERROR'
+
+    def test_get_pool_by_id(self, service, create_self):
+        target = self.builder
+        never_id = uuid.uuid4()
+        pool = service['pools'][0]
+        pool_id = pool['id']
+        assert target.get_pool_by_id(service, pool_id) == service['pools'][0]
+        assert not target.get_pool_by_id(service, never_id)
