@@ -21,6 +21,7 @@ mkdir -p ${covbase}
 COVPREFIX="[run]\n"\
 "omit = \n"\
 "\t/*/f5-openstack-agent/*test*\n"\
+"\t/*/f5-openstack-agent/lbaasv2/drivers/bigip/test/*\n"\
 "\n"\
 "[paths]\n"\
 "paths = \n"\
