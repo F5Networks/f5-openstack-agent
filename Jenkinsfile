@@ -27,7 +27,9 @@ pipeline {
                     . systest/scripts/init_env.sh
 
                     # - record start of build
-                    systest/scripts/record_build_start.sh
+                    if [ "${DONTRECORDTRTLRESULTS}" != "true"  ]; then
+                        systest/scripts/record_build_start.sh
+                    fi
 
                     # - run tests
                     systest/scripts/unit_test_run_wrapper.sh
@@ -47,8 +49,10 @@ pipeline {
                     make -C systest ${JOB_BASE_NAME}
 
                     # - record results only if it's not a smoke test
-                    if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
-                        systest/scripts/record_results.sh
+                    if [ "${DONTRECORDTRTLRESULTS}" != "true"  ]; then
+                        if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
+                            systest/scripts/record_results.sh
+                        fi
                     fi
                 '''}
             }
