@@ -45,7 +45,7 @@ if [ ! -d "${covbase}/source_code" ]; then
 fi
 
 export COVERAGERESULTS="${covbase}/${BUILD_ID}_${JOB_BASE_NAME}"
-cp ${covbase}/.coveragerc ./coveragerc
+cp ${covbase}/.coveragerc ./.coveragerc
 
 # END COVERAGE REPORTING SECTION
 
