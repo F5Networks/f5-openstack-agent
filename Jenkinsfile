@@ -27,7 +27,9 @@ pipeline {
                     . systest/scripts/init_env.sh
 
                     # - record start of build
-                    systest/scripts/record_build_start.sh
+                    if [ "${DONTRECORDTRTLRESULTS}" != "true"  ]; then
+                        systest/scripts/record_build_start.sh
+                    fi
 
                     # - run tests
                     systest/scripts/unit_test_run_wrapper.sh
