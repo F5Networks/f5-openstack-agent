@@ -64,6 +64,8 @@ class LBaaSBuilder(object):
 
         self._assure_pools_deleted(service)
 
+        self._assure_pools_configured(service)
+
         self._assure_listeners_deleted(service)
 
         self._assure_loadbalancer_deleted(service)
@@ -71,6 +73,23 @@ class LBaaSBuilder(object):
         LOG.debug("    _assure_service took %.5f secs" %
                   (time() - start_time))
         return all_subnet_hints
+
+    @staticmethod
+    def _set_status_as_active(svc_obj, force=False):
+        # If forced, then set to ACTIVE else hold ERROR
+        preserve_statuses = \
+            tuple([plugin_const.ERROR, plugin_const.PENDING_DELETE])
+        ps = svc_obj['provisioning_status']
+        svc_obj['provisioning_status'] = plugin_const.ACTIVE \
+            if ps not in preserve_statuses or force else ps
+
+    @staticmethod
+    def _is_not_pending_delete(svc_obj):
+        return svc_obj['provisioning_status'] != plugin_const.PENDING_DELETE
+
+    @staticmethod
+    def _is_not_error(svc_obj):
+        return svc_obj['provisioning_status'] != plugin_const.ERROR
 
     def _assure_loadbalancer_created(self, service, all_subnet_hints):
         if 'loadbalancer' not in service:
@@ -95,6 +114,7 @@ class LBaaSBuilder(object):
                                   loadbalancer["network_id"],
                                   all_subnet_hints,
                                   False)
+        self._set_status_as_active(loadbalancer)
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
@@ -106,29 +126,36 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
+            pool = self.get_pool_by_id(
+                service, listener.get('default_pool_id', None))
             svc = {"loadbalancer": loadbalancer,
                    "listener": listener,
                    "networks": networks}
 
-            if listener['provisioning_status'] == plugin_const.PENDING_UPDATE:
+            if pool:
+                svc['pool'] = pool
+            if listener['provisioning_status'] == \
+                    plugin_const.PENDING_UPDATE:
                 try:
                     self.listener_builder.update_listener(svc, bigips)
                 except Exception as err:
-                    loadbalancer['provisioning_status'] = plugin_const.ERROR
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerUpdateException(err.message)
 
-            elif listener['provisioning_status'] != \
-                    plugin_const.PENDING_DELETE:
+            elif self._is_not_pending_delete(listener):
                 try:
                     # create_listener() will do an update if VS exists
                     self.listener_builder.create_listener(svc, bigips)
                     listener['operating_status'] = \
                         svc['listener']['operating_status']
                 except Exception as err:
-                    loadbalancer['provisioning_status'] = plugin_const.ERROR
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.VirtualServerCreationException(err.message)
+            self._set_status_as_active(listener)
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -155,7 +182,38 @@ class LBaaSBuilder(object):
                         self.pool_builder.create_pool(svc, bigips)
                     else:
                         self.pool_builder.update_pool(svc, bigips)
+                except HTTPError as err:
+                    if err.response.status_code != 409:
+                        pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = \
+                            plugin_const.ERROR
+                        raise f5_ex.PoolCreationException(err.message)
+                except Exception as err:
+                    pool['provisioning_status'] = plugin_const.ERROR
+                    loadbalancer['provisioning_status'] = \
+                        plugin_const.ERROR
+                    raise f5_ex.PoolCreationException(str(err))
 
+    def _assure_pools_configured(self, service):
+        if "pools" not in service:
+            return
+
+        pools = service["pools"]
+        loadbalancer = service["loadbalancer"]
+
+        bigips = self.driver.get_config_bigips()
+
+        for pool in pools:
+            if pool['provisioning_status'] != plugin_const.PENDING_DELETE and \
+                    self._is_not_error(pool):
+                svc = {"loadbalancer": loadbalancer,
+                       "pool": pool}
+                svc['members'] = self._get_pool_members(service, pool['id'])
+
+                # get associated listener for pool
+                self.add_listener_pool(service, svc)
+
+                try:
                     # assign pool name to virtual
                     pool_name = self.service_adapter.init_pool_name(
                         loadbalancer, pool)
@@ -165,6 +223,7 @@ class LBaaSBuilder(object):
                     # update virtual sever pool name, session persistence
                     self.listener_builder.update_session_persistence(
                         svc, bigips)
+                    self._set_status_as_active(pool)
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         pool['provisioning_status'] = plugin_const.ERROR
@@ -206,6 +265,7 @@ class LBaaSBuilder(object):
         monitors = service["healthmonitors"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+        force_active_status = False
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
@@ -220,6 +280,7 @@ class LBaaSBuilder(object):
             else:
                 try:
                     self.pool_builder.create_healthmonitor(svc, bigips)
+                    force_active_status = True
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # pool['provisioning_status'] = plugin_const.ERROR
@@ -232,6 +293,7 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorCreationException(err.message)
+            self._set_status_as_active(monitor, force=force_active_status)
 
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
@@ -240,6 +302,7 @@ class LBaaSBuilder(object):
         members = service["members"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+        force_active = False
 
         for member in members:
             pool = self.get_pool_by_id(service, member["pool_id"])
@@ -270,6 +333,7 @@ class LBaaSBuilder(object):
                 try:
                     self.pool_builder.create_member(svc, bigips)
                     self.pool_builder.update_pool(pool_svc, bigips)
+                    force_active = True
                 except HTTPError as err:
                     if err.response.status_code != 409:
                         # FIXME(RB)
@@ -294,6 +358,7 @@ class LBaaSBuilder(object):
                                       member["network_id"],
                                       all_subnet_hints,
                                       True)
+            self._set_status_as_active(member, force=force_active)
 
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
@@ -378,7 +443,7 @@ class LBaaSBuilder(object):
 
     @staticmethod
     def get_pool_by_id(service, pool_id):
-        if "pools" in service:
+        if pool_id and "pools" in service:
             pools = service["pools"]
             for pool in pools:
                 if pool["id"] == pool_id:

@@ -55,8 +55,8 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
     assert not bigip.folder_exists(folder)
 
     # Create the loadbalancer
-    retval = icontrol_driver._common_service_handler(service)
-    assert retval
+    result = icontrol_driver._common_service_handler(service)
+    assert result
 
     # Assert that update loadbalancer status was not called
     assert fake_rpc.get_call_count('update_loadbalancer_status') == 0

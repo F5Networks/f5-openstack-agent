@@ -14,15 +14,21 @@
 # limitations under the License.
 #
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
-from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
-    LBaaSBuilder
-
 import copy
 import mock
 import pytest
 
+from mock import Mock
+from mock import patch
 from requests import HTTPError
+
+import neutron.plugins.common.constants
+
+import f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder
+
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
+    LBaaSBuilder
 
 POOL_BLDR_PATH = 'f5_openstack_agent.lbaasv2.drivers.bigip.pool_service.' \
     'PoolServiceBuilder'
@@ -48,6 +54,21 @@ def service():
             u"sni_containers": [],
             u"tenant_id": u"980e3f914f3e40359c3c2d9470fb2e8a"
         }],
+        u'networks': {
+            'cdf1eb6d-9b17-424a-a054-778f3d3a5490': {
+                "admin_state_up": True,
+                "id": 'cdf1eb6d-9b17-424a-a054-778f3d3a5490',
+                'mtu': 0,
+                'name': 'foodogzoo',
+                'provider:network_type': 'vxlan',
+                'provider:physical_network': None,
+                'router:external': False,
+                'shared': True,
+                'status': 'ACTIVE',
+                'subnets': ['4dc7caad-f9a9-4050-914e-b60eb6cf8ef7'],
+                'tenant_id': '980e3f914f3e40359c3c2d9470fb2e8a',
+                'vlan_transparent': None,
+                     }},
         u'loadbalancer': {
             u'admin_state_up': True,
             u'description': u'',
@@ -150,7 +171,122 @@ class MockHTTPErrorResponse409(HTTPError):
         self.status_code = 409
 
 
-class TestLbaasBuilder(object):
+class MockHTTPErrorResponse500(HTTPError):
+    def __init__(self):
+        self.status_code = 500
+
+
+class TestLBaaSBuilderConstructor(object):
+    @staticmethod
+    @pytest.fixture
+    @patch('f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.'
+           'LBaaSBuilder.__init__')
+    def fully_mocked_target(init):
+        init.return_value = None
+        return LBaaSBuilder()
+
+    @staticmethod
+    @pytest.fixture
+    def assure_mocked_target(fully_mocked_target):
+        target = fully_mocked_target
+        target.driver = Mock()
+        target.service_adapter = Mock()
+        target._update_subnet_hints = Mock()
+        target._set_status_as_active = Mock()
+        return target
+
+
+class TestLbaasBuilder(TestLBaaSBuilderConstructor):
+    neutron_plugin_constants = neutron.plugins.common.constants
+
+    @pytest.fixture
+    def create_self(self, request):
+        request.addfinalizer(self.teardown)
+        conf = Mock()
+        driver = Mock()
+        listener_service = \
+            str('f5_openstack_agent.lbaasv2.drivers.bigip.listener_service.'
+                'ListenerServiceBuilder')
+        pool_service = \
+            str('f5_openstack_agent.lbaasv2.drivers.bigip.pool_service.'
+                'PoolServiceBuilder')
+        mock_listener = Mock()
+        mock_pool = Mock()
+        self.log = Mock()
+        f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG = self.log
+        with patch(listener_service, mock_listener, create=True):
+            with patch(pool_service, mock_pool, create=True):
+                self.builder = LBaaSBuilder(conf, driver)
+        self.listener_service = mock_listener
+        self.pool_service = mock_pool
+
+    def teardown(self):
+        neutron.plugins.common.constants = self.neutron_plugin_constants
+        if hasattr(self, 'log'):
+            f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG = \
+                self.log
+
+    def test_set_status_as_active(self, fully_mocked_target):
+        preserved = ['PENDING_DELETE', 'ERROR']
+
+        def new_svc_obj(status):
+            state = getattr(neutron.plugins.common.constants, status)
+            return dict(provisioning_status=state, id=1)
+
+        def is_state(svc_obj, state):
+            state = getattr(neutron.plugins.common.constants, state)
+            return svc_obj['provisioning_status'] == state
+
+        def preserve_status(target):
+            for state in preserved:
+                svc = new_svc_obj(state)
+                target._set_status_as_active(svc, force=False)
+                assert is_state(svc, state)
+
+        def forced_through_preserved_status(target):
+            for state in preserved:
+                svc = new_svc_obj(state)
+                target._set_status_as_active(svc, force=True)
+                assert is_state(svc, 'ACTIVE')
+
+        def other_status(target):
+            svc = new_svc_obj('PENDING_UPDATE')
+            target._set_status_as_active(svc)
+            assert is_state(svc, 'ACTIVE')
+
+        preserve_status(fully_mocked_target)
+        forced_through_preserved_status(fully_mocked_target)
+        other_status(fully_mocked_target)
+
+    def test_assure_listeners_created(self, service, create_self):
+        listener = service.get('listeners')[0]
+        target = self.builder
+        service['listener'] = listener
+        # Test UPDATE case
+        target.listener_builder = Mock()
+        target.listener_builder.update_listener.side_effect = AssertionError
+        target.get_pool_by_id = Mock()
+        pool = target.get_pool_by_id()
+        expected_bigips = target.driver.get_config_bigips()
+        listener['provisioning_status'] = \
+            neutron.plugins.common.constants.PENDING_UPDATE
+        with pytest.raises(f5_ex.VirtualServerUpdateException):
+            target._assure_listeners_created(service)
+        expected_svc = dict(loadbalancer=service['loadbalancer'], pool=pool,
+                            listener=listener, networks=service['networks'])
+        target.listener_builder.update_listener.assert_called_once_with(
+            expected_svc, expected_bigips)
+        target.get_pool_by_id.call_argsassert_called_once()
+        # Test non-DELETE case
+        listener.pop('operating_status')
+        listener['provisioning_status'] = \
+            neutron.plugins.common.constants.PENDING_CREATE
+        create_listener = target.listener_builder.create_listener
+        target.listener_builder.create_listener.clear_mock()
+        with pytest.raises(f5_ex.VirtualServerCreationException):
+            target._assure_listeners_created(service)
+        create_listener.assert_called_once_with(expected_svc, expected_bigips)
+
     """Test _assure_members in LBaaSBuilder"""
     @pytest.mark.skip(reason="Test is not valid without port object")
     def test_assure_members_deleted(self, service):
