@@ -18,10 +18,16 @@ export CI_BUILD_SUMMARY="${CI_RESULTS_DIR}/ci-build.yaml"
 # The following logic enables combined coverage reporting.
 covbase="/testlab/openstack/testresults/coverage/${CI_PROJECT}/${CI_BRANCH}/${PROJ_HASH}"
 mkdir -p ${covbase}
-COVPREFIX="[paths]\n"\
-"sources = \n"\
+COVPREFIX="[run]\n"\
+"omit = \n"\
+"\t/*/f5_openstack_agent/lbaasv2/drivers/bigip/test/*\n"\
+"\n"\
+"[paths]\n"\
+"paths = \n"\
 "\t${covbase}/source_code\n"\
-"\t/*/f5-openstack-agent"
+"\t/*/f5-openstack-agent\n"\
+"\t/*/dist-packages\n"\
+"\t/*/site-packages"
 
 if [ ! -f "${covbase}/.coveragerc"  ]; then
     echo ${COVPREFIX} > ${covbase}/.coveragerc
@@ -35,9 +41,11 @@ if [ ! -d "${covbase}/source_code" ]; then
     TEMPTAG=temptag_${PROJ_HASH}
     git tag ${TEMPTAG}
     git clone -b ${TEMPTAG} --depth=1 --single-branch `pwd` ${covbase}/source_code
+    pushd ${covbase}/source_code && git checkout -b ${CI_BRANCH} && popd
 fi
 
 export COVERAGERESULTS="${covbase}/${BUILD_ID}_${JOB_BASE_NAME}"
+cp ${covbase}/.coveragerc ./.coveragerc
 
 # END COVERAGE REPORTING SECTION
 
