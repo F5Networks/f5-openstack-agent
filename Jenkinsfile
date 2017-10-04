@@ -47,8 +47,10 @@ pipeline {
                     make -C systest ${JOB_BASE_NAME}
 
                     # - record results only if it's not a smoke test
-                    if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
-                        systest/scripts/record_results.sh
+                    if [ "${DONTRECORDTRTLRESULTS}" != "true"  ]; then
+                        if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
+                            systest/scripts/record_results.sh
+                        fi
                     fi
                 '''}
             }
