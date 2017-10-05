@@ -40,7 +40,7 @@ else
 fi
 if [ ! -d "${covbase}/source_code" ]; then
     TEMPTAG=temptag_${PROJ_HASH}
-    git tag ${TEMPTAG}
+    git tag -f ${TEMPTAG}
     git clone -b ${TEMPTAG} --depth=1 --single-branch `pwd` ${covbase}/source_code
     pushd ${covbase}/source_code && git checkout -b ${CI_BRANCH} && popd
 fi
