@@ -5,12 +5,13 @@ export TIMESTAMP=`date +"%Y%m%d-%H%M%S"`
 export SESSIONLOGDIR=${TAGINFO}_$TIMESTAMP
 
 export STAGENAME=f5-openstack-agent_newton-unit
+export TRTLRESULTSDIR=${SESSIONLOGDIR}/${STAGENAME}
 pwd
 ls -l
 sudo -E docker pull  docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/newton
 sudo -E docker run -u jenkins -v `pwd`:/home/jenkins/f5-openstack-agent \
 docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/newton:latest \
-$STAGENAME $SESSIONLOGDIR
+${TRTLRESULTSDIR} $SESSIONLOGDIR
 sudo -E chown -Rf jenkins:jenkins .
 if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
     mkdir -p ${COVERAGERESULTS}
