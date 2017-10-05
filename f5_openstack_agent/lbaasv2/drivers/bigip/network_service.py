@@ -51,7 +51,7 @@ class NetworkServiceBuilder(object):
             resource_helper.ResourceType.vlan)
         self.rds_cache = {}
         self.interface_mapping = self.l2_service.interface_mapping
-        self.network_helper = NetworkHelper()
+        self.network_helper = NetworkHelper(conf=self.conf)
         self.service_adapter = self.driver.service_adapter
 
     def post_init(self):

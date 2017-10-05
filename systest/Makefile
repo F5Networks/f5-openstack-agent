@@ -156,11 +156,12 @@ run_overcloud_smoke_tests:
 #    singlebigip_f5-openstack-agent_liberty-12.1.1-overcloud
 setup_singlebigip_tests:
 	@echo executing $@
-	echo running testenv create with stack name $${TESTENV_NAME} && \
+	echo running testenv create with stack name $${TESTENV_NAME}_$${TIMESTAMP} && \
 	source /home/jenkins/openrc.sh && \
-	testenv --debug create --name $${TESTENV_NAME} \
+	testenv --debug create --name $${TESTENV_NAME}_$${TIMESTAMP} \
 	        --params bigip_img:$${!DEVICEVERSION} \
-	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
+	        $${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log && \
+	python ./scripts/poll_for_bigip.py
 
 singlebigip:
 	@echo executing $@
@@ -189,7 +190,8 @@ run_neutronless_loadbalancer_tests:
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ./test/functional/neutronless/loadbalancer/ ;\
-	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
+	cp -f $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@ ;\
+	cp -f $(PROJDIR)/.coverage $${COVERAGERESULTS}/.coverage_$@
 	
 
 run_neutronless_listener_tests:
@@ -200,7 +202,8 @@ run_neutronless_listener_tests:
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ./test/functional/neutronless/listener/ ;\
-	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
+	cp -f $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@ ;\
+	cp -f $(PROJDIR)/.coverage $${COVERAGERESULTS}/.coverage_$@
 
 run_neutronless_member_tests:
 	@echo executing $@
@@ -210,7 +213,8 @@ run_neutronless_member_tests:
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ./test/functional/neutronless/member/ ;\
-	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
+	cp -f $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@ ;\
+	cp -f $(PROJDIR)/.coverage $${COVERAGERESULTS}/.coverage_$@
 
 run_neutronless_pool_tests:
 	@echo executing $@
@@ -220,7 +224,8 @@ run_neutronless_pool_tests:
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ./test/functional/neutronless/pool/ ;\
-	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
+	cp -f $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@ ;\
+	cp -f $(PROJDIR)/.coverage $${COVERAGERESULTS}/.coverage_$@
 
 run_neutronless_esd_tests:
 	@echo executing $@
@@ -230,7 +235,8 @@ run_neutronless_esd_tests:
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ./test/functional/neutronless/esd/ ;\
-	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
+	cp -f $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@ ;\
+	cp -f $(PROJDIR)/.coverage $${COVERAGERESULTS}/.coverage_$@
 
 run_singlebigip_tests:
 	@echo executing $@
@@ -240,7 +246,8 @@ run_singlebigip_tests:
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ./test/functional/singlebigip/ ;\
-	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
+	cp -f $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@ ;\
+	cp -f $(PROJDIR)/.coverage $${COVERAGERESULTS}/.coverage_$@
 
 # disconnected_singlebigip_f5-openstack-agent_liberty-12_1_1-overcloud
 run_disconnected_service_tests:
@@ -253,7 +260,8 @@ run_disconnected_service_tests:
 		--autolog-outputdir $${GUMBALLS_PROJECT} \
 		--autolog-session $${GUMBALLS_SESSION} \
 	    ./test/functional/neutronless/disconnected_service/ ;\
-	mv $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@
+	cp -f $(PROJDIR)/.coverage $(PROJDIR)/.coverage_$@ ;\
+	cp -f $(PROJDIR)/.coverage $${COVERAGERESULTS}/.coverage_$@
 
 run_smoke_tests:
 	@echo executing $@
@@ -268,6 +276,7 @@ run_smoke_tests:
 
 cleanup_singlebigip:
 	@echo executing $@
-	echo running testenv delete with stack name $${TESTENV_NAME}
-	testenv --debug delete --name $${TESTENV_NAME} \
+	echo running testenv delete with stack name $${TESTENV_NAME}_$${TIMESTAMP}
+	source /home/jenkins/openrc.sh && \
+	testenv --debug delete --name $${TESTENV_NAME}_$${TIMESTAMP} \
 		$${TESTENV_CONF} &> $(TESTENVLOGDIR)/$@_$${TESTENV_NAME}.log
