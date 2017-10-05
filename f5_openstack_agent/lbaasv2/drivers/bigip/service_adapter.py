@@ -120,7 +120,9 @@ class ServiceModelAdapter(object):
 
     def _init_virtual_name_with_pool(self, loadbalancer, listener, pool=None):
         vip = self._init_virtual_name(loadbalancer, listener)
-        vip['pool'] = self.init_pool_name(loadbalancer, pool)
+        pool = self.init_pool_name(loadbalancer, pool)
+        if pool['name']:
+            vip['pool'] = pool
         return vip
 
     def get_traffic_group(self, service):
