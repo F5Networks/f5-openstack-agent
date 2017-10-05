@@ -103,9 +103,18 @@ class VirtualAddress(object):
 
         # Get the model object, pop immutables and update
         model = self.model()
-        model.pop("address")
-        va = self.virtual_address.update(bigip, model)
-
+        remote = self.load(bigip)
+        if remote.address != model.get('address', ''):
+            # Could be Route Domain or IP has changed
+            try:
+                self.delete(bigip)
+            except Exception as Error:
+                LOG.error('Failed to delete redunant virtual address "{}"'
+                          ' for {}'.format(Error, remote))
+            va = self.create(bigip)
+        else:
+            model.pop("address")
+            va = self.virtual_address.update(bigip, model)
         return va
 
     def assure(self, bigip, delete=False):

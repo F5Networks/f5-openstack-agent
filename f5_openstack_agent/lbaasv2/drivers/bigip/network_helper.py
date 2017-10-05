@@ -14,15 +14,16 @@
 #
 
 import constants_v2 as const
-from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
 import netaddr
 import os
 import urllib
 
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
+
+from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 
 LOG = logging.getLogger(__name__)
 
@@ -58,6 +59,15 @@ class NetworkHelper(object):
         'id': 0,
         'strict': 'disabled',
     }
+
+    route_defaults = {
+        'name': None,
+        'partition': '/' + const.DEFAULT_PARTITION,
+    }
+
+    def __init__(self, conf=None):
+        if conf:
+            self.conf = conf
 
     @log_helpers.log_method_call
     def create_l2gre_multipoint_profile(self, bigip, name,
@@ -174,21 +184,64 @@ class NetworkHelper(object):
                                         err.message))
         return None
 
+    def _get_route_domain_name(self, name):
+        # Returns the properly formatted route domain name
+        # for external_gateway_mode, it should be rd-{}
+        if hasattr(self, 'conf') and self.conf.external_gateway_mode and not \
+                name.startswith('rd-'):
+            rd_fmt = 'rd-{0}'
+        else:
+            rd_fmt = '{0}'
+        return rd_fmt.format(name)
+
+    def _get_route_name(self, name=None):
+        # Returns the properly formatted route name
+        # Not implemented for any other scenario besides external_gateway_mode
+        if not hasattr(self, 'conf') or \
+                not self.conf.external_gateway_mode:
+            raise NotImplementedError("Routes are not implemented outside of"
+                                      "common networks!")
+        return "rt-{}".format(name) if name and not name.startswith('rt-') \
+            else name
+
     def route_domain_exists(self, bigip, partition=const.DEFAULT_PARTITION,
-                            domain_id=None):
-        if partition == 'Common':
+                            domain_id=None, name=None):
+        """Returns True if the Route Domain exists on the bigip else False
+
+        This method will attempt to extract whether or not the Route Domain
+        exists off of the BIG-IP and return a boolean.
+        args:
+            bigip - should be a f5.bigip.RootManager object instance
+        kwargs:
+            partition - default is Common - a string that contains the name of
+                the tenant's partition
+            domain_id - int containing the domain's id
+            name - str containing the name of the route domain; otherwise
+                default is used
+        """
+        if partition == 'Common' and \
+                (not hasattr(self, 'conf') or
+                 not self.conf.external_gateway_mode):
             return True
+        name = self._get_route_domain_name(name) if name else partition
         r = bigip.tm.net.route_domains.route_domain
-        name = partition
         if domain_id:
             name += '_aux_' + str(domain_id)
         return r.exists(name=name, partition=partition)
 
     @log_helpers.log_method_call
-    def get_route_domain(self, bigip, partition=const.DEFAULT_PARTITION):
+    def get_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
+                         name=None):
+        """Returns a Route Domain object as extracted from the BIG-IP
+
+        This metod will take the bigip and extract the Route Domain object from
+        it.  It will then return this object to the caller.
+        """
         # this only works when the domain was created with is_aux=False,
         # same as the original code.
-        if partition == 'Common':
+        if hasattr(self, 'conf') and self.conf.external_gateway_mode:
+            name = self._get_route_domain_name(name) if name else partition
+        elif partition == 'Common':
             name = '0'
         else:
             name = partition
@@ -198,6 +251,17 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def get_route_domain_by_id(self, bigip, partition=const.DEFAULT_PARTITION,
                                id=const.DEFAULT_ROUTE_DOMAIN_ID):
+        """Returns the route domain by id
+
+        This takes in an id and attempts to find the domain by ID and partition
+        off of the BIG-IP and returns the Route Domain object.
+        args:
+            bigip - should be a f5.bigip.RootManager object instance
+        kwargs:
+            partition - default is Common - a str that contains the name of the
+                tenant's partition
+            domain_id - int containing the domain's id
+        """
         ret_rd = None
         rdc = bigip.tm.net.route_domains
         params = {}
@@ -232,9 +296,27 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def create_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
-                            strictness=False, is_aux=False):
+                            strictness=False, is_aux=False, name=None):
+        """Creates the route domain based upon settings in config
+
+        This method will create the Route Domain object per partition in the
+        standard case; however, in common networking configuration, it will
+        create a Route Domain on the Common partition labeling it by:
+            rd-h<name given>
+
+        args:
+            bigip - f5.bigip.RootManager object instance
+        kwargs:
+            partition - name of the partition
+            strictness - level of strictness setting
+            is_aux - whether or not it is 'aux' in definition
+            name - name of the RD as it should have
+        """
+        if name and self.conf.external_gateway_mode:
+            name = self._get_route_domain_name(name)
+        else:
+            name = partition
         rd = bigip.tm.net.route_domains.route_domain
-        name = partition
         id = self._get_next_domain_id(bigip)
         if is_aux:
             name += '_aux_' + str(id)
@@ -251,9 +333,23 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def delete_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
                             name=None):
-        r = bigip.tm.net.route_domains.route_domain
-        if not name:
+        """Deletes the route domain off of the bigip instance
+
+        This will attempt to delete the provided Route Domain from off of the
+        BIG-IP.
+
+        args:
+            bigip - f5.bigip.RootManager object instance
+        kwargs:
+            partition - name of the partition
+            strictness - level of strictness setting
+            name - name of the RD as it should have
+        """
+        if hasattr(self, 'conf') and self.conf.external_gateway_mode:
+            name = self._get_route_domain_name(name) if name else partition
+        else:
             name = partition
+        r = bigip.tm.net.route_domains.route_domain
         obj = r.load(name=name, partition=partition)
         obj.delete()
 
@@ -284,6 +380,79 @@ class NetworkHelper(object):
         for rd in route_domains:
             rd_names_list.append(rd.name)
         return rd_names_list
+
+    @log_helpers.log_method_call
+    def route_exists(self, bigip, partition=const.DEFAULT_PARTITION,
+                     name=None):
+        """Returns whether or not the Route object exists on the BIG-IP
+
+        This object method will attempt to load the Route object from the
+        BIG-IP using the F5 CCCL library.  If the Route does not exist on the
+        BIG-IP, then it will return False else True.
+        Args:
+            bigip - f5.bigip.RootManager object instance
+        Kwargs:
+            partition - name of the partition (or tenant)
+            name - name of the Route object on the BIG-IP
+        """
+        name = self._get_route_name(name)
+        rc = bigip.tm.net.routes.route
+        return rc.exists(name=name, partition=partition)
+
+    @log_helpers.log_method_call
+    def get_route(self, bigip, partition=const.DEFAULT_PARTITION, name=None):
+        """Returns the BIG-IP Route object as per its name and partition"""
+        payload = {'name': self._get_route_name(name), 'partition': partition}
+        rc = bigip.tm.net.routes.route
+        return rc.load(**payload)
+
+    @log_helpers.log_method_call
+    def create_route(self, bigip, name=None, partition=const.DEFAULT_PARTITION,
+                     gateway_ip='0.0.0.0', rd_id=0, destination_ip='0.0.0.0',
+                     netmask='255.255.255.0'):
+        """Creates the Route object on the BIG-IP
+
+        This object method will attempt to create the provided Route object on
+        the BIG-IP provided.
+
+        Args:
+            bigip - f5.bigip.RootManager object instance
+        Kwargs:
+            partition - partition name
+            name - name of the Route object on the BIG-IP
+        """
+        name = self._get_route_name(name)
+        if self.route_exists(bigip, name=name, partition=partition):
+            LOG.info(str("Skipping create of route {} as it already exists!"
+                         ).format(name))
+            return
+        rc = bigip.tm.net.routes.route
+        destination_ip = '{}%{}/{}'.format(destination_ip, rd_id, netmask)
+        gateway_ip = '{}%{}'.format(gateway_ip, rd_id)
+
+        payload = NetworkHelper.route_defaults.copy()
+        payload.update(dict(name=name, partition=partition, gw=gateway_ip,
+                            network=destination_ip))
+        rc.create(**payload)
+
+    @log_helpers.log_method_call
+    def delete_route(self, bigip, name=None,
+                     partition=const.DEFAULT_PARTITION):
+        """Deletes the provided Route off of the BIG-IP
+
+        This method will attempt to take the name and partition and delete it
+        from the provided bigip.
+        Args:
+            bigip - f5.bigip.RootManager obj instnace
+        Kwargs:
+            partition - name of the partition (or tenant)
+            name - name of the Route that is to be deleted
+        """
+        payload = {'partition': partition, 'name': self._get_route_name(name)}
+        if not self.route_exists(bigip, **payload):
+            return
+        route = self.get_route(bigip, **payload)
+        route.delete()
 
     @log_helpers.log_method_call
     def get_vlans_in_route_domain(self,
@@ -513,6 +682,7 @@ class NetworkHelper(object):
             partition=const.DEFAULT_PARTITION):
         """Returns list of virtual server addresses"""
         vs = bigip.tm.ltm.virtuals
+        va = bigip.tm.ltm.virtual_address_s.virtual_address
         virtual_servers = vs.get_collection(partition=partition)
         virtual_services = []
 
@@ -521,6 +691,16 @@ class NetworkHelper(object):
             virtual_address = {name: {}}
             dest = os.path.basename(virtual_server.destination)
             (vip_addr, vip_port) = self.split_addr_port(dest)
+
+            # extract from the bigip the address, if possible
+            try:
+                vaddr = va.load(name=vip_addr, partition=partition)
+            except HTTPError as err:
+                if not str(err.response.status_code) == '404':
+                    # we may have a valid ip address, if so this will happen
+                    raise
+            else:
+                vip_addr = vaddr.raw['address']
 
             virtual_address[name]['address'] = vip_addr
             virtual_address[name]['netmask'] = virtual_server.mask

@@ -204,13 +204,13 @@ Contributor License Agreement
 Individuals or business entities who contribute to this project must complete and submit the `F5 Contributor License Agreement <http://clouddocs.f5.com/cloud/openstack/v1/support/cla_landing.html>`_ to Openstack\_CLA@f5.com **before** their code submission can be added to this project.
 
 
-.. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=liberty
-   :target: https://travis-ci.org/F5Networks/f5-openstack-agent?branch=liberty
+.. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=mitaka
+   :target: https://travis-ci.org/F5Networks/f5-openstack-agent?branch=mitaka
 
 .. |slack badge| image:: https://f5-openstack-slack.herokuapp.com/badge.svg
     :target: https://f5-openstack-slack.herokuapp.com/
     :alt: Slack
 
-.. |coveralls badge| image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=liberty
-    :target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=liberty
+.. |coveralls badge| image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=mitaka
+    :target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=mitaka
     :alt: Coveralls
