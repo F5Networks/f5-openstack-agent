@@ -166,13 +166,17 @@ class TestServiceAdapter(object):
         listener = basic_service['listener']
         pool = basic_service['pools'][0]
         target._init_virtual_name = Mock(return_value=dict())
-        target.init_pool_name = Mock(return_value='pool')
+        target.init_pool_name = Mock(return_value=dict(name='pool'))
         assert target._init_virtual_name_with_pool(
-            loadbalancer, listener, pool) == dict(pool='pool')
+            loadbalancer, listener, pool) == {'pool': dict(name='pool')}
         target._init_virtual_name.assert_called_once_with(
             loadbalancer, listener)
         target.init_pool_name.assert_called_once_with(
             loadbalancer, pool)
+        target.init_pool_name.return_value = dict(name='')
+        target._init_virtual_name.return_value = dict()
+        assert target._init_virtual_name_with_pool(
+            loadbalancer, listener, pool) == dict()
 
     def test_get_vip_default_pool(self, target, basic_service):
         pool = basic_service['pools'][0]
