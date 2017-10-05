@@ -1,0 +1,5 @@
+[run]
+include =
+    */f5-openstack-agent/*
+
+data_file = .coverage.f5-openstack-agent.l2adjacent
