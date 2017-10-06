@@ -88,7 +88,6 @@ class ServiceModelAdapter(object):
     def get_virtual(self, service):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
-        pool = service.get('pool', None)
 
         listener["use_snat"] = self.snat_mode()
         if listener["use_snat"] and self.snat_count() > 0:
