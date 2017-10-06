@@ -166,24 +166,28 @@ class TestServiceAdapter(object):
         listener = basic_service['listener']
         pool = basic_service['pools'][0]
         target._init_virtual_name = Mock(return_value=dict())
-        target.init_pool_name = Mock(return_value='pool')
+        target.init_pool_name = Mock(return_value=dict(name='pool'))
         assert target._init_virtual_name_with_pool(
-            loadbalancer, listener, pool) == dict(pool='pool')
+            loadbalancer, listener, pool) == {'pool': 'pool'}
         target._init_virtual_name.assert_called_once_with(
             loadbalancer, listener)
         target.init_pool_name.assert_called_once_with(
             loadbalancer, pool)
+        target.init_pool_name.return_value = dict(name='')
+        target._init_virtual_name.return_value = dict()
+        assert target._init_virtual_name_with_pool(
+            loadbalancer, listener, pool) == {'pool': None}
 
     def test_get_vip_default_pool(self, target, basic_service):
         pool = basic_service['pools'][0]
         basic_service['pool'] = pool
         loadbalancer = basic_service['loadbalancer']
         listener = basic_service['listener']
-        vip = 'vip'
+        vip = {'name': "pre-_" + listener['id'],
+               'partition': "pre-_" + loadbalancer['tenant_id'],
+               'pool': ''}
         target._init_virtual_name_with_pool = Mock(return_value=vip)
         assert vip == target.get_vip_default_pool(basic_service)
-        target._init_virtual_name_with_pool.assert_called_once_with(
-            loadbalancer, listener, pool=pool)
 
     def test_map_virtual(self, target, basic_service):
         pool = basic_service['pools'][0]
@@ -197,6 +201,8 @@ class TestServiceAdapter(object):
         vip_address = loadbalancer['vip_address'].replace('%0', '')
         listener['pool'] = pool
         expected = dict(
+            name="pre-_" + listener['id'],
+            partition="pre-_" + loadbalancer['tenant_id'],
             destination=vip_address + ':' + proto_port, ipProtocol='tcp',
             connectionLimit=cx_limit, description=description, enabled=True,
             pool=pool)
