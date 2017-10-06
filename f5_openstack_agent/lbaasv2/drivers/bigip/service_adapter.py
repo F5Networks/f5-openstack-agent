@@ -100,7 +100,9 @@ class ServiceModelAdapter(object):
             listener["session_persistence"] = \
                 service["pool"]["session_persistence"]
 
-        vip = self._map_virtual(loadbalancer, listener, pool=pool)
+        vip = self._map_virtual(
+            loadbalancer, listener, pool=service.get('pool', None))
+
         self._add_bigip_items(listener, vip)
         return vip
 
@@ -122,7 +124,10 @@ class ServiceModelAdapter(object):
         vip = self._init_virtual_name(loadbalancer, listener)
         pool = self.init_pool_name(loadbalancer, pool)
         if pool['name']:
-            vip['pool'] = pool
+            vip['pool'] = pool['name']
+        else:
+            vip['pool'] = None
+
         return vip
 
     def get_traffic_group(self, service):
@@ -138,8 +143,13 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
         pool = service["pool"]
-        vip = self._init_virtual_name_with_pool(
-            loadbalancer, listener, pool=pool)
+        vip = self._init_virtual_name(
+            loadbalancer, listener)
+        if "default_pool_id" in listener:
+            p = self.init_pool_name(loadbalancer, pool)
+            vip["pool"] = p["name"]
+        else:
+            vip["pool"] = ""
 
         return vip
 
@@ -348,8 +358,11 @@ class ServiceModelAdapter(object):
             return 'round-robin'
 
     def _map_virtual(self, loadbalancer, listener, pool=None):
-        vip = self._init_virtual_name_with_pool(
-            loadbalancer, listener, pool=pool)
+        vip = self._init_virtual_name(loadbalancer, listener)
+
+        if pool:
+            p = self.init_pool_name(loadbalancer, pool)
+            vip["pool"] = p["name"]
 
         vip["description"] = self.get_resource_description(listener)
 
@@ -388,6 +401,8 @@ class ServiceModelAdapter(object):
 
         if "pool" in listener:
             vip["pool"] = listener["pool"]
+        else:
+            vip["pool"] = None
 
         return vip
 
