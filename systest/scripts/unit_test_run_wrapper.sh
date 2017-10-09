@@ -4,8 +4,7 @@ export TIMESTAMP=`date +"%Y%m%d-%H%M%S"`
 # This is approximately the same as GUMBALLS_SESSION
 export SESSIONLOGDIR=${TAGINFO}_$TIMESTAMP
 
-export STAGENAME=f5-openstack-agent_mitaka-unit
-export TRTLRESULTSDIR=${SESSIONLOGDIR}/${STAGENAME}
+export TRTLRESULTSDIR=`pwd`/systest/test_results/f5-openstack-agent_mitaka-unit
 pwd
 ls -l
 sudo -E docker pull  docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/mitaka
