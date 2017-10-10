@@ -23,16 +23,13 @@ pipeline {
         stage("unit"){ 
             steps {
                 sh '''
-                    # - initialize env vars
-                    . systest/scripts/init_env.sh
-
-                    # - record start of build
-                    if [ "${DONTRECORDTRTLRESULTS}" != "true"  ]; then
-                        systest/scripts/record_build_start.sh
+                    if [ "${RUN_UNIT_STAGE}" = "true" ]; then
+                        echo Running the "unit" stage.
+                        # - run tests
+                        systest/scripts/unit_test_run_wrapper.sh
+                    else
+                        echo RUN_UNIT_STAGE NOT selected.
                     fi
-
-                    # - run tests
-                    systest/scripts/unit_test_run_wrapper.sh
                 '''}
             }
         stage("systest") {
@@ -41,13 +38,16 @@ pipeline {
                     # - initialize env vars
                     . systest/scripts/init_env.sh
 
+                    # - record start of build
+                    if [ "${DONTRECORDTRTLRESULTS}" != "true"  ]; then
+                        systest/scripts/record_build_start.sh
+                    fi
+
                     # - setup ssh agent
                     eval $(ssh-agent -s)
                     ssh-add
-
                     # - run tests
                     make -C systest ${JOB_BASE_NAME}
-
                     # - record results only if it's not a smoke test
                     if [ "${DONTRECORDTRTLRESULTS}" != "true"  ]; then
                         if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then

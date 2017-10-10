@@ -5,14 +5,22 @@ export TIMESTAMP=`date +"%Y%m%d-%H%M%S"`
 export SESSIONLOGDIR=${TAGINFO}_$TIMESTAMP
 
 export TRTLRESULTSDIR=`pwd`/systest/test_results/f5-openstack-agent_mitaka-unit
-pwd
-ls -l
-sudo -E docker pull  docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/mitaka
-sudo -E docker run -u jenkins -v `pwd`:/home/jenkins/f5-openstack-agent \
-docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/mitaka:latest \
+mkdir -p ${TRTLRESULTSDIR}
+sudo -E docker pull docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/mitaka
+
+sudo -E docker run \
+                -u jenkins \
+                -v ${TRTLRESULTSDIR}:${TRTLRESULTSDIR} \
+                -v `pwd`:`pwd` \
+                -w `pwd` \
+docker-registry.pdbld.f5net.com\
+/openstack-test-agentunitrunner-prod/mitaka:latest \
 ${TRTLRESULTSDIR} $SESSIONLOGDIR
+
 sudo -E chown -Rf jenkins:jenkins .
-if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
-    mkdir -p ${COVERAGERESULTS}
-    mv .coverage ${COVERAGERESULTS}/.coverage_unit
+if [ "${RUN_UNIT_STAGE}" != "true" ]; then
+    if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
+        mkdir -p ${COVERAGERESULTS}
+        mv .coverage ${COVERAGERESULTS}/.coverage_unit
+    fi
 fi
