@@ -49,7 +49,7 @@ Configuration
       f5_ha_type = standalone
       #
 
-#. Set up the |agent-long| to use :ref:`L2-adjacent mode <l2-adjacent-mode>` or :ref:`Global Routed mode <global-routed-mode>`.
+#. Set up the |agent-long| to use :ref:`L2-adjacent mode <l2-adjacent-setup>` or :ref:`Global Routed mode <global-routed-setup>`.
 
 .. _learn-ha:
 
