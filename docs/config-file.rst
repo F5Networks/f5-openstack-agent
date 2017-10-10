@@ -17,7 +17,7 @@ The latter impacts how the |agent-short| configures BIG-IP objects in response t
 
    Use the appropriate |agent-short| configuration parameters for your network architecture and existing BIG-IP configurations.
 
-The |agent-short| has three (3) modes of operation: :ref:`Global routed mode <global-routed-setup>`, :ref:`L2-adjacent mode <l2-adjacent-setup>`, and :ref:`External gateway mode <external-gateway-setup>`.
+The |agent-short| has two (2) modes of operation: :ref:`Global routed mode <global-routed-setup>`, :ref:`L2-adjacent mode <l2-adjacent-setup>`.
 The mode you should use depends on how your BIG-IP device(s) connects to the network.
 
 * Global routed mode -- use if the BIG-IP device(s) connects directly to the `OpenStack provider network`_.
@@ -303,7 +303,7 @@ f5_snat_addresses_per_subnet    integer                     Defines how many IP 
 f5_common_networks              boolean                     Controls where the agent creates    TRUE: the agent creates all network objects TRUE
                                                             network objects                     in the :code:`/Common` partition on the
                                                                                                 BIG-IP system.
-
+------------------------------- --------------------------- ----------------------------------- ------------------------------------------- ---------------------
 f5_common_external_networks     boolean                     Controls the agent's access to      TRUE: the agent adds all provider           TRUE
                                                             external (infrastructure-based)     networks with ``route:external`` set
                                                             routes                              to ``true`` to the BIG-IP global route

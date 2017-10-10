@@ -21,7 +21,6 @@ F5 Agent for OpenStack Neutron
    config-file
    global-routed-mode
    l2-adjacent-mode
-   ext-gateway-mode
    device-driver-settings
    ha-mode
 
@@ -186,7 +185,6 @@ Modes of Operation
 
 * :ref:`Run the F5 Agent in global routed mode <global-routed-setup>`
 * :ref:`Run the F5 Agent in L2-adjacent mode <l2-adjacent-setup>`
-* :ref:`Run the F5 Agent in external gateway mode <external-gateway-setup>`
 
 
 .. index::
