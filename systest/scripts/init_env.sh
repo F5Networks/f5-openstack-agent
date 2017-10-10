@@ -12,6 +12,7 @@ export PROJ_HASH=$(git rev-parse HEAD | xargs)
 job_dirname="${CI_PROGRAM}.${CI_PROJECT}.${CI_BRANCH}.${JOB_BASE_NAME}"
 export build_dirname="${JOB_BASE_NAME}-${BUILD_ID}"
 export CI_RESULTS_DIR="/home/jenkins/results/${job_dirname}/${build_dirname}"
+mkdir -p ${CI_RESULTS_DIR}
 export CI_BUILD_SUMMARY="${CI_RESULTS_DIR}/ci-build.yaml"
 export PYTHONDONTWRITEBYTECODE=1
 
@@ -40,9 +41,7 @@ else
     echo "\t/*/${JOB_BASE_NAME}" >> ${covbase}/.coveragerc
 fi
 if [ ! -d "${covbase}/source_code" ]; then
-    TEMPTAG=temptag_${PROJ_HASH}
-    git tag -f ${TEMPTAG}
-    git clone -b ${TEMPTAG} --depth=1 --single-branch `pwd` ${covbase}/source_code
+    cp -Rf `pwd` ${covbase}/source_code
     pushd ${covbase}/source_code && git checkout -b ${CI_BRANCH} && popd
 fi
 

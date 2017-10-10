@@ -4,16 +4,23 @@ export TIMESTAMP=`date +"%Y%m%d-%H%M%S"`
 # This is approximately the same as GUMBALLS_SESSION
 export SESSIONLOGDIR=${TAGINFO}_$TIMESTAMP
 
-export STAGENAME=f5-openstack-agent_newton-unit
-export TRTLRESULTSDIR=${SESSIONLOGDIR}/${STAGENAME}
-pwd
-ls -l
-sudo -E docker pull  docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/newton
-sudo -E docker run -u jenkins -v `pwd`:/home/jenkins/f5-openstack-agent \
-docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/newton:latest \
+export TRTLRESULTSDIR=`pwd`/systest/test_results/f5-openstack-agent_newton-unit
+mkdir -p ${TRTLRESULTSDIR}
+sudo -E docker pull docker-registry.pdbld.f5net.com/openstack-test-agentunitrunner-prod/newton
+
+sudo -E docker run \
+                -u jenkins \
+                -v ${TRTLRESULTSDIR}:${TRTLRESULTSDIR} \
+                -v `pwd`:`pwd` \
+                -w `pwd` \
+docker-registry.pdbld.f5net.com\
+/openstack-test-agentunitrunner-prod/newton:latest \
 ${TRTLRESULTSDIR} $SESSIONLOGDIR
+
 sudo -E chown -Rf jenkins:jenkins .
-if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
-    mkdir -p ${COVERAGERESULTS}
-    mv .coverage ${COVERAGERESULTS}/.coverage_unit
+if [ "${RUN_UNIT_STAGE}" != "true" ]; then
+    if [ -n "${JOB_BASE_NAME##*smoke*}" ]; then
+        mkdir -p ${COVERAGERESULTS}
+        mv .coverage ${COVERAGERESULTS}/.coverage_unit
+    fi
 fi

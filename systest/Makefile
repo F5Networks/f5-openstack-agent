@@ -94,7 +94,7 @@ TESTENVLOGDIR := $(RESULTS_DIR)/f5-openstack-agent_$(SANITIZED_BRANCH)/testenv
 
 unit-tests:
 	@echo executing $@
-	./scripts/unit_test_run_wrapper.sh
+	cd $(PROJDIR) && ./systest/scripts/unit_test_run_wrapper.sh
 
 setup:
 	@echo executing $@
