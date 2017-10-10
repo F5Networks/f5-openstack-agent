@@ -31,25 +31,25 @@ Configuration
 
 #. Enter the iControl endpoint(s), username, and password for your BIG-IP(s).
 
-    * :code:`icontrol_hostname`: The IP address(es) of the BIG-IP(s) the agent will manage. If you're using multiple devices, provide a comma-separated list containing the management IP address of each device.
-    * :code:`icontrol_vcmp_hostname`: The IP address(es) of the BIG-IP device(s) used for `vCMP`_
-    * :code:`icontrol_username`: The username of the adminstrative user; *must have access to all BIG-IP devices*.
-    * :code:`icontrol_password`: The password of the adminstrative user; *must have access to all BIG-IP devices*.
+   * :code:`icontrol_hostname`: The IP address(es) of the BIG-IP(s) the agent will manage. If you're using multiple devices, provide a comma-separated list containing the management IP address of each device.
+   * :code:`icontrol_vcmp_hostname`: The IP address(es) of the BIG-IP device(s) used for `vCMP`_
+   * :code:`icontrol_username`: The username of the adminstrative user; *must have access to all BIG-IP devices*.
+   * :code:`icontrol_password`: The password of the adminstrative user; *must have access to all BIG-IP devices*.
 
    .. code-block:: text
 
-      ###############################################################################
-      #  Device Driver - iControl Driver Setting
-      ###############################################################################
-      #
-      icontrol_hostname = 10.190.7.232 \\ replace with the IP address(es) of your BIG-IP(s)
-      #
-      # icontrol_vcmp_hostname = 192.168.1.245
-      #
-      icontrol_username = admin
-      #
-      icontrol_password = admin
-      #
+   ###############################################################################
+   #  Device Driver - iControl Driver Setting
+   ###############################################################################
+   #
+   icontrol_hostname = 10.190.7.232 \\ replace with the IP address(es) of your BIG-IP(s)
+   #
+   # icontrol_vcmp_hostname = 192.168.1.245
+   #
+   icontrol_username = admin
+   #
+   icontrol_password = admin
+   #
 
 #. Set up the |agent-long| to use :ref:`L2-adjacent mode <l2-adjacent-setup>` or :ref:`Global Routed mode <global-routed-setup>`.
 
