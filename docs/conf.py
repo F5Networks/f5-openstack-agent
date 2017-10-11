@@ -402,6 +402,9 @@ rst_epilog = '''
 .. _Better or Best license: https://f5.com/products/how-to-buy/simplified-licensing
 .. _secure network address translation: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/8.html
 .. _F5 Integration for OpenStack: /cloud/openstack/latest/lbaas
+.. _Install the F5 LBaaSv2 Driver: /products/openstack/f5-openstack-lbaasv2-driver/v%(version)s/index.html#installation
+.. _F5 Agent modes: /cloud/openstack/latest/lbaas/f5-agent-modes.html
+.. _Differentiated service environments: /cloud/openstack/latest/lbaas/differentiated-service-environments.html
 ''' % {
   'version': version,
   'f5_sdk_version': f5_sdk_version,
