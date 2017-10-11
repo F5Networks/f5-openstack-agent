@@ -24,7 +24,7 @@ f5-openstack-agent
 Introduction
 ************
 
-The F5® agent translates from 'OpenStack' to 'F5®'. It uses the `f5-sdk <http://f5-sdk.readthedocs.io>`_ to translate OpenStack messaging calls -- such as those from the Neutron RPC messaging queue -- into iControl® REST calls to F5® technologies, such as BIG-IP®.
+The F5 agent translates from 'OpenStack' to 'F5'. It uses the `f5-sdk <http://f5-sdk.readthedocs.io>`_ to translate OpenStack messaging calls -- such as those from the Neutron RPC messaging queue -- into iControl REST calls to F5 technologies, such as BIG-IP.
 
 Documentation
 *************
@@ -34,9 +34,9 @@ Documentation is published on Read the Docs, at http://f5-openstack-agent.readth
 Compatibility
 *************
 
-The F5® OpenStack agent is compatible with OpenStack releases from Liberty forward. If you are using Kilo or earlier, you'll need the `LBaaSv1 plugin <http://f5-openstack-lbaasv1.readthedocs.io>`_.
+The F5 OpenStack agent is compatible with OpenStack releases from Liberty forward. If you are using Kilo or earlier, you'll need the `LBaaSv1 plugin <http://f5-openstack-lbaasv1.readthedocs.io>`_.
 
-See the `F5® OpenStack Releases and Support Matrix <http://f5-openstack-docs.readthedocs.org/en/latest/releases_and_versioning.html>`_ for more information.
+See the `F5 OpenStack Releases and Support Matrix <http://f5-openstack-docs.readthedocs.org/en/latest/releases_and_versioning.html>`_ for more information.
 
 Installation
 ************
@@ -59,7 +59,7 @@ Test
 ****
 Before you open a pull request, your code must have passing
 `pytest <http://pytest.org>`__ unit tests. In addition, you should
-include a set of functional tests written to use a real BIG-IP® device
+include a set of functional tests written to use a real BIG-IP device
 for testing. Information on how to run our set of tests is included
 below.
 
@@ -160,7 +160,7 @@ limitations under the License.
 Contributor License Agreement
 =============================
 
-Individuals or business entities who contribute to this project must have completed and submitted the `F5® Contributor License Agreement <http://f5-openstack-docs.readthedocs.org/en/latest/cla_landing.html#cla-landing>`_ to Openstack\_CLA@f5.com prior to their code submission being included in this project.
+Individuals or business entities who contribute to this project must have completed and submitted the `F5 Contributor License Agreement <http://f5-openstack-docs.readthedocs.org/en/latest/cla_landing.html#cla-landing>`_ to Openstack\_CLA@f5.com prior to their code submission being included in this project.
 
 
 .. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=liberty

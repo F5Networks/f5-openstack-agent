@@ -1,6 +1,6 @@
 .. _home:
 
-F5® OpenStack Agent
+F5 OpenStack Agent
 ===================
 
 |Build Status| |Docs Build Status|
@@ -28,13 +28,13 @@ Installation
 .. include:: topic_install-f5-agent.rst
     :start-line: 3
 
-For more information about using F5® technologies in OpenStack with Neutron LBaaSv2, please see the :ref:`f5-openstack-lbaasv2-driver documentation <lbaasv2driver:home>`.
+For more information about using F5 technologies in OpenStack with Neutron LBaaSv2, please see the :ref:`f5-openstack-lbaasv2-driver documentation <lbaasv2driver:home>`.
 
 
 Configuration and Usage
 -----------------------
 
-See the :ref:`F5® OpenStack LBaaSv2 documentation <lbaasv2driver:home>`.
+See the :ref:`F5 OpenStack LBaaSv2 documentation <lbaasv2driver:home>`.
 
 
 .. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=liberty
