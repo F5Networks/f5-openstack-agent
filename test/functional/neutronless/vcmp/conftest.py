@@ -14,27 +14,24 @@
 #
 
 import logging
-import mock
 import os
 import pytest
 import time
 
 from f5.bigip import ManagementRoot
-from f5.utils.testutils.registrytools import register_device
 from f5.utils.testutils.registrytools import AGENT_LB_DEL_ORDER
 from f5.utils.testutils.registrytools import order_by_weights
+from f5.utils.testutils.registrytools import register_device
 from icontrol.exceptions import iControlUnexpectedHTTPError
-
-from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import\
-    iControlDriver
 
 
 @pytest.fixture
 def bigip(request):
     bigip = ManagementRoot(pytest.symbols.bigip_ip,
-                            pytest.symbols.bigip_username,
-                            pytest.symbols.bigip_password)
+                           pytest.symbols.bigip_username,
+                           pytest.symbols.bigip_password)
     return bigip
+
 
 @pytest.fixture
 def bigip2(request):
@@ -42,6 +39,7 @@ def bigip2(request):
                             pytest.symbols.bigip_username,
                             pytest.symbols.bigip_password)
     return bigip2
+
 
 @pytest.fixture
 def vcmp_uris(request):
@@ -53,10 +51,6 @@ def vcmp_uris(request):
              "https://localhost/mgmt/tm/net/route-domain/~TEST_128a63ef33bc4c"
              "f891d684fad58e7f2d~TEST_128a63ef33bc4cf8"
              "91d684fad58e7f2d?ver={}".format(bigver),
-             "https://localhost/mgmt/tm/net/fdb/tunnel/~TEST_128a63ef33bc4cf89"
-             "1d684fad58e7f2d~disconnected_network?ver=11.5.0",
-             "https://localhost/mgmt/tm/net/tunnels/tunnel/~TEST_128a63ef33bc4"
-             "cf891d684fad58e7f2d~disconnected_network?ver={}".format(bigver),
              "https://localhost/mgmt/tm/net/vlan/~TEST_128a63ef33bc4cf891d684f"
              "ad58e7f2d~vlan-46?ver={}".format(bigver),
              "https://localhost/mgmt/tm/ltm/snat-translation/~TEST_128a63ef33b"
@@ -94,6 +88,16 @@ def vcmp_uris(request):
     return uri_dict
 
 
+@pytest.fixture(scope='module')
+def makelogdir(request):
+    logtime = '%0.0f' % time.time()
+    dirname = os.path.dirname(request.module.__file__)
+    modfname = request.module.__name__
+    logdirname = os.path.join(dirname, 'logs', modfname, logtime)
+    os.makedirs(logdirname)
+    return logdirname
+
+
 @pytest.fixture
 def setup_bigip_devices(request, bigip, bigip2, vcmp_uris, makelogdir):
     lb_uris = set(vcmp_uris['vcmp_lb_uris'])
@@ -128,3 +132,43 @@ def setup_bigip_devices(request, bigip, bigip2, vcmp_uris, makelogdir):
                 bigip.device.hostname))
     request.addfinalizer(remove_test_created_elements)
     return loghandler
+
+
+def _get_nolevel_handler(logname):
+    rootlogger = logging.getLogger()
+    for h in rootlogger.handlers:
+        rootlogger.removeHandler(h)
+    rootlogger.setLevel(logging.INFO)
+    fh = logging.FileHandler(logname)
+    fh.setLevel(logging.INFO)
+    rootlogger.addHandler(fh)
+    return fh
+
+
+def remove_elements(bigip, uris, vlan=False):
+    for t in bigip.tm.net.fdb.tunnels.get_collection():
+        if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
+            t.update(records=[])
+    registry = register_device(bigip)
+    ordered = order_by_weights(uris, AGENT_LB_DEL_ORDER)
+    for selfLink in ordered:
+        try:
+            if selfLink in registry:
+                registry[selfLink].delete()
+        except iControlUnexpectedHTTPError as exc:
+            sc = exc.response.status_code
+            if sc == 404:
+                logging.debug(sc)
+            elif sc == 400 and 'fdb/tunnel' in selfLink and vlan:
+                # If testing VLAN (with vCMP) the fdb tunnel cannot be deleted
+                # directly. It goes away when the net tunnel is deleted
+                continue
+            elif sc == 400\
+              and 'mgmt/tm/net/tunnels/tunnel/' in selfLink\
+              and 'tunnel-vxlan' in selfLink:
+                for t in bigip.tm.net.fdb.tunnels.get_collection():
+                    if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
+                        t.update(records=[])
+                registry[selfLink].delete()
+            else:
+                raise
