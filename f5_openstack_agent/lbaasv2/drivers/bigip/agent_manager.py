@@ -29,10 +29,10 @@ from oslo_utils import importutils
 from neutron.agent import rpc as agent_rpc
 from neutron.common import exceptions as q_exception
 from neutron.common import topics
-from neutron_lib import context as neutron_lib_context
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
 from neutron_lbaas.services.loadbalancer import constants as lb_const
+from neutron_lib import context as neutron_lib_context
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
