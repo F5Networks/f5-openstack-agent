@@ -29,7 +29,7 @@ from oslo_utils import importutils
 from neutron.agent import rpc as agent_rpc
 from neutron.common import exceptions as q_exception
 from neutron.common import topics
-from neutron import context as ncontext
+from neutron_lib import context as neutron_lib_context
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
 from neutron_lbaas.services.loadbalancer import constants as lb_const
@@ -214,7 +214,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         LOG.debug("Initializing LbaasAgentManager")
 
         self.conf = conf
-        self.context = ncontext.get_admin_context_without_session()
+        self.context = neutron_lib_context.get_admin_context_without_session()
         self.serializer = None
 
         # Create the cache of provisioned services
