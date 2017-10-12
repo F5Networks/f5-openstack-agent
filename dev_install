@@ -1,0 +1,6 @@
+git init
+python setup.py install
+
+python /var/lib/openstack/bin/f5-oslbaasv2-agent --config-file /etc/neutron/f5-oslbaasv2-agent.ini --config-file /etc/neutron/neutron.conf --log-file /var/log/neutron/f5-agent.log
+
+#python /var/lib/kolla/venv/bin/f5-oslbaasv2-purge --config-file /etc/neutron/f5-oslbaasv2-agent.ini --partition 234

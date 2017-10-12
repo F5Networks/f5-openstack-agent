@@ -24,8 +24,6 @@ from neutron_lbaas.services.loadbalancer import constants as lb_const
 from requests import HTTPError
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
-#import pydevd
-
 
 LOG = logging.getLogger(__name__)
 
@@ -41,7 +39,6 @@ class ListenerServiceBuilder(object):
     """
 
     def __init__(self, lbaas_builder, service_adapter, cert_manager, parent_ssl_profile=None):
-        #pydevd.settrace('10.29.12.100', port=22100, stdoutToServer=True, stderrToServer=True)
 
         self.lbaas_builder = lbaas_builder
         self.cert_manager = cert_manager
@@ -146,6 +143,7 @@ class ListenerServiceBuilder(object):
             for container in tls["sni_containers"]:
                 container_ref = container["tls_container_id"]
                 self.create_ssl_profile(container_ref, bigip, vip, False)
+
 
     def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False):
         cert = self.cert_manager.get_certificate(container_ref)
@@ -321,6 +319,66 @@ class ListenerServiceBuilder(object):
         rule_text += cookiename + "\"]] 3600\n"
         rule_text += " }\n"
         rule_text += "}\n\n"
+        return rule_text
+
+    def _cc_create_app_cookie_persist_rule(self, cookiename):
+        """Create cookie persistence rule.
+
+        :param cookiename: Name to substitute in rule.
+        """
+        rule_text = """
+             when RULE_INIT {
+             
+                # Cookie name prefix
+                set static::ck_pattern BIGipServer*, %s
+             
+                # Log debug to /var/log/ltm? 1=yes, 0=no)
+                set static::ck_debug 1
+             
+                # Cookie encryption passphrase
+                # Change this to a custom string!
+                set static::ck_pass "abc123"
+            }
+            when HTTP_REQUEST {
+             
+                if {$static::ck_debug}{log local0. "Request cookie names: [HTTP::cookie names]"}
+                
+                # Check if the cookie names in the request match our string glob pattern
+                if {[set cookie_names [lsearch -all -inline [HTTP::cookie names] $static::ck_pattern]] ne ""}{
+             
+                    # We have at least one match so loop through the cookie(s) by name
+                    if {$static::ck_debug}{log local0. "Matching cookie names: [HTTP::cookie names]"}
+                        foreach cookie_name $cookie_names {
+                            
+                            # Decrypt the cookie value and check if the decryption failed (null return value)
+                            if {[HTTP::cookie decrypt $cookie_name $static::ck_pass] eq ""}{
+                 
+                                # Cookie wasn't encrypted, delete it
+                                if {$static::ck_debug}{log local0. "Removing cookie as decryption failed for $cookie_name"}
+                                    HTTP::cookie remove $cookie_name
+                            }
+                        }
+                    if {$static::ck_debug}{log local0. "Cookie header(s): [HTTP::header values Cookie]"}
+                }
+            }
+            when HTTP_RESPONSE {
+             
+                if {$static::ck_debug}{log local0. "Response cookie names: [HTTP::cookie names]"}
+                
+                # Check if the cookie names in the request match our string glob pattern
+                if {[set cookie_names [lsearch -all -inline [HTTP::cookie names] $static::ck_pattern]] ne ""}{
+                    
+                    # We have at least one match so loop through the cookie(s) by name
+                    if {$static::ck_debug}{log local0. "Matching cookie names: [HTTP::cookie names]"}
+                        foreach cookie_name $cookie_names {
+                            
+                            # Encrypt the cookie value
+                            HTTP::cookie encrypt $cookie_name $static::ck_pass
+                        }
+                    if {$static::ck_debug}{log local0. "Set-Cookie header(s): [HTTP::header values Set-Cookie]"}
+                }
+            }       
+        """ % (cookiename)
         return rule_text
 
     def remove_session_persistence(self, service, bigips):
@@ -590,6 +648,7 @@ class ListenerServiceBuilder(object):
 
     def apply_esds(self, service):
 
+
         listener = service['listener']
 
         l7policies = listener.get('l7_policies')
@@ -613,7 +672,32 @@ class ListenerServiceBuilder(object):
 
         update_attrs = self.service_adapter.get_virtual(service)
 
+        # get ssl certificates for listener
+        tls = self.service_adapter.get_tls(service)
+        # initialize client ssl profile with already existing certificates
+        if bool(tls):
+            if "default_tls_container_id" in tls:
+                container_ref = tls["default_tls_container_id"]
+                def_name = self.cert_manager.get_name(container_ref,
+                                                  self.service_adapter.prefix)
+                cssl_profiles.append({'name': def_name,
+                                      'partition': 'Common',
+                                      'context': 'clientside'})
 
+            if "sni_containers" in tls and tls["sni_containers"]:
+                for container in tls["sni_containers"]:
+                    if 'tls_container_id' in container:
+                        sni_ref = container['tls_container_id']
+                        sni_name = self.cert_manager.get_name(sni_ref,
+                                                              self.service_adapter.prefix)
+                        cssl_profiles.append({'name': sni_name,
+                                              'partition': 'Common',
+                                              'context': 'clientside'})
+
+        # print "********************** start esdlog ******************************"
+        # print update_attrs
+        # print tls
+        # print "********************** end esdlog ******************************"
 
         for l7policy in l7policies:
             name = l7policy.get('name', None)
@@ -714,6 +798,10 @@ class ListenerServiceBuilder(object):
         else:
             if listener['protocol'] != lb_const.PROTOCOL_TCP:
                 profiles.append( default_profiles['http'])
+
+        if bool(cssl_profiles):
+            for cssl_profile in cssl_profiles:
+                profiles.append(cssl_profile)
 
         if bool(oneconnect_profile):
             profiles.append(oneconnect_profile)
