@@ -451,6 +451,19 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.debug('Getting BIG-IP MAC Address for L3 Binding')
             self.l3_binding.register_bigip_mac_addresses()
 
+        endpoints = self.agent_configurations['icontrol_endpoints']
+        for ic_host in endpoints.keys():
+            hostbigip = self.__bigips[ic_host]
+            mac_addrs = [mac_addr for interface, mac_addr in
+                         hostbigip.device_interfaces.items()
+                         if interface != "mgmt"]
+            ports = self.plugin_rpc.get_ports_for_mac_addresses(
+                mac_addresses=mac_addrs)
+            if ports:
+                self.agent_configurations['nova_managed'] = True
+            else:
+                self.agent_configurations['nova_managed'] = False
+
         if self.network_builder:
             self.network_builder.post_init()
 
@@ -702,7 +715,6 @@ class iControlDriver(LBaaSBaseDriver):
             ic_host['platform'] = self.system_helper.get_platform(hostbigip)
             ic_host['serial_number'] = self.system_helper.get_serial_number(
                 hostbigip)
-            ic_host['device_interfaces'] = hostbigip.device_interfaces
             icontrol_endpoints[host] = ic_host
 
         self.agent_configurations['tunneling_ips'] = local_ips
