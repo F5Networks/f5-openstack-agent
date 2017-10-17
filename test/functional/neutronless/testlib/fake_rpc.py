@@ -97,6 +97,7 @@ class FakeRPCPlugin(object):
                               name=None,
                               fixed_address_count=1,
                               device_id=None,
+                              vnic_type=None,
                               binding_profile={}):
 
         # Enforce specific call parameters
@@ -108,6 +109,8 @@ class FakeRPCPlugin(object):
             raise InvalidArgumentError
         if fixed_address_count != 1:
             raise InvalidArgumentError
+        if vnic_type != "baremetal":
+            raise InvalideArgumentError
 
         ip_address = next(self._subnets[subnet_id])
 
