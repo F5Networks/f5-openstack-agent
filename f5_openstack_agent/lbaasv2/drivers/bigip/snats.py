@@ -85,7 +85,9 @@ class BigipSnatManager(object):
                     subnet_id=subnet['id'],
                     mac_address=None,
                     name=index_snat_name,
-                    fixed_address_count=1, device_id=lb_id)
+                    fixed_address_count=1, device_id=lb_id,
+                    vnic_type="baremetal"
+                )
                 if new_port is not None:
                     ip_address = new_port['fixed_ips'][0]['ip_address']
 
