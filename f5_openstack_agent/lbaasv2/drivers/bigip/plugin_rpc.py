@@ -349,7 +349,9 @@ class LBaaSv2PluginRPC(object):
     def create_port_on_subnet(self, subnet_id=None,
                               mac_address=None, name=None,
                               fixed_address_count=1,
-                              device_id=None, binding_profile={}):
+                              device_id=None,
+                              vnic_type="normal",
+                              binding_profile={}):
         """Add a neutron port to the subnet."""
         port = None
         try:
@@ -362,6 +364,7 @@ class LBaaSv2PluginRPC(object):
                                fixed_address_count=fixed_address_count,
                                host=self.host,
                                device_id=device_id,
+                               vnic_type=vnic_type,
                                binding_profile=binding_profile),
                 topic=self.topic
             )
@@ -373,7 +376,10 @@ class LBaaSv2PluginRPC(object):
 
     @log_helpers.log_method_call
     def create_port_on_network(self, network_id=None, mac_address=None,
-                               name=None, host=None):
+                               name=None, host=None,
+                               device_id=None,
+                               vnic_type="normal",
+                               binding_profile={}):
         """Add a neutron port to the network."""
         port = None
         try:
@@ -383,30 +389,10 @@ class LBaaSv2PluginRPC(object):
                                network_id=network_id,
                                mac_address=mac_address,
                                name=name,
-                               host=self.host),
-                topic=self.topic
-            )
-        except messaging.MessageDeliveryFailure:
-            LOG.error("agent->plugin RPC exception caught: "
-                      "create_port_on_subnet_with_specific_ip")
-
-        return port
-
-    def create_port_on_subnet_with_specific_ip(self, subnet_id=None,
-                                               mac_address=None,
-                                               name=None,
-                                               ip_address=None):
-        """Add a neutron port to the subnet with given IP."""
-        port = None
-        try:
-            port = self._call(
-                self.context,
-                self._make_msg('create_port_on_subnet_with_specific_ip',
-                               subnet_id=subnet_id,
-                               mac_address=mac_address,
-                               name=name,
-                               ip_address=ip_address,
-                               host=self.host),
+                               host=self.host,
+                               device_id=device_id,
+                               vnic_type=vnic_type,
+                               binding_profile=binding_profile),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
