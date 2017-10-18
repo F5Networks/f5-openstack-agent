@@ -153,7 +153,8 @@ class BigipSelfIpManager(object):
                 mac_address=None,
                 name=selfip_name,
                 fixed_address_count=1,
-                device_id=device_id
+                device_id=device_id,
+                vnic_type="baremetal"
             )
 
         if port and 'fixed_ips' in port:
