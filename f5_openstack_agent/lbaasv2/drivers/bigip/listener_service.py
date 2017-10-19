@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# import pdb
 
 from oslo_log import log as logging
 
@@ -129,7 +130,7 @@ class ListenerServiceBuilder(object):
             # delete ssl profiles
             self.remove_ssl_profiles(tls, bigip)
 
-    def add_ssl_profile(self, tls, bigip):
+    def add_ssl_profile(self, tls, bigip, add_to_vip=True):
         # add profile to virtual server
         vip = {'name': tls['name'],
                'partition': tls['partition']}
@@ -137,15 +138,15 @@ class ListenerServiceBuilder(object):
         if "default_tls_container_id" in tls:
             container_ref = tls["default_tls_container_id"]
             self.create_ssl_profile(
-                container_ref, bigip, vip, True)
+                container_ref, bigip, vip, True, add_to_vip)
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
                 container_ref = container["tls_container_id"]
-                self.create_ssl_profile(container_ref, bigip, vip, False)
+                self.create_ssl_profile(container_ref, bigip, vip, False, add_to_vip)
 
 
-    def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False):
+    def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False, add_to_vip=True):
         cert = self.cert_manager.get_certificate(container_ref)
         key = self.cert_manager.get_private_key(container_ref)
         name = self.cert_manager.get_name(container_ref,
@@ -165,7 +166,8 @@ class ListenerServiceBuilder(object):
             del key
 
         # add ssl profile to virtual server
-        self._add_profile(vip, name, bigip, context='clientside')
+        if add_to_vip:
+            self._add_profile(vip, name, bigip, context='clientside')
 
     def update_listener(self, service, bigips):
         u"""Update Listener from a single BIG-IP system.
@@ -177,12 +179,94 @@ class ListenerServiceBuilder(object):
         :param bigips: Array of BigIP class instances to update.
         """
 
+        u"""
+        ATTENTION: The hole impl. is a hack.
+        For ssl profile settings the order is very important:
+        1. A new ssl profile is created but not applied to the listener
+        2. The esd_apply configures the listener with the new profile (so the old one will be detached)
+        3. The update will apply the changes to the listener
+        4. The remove_ssl is than be able to remove unneeded ssl profiles because they got detached in 3.
+        """
+
+        # check for ssl client cert changes
+        old_default = None
+        old_sni_containers = None
+        new_default = None
+        new_sni_containers = None
+        vip = self.service_adapter.get_virtual(service)
+
+        old_listener = service.get('old_listener')
+        if old_listener != None:
+            listener = service.get('listener')
+            if old_listener.get('default_tls_container_id') != listener.get('default_tls_container_id'):
+                old_default = old_listener.get('default_tls_container_id')
+                new_default = listener.get('default_tls_container_id')
+
+            # determine sni delta with set substraction
+            old_snis = old_listener.get('sni_containers')
+            new_snis = listener.get('sni_containers')
+            old_ids = []
+            new_ids = []
+            for old in old_snis:
+                old_ids.append(old.get('tls_container_id'))
+            for new in new_snis:
+                new_ids.append(new.get('tls_container_id'))
+            new_sni_containers = self._make_sni_tls(vip, list(set(new_ids) - set(old_ids)))
+            old_sni_containers = self._make_sni_tls(vip, list(set(old_ids) - set(new_ids)))
+
+        # create old and new tls listener configurations
+        # create new ssl-profiles on F5 BUT DO NOT APPLY them to listener
+        old_tls = None
+        if (new_default != None or new_sni_containers['sni_containers']):
+            new_tls = self.service_adapter.get_tls(service)
+            new_tls = self._make_default_tls(vip, new_tls.get('default_tls_container_id'))
+
+            if old_default != None:
+                old_tls = self._make_default_tls(vip, old_default)
+
+            for bigip in bigips:
+                # create ssl profile but do not apply
+                if bool(new_tls):
+                    try:
+                        self.add_ssl_profile(new_tls, bigip, False)
+                    except:
+                        pass
+                if new_sni_containers['sni_containers']:
+                    try:
+                        self.add_ssl_profile(new_sni_containers, bigip, False)
+                    except:
+                        pass
+
+
+        # process esd's AND create new client ssl config for listener
         vip = self.apply_esds(service)
 
+        # apply changes to listener AND remove not needed ssl profiles on F5
         network_id = service['loadbalancer']['network_id']
         for bigip in bigips:
             self.service_adapter.get_vlan(vip, bigip, network_id)
             self.vs_helper.update(bigip, vip)
+            # delete ssl profiles
+            if bool(old_tls):
+                try:
+                    self.remove_ssl_profiles(old_tls, bigip)
+                except:
+                    pass
+            if old_sni_containers['sni_containers']:
+                try:
+                    self.remove_ssl_profiles(old_sni_containers, bigip)
+                except:
+                    pass
+
+
+    def _make_default_tls(self, vip, id):
+        return {'name': vip['name'], 'partition': vip['partition'], 'default_tls_container_id': id}
+
+    def _make_sni_tls(self, vip, ids):
+        containers = {'name': vip['name'], 'partition': vip['partition'], 'sni_containers': []}
+        for id in ids:
+            containers['sni_containers'].append({'tls_container_id': id})
+        return containers
 
     def update_listener_pool(self, service, name, bigips):
         """Update virtual server's default pool attribute.
@@ -694,10 +778,6 @@ class ListenerServiceBuilder(object):
                                               'partition': 'Common',
                                               'context': 'clientside'})
 
-        # print "********************** start esdlog ******************************"
-        # print update_attrs
-        # print tls
-        # print "********************** end esdlog ******************************"
 
         for l7policy in l7policies:
             name = l7policy.get('name', None)

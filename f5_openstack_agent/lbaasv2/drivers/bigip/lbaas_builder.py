@@ -126,14 +126,17 @@ class LBaaSBuilder(object):
         loadbalancer = service["loadbalancer"]
         networks = service["networks"]
         bigips = self.driver.get_config_bigips()
-
+        old_listener = service.get('old_listener')
         for listener in listeners:
-            svc = {"loadbalancer": loadbalancer,
-                   "listener": listener,
-                   "networks": networks}
-
-
-
+            if (old_listener != None and old_listener.get('id') == listener.get('id')):
+                svc = {"loadbalancer": loadbalancer,
+                       "listener": listener,
+                       "old_listener": old_listener,
+                       "networks": networks}
+            else:
+                svc = {"loadbalancer": loadbalancer,
+                       "listener": listener,
+                       "networks": networks}
 
             default_pool_id = listener.get('default_pool_id', '')
             if default_pool_id:
