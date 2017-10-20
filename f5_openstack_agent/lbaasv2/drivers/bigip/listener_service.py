@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# import pdb
+
+#import pdb
 
 from oslo_log import log as logging
 
@@ -27,8 +28,6 @@ from requests import HTTPError
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 
 LOG = logging.getLogger(__name__)
-
-
 
 
 class ListenerServiceBuilder(object):
@@ -92,6 +91,7 @@ class ListenerServiceBuilder(object):
                                   err.message)
                     raise
             if tls:
+                #pdb.set_trace()
                 self.add_ssl_profile(tls, bigip)
 
     def get_listener(self, service, bigip):
@@ -159,7 +159,16 @@ class ListenerServiceBuilder(object):
                 name,
                 cert,
                 key,
-                sni_default=sni_default,
+                sni_default=True,
+                parent_profile=self.parent_ssl_profile)
+
+            # upload cert/key and create SSL profile
+            ssl_profile.SSLProfileHelper.create_client_ssl_profile(
+                bigip,
+                name + '_NotDefault',
+                cert,
+                key,
+                sni_default=False,
                 parent_profile=self.parent_ssl_profile)
         finally:
             del cert
@@ -167,7 +176,10 @@ class ListenerServiceBuilder(object):
 
         # add ssl profile to virtual server
         if add_to_vip:
-            self._add_profile(vip, name, bigip, context='clientside')
+            f5name = name
+            if not sni_default:
+                f5name += '_NotDefault'
+            self._add_profile(vip, f5name, bigip, context='clientside')
 
     def update_listener(self, service, bigips):
         u"""Update Listener from a single BIG-IP system.
@@ -194,8 +206,10 @@ class ListenerServiceBuilder(object):
         new_default = None
         new_sni_containers = None
         vip = self.service_adapter.get_virtual(service)
-
         old_listener = service.get('old_listener')
+
+        #pdb.set_trace()
+
         if old_listener != None:
             listener = service.get('listener')
             if old_listener.get('default_tls_container_id') != listener.get('default_tls_container_id'):
@@ -217,7 +231,7 @@ class ListenerServiceBuilder(object):
         # create old and new tls listener configurations
         # create new ssl-profiles on F5 BUT DO NOT APPLY them to listener
         old_tls = None
-        if (new_default != None or new_sni_containers['sni_containers']):
+        if (new_default != None or (new_sni_containers != None and new_sni_containers['sni_containers'])):
             new_tls = self.service_adapter.get_tls(service)
             new_tls = self._make_default_tls(vip, new_tls.get('default_tls_container_id'))
 
@@ -226,12 +240,12 @@ class ListenerServiceBuilder(object):
 
             for bigip in bigips:
                 # create ssl profile but do not apply
-                if bool(new_tls):
+                if new_tls != None:
                     try:
                         self.add_ssl_profile(new_tls, bigip, False)
                     except:
                         pass
-                if new_sni_containers['sni_containers']:
+                if new_sni_containers != None and new_sni_containers['sni_containers']:
                     try:
                         self.add_ssl_profile(new_sni_containers, bigip, False)
                     except:
@@ -247,12 +261,12 @@ class ListenerServiceBuilder(object):
             self.service_adapter.get_vlan(vip, bigip, network_id)
             self.vs_helper.update(bigip, vip)
             # delete ssl profiles
-            if bool(old_tls):
+            if old_tls != None:
                 try:
                     self.remove_ssl_profiles(old_tls, bigip)
                 except:
                     pass
-            if old_sni_containers['sni_containers']:
+            if old_sni_containers != None and old_sni_containers['sni_containers']:
                 try:
                     self.remove_ssl_profiles(old_sni_containers, bigip)
                 except:
@@ -513,6 +527,8 @@ class ListenerServiceBuilder(object):
             i = container_ref.rindex("/") + 1
             name = self.service_adapter.prefix + container_ref[i:]
             self._remove_ssl_profile(name, bigip)
+            self._remove_ssl_profile(name + '_NotDefault', bigip)
+
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
@@ -520,6 +536,7 @@ class ListenerServiceBuilder(object):
                 i = container_ref.rindex("/") + 1
                 name = self.service_adapter.prefix + container_ref[i:]
                 self._remove_ssl_profile(name, bigip)
+                self._remove_ssl_profile(name + '_NotDefault', bigip)
 
     def _remove_ssl_profile(self, name, bigip):
         """Delete profile.
@@ -773,7 +790,7 @@ class ListenerServiceBuilder(object):
                     if 'tls_container_id' in container:
                         sni_ref = container['tls_container_id']
                         sni_name = self.cert_manager.get_name(sni_ref,
-                                                              self.service_adapter.prefix)
+                                                              self.service_adapter.prefix) + '_NotDefault'
                         cssl_profiles.append({'name': sni_name,
                                               'partition': 'Common',
                                               'context': 'clientside'})
