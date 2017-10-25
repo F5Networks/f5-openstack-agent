@@ -29,12 +29,15 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.listener_adapter import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.vs_builder import \
     VirtualServerBuilder
 
+#import pdb
+
 LOG = logging.getLogger(__name__)
 
 
 class L7PolicyService(object):
     """Handles requests to create, update, delete L7 policies on BIG-IPs."""
-    def __init__(self, conf):
+    def __init__(self, lbaas_builder, conf):
+        self.lbaas_builder = lbaas_builder
         self.conf = conf
 
     def create_l7policy(self, l7policy, service_object, bigips):
@@ -55,7 +58,7 @@ class L7PolicyService(object):
         # create L7 policy
         try:
             l7policy_adapter = L7PolicyServiceAdapter(self.conf)
-            policies = self.build_policy(l7policy, lbaas_service)
+            policies = self.build_l7policy(l7policy, lbaas_service)
             if policies['l7policies']:
                 f5_l7policy = l7policy_adapter.translate(policies)
                 stack.append(L7PolicyBuilder(event, f5_l7policy))
@@ -109,7 +112,7 @@ class L7PolicyService(object):
 
         try:
             l7policy_adapter = L7PolicyServiceAdapter(self.conf)
-            policies = self.build_policy(l7policy, lbaas_service)
+            policies = self.build_l7policy(l7policy, lbaas_service)
             if policies['l7policies']:
                 f5_l7policy = l7policy_adapter.translate(policies)
                 stack.append(L7PolicyBuilder(event, f5_l7policy))
@@ -157,8 +160,7 @@ class L7PolicyService(object):
             # re-create policy with updated rule
             self.update_l7policy(l7policy, service_object, bigips)
 
-    @staticmethod
-    def build_policy(l7policy, lbaas_service):
+    def build_l7policy(self, l7policy, lbaas_service):
         # build data structure for service adapter input
         LOG.debug("L7PolicyService: service")
         import pprint
@@ -174,11 +176,15 @@ class L7PolicyService(object):
         for policy_id in listener['l7_policies']:
             policy = lbaas_service.get_l7policy(policy_id['id'])
             if policy:
-                os_policies['l7policies'].append(policy)
-                for rule in policy['rules']:
-                    l7rule = lbaas_service.get_l7rule(rule['id'])
-                    if l7rule:
-                        os_policies['l7rules'].append(l7rule)
+                is_esd = False
+                if policy['name'] and self.lbaas_builder.is_esd(policy['name']):
+                    is_esd = True
+                if not is_esd:
+                    os_policies['l7policies'].append(policy)
+                    for rule in policy['rules']:
+                        l7rule = lbaas_service.get_l7rule(rule['id'])
+                        if l7rule:
+                            os_policies['l7rules'].append(l7rule)
 
         LOG.debug(pprint.pformat(os_policies, indent=4))
         return os_policies

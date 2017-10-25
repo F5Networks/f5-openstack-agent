@@ -31,6 +31,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 
 from requests import HTTPError
 
+#import pdb
+
 LOG = logging.getLogger(__name__)
 
 
@@ -50,7 +52,7 @@ class LBaaSBuilder(object):
         self.pool_builder = pool_service.PoolServiceBuilder(
             self.service_adapter
         )
-        self.l7service = l7policy_service.L7PolicyService(conf)
+        self.l7service = l7policy_service.L7PolicyService(self, conf)
         self.esd = None
 
     @utils.instrument_execution_time

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-#import pdb
+import pdb
 
 from oslo_log import log as logging
 
@@ -751,6 +751,7 @@ class ListenerServiceBuilder(object):
 
 
         listener = service['listener']
+        default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
 
         l7policies = listener.get('l7_policies')
 
@@ -763,7 +764,7 @@ class ListenerServiceBuilder(object):
         cssl_profiles = []
         sssl_profiles = []
         http_profile = {}
-        oneconnect_profile = {}
+        oneconnect_profile = default_profiles.get('oneconnect')
         compression_profile = {}
         persistence_profiles = []
 
@@ -796,6 +797,7 @@ class ListenerServiceBuilder(object):
                                               'context': 'clientside'})
 
 
+        pdb.set_trace()
         for l7policy in l7policies:
             name = l7policy.get('name', None)
             if name and self.lbaas_builder.is_esd(name) and l7policy.get('provisioning_status')!= plugin_const.PENDING_DELETE:
@@ -836,8 +838,8 @@ class ListenerServiceBuilder(object):
                                              'partition': 'Common',
                                              'context': 'all'}
 
-                    # one connect profiles
-                    if 'lbaas_one_connect' in esd and not bool(oneconnect_profile) :
+                    # one connect profiles if not already set
+                    if 'lbaas_one_connect' in esd:
                         if esd['lbaas_one_connect'] == '':
                             oneconnect_profile = {}
                         else:
@@ -887,8 +889,6 @@ class ListenerServiceBuilder(object):
                 profiles.append(fastl4)
             else:
                 profiles = stcp_profiles + ctcp_profiles
-        else:
-            default_profiles = utils.get_default_profiles(self.service_adapter.conf, listener['protocol'])
 
         if bool(http_profile):
             profiles.append(http_profile)
@@ -902,9 +902,6 @@ class ListenerServiceBuilder(object):
 
         if bool(oneconnect_profile):
             profiles.append(oneconnect_profile)
-        else:
-            if listener['protocol'] != lb_const.PROTOCOL_TCP:
-                profiles.append(default_profiles['oneconnect'])
 
         if bool(compression_profile):
             profiles.append(compression_profile)
