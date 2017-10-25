@@ -163,10 +163,10 @@ class L7PolicyService(object):
     def build_l7policy(self, l7policy, lbaas_service):
         # build data structure for service adapter input
         LOG.debug("L7PolicyService: service")
-        import pprint
-        LOG.debug(pprint.pformat(lbaas_service.service_object, indent=4))
-        LOG.debug("L7PolicyService: l7policy")
-        LOG.debug(pprint.pformat(l7policy, indent=4))
+        #import pprint
+        #LOG.debug(pprint.pformat(lbaas_service.service_object, indent=4))
+        #LOG.debug("L7PolicyService: l7policy")
+        #LOG.debug(pprint.pformat(l7policy, indent=4))
 
         os_policies = {'l7rules': [],
                        'l7policies': []}
@@ -186,7 +186,8 @@ class L7PolicyService(object):
                         if l7rule:
                             os_policies['l7rules'].append(l7rule)
 
-        LOG.debug(pprint.pformat(os_policies, indent=4))
+        #LOG.debug(pprint.pformat(os_policies, indent=4))
+        LOG.debug(os_policies)
         return os_policies
 
     @staticmethod

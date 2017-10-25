@@ -528,7 +528,6 @@ class LBaaSBuilder(object):
                     name = l7policy.get('name', None)
                     if name and self.is_esd(name):
                         continue
-
                     else:
                         self.l7service.create_l7policy(
                             l7policy, service, bigips)
