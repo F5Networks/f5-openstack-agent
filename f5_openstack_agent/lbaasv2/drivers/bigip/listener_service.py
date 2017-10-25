@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import pdb
+#import pdb
 
 from oslo_log import log as logging
 
@@ -797,7 +797,7 @@ class ListenerServiceBuilder(object):
                                               'context': 'clientside'})
 
 
-        pdb.set_trace()
+        #pdb.set_trace()
         for l7policy in l7policies:
             name = l7policy.get('name', None)
             if name and self.lbaas_builder.is_esd(name) and l7policy.get('provisioning_status')!= plugin_const.PENDING_DELETE:
