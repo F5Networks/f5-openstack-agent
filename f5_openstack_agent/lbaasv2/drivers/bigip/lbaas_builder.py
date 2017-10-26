@@ -463,8 +463,8 @@ class LBaaSBuilder(object):
     def add_listener_pool(service, svc):
         pool = svc["pool"]
         if "listeners" in pool and len(pool["listeners"]) > 0:
-            l = pool["listeners"][0]
-            listener = LBaaSBuilder.get_listener_by_id(service, l["id"])
+            l_pool = pool["listeners"][0]
+            listener = LBaaSBuilder.get_listener_by_id(service, l_pool["id"])
             if listener is not None:
                 svc["listener"] = listener
 
@@ -472,8 +472,8 @@ class LBaaSBuilder(object):
     def get_listener(service, pool):
         listener = None
         if "listeners" in pool and len(pool["listeners"]) > 0:
-            l = pool["listeners"][0]
-            listener = LBaaSBuilder.get_listener_by_id(service, l["id"])
+            l_pool = pool["listeners"][0]
+            listener = LBaaSBuilder.get_listener_by_id(service, l_pool["id"])
 
         return listener
 
