@@ -24,6 +24,9 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
     ResourceType
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+
+
 LOG = logging.getLogger(__name__)
 
 
@@ -54,7 +57,16 @@ class PoolServiceBuilder(object):
         """
         pool = self.service_adapter.get_pool(service)
         for bigip in bigips:
-            self.pool_helper.create(bigip, pool)
+            try:
+                self.pool_helper.create(bigip, pool)
+            except HTTPError as err:
+                if err.response.status_code == 409:
+                    LOG.debug("Pool already exists..updating")
+                    self.update_pool(service, [bigip])
+                else:
+                    LOG.exception("Pool creation error: %s" %
+                                  err.message)
+                    raise
 
     def delete_pool(self, service, bigips):
         """Delete a pool on set of BIG-IPs.
@@ -90,8 +102,16 @@ class PoolServiceBuilder(object):
         pool = self.service_adapter.get_pool(service)
 
         for bigip in bigips:
-            hm_helper.create(bigip, hm)
-
+            try:
+                hm_helper.create(bigip, hm)
+            except HTTPError as err:
+                if err.response.status_code == 409:
+                    try:
+                        self.update_healthmonitor(service, [bigip])
+                    except Exception as err:
+                        raise f5_ex.MonitorUpdateException(err.message)
+                else:
+                    raise f5_ex.MonitorCreationException(err.message)
             # update pool with new health monitor
             self.pool_helper.update(bigip, pool)
 
@@ -136,7 +156,16 @@ class PoolServiceBuilder(object):
                                       name=pool["name"],
                                       partition=part)
             m = p.members_s.members
-            m.create(**member)
+            try:
+                m.create(**member)
+            except HTTPError as err:
+                if err.response.status_code == 409:
+                    try:
+                        self.update_member(service, [bigip])
+                    except Exception as err:
+                        raise f5_ex.MemberUpdateException(err.message)
+                else:
+                    raise f5_ex.MemberCreationException(err.message)
 
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
@@ -227,6 +256,29 @@ class PoolServiceBuilder(object):
         else:
             hm = self.http_mon_helper
         return hm
+
+    def member_exists(self, service, bigip):
+        """Rerturn the existence of a member in a pool
+
+        :param service: Has pool and member name/partition
+        :param bigip: BIG-IP to get member status from.
+        :return: Boolean
+        """
+        pool = self.service_adapter.get_pool(service)
+        member = self.service_adapter.get_member(service)
+        part = pool["partition"]
+        try:
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
+
+            m = p.members_s.members
+            if m.exists(name=urllib.quote(member["name"]), partition=part):
+                return True
+        except Exception as e:
+            # log error but continue on
+            LOG.error("Error checking member exists: %s", e.message)
+        return False
 
     def get_member_status(self, service, bigip, status_keys):
         """Return status values for a single pool.
