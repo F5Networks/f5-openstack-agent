@@ -42,6 +42,11 @@ LOG = logging.getLogger(__name__)
 
 # XXX OPTS is used in (at least) agent.py Maybe move/rename to agent.py
 OPTS = [
+    cfg.IntOpt(
+        'periodic_interval',
+        default=10,
+        help='Seconds between periodic task runs'
+    ),
     cfg.StrOpt(  # XXX should we use this with internal classes?
         'f5_bigip_lbaas_device_driver',  # XXX maybe remove "device" and "f5"?
         default=('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
