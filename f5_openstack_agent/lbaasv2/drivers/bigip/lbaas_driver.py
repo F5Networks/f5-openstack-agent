@@ -79,7 +79,8 @@ class LBaaSBaseDriver(object):
         """Get all Loadbalancers defined on devices."""
         raise NotImplemented
 
-    def purge_orphaned_loadbalancer(self, tenant_id, loadbalancer_id, hostnames):
+    def purge_orphaned_loadbalancer(self, tenant_id, loadbalancer_id,
+                                    hostnames):
         """Remove all loadbalancers without references in Neutron."""
         raise NotImplemented
 

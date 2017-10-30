@@ -88,18 +88,18 @@ class TestiControlDriverConstructor(ct.TestingWithServiceConstructor):
     @staticmethod
     @pytest.fixture
     def mocked_target_with_connection(fully_mocked_target):
-        fully_mocked_target.connected = True
+        fully_mocked_target.operational = True
         return fully_mocked_target
 
 
 class TestiControlDriverBuilder(TestiControlDriverConstructor):
     @pytest.fixture
-    def mock_is_connected(self, request):
+    def mock_is_operational(self, request):
         request.addfinalizer(self.cleanup)
-        self.freeze_is_connected = target_mod.is_connected
-        is_connected = Mock()
-        target_mod.is_connected = is_connected
-        self.is_connected = is_connected
+        self.freeze_is_operational = target_mod.is_operational
+        is_operational = Mock()
+        target_mod.is_operational = is_operational
+        self.is_operational = is_operational
 
     @pytest.fixture
     def mock_logger(self, request):
@@ -126,8 +126,8 @@ class TestiControlDriverBuilder(TestiControlDriverConstructor):
                 self.freeze_log_utils
         if hasattr(self, 'freeze_logger'):
             target_mod.LOG = self.freeze_logger
-        if hasattr(self, 'freeze_is_connected'):
-            target_mod.is_connected = self.freeze_is_connected
+        if hasattr(self, 'freeze_is_operational'):
+            target_mod.is_operational = self.freeze_is_operational
 
     def update_svc_obj_positive_path(self, target, positive_svc_objs, method,
                                      test_method, timeout=None):
@@ -187,7 +187,7 @@ class TestiControlDriver(TestiControlDriverBuilder):
             '_update_l7policy_status', 'update_l7policy_status')
 
     def test_sync(self, mocked_target_with_connection,
-                  service_with_loadbalancer, mock_logger, mock_is_connected,
+                  service_with_loadbalancer, mock_logger, mock_is_operational,
                   mock_log_utils):
 
         def setup_target(target, svc):

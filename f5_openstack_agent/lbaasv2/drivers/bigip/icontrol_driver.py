@@ -857,7 +857,8 @@ class iControlDriver(LBaaSBaseDriver):
                 devices = self.cluster_manager.devices(bigip)
                 for device in devices:
                     mgmt_addrs.append(
-                        self.cluster_manager.get_mgmt_addr_by_device(bigip, device)
+                        self.cluster_manager.get_mgmt_addr_by_device(
+                            bigip, device)
                     )
                 self.hostnames = mgmt_addrs
             if len(self.hostnames) < 2:
@@ -885,7 +886,8 @@ class iControlDriver(LBaaSBaseDriver):
                     device_group_name = \
                         self.cluster_manager.get_device_group(bigip)
                     for active_bigip in active_bigips:
-                        adgn = self.cluster_manager.get_device_group(active_bigip)
+                        adgn = self.cluster_manager.get_device_group(
+                            active_bigip)
                         if not adgn == device_group_name:
                             return False
                 return True
@@ -1160,7 +1162,8 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_pool')
     @is_operational
-    def purge_orphaned_pool(self, tenant_id=None, pool_id=None, hostnames=list()):
+    def purge_orphaned_pool(self, tenant_id=None, pool_id=None,
+                            hostnames=list()):
         for bigip in self.get_all_bigips():
             if bigip.hostname in hostnames:
                 try:
