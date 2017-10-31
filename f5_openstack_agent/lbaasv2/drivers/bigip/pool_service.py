@@ -260,7 +260,14 @@ class PoolServiceBuilder(object):
         srv_members = service['members']
         part = pool['partition']
         for bigip in bigips:
-            p = self.pool_helper.load(bigip, name=pool['name'], partition=part)
+            try:
+                p = self.pool_helper.load(
+                    bigip, name=pool['name'], partition=part)
+            except HTTPError as error:
+                LOG.error("Cannot load pool %s: %s", pool['name'],
+                          str(error))
+                continue
+
             deployed_members = p.members_s.get_collection()
             for dm in deployed_members:
                 orphaned = True
@@ -284,7 +291,8 @@ class PoolServiceBuilder(object):
                         if err.response.status_code == 400:
                             LOG.debug(err.message)
                         else:
-                            raise
+                            LOG.error("Unexpected node deletion error: %s",
+                                      urllib.quote(node_name))
 
     def _get_monitor_helper(self, service):
         monitor_type = self.service_adapter.get_monitor_type(service)
