@@ -99,7 +99,7 @@ class PoolServiceBuilder(object):
         # create member
         hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
-        pool = self.service_adapter.get_pool(service)
+        error = None
 
         for bigip in bigips:
             try:
@@ -107,42 +107,38 @@ class PoolServiceBuilder(object):
             except HTTPError as err:
                 if err.response.status_code == 409:
                     try:
-                        self.update_healthmonitor(service, [bigip])
+                        hm_helper.update(bigip, hm)
                     except Exception as err:
-                        raise f5_ex.MonitorUpdateException(err.message)
+                        error = f5_ex.MonitorUpdateException(err.message)
                 else:
-                    raise f5_ex.MonitorCreationException(err.message)
-            # update pool with new health monitor
-            self.pool_helper.update(bigip, pool)
+                    error = f5_ex.MonitorCreationException(err.message)
+            except Exception as err:
+                error = f5_ex.MonitorCreationException(err.message)
+
+        if error:
+            raise error
 
     def delete_healthmonitor(self, service, bigips):
         # delete health monitor
         hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
-
-        # update pool
-        pool = self.service_adapter.get_pool(service)
-        pool["monitor"] = ""
+        error = None
 
         for bigip in bigips:
-            # need to first remove monitor reference from pool
-            self.pool_helper.update(bigip, pool)
-
             # after updating pool, delete monitor
-            hm_helper.delete(bigip,
-                             name=hm["name"],
-                             partition=hm["partition"])
+            try:
+                hm_helper.delete(
+                    bigip, name=hm["name"], partition=hm["partition"])
+            except HTTPError as err:
+                if err.respons.status_code != 404:
+                    LOG.error("Deletion error")
+                    error = err
+            except Exception as err:
+                LOG.error("Deletion error")
+                error = err
 
-    def update_healthmonitor(self, service, bigips):
-        hm = self.service_adapter.get_healthmonitor(service)
-        hm_helper = self._get_monitor_helper(service)
-        pool = self.service_adapter.get_pool(service)
-
-        for bigip in bigips:
-            hm_helper.update(bigip, hm)
-
-            # update pool with new health monitor
-            self.pool_helper.update(bigip, pool)
+        if error:
+            raise error
 
     # Note: can't use BigIPResourceHelper class because members
     # are created within pool objects. Following member methods

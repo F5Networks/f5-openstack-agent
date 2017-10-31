@@ -59,47 +59,9 @@ class LBaaSBuilder(object):
 
         self._assure_loadbalancer_created(service, all_subnet_hints)
 
-        LOG.debug("assuring listeners")
-
-        self._assure_listeners_created(service)
-
-        LOG.debug("assuring pools")
-
-        self._assure_pools_created(service)
-
         LOG.debug("assuring monitors")
 
         self._assure_monitors(service)
-
-        LOG.debug("assuring members")
-
-        self._assure_members(service, all_subnet_hints)
-
-        LOG.debug("deleting pools")
-
-        self._assure_pools_deleted(service)
-
-        LOG.debug("assuring l7 policies")
-
-        self._assure_l7policies_created(service)
-
-        LOG.debug("assuring l7 rules")
-
-        self._assure_l7rules_created(service)
-
-        LOG.debug("deleting l7 rules")
-
-        self._assure_l7rules_deleted(service)
-
-        LOG.debug("deleting l7 policies")
-
-        self._assure_l7policies_deleted(service)
-
-        self._assure_pools_configured(service)
-
-        LOG.debug("deleting listeners")
-
-        self._assure_listeners_deleted(service)
 
         LOG.debug("deleting loadbalancers")
 
@@ -291,14 +253,27 @@ class LBaaSBuilder(object):
                 listener['provisioning_status'] = plugin_const.ERROR
                 raise f5_ex.VirtualServerUpdateException(err.message)
 
-    def _assure_monitors(self, service):
-        if not (("pools" in service) and ("healthmonitors" in service)):
-            return
+    def _assure_monitors_created(self, service):
+        monitors = service.get("healthmonitors", list())
+        loadbalancer = service.get("loadbalancer", dict())
+        bigips = self.driver.get_config_bigips()
+        force_active_status = False
 
+        for monitor in monitors:
+            svc = {"loadbalancer": loadbalancer,
+                   "healthmonitor": monitor}
+            if monitor['provisioning_status'] != plugin_const.PENDING_DELETE:
+                try:
+                    self.pool_builder.create_healthmonitor(svc, bigips)
+                except Exception as err:
+                    monitor['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.MonitorCreationException(err.message)
+            self._set_status_as_active(monitor, force=force_active_status)                    
+
+    def _assure_monitors_deleted(self, service):
         monitors = service["healthmonitors"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
-        force_active_status = False
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
@@ -310,13 +285,6 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorDeleteException(err.message)
-            else:
-                try:
-                    self.pool_builder.create_healthmonitor(svc, bigips)
-                except Exception as err:
-                    monitor['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MonitorCreationException(err.message)
-            self._set_status_as_active(monitor, force=force_active_status)
 
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
