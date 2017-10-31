@@ -56,17 +56,28 @@ class PoolServiceBuilder(object):
         :param bigips: Array of BigIP class instances to create pool.
         """
         pool = self.service_adapter.get_pool(service)
+        error = None
+
         for bigip in bigips:
             try:
                 self.pool_helper.create(bigip, pool)
             except HTTPError as err:
                 if err.response.status_code == 409:
-                    LOG.debug("Pool already exists..updating")
-                    self.update_pool(service, [bigip])
+                    LOG.debug("Pool already exists...updating")
+                    try:
+                        self.pool_helper.update(bigip, pool)
+                    except Exception as err:
+                        error = f5_ex.PoolUpdateException(err.message)
                 else:
-                    LOG.exception("Pool creation error: %s" %
-                                  err.message)
-                    raise
+                    error = f5_ex.PoolCreationException(err.message)
+            except Exception as err:
+                error = f5_ex.PoolCreationException(err.message)
+
+            if error:
+                LOG.error("Failed to assure pool %s on %s: %s",
+                          pool['name'], bigip, error.message)
+
+        return error
 
     def delete_pool(self, service, bigips):
         """Delete a pool on set of BIG-IPs.
@@ -79,10 +90,23 @@ class PoolServiceBuilder(object):
         """
         pool = self.service_adapter.get_pool(service)
 
+        error = None
         for bigip in bigips:
-            self.pool_helper.delete(bigip,
-                                    name=pool["name"],
-                                    partition=pool["partition"])
+            try:
+                self.pool_helper.delete(bigip, name=pool["name"],
+                                        partition=pool["partition"])
+            except HTTPError as err:
+                if err.response.status_code != 404:
+                    error = f5_ex.PoolDeleteException(err.message)
+            except Exception as err:
+                # Need to handle possibly shared pools.
+                error = f5_ex.PoolDeleteException(err.message)
+
+            if error:
+                LOG.error("Failed to remove pool %s from %s: %s",
+                          pool['name'], bigip, error.message)
+
+        return error
 
     def update_pool(self, service, bigips):
         """Update BIG-IP pool.
@@ -115,8 +139,11 @@ class PoolServiceBuilder(object):
             except Exception as err:
                 error = f5_ex.MonitorCreationException(err.message)
 
-        if error:
-            raise error
+            if error:
+                LOG.error("Failed to assure monitor %s on %s: %s",
+                          hm['name'], bigip, error.message)
+
+        return error
 
     def delete_healthmonitor(self, service, bigips):
         # delete health monitor
@@ -130,15 +157,16 @@ class PoolServiceBuilder(object):
                 hm_helper.delete(
                     bigip, name=hm["name"], partition=hm["partition"])
             except HTTPError as err:
-                if err.respons.status_code != 404:
-                    LOG.error("Deletion error")
-                    error = err
+                if err.response.status_code != 404:
+                    error = f5_ex.MonitorDeleteException(err.message)
             except Exception as err:
-                LOG.error("Deletion error")
-                error = err
+                error = f5_ex.MonitorDeleteException(err.message)
+                # Need to handle possibly shared monitors.
+            if error:
+                LOG.error("Failed to remove monitor %s from %s: %s",
+                          hm['name'], bigip, error.message)
 
-        if error:
-            raise error
+        return error
 
     # Note: can't use BigIPResourceHelper class because members
     # are created within pool objects. Following member methods
@@ -146,6 +174,8 @@ class PoolServiceBuilder(object):
     def create_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
+        error = None
+
         for bigip in bigips:
             part = pool["partition"]
             p = self.pool_helper.load(bigip,
@@ -159,14 +189,23 @@ class PoolServiceBuilder(object):
                     try:
                         self.update_member(service, [bigip])
                     except Exception as err:
-                        raise f5_ex.MemberUpdateException(err.message)
+                        error = f5_ex.MemberUpdateException(err.message)
                 else:
-                    raise f5_ex.MemberCreationException(err.message)
+                    error = f5_ex.MemberCreationException(err.message)
+            except Exception as err:
+                error = f5_ex.MemberCreationException(err.message)
+
+            if error:
+                LOG.error("Error creating member %s on pool %s",
+                          member['name'], pool['name'])
+
+        return error
 
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
         part = pool["partition"]
+
         for bigip in bigips:
             p = self.pool_helper.load(bigip,
                                       name=pool["name"],
@@ -179,7 +218,11 @@ class PoolServiceBuilder(object):
                 m = m.load(name=urllib.quote(member["name"]),
                            partition=part)
 
-                m.delete()
+                try:
+                    m.delete()
+                except Exception as err:
+                    LOG.error("Failed to remove member %s, continuing...",
+                              urllib.quote(member["name"]))
                 try:
                     node = self.service_adapter.get_member_node(service)
                     self.node_helper.delete(bigip,
@@ -191,7 +234,9 @@ class PoolServiceBuilder(object):
                     if err.response.status_code == 400:
                         LOG.debug(err.message)
                     else:
-                        raise
+                        LOG.error(err.message)
+                except Exception as err:
+                    LOG.error(err.message)
 
     def update_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
@@ -254,7 +299,7 @@ class PoolServiceBuilder(object):
         return hm
 
     def member_exists(self, service, bigip):
-        """Rerturn the existence of a member in a pool
+        """Return True if a member exists in a pool.
 
         :param service: Has pool and member name/partition
         :param bigip: BIG-IP to get member status from.

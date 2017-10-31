@@ -42,13 +42,24 @@ class ServiceModelAdapter(object):
         else:
             self.prefix = utils.OBJ_PREFIX + '_'
 
+    def _get_pool_monitor(self, pool, service):
+        """Return a reference to the pool monitor definition."""
+        pool_monitor_id = pool.get('healthmonitor_id', "")
+        if not pool_monitor_id:
+            return None
+
+        monitors = service.get("healthmonitors", list())
+        for monitor in monitors:
+            if monitor.get('id', "") == pool_monitor_id:
+                return monitor
+
+        return None
+
     def get_pool(self, service):
         pool = service["pool"]
-        members = service.get('members', [])
+        members = service.get('members', list())
         loadbalancer = service["loadbalancer"]
-        healthmonitor = None
-        if "healthmonitor" in service:
-            healthmonitor = service["healthmonitor"]
+        healthmonitor = self._get_pool_monitor(pool, service)
 
         return self._map_pool(loadbalancer, pool, healthmonitor, members)
 
@@ -312,15 +323,16 @@ class ServiceModelAdapter(object):
                 if not persist:
                     lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
 
-        if lbaas_hm is not None:
+        if lbaas_hm:
             hm = self.init_monitor_name(loadbalancer, lbaas_hm)
             pool["monitor"] = hm["name"]
+        else:
+            pool["monitor"] = ""
 
         return pool
 
     def _set_lb_method(self, lbaas_lb_method, lbaas_members):
-        '''Set pool lb method depending on member attributes.'''
-
+        """Set pool lb method depending on member attributes."""
         lb_method = self._get_lb_method(lbaas_lb_method)
 
         if lbaas_lb_method == 'SOURCE_IP':
