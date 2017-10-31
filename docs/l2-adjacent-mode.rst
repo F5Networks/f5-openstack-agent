@@ -12,7 +12,7 @@ L2-adjacent mode is the **default mode of operation** for the |agent-short|.
 
 .. important::
 
-   - All Neutron and external network components should be set up before you deploy the |agent-short| in L2-adjacent mode.
+   - Set up all Neutron and external network components *before* you deploy the |agent-short| in L2-adjacent mode.
    - This mode of deployment may require a BIG-IP `Better or Best license`_ that supports SDN.
 
 .. warning::
