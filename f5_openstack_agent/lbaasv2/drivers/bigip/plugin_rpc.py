@@ -19,7 +19,7 @@ from oslo_log import log as logging
 import oslo_messaging as messaging
 
 from neutron.common import rpc
-from neutron.plugins.common import constants as plugin_const
+from neutron.plugins.common.constants import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as constants
