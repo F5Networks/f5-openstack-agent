@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import agent_manager
+from .. import agent_manager
 
 import mock
 import pytest
