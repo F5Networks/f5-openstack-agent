@@ -1,5 +1,3 @@
--e .
-
 # app
 git+https://github.com/openstack/neutron@master
 git+https://github.com/openstack/oslo.log.git@master
