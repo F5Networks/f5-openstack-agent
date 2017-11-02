@@ -1696,7 +1696,6 @@ class iControlDriver(LBaaSBaseDriver):
                      'do_not_delete_subnets': []}
 
             LOG.debug("XXXXXXXXX: Pre assure service")
-            # pdb.set_trace()
             self.lbaas_builder.assure_service(service,
                                               traffic_group,
                                               all_subnet_hints)

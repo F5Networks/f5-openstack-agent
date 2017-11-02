@@ -21,6 +21,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 from requests import HTTPError
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+
 LOG = logging.getLogger(__name__)
 
 
@@ -60,6 +62,8 @@ class ListenerServiceBuilder(object):
         service['listener']['operating_status'] = lb_const.ONLINE
 
         network_id = service['loadbalancer']['network_id']
+
+        error = None
         for bigip in bigips:
             self.service_adapter.get_vlan(vip, bigip, network_id)
             try:
@@ -67,13 +71,26 @@ class ListenerServiceBuilder(object):
             except HTTPError as err:
                 if err.response.status_code == 409:
                     LOG.debug("Virtual server already exists..updating")
-                    self.update_listener(service, [bigip])
+                    try:
+                        self.vs_helper.update(bigip, vip)
+                    except Exception as err:
+                        error = f5_ex.VirtualServerUpdateException(
+                            err.message)
                 else:
-                    LOG.exception("Virtual server creation error: %s" %
-                                  err.message)
-                    raise
+                    error = f5_ex.VirtualServerCreationException(
+                        err.message)
+
+            except Exception as err:
+                error = f5_ex.VirtualServerCreationException(
+                    err.message)
+
+            if error:
+                LOG.error("Virtual server creation error: %s" %
+                          err.message)
             if tls:
                 self.add_ssl_profile(tls, bigip)
+
+        return error
 
     def get_listener(self, service, bigip):
         u"""Retrieve BIG-IP virtual from a single BIG-IP system.
@@ -103,10 +120,21 @@ class ListenerServiceBuilder(object):
             tls['name'] = vip['name']
             tls['partition'] = vip['partition']
 
+        error = None
         for bigip in bigips:
-            self.vs_helper.delete(bigip,
-                                  name=vip["name"],
-                                  partition=vip["partition"])
+            try:
+                self.vs_helper.delete(bigip,
+                                      name=vip["name"],
+                                      partition=vip["partition"])
+            except HTTPError as err:
+                if err.response.status_code != 404:
+                    error = f5_ex.VirtualServerDeleteException()
+            except Exception as err:
+                error = f5_ex.VirtualServerDeleteException()
+
+            if error:
+                LOG.error("Virtual server delete error: %s",
+                          err.message)
 
             # delete ssl profiles
             self.remove_ssl_profiles(tls, bigip)
@@ -325,7 +353,7 @@ class ListenerServiceBuilder(object):
         return rule_text
 
     def remove_session_persistence(self, service, bigips):
-        """Resest persistence for virtual server instance.
+        """Reset persistence for virtual server instance.
 
         Clears persistence and deletes profiles.
 
@@ -333,7 +361,6 @@ class ListenerServiceBuilder(object):
         and load balancer definition.
         :param bigips: Single BigIP instances to update.
         """
-
         vip = self.service_adapter.get_virtual_name(service)
         vip["persist"] = []
         vip["fallbackPersistence"] = ""

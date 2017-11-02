@@ -67,9 +67,17 @@ class LBaaSBuilder(object):
 
         self._assure_pools_created(service)
 
-        LOG.debug("deleting pools")
-
         self._assure_members(service, all_subnet_hints)
+
+        LOG.debug("assure listeners")
+
+        self._assure_listeners_created(service)
+
+        LOG.debug("deleting listeners")
+
+        self._assure_listeners_deleted(service)
+
+        LOG.debug("deleting pools")
 
         self._assure_pools_deleted(service)
 
@@ -133,40 +141,31 @@ class LBaaSBuilder(object):
 
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
-        networks = service["networks"]
+        networks = service.get("networks", list())
+        pools = service.get("pools", list())
+        l7policies = service.get("l7policies", list())
+        l7rules = service.get("l7policy_rules", list())
         bigips = self.driver.get_config_bigips()
 
+        error = None
         for listener in listeners:
-            pool = self.get_pool_by_id(
-                service, listener.get('default_pool_id', None))
-            svc = {"loadbalancer": loadbalancer,
-                   "listener": listener,
-                   "networks": networks}
+            if self._is_not_pending_delete(listener):
 
-            if pool:
-                svc['pool'] = pool
-            if listener['provisioning_status'] == \
-                    plugin_const.PENDING_UPDATE:
-                try:
-                    self.listener_builder.update_listener(svc, bigips)
-                except Exception as err:
+                svc = {"loadbalancer": loadbalancer,
+                       "listener": listener,
+                       "pools": pools,
+                       "l7policies": l7policies,
+                       "l7rules": l7rules,
+                       "networks": networks}
+
+                # create_listener() will do an update if VS exists
+                error = self.listener_builder.create_listener(svc, bigips)
+                # listener['operating_status'] = \
+                #    svc['listener']['operating_status']
+                if error:
                     loadbalancer['provisioning_status'] = \
                         plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.VirtualServerUpdateException(err.message)
-
-            elif self._is_not_pending_delete(listener):
-                try:
-                    # create_listener() will do an update if VS exists
-                    self.listener_builder.create_listener(svc, bigips)
-                    listener['operating_status'] = \
-                        svc['listener']['operating_status']
-                except Exception as err:
-                    loadbalancer['provisioning_status'] = \
-                        plugin_const.ERROR
-                    listener['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.VirtualServerCreationException(err.message)
-            self._set_status_as_active(listener)
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -179,7 +178,7 @@ class LBaaSBuilder(object):
              if monitor['provisioning_status'] != plugin_const.PENDING_DELETE]
 
         bigips = self.driver.get_config_bigips()
-
+        error = None
         for pool in pools:
             if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
                 svc = {"loadbalancer": loadbalancer,
@@ -191,42 +190,6 @@ class LBaaSBuilder(object):
                 if error:
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
-
-    def _assure_pools_configured(self, service):
-        if "pools" not in service:
-            return
-
-        pools = service["pools"]
-        loadbalancer = service["loadbalancer"]
-
-        bigips = self.driver.get_config_bigips()
-
-        for pool in pools:
-            if pool['provisioning_status'] != plugin_const.PENDING_DELETE and \
-                    self._is_not_error(pool):
-                svc = {"loadbalancer": loadbalancer,
-                       "pool": pool}
-                svc['members'] = self._get_pool_members(service, pool['id'])
-                try:
-                    # assign pool name to virtual
-                    pool_name = self.service_adapter.init_pool_name(
-                        loadbalancer, pool)
-
-                    # get associated listeners for pool
-                    listeners = self._get_pool_listeners(service, pool['id'])
-                    for listener in listeners:
-                        svc['listener'] = listener
-                        self.listener_builder.update_listener_pool(
-                            svc, pool_name["name"], bigips)
-
-                        # update virtual sever pool name, session persistence
-                        self.listener_builder.update_session_persistence(
-                            svc, bigips)
-                    self._set_status_as_active(pool)
-                except Exception as err:
-                    pool['provisioning_status'] = plugin_const.ERROR
-                    loadbalancer['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.PoolCreationException(err.message)
 
     def _get_pool_listeners(self, service, pool_id):
         pools_listeners = []
@@ -323,8 +286,9 @@ class LBaaSBuilder(object):
                 LOG.warning("Member definition does not include Neutron port")
 
             # delete member if pool is being deleted
-            if member['provisioning_status'] == plugin_const.PENDING_DELETE or \
-                    pool['provisioning_status'] == plugin_const.PENDING_DELETE:
+            member_status = member['provisioning_status']
+            if member_status == plugin_const.PENDING_DELETE or \
+               pool['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.delete_member(svc, bigips)
                     self.pool_builder.update_pool(pool_svc, bigips)

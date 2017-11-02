@@ -75,6 +75,7 @@ class ServiceModelAdapter(object):
         return (network_id in self.conf.common_network_ids)
 
     def init_pool_name(self, loadbalancer, pool):
+        """Return a barebones pool object with name and partition."""
         partition = self.get_folder_name(loadbalancer['tenant_id'])
         name = self.prefix + pool["id"] if pool else ''
 
@@ -105,13 +106,11 @@ class ServiceModelAdapter(object):
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
 
-        # transfer session_persistence from pool to listener
-        if "pool" in service and "session_persistence" in service["pool"]:
-            listener["session_persistence"] = \
-                service["pool"]["session_persistence"]
+        pool = self.get_vip_default_pool(service)
+        if pool and "session_persistence" in pool:
+            listener["session_persistence"] = pool["session_persistence"]
 
-        vip = self._map_virtual(
-            loadbalancer, listener, pool=service.get('pool', None))
+        vip = self._map_virtual(loadbalancer, listener, pool=pool)
 
         self._add_bigip_items(listener, vip)
         return vip
@@ -130,16 +129,6 @@ class ServiceModelAdapter(object):
 
         return dict(name=name, partition=partition)
 
-    def _init_virtual_name_with_pool(self, loadbalancer, listener, pool=None):
-        vip = self._init_virtual_name(loadbalancer, listener)
-        pool = self.init_pool_name(loadbalancer, pool)
-        if pool['name']:
-            vip['pool'] = pool['name']
-        else:
-            vip['pool'] = None
-
-        return vip
-
     def get_traffic_group(self, service):
         tg = "traffic-group-local-only"
         loadbalancer = service["loadbalancer"]
@@ -149,19 +138,25 @@ class ServiceModelAdapter(object):
 
         return tg
 
+    @staticmethod
+    def _pending_delete(resource):
+        return (
+            resource.get('provisioning_status', "") == "PENDING_DELETE"
+        )
+
     def get_vip_default_pool(self, service):
         listener = service["listener"]
-        loadbalancer = service["loadbalancer"]
-        pool = service["pool"]
-        vip = self._init_virtual_name(
-            loadbalancer, listener)
-        if "default_pool_id" in listener:
-            p = self.init_pool_name(loadbalancer, pool)
-            vip["pool"] = p["name"]
-        else:
-            vip["pool"] = ""
+        pools = service.get("pools", list())
 
-        return vip
+        default_pool = None
+        if "default_pool_id" in listener:
+            for pool in pools:
+                if listener['default_pool_id'] == pool['id']:
+                    if not self._pending_delete(pool):
+                        default_pool = pool
+                    break
+
+        return default_pool
 
     def get_member(self, service):
         loadbalancer = service["loadbalancer"]
@@ -371,11 +366,13 @@ class ServiceModelAdapter(object):
     def _map_virtual(self, loadbalancer, listener, pool=None):
         vip = self._init_virtual_name(loadbalancer, listener)
 
-        if pool:
-            p = self.init_pool_name(loadbalancer, pool)
-            vip["pool"] = p["name"]
-
         vip["description"] = self.get_resource_description(listener)
+
+        if pool:
+            pool_name = self.init_pool_name(loadbalancer, pool)
+            vip['pool'] = pool_name.get('name', "")
+        else:
+            vip['pool'] = ""
 
         if "protocol" in listener:
             if not (listener["protocol"] == "HTTP" or
@@ -409,11 +406,6 @@ class ServiceModelAdapter(object):
                 vip["enabled"] = True
             else:
                 vip["disabled"] = True
-
-        if "pool" in listener:
-            vip["pool"] = listener["pool"]
-        else:
-            vip["pool"] = None
 
         return vip
 
