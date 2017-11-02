@@ -278,6 +278,7 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
                          registerOpts=False)
 
     icd.plugin_rpc = fake_plugin_rpc
+    icd.connect()
 
     return icd
 
