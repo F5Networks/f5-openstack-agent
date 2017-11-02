@@ -28,9 +28,9 @@ from time import time
 
 from requests import HTTPError
 
-from neutron.common.exceptions import InvalidConfigurationOption
-from neutron.common.exceptions import NeutronException
-from neutron.plugins.common import constants as plugin_const
+from neutron_lib.exceptions import InvalidConfigurationOption
+from neutron_lib.exceptions import NeutronException
+from neutron.plugins.common.constants import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from oslo_config import cfg

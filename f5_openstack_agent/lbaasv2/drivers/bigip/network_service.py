@@ -16,8 +16,8 @@
 import itertools
 import netaddr
 
-from neutron.common.exceptions import NeutronException
-from neutron.plugins.common import constants as plugin_const
+from neutron_lib.exceptions import NeutronException
+from neutron.plugins.common.constants import constants as plugin_const
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex

@@ -15,6 +15,8 @@
 import f5_openstack_agent
 import setuptools
 
+with open('requirements.functest.txt', 'r') as rfh:
+    f5sdk = [x.strip() for x in rfh.readlines() if "f5-sdk" in x][0]
 setuptools.setup(
     version=f5_openstack_agent.__version__,
     name="f5-openstack-agent",
@@ -43,6 +45,6 @@ setuptools.setup(
             'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main'
         ]
     },
-    install_requires=['f5-sdk==2.3.3']
+    install_requires=[f5sdk]
 )
 
