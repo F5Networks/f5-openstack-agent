@@ -18,7 +18,7 @@ import pytest
 import sys
 import uuid
 
-from neutron.plugins.common import constants as plugin_const
+from neutron.plugins.common.constants import constants as plugin_const
 
 
 class TestingWithServiceConstructor(object):

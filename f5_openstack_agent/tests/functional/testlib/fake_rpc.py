@@ -181,9 +181,10 @@ class FakeRPCPlugin(object):
         pass
 
     @track_call
-    def update_l7policy_status(self, l7policy_id,
-                                     provisioning_status="ERROR",
-                                     operating_status="OFFLINE"):
+    def update_l7policy_status(self,
+                               l7policy_id,
+                               provisioning_status="ERROR",
+                               operating_status="OFFLINE"):
         pass
 
     @track_call

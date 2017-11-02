@@ -128,7 +128,6 @@ class ResourceValidator(object):
             ResourceType.virtual, listener_name, partition=folder)
 
         profiles = vs.profiles_s.get_collection()
-        policies = vs.policies_s.get_collection()
 
         if 'lbaas_ctcp' in esd:
             assert self.is_in_collection(profiles, esd['lbaas_ctcp'])

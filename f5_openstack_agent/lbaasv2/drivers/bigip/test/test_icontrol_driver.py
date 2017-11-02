@@ -20,7 +20,7 @@ import uuid
 from mock import Mock
 from mock import patch
 
-import neutron.plugins.common.constants as plugin_const
+from neutron.plugins.common.constants import constants as plugin_const
 import neutron_lbaas.services.loadbalancer.constants as lb_const
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver as target_mod

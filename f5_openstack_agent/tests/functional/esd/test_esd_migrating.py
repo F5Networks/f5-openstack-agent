@@ -18,15 +18,15 @@ import json
 import logging
 import os
 
+from filepath import FilePath
 import pytest
 import requests
-from filepath import FilePath
 
 from ....lbaasv2.drivers.bigip.icontrol_driver import iControlDriver
 from ..testlib.bigip_client import BigIpClient
 from ..testlib.fake_rpc import FakeRPCPlugin
-from ..testlib.service_reader import LoadbalancerReader
 from ..testlib.resource_validator import ResourceValidator
+from ..testlib.service_reader import LoadbalancerReader
 
 requests.packages.urllib3.disable_warnings()
 
