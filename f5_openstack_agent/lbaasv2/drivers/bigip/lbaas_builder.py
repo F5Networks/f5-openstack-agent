@@ -18,7 +18,7 @@ from time import time
 
 from oslo_log import log as logging
 
-from neutron.plugins.common import constants as plugin_const
+from neutron.plugins.common.constants import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex

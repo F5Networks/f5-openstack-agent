@@ -18,7 +18,7 @@ import pytest
 
 from mock import Mock
 
-from neutron.plugins.common import constants as plugin_const
+from neutron.plugins.common.constants import constants as plugin_const
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.listener_service \
     as listener_service

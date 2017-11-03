@@ -14,18 +14,19 @@
 #   limitations under the License.
 
 from copy import deepcopy
-from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
-    iControlDriver
 import json
 import logging
 import os
+
+from filepath import FilePath
 import pytest
 import requests
 
+from ....lbaasv2.drivers.bigip.icontrol_driver import iControlDriver
 from ..testlib.bigip_client import BigIpClient
 from ..testlib.fake_rpc import FakeRPCPlugin
-from ..testlib.service_reader import LoadbalancerReader
 from ..testlib.resource_validator import ResourceValidator
+from ..testlib.service_reader import LoadbalancerReader
 
 requests.packages.urllib3.disable_warnings()
 
@@ -34,11 +35,13 @@ LOG = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module")
 def services():
-    neutron_services_filename = (
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/l7_esd.json')
-    )
-    return (json.load(open(neutron_services_filename)))
+    neutron_services_fp = FilePath(__file__)\
+                            .parent()\
+                            .parent()\
+                            .child("testdata")\
+                            .child("service_requests")\
+                            .child("l7_esd.json")
+    return (json.load(neutron_services_fp.open()))
 
 
 @pytest.fixture()
@@ -104,61 +107,60 @@ def esd():
 
 def test_esd(bigip, services, icd_config, icontrol_driver, esd):
     env_prefix = icd_config['environment_prefix']
-    service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)
 
     # create loadbalancer
-    service = service_iter.next()
+    service = services[0]
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
     assert bigip.folder_exists(folder)
 
     # create listener
-    service = service_iter.next()
+    service = services[1]
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
 
     # create pool
-    service = service_iter.next()
+    service = services[2]
     pool = service['pools'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool, folder)
 
     # apply ESD
-    service = service_iter.next()
+    service = services[3]
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_applied(esd['esd_demo_1'], listener, folder)
 
     # remove ESD
-    service = service_iter.next()
+    service = services[4]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
     validator.assert_esd_removed(esd['esd_demo_1'], listener, folder)
 
     # apply another ESD
-    service = service_iter.next()
+    service = services[5]
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_applied(esd['esd_demo_2'], listener, folder)
 
     # remove ESD
-    service = service_iter.next()
+    service = services[6]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
     validator.assert_esd_removed(esd['esd_demo_2'], listener, folder)
 
     # delete pool (and member, node)
-    service = service_iter.next()
+    service = services[7]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_deleted(pool, None, folder)
 
     # delete listener
-    service = service_iter.next()
+    service = services[8]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_deleted(listener, folder)
 
     # delete loadbalancer
-    service = service_iter.next()
+    service = services[9]
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)

@@ -23,7 +23,8 @@ from mock import Mock
 from mock import patch
 from requests import HTTPError
 
-import neutron.plugins.common.constants
+import neutron
+from neutron.plugins.common.constants import constants as plugin_constants
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder
 
@@ -752,7 +753,7 @@ class TestLBaaSBuilderConstructor(object):
 
 
 class TestLbaasBuilder(TestLBaaSBuilderConstructor):
-    neutron_plugin_constants = neutron.plugins.common.constants
+    neutron_plugin_constants = plugin_constants
 
     @pytest.fixture
     def create_self(self, request):
@@ -789,11 +790,11 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         preserved = ['PENDING_DELETE', 'ERROR']
 
         def new_svc_obj(status):
-            state = getattr(neutron.plugins.common.constants, status)
+            state = getattr(plugin_constants, status)
             return dict(provisioning_status=state, id=1)
 
         def is_state(svc_obj, state):
-            state = getattr(neutron.plugins.common.constants, state)
+            state = getattr(plugin_constants, state)
             return svc_obj['provisioning_status'] == state
 
         def preserve_status(target):
@@ -828,7 +829,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         pool = target.get_pool_by_id.return_value
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_UPDATE
+            plugin_constants.PENDING_UPDATE
         with pytest.raises(f5_ex.VirtualServerUpdateException):
             target._assure_listeners_created(service)
         expected_svc = dict(loadbalancer=service['loadbalancer'], pool=pool,
@@ -839,7 +840,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test non-DELETE case
         listener.pop('operating_status')
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_CREATE
+            plugin_constants.PENDING_CREATE
         create_listener = target.listener_builder.create_listener
         target.listener_builder.create_listener.clear_mock()
         with pytest.raises(f5_ex.VirtualServerCreationException):
@@ -877,8 +878,8 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         mock_service = \
             {'l7policy_rules': [{'provisioning_status': 'status'}],
              'l7policies': [1, 2, 3], 'loadbalancer': {}}
-        neutron.plugins.common.constants = Mock()
-        neutron.plugins.common.constants.PENDING_DELETE = 'delete'
+        plugin_constants = Mock()
+        plugin_constants.PENDING_DELETE = 'delete'
         l7policy = Mock()
         name = "policy name"
         l7policy.get = Mock(return_value=name)

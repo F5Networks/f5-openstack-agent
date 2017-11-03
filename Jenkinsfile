@@ -5,7 +5,7 @@ pipeline {
         docker {
             label "docker"
             registryUrl "https://docker-registry.pdbld.f5net.com"
-            image "openstack-test-agenttestrunner-prod/newton:latest"
+            image "openstack-test-agenttestrunner-prod/master:latest"
             args "-v /etc/localtime:/etc/localtime:ro" \
                 + " -v /srv/mesos/trtl/results:/home/jenkins/results" \
                 + " -v /srv/nfs:/testlab" \
