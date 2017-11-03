@@ -2,7 +2,6 @@
 git+https://github.com/openstack/neutron@master
 git+https://github.com/openstack/oslo.log.git@master
 git+https://github.com/openstack/neutron-lbaas.git@master
-git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@master
 
 pytest-cov==2.5.1
 
