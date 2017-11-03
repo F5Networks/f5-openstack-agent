@@ -166,6 +166,9 @@ class LBaaSBuilder(object):
                     loadbalancer['provisioning_status'] = \
                         plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR
+                else:
+                    listener['provisioning_status'] = plugin_const.ACTIVE
+                    listener['operating_status'] = lb_const.ONLINE
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -191,13 +194,6 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
 
-    def _get_pool_listeners(self, service, pool_id):
-        pools_listeners = []
-        for listener in service['listeners']:
-            if listener['default_pool_id'] == pool_id:
-                pools_listeners.append(listener)
-        return pools_listeners
-
     def _get_pool_members(self, service, pool_id):
         """Return a list of members associated with given pool."""
         members = []
@@ -205,19 +201,6 @@ class LBaaSBuilder(object):
             if member['pool_id'] == pool_id:
                 members.append(member)
         return members
-
-    def _update_listener_pool(self, service, listener_id, pool_name, bigips):
-        listener = self.get_listener_by_id(service, listener_id)
-        if listener is not None:
-            try:
-                listener["pool"] = pool_name
-                svc = {"loadbalancer": service["loadbalancer"],
-                       "listener": listener}
-                self.listener_builder.update_listener(svc, bigips)
-
-            except Exception as err:
-                listener['provisioning_status'] = plugin_const.ERROR
-                raise f5_ex.VirtualServerUpdateException(err.message)
 
     def _assure_monitors_created(self, service):
         monitors = service.get("healthmonitors", list())

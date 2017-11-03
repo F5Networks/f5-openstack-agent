@@ -840,7 +840,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
             expected_svc, expected_bigips)
-        assert listener['provisioning_status'] == "PENDING_UPDATE"
+        assert listener['provisioning_status'] == "ACTIVE"
         assert loadbalancer['provisioning_status'] == "PENDING_UPDATE"
 
     def test_assure_listeners_created_create(self, service, create_self):
@@ -866,7 +866,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
             expected_svc, expected_bigips)
-        assert listener['provisioning_status'] == "PENDING_CREATE"
+        assert listener['provisioning_status'] == "ACTIVE"
         assert loadbalancer['provisioning_status'] == "PENDING_UPDATE"
 
     def test_assure_listeners_created_create_error(self, service, create_self):
@@ -1370,11 +1370,10 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         assert pool['provisioning_status'] == 'ERROR'
 
-    @mock.patch(VS_POOL_UPDATE_PATH)
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     @mock.patch(POOL_BLDR_PATH + '.update_pool')
     def test__assure_pools_created_listener_update_with_pool_active(
-            self, mock_update, mock_create, mock_vs_update_pool, service):
+            self, mock_update, mock_create, service):
         '''create_pool is called on active pool and updating listener'''
         svc = service
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
@@ -1390,11 +1389,10 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
         assert svc['pools'][0]['provisioning_status'] == 'ACTIVE'
 
-    @mock.patch(VS_POOL_UPDATE_PATH)
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     @mock.patch(POOL_BLDR_PATH + '.update_pool')
     def test__assure_pools_created_listener_create_with_pool_active(
-            self, mock_update, mock_create, mock_vs_update_pool, service):
+            self, mock_update, mock_create, service):
         '''create_pool is called with active pool and creating listener'''
         svc = service
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
@@ -1410,11 +1408,10 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         assert svc['loadbalancer']['provisioning_status'] == 'PENDING_UPDATE'
         assert svc['pools'][0]['provisioning_status'] == 'ACTIVE'
 
-    @mock.patch(VS_POOL_UPDATE_PATH)
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     @mock.patch(POOL_BLDR_PATH + '.update_pool')
     def test__assure_pools_created_listener_update_with_pool_active_error(
-            self, mock_update, mock_create, mock_vs_update_pool, service):
+            self, mock_update, mock_create, service):
         '''create_pool is called and does not fail for updating listener'''
         svc = service
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
@@ -1432,11 +1429,10 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
         assert svc['pools'][0]['provisioning_status'] == 'ERROR'
 
-    @mock.patch(VS_POOL_UPDATE_PATH)
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     @mock.patch(POOL_BLDR_PATH + '.update_pool')
     def test__assure_pools_created_listener_update_with_pool_active_404(
-            self, mock_update, mock_create, mock_vs_update_pool, service):
+            self, mock_update, mock_create, service):
         '''exception raised with 404 seen on create_pool with vs update'''
         svc = service
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
@@ -1453,11 +1449,10 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         assert svc['loadbalancer']['provisioning_status'] == 'ERROR'
         assert svc['pools'][0]['provisioning_status'] == 'ERROR'
 
-    @mock.patch(VS_POOL_UPDATE_PATH)
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     @mock.patch(POOL_BLDR_PATH + '.update_pool')
     def test__assure_pools_created_listener_create_with_pool_active_404(
-            self, mock_update, mock_create, mock_vs_update_pool, service):
+            self, mock_update, mock_create, service):
         '''exception raised with 404 seen on create_pool with vs create'''
         svc = service
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'

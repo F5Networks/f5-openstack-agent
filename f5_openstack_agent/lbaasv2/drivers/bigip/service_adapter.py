@@ -428,8 +428,9 @@ class ServiceModelAdapter(object):
             if listener['protocol'] == 'TCP':
                 virtual_type = 'fastl4'
 
-        if 'session_persistence' in listener:
-            persistence_type = listener['session_persistence']
+        persistence = listener.get('session_persistence', None)
+        if persistence:
+            persistence_type = persistence.get('type', "")
             if persistence_type == 'APP_COOKIE':
                 virtual_type = 'standard'
                 vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
@@ -439,7 +440,9 @@ class ServiceModelAdapter(object):
 
             elif persistence_type == 'HTTP_COOKIE':
                 vip['persist'] = [{'name': '/Common/cookie'}]
-
+            else:
+                vip['fallbackPersistence'] = ''
+                vip['persist'] = []
         else:
             vip['fallbackPersistence'] = ''
             vip['persist'] = []
@@ -510,7 +513,7 @@ class ServiceModelAdapter(object):
             return service['subnets'][subnet_id]
 
     def get_session_persistence(self, service):
-        pool = service['pool']
+        pool = service.get('pool', dict())
         vip = self.get_virtual_name(service)
         vip['fallbackPersistence'] = ''
         vip['persist'] = []
