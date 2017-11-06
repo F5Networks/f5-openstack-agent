@@ -128,6 +128,13 @@ def get_filter(bigip, key, op, value):
         return {'$filter': '%s %s %s' % (key, op, value)}
 
 
+def get_select(bigip, value):
+    if LooseVersion(bigip.tmos_version) < LooseVersion('11.6.0'):
+        return '$select={}'.format(value)
+    else:
+        return {'$select': '{}'.format(value)}
+
+
 def strip_cidr_netmask(ip_address):
     '''Strip the /XX from the end of a CIDR address
 
