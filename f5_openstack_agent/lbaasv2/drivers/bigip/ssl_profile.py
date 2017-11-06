@@ -73,9 +73,7 @@ class SSLProfileHelper(object):
                                       partition='Common',
                                       certKeyChain=chain,
                                       sniDefault=sni_default,
-                                      defaultsFrom=parent_profile,
-                                      clientCertCa=certfilename,
-                                      caFile=certfilename)
+                                      defaultsFrom=parent_profile)
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
             raise SSLProfileError(err.message)
