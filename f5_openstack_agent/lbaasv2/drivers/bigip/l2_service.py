@@ -619,7 +619,7 @@ class L2ServiceBuilder(object):
                             'net_fdb': net_fdb}
                 fdbs = self._get_bigip_network_fdbs(bigip, net_info)
                 if len(fdbs) > 0:
-                    fdb_method(fdb_entries=fdbs)
+                    fdb_method(bigip, fdb_entries=fdbs)
 
     def _get_bigip_network_fdbs(self, bigip, net_info):
         # Get network fdb entries to add to a bigip

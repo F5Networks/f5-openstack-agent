@@ -21,6 +21,7 @@ import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_select
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
@@ -573,6 +574,7 @@ class NetworkHelper(object):
                                      tunnel_name=tunnel_name,
                                      mac=None,
                                      partition=partition)
+
         fdb_entry = dict()
         fdb_entry['name'] = mac_address
         fdb_entry['endpoint'] = vtep_ip_address
@@ -820,10 +822,12 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_tunnel_folder(self, bigip, tunnel_name=None):
-        tunnels = bigip.tm.net.fdb.tunnels.get_collection()
+        # request only name, partition to reduce size of return data
+        tunnels = bigip.tm.net.fdb.tunnels.get_collection(
+            requests_params={'params': get_select(bigip, 'name,partition')})
         for tunnel in tunnels:
-            if tunnel.name == tunnel_name:
-                return tunnel.partition
+            if tunnel['name'] == tunnel_name:
+                return tunnel['partition']
 
         return None
 
