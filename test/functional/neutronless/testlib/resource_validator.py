@@ -148,7 +148,7 @@ class ResourceValidator(object):
 
         if 'lbaas_fallback_persist' in esd:
             assert vs.fallbackPersistence == \
-                   '/Common/' + esd['lbaas_fallback_persist']
+                '/Common/' + esd['lbaas_fallback_persist']
 
         if 'lbaas_irule' in esd:
             for rule in esd['lbaas_irule']:
@@ -187,7 +187,7 @@ class ResourceValidator(object):
             fallback_persist = getattr(vs, 'fallbackPersistence', None)
             if fallback_persist:
                 assert fallback_persist != \
-                       '/Common/' + esd['lbaas_fallback_persist']
+                    '/Common/' + esd['lbaas_fallback_persist']
 
         if 'lbaas_irule' in esd:
             assert not getattr(vs, 'rules', None)
