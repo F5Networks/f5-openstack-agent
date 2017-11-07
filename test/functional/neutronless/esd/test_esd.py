@@ -157,7 +157,7 @@ def setup(request, bigip, services, icd_config, icontrol_driver, esd):
 def test_setup_teardown(setup):
     pass
 
-def test_esd_demo_1(setup):
+def test_esd_two_irules(setup):
     (bigip,
      services,
      icd_config,
@@ -168,15 +168,15 @@ def test_esd_demo_1(setup):
      listener) = setup
 
     # apply ESD
-    service = services[3]
+    service = services['apply_two_irules']
     icontrol_driver._common_service_handler(service)
-    validator.assert_esd_applied(esd['esd_demo_1'], listener, folder)
+    validator.assert_esd_applied(esd['f5_ESD_two_irules'], listener, folder)
 
     # remove ESD
-    service = services[4]
+    service = services['remove_two_irules']
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
-    validator.assert_esd_removed(esd['esd_demo_1'], listener, folder)
+    validator.assert_esd_removed(esd['f5_ESD_two_irules'], listener, folder)
 
 def test_esd_demo_2(setup):
     (bigip,
