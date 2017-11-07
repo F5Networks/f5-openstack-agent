@@ -14,6 +14,7 @@
 #   limitations under the License.
 
 
+import collections
 import netaddr
 
 
@@ -42,10 +43,16 @@ class FakeRPCPlugin(object):
         self._subnets = {}
         self._ports = {}
         self._loadbalancers = {}
-        self._services = services
+        # The following is a bit of a hack, it allows us to handle 
+        # two types of service objects.  For back compatibility we need to
+        # support services-as-lists.
+        if isinstance(services, collections.OrderedDict):
+            self._services = services.values()
+        else:
+            self._services = services[:]
         self._current_service = 0
-        self._initialize_subnets(services)
-        self._initialize_loadbalancers(services)
+        self._initialize_subnets(self._services)
+        self._initialize_loadbalancers(self._services)
         self._calls = {}
 
     def _initialize_loadbalancers(self, services):
