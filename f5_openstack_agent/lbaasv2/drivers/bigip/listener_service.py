@@ -206,50 +206,52 @@ class ListenerServiceBuilder(object):
         new_default = None
         new_sni_containers = None
         vip = self.service_adapter.get_virtual(service)
-        old_listener = service.get('old_listener')
 
         #pdb.set_trace()
 
-        if old_listener != None:
-            listener = service.get('listener')
-            if old_listener.get('default_tls_container_id') != listener.get('default_tls_container_id'):
-                old_default = old_listener.get('default_tls_container_id')
-                new_default = listener.get('default_tls_container_id')
+        listener = service.get('listener')
+        if listener.get('protocol') == 'TERMINATED_HTTPS':
+            old_listener = service.get('old_listener')
+            if old_listener != None:
+                listener = service.get('listener')
+                if old_listener.get('default_tls_container_id') != listener.get('default_tls_container_id'):
+                    old_default = old_listener.get('default_tls_container_id')
+                    new_default = listener.get('default_tls_container_id')
 
-            # determine sni delta with set substraction
-            old_snis = old_listener.get('sni_containers')
-            new_snis = listener.get('sni_containers')
-            old_ids = []
-            new_ids = []
-            for old in old_snis:
-                old_ids.append(old.get('tls_container_id'))
-            for new in new_snis:
-                new_ids.append(new.get('tls_container_id'))
-            new_sni_containers = self._make_sni_tls(vip, list(set(new_ids) - set(old_ids)))
-            old_sni_containers = self._make_sni_tls(vip, list(set(old_ids) - set(new_ids)))
+                # determine sni delta with set substraction
+                old_snis = old_listener.get('sni_containers')
+                new_snis = listener.get('sni_containers')
+                old_ids = []
+                new_ids = []
+                for old in old_snis:
+                    old_ids.append(old.get('tls_container_id'))
+                for new in new_snis:
+                    new_ids.append(new.get('tls_container_id'))
+                new_sni_containers = self._make_sni_tls(vip, list(set(new_ids) - set(old_ids)))
+                old_sni_containers = self._make_sni_tls(vip, list(set(old_ids) - set(new_ids)))
 
-        # create old and new tls listener configurations
-        # create new ssl-profiles on F5 BUT DO NOT APPLY them to listener
-        old_tls = None
-        if (new_default != None or (new_sni_containers != None and new_sni_containers['sni_containers'])):
-            new_tls = self.service_adapter.get_tls(service)
-            new_tls = self._make_default_tls(vip, new_tls.get('default_tls_container_id'))
+            # create old and new tls listener configurations
+            # create new ssl-profiles on F5 BUT DO NOT APPLY them to listener
+            old_tls = None
+            if (new_default != None or (new_sni_containers != None and new_sni_containers['sni_containers'])):
+                new_tls = self.service_adapter.get_tls(service)
+                new_tls = self._make_default_tls(vip, new_tls.get('default_tls_container_id'))
 
-            if old_default != None:
-                old_tls = self._make_default_tls(vip, old_default)
+                if old_default != None:
+                    old_tls = self._make_default_tls(vip, old_default)
 
-            for bigip in bigips:
-                # create ssl profile but do not apply
-                if new_tls != None:
-                    try:
-                        self.add_ssl_profile(new_tls, bigip, False)
-                    except:
-                        pass
-                if new_sni_containers != None and new_sni_containers['sni_containers']:
-                    try:
-                        self.add_ssl_profile(new_sni_containers, bigip, False)
-                    except:
-                        pass
+                for bigip in bigips:
+                    # create ssl profile but do not apply
+                    if new_tls != None:
+                        try:
+                            self.add_ssl_profile(new_tls, bigip, False)
+                        except:
+                            pass
+                    if new_sni_containers != None and new_sni_containers['sni_containers']:
+                        try:
+                            self.add_ssl_profile(new_sni_containers, bigip, False)
+                        except:
+                            pass
 
 
         # process esd's AND create new client ssl config for listener
@@ -261,16 +263,17 @@ class ListenerServiceBuilder(object):
             self.service_adapter.get_vlan(vip, bigip, network_id)
             self.vs_helper.update(bigip, vip)
             # delete ssl profiles
-            if old_tls != None:
-                try:
-                    self.remove_ssl_profiles(old_tls, bigip)
-                except:
-                    pass
-            if old_sni_containers != None and old_sni_containers['sni_containers']:
-                try:
-                    self.remove_ssl_profiles(old_sni_containers, bigip)
-                except:
-                    pass
+            if listener.get('protocol') == 'TERMINATED_HTTPS':
+                if old_tls != None:
+                    try:
+                        self.remove_ssl_profiles(old_tls, bigip)
+                    except:
+                        pass
+                if old_sni_containers != None and old_sni_containers['sni_containers']:
+                    try:
+                        self.remove_ssl_profiles(old_sni_containers, bigip)
+                    except:
+                        pass
 
 
     def _make_default_tls(self, vip, id):
@@ -887,6 +890,7 @@ class ListenerServiceBuilder(object):
         if listener['protocol'] == lb_const.PROTOCOL_TCP:
             if bool(fastl4):
                 profiles.append(fastl4)
+                oneconnect_profile = None
             else:
                 profiles = stcp_profiles + ctcp_profiles
 
@@ -912,5 +916,7 @@ class ListenerServiceBuilder(object):
         update_attrs['rules'] = update_attrs.get('rules',[])+irules
 
         update_attrs['policies'] = update_attrs.get('policies',[])+policies
+
+        LOG.info("APPLY_ESD: Listener after ESDs got applied: %s", update_attrs)
 
         return update_attrs
