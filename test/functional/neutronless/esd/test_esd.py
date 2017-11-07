@@ -102,63 +102,93 @@ def esd():
     return (json.load(open(esd_file)))
 
 
-def test_esd(bigip, services, icd_config, icontrol_driver, esd):
+@pytest.fixture
+def setup(request, bigip, services, icd_config, icontrol_driver, esd):
     env_prefix = icd_config['environment_prefix']
-    service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)
 
     # create loadbalancer
-    service = service_iter.next()
+    service = services[0]
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
     assert bigip.folder_exists(folder)
 
     # create listener
-    service = service_iter.next()
+    service = services[1]
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
 
     # create pool
-    service = service_iter.next()
+    service = services[2]
     pool = service['pools'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool, folder)
+    def teardown():
+        # delete pool (and member, node)
+        service = services[7]
+        icontrol_driver._common_service_handler(service)
+        validator.assert_pool_deleted(pool, None, folder)
+
+        # delete listener
+        service = services[8]
+        icontrol_driver._common_service_handler(service)
+        validator.assert_virtual_deleted(listener, folder)
+
+        # delete loadbalancer
+        service = services[9]
+        icontrol_driver._common_service_handler(service, delete_partition=True)
+        assert not bigip.folder_exists(folder)
+    
+    request.addfinalizer(teardown)
+    return (bigip,
+            services,
+            icd_config,
+            icontrol_driver,
+            esd,
+            validator,
+            folder,
+            listener)
+
+def test_esd_demo_1(setup):
+    (bigip,
+     services,
+     icd_config,
+     icontrol_driver,
+     esd,
+     validator,
+     folder,
+     listener) = setup
 
     # apply ESD
-    service = service_iter.next()
+    service = services[3]
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_applied(esd['esd_demo_1'], listener, folder)
 
     # remove ESD
-    service = service_iter.next()
+    service = services[4]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
     validator.assert_esd_removed(esd['esd_demo_1'], listener, folder)
 
+def test_esd_demo_2(setup):
+    (bigip,
+     services,
+     icd_config,
+     icontrol_driver,
+     esd,
+     validator,
+     folder,
+     listener) = setup
+
     # apply another ESD
-    service = service_iter.next()
+    service = services[5]
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_applied(esd['esd_demo_2'], listener, folder)
 
     # remove ESD
-    service = service_iter.next()
+    service = services[6]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
     validator.assert_esd_removed(esd['esd_demo_2'], listener, folder)
-
-    # delete pool (and member, node)
-    service = service_iter.next()
-    icontrol_driver._common_service_handler(service)
-    validator.assert_pool_deleted(pool, None, folder)
-
-    # delete listener
-    service = service_iter.next()
-    icontrol_driver._common_service_handler(service)
-    validator.assert_virtual_deleted(listener, folder)
-
-    # delete loadbalancer
-    service = service_iter.next()
-    icontrol_driver._common_service_handler(service, delete_partition=True)
-    assert not bigip.folder_exists(folder)
