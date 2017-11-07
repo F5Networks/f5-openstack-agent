@@ -89,7 +89,6 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
                          registerOpts=False)
 
     icd.plugin_rpc = fake_plugin_rpc
-
     return icd
 
 
@@ -104,6 +103,7 @@ def esd():
 
 @pytest.fixture
 def setup(request, bigip, services, icd_config, icontrol_driver, esd):
+    icontrol_driver.lbaas_builder.esd.esd_dict = esd
     env_prefix = icd_config['environment_prefix']
     validator = ResourceValidator(bigip, env_prefix)
 
