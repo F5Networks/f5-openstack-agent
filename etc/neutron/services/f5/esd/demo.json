@@ -1,5 +1,5 @@
 {
-  "esd_demo_1": {
+  "f5_ESD_full_8_tag_set": {
     "lbaas_ctcp": "tcp-mobile-optimized",
     "lbaas_stcp": "tcp-lan-optimized",
     "lbaas_cssl_profile": "clientssl",
@@ -10,7 +10,7 @@
     "lbaas_fallback_persist": "source_addr"
   },
 
-  "esd_demo_2": {
+  "f5_ESD_two_irules": {
     "lbaas_irule": [
       "_sys_https_redirect",
       "_sys_APM_ExchangeSupport_helper"

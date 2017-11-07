@@ -13,6 +13,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import collections
 from copy import deepcopy
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
@@ -38,7 +39,9 @@ def services():
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      '../../testdata/service_requests/l7_esd.json')
     )
-    return (json.load(open(neutron_services_filename)))
+    s = json.load(open(neutron_services_filename),
+                  object_pairs_hook=collections.OrderedDict)
+    return s
 
 
 @pytest.fixture()
@@ -108,36 +111,36 @@ def setup(request, bigip, services, icd_config, icontrol_driver, esd):
     validator = ResourceValidator(bigip, env_prefix)
 
     # create loadbalancer
-    service = services[0]
+    service = services['create_loadbalancer']
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
     assert bigip.folder_exists(folder)
 
     # create listener
-    service = services[1]
+    service = services['create_listener']
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
 
     # create pool
-    service = services[2]
+    service = services['create_pool']
     pool = service['pools'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool, folder)
     def teardown():
         # delete pool (and member, node)
-        service = services[7]
+        service = services['delete_pool']
         icontrol_driver._common_service_handler(service)
         validator.assert_pool_deleted(pool, None, folder)
 
         # delete listener
-        service = services[8]
+        service = services['delete_listener']
         icontrol_driver._common_service_handler(service)
         validator.assert_virtual_deleted(listener, folder)
 
         # delete loadbalancer
-        service = services[9]
+        service = services['delete_loadbalancer']
         icontrol_driver._common_service_handler(service, delete_partition=True)
         assert not bigip.folder_exists(folder)
     
@@ -150,6 +153,9 @@ def setup(request, bigip, services, icd_config, icontrol_driver, esd):
             validator,
             folder,
             listener)
+
+def test_setup_teardown(setup):
+    pass
 
 def test_esd_demo_1(setup):
     (bigip,

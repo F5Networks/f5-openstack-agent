@@ -1,4 +1,5 @@
-[{
+{
+ "create_loadbalancer": {
   "healthmonitors": [], 
   "l7policies": [], 
   "l7policy_rules": [], 
@@ -115,7 +116,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "create_listener": {
   "healthmonitors": [], 
   "l7policies": [], 
   "l7policy_rules": [], 
@@ -254,7 +256,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "create_pool": {
   "healthmonitors": [], 
   "l7policies": [], 
   "l7policy_rules": [], 
@@ -424,7 +427,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "apply_full_8_tag_set": {
   "healthmonitors": [], 
   "l7policies": [
     {
@@ -433,7 +437,7 @@
       "description": "", 
       "id": "18105b94-1cd7-41a1-b39c-4d0fbf425060", 
       "listener_id": "dc66bf27-490a-4913-9f4f-12c885afe7a1", 
-      "name": "esd_demo_1", 
+      "name": "f5_ESD_full_8_tag_set", 
       "position": 1, 
       "provisioning_status": "PENDING_CREATE", 
       "redirect_pool_id": null, 
@@ -613,7 +617,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "remove_full_8_tag_set": {
   "healthmonitors": [], 
   "l7policies": [
     {
@@ -622,7 +627,7 @@
       "description": "", 
       "id": "18105b94-1cd7-41a1-b39c-4d0fbf425060", 
       "listener_id": "dc66bf27-490a-4913-9f4f-12c885afe7a1", 
-      "name": "esd_demo_1", 
+      "name": "f5_ESD_full_8_tag_set", 
       "position": 1, 
       "provisioning_status": "PENDING_DELETE", 
       "redirect_pool_id": null, 
@@ -802,7 +807,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "apply_two_irules": {
   "healthmonitors": [], 
   "l7policies": [
     {
@@ -811,7 +817,7 @@
       "description": "", 
       "id": "d2c6f5f1-725f-4ef9-bf9c-de7394d07852", 
       "listener_id": "dc66bf27-490a-4913-9f4f-12c885afe7a1", 
-      "name": "esd_demo_2", 
+      "name": "f5_ESD_two_irules", 
       "position": 1, 
       "provisioning_status": "PENDING_CREATE", 
       "redirect_pool_id": null, 
@@ -991,7 +997,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "remove_two_irules": {
   "healthmonitors": [], 
   "l7policies": [
     {
@@ -1000,7 +1007,7 @@
       "description": "", 
       "id": "d2c6f5f1-725f-4ef9-bf9c-de7394d07852", 
       "listener_id": "dc66bf27-490a-4913-9f4f-12c885afe7a1", 
-      "name": "esd_demo_2", 
+      "name": "f5_ESD_two_irules", 
       "position": 1, 
       "provisioning_status": "PENDING_DELETE", 
       "redirect_pool_id": null, 
@@ -1180,7 +1187,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "delete_pool": {
   "healthmonitors": [], 
   "l7policies": [], 
   "l7policy_rules": [], 
@@ -1350,7 +1358,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "delete_listener": {
   "healthmonitors": [], 
   "l7policies": [], 
   "l7policy_rules": [], 
@@ -1489,7 +1498,8 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-},{
+ },
+ "delete_loadbalancer": {
   "healthmonitors": [], 
   "l7policies": [], 
   "l7policy_rules": [], 
@@ -1606,4 +1616,5 @@
       "updated_at": "2017-03-02T15:28:03"
     }
   }
-}]
+}
+}
