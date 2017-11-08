@@ -51,7 +51,7 @@ import logging
 import os
 
 import pytest
-from requests.packages import urllib3
+import requests
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
@@ -61,7 +61,7 @@ from ..testlib.fake_rpc import FakeRPCPlugin
 from ..testlib.resource_validator import ResourceValidator
 from ..testlib.service_reader import LoadbalancerReader
 
-urllib3.disable_warnings()
+requests.packages.urllib3.disable_warnings()
 LOG = logging.getLogger(__name__)
 
 
