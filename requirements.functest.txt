@@ -2,8 +2,8 @@
 
 # OpenStack dependencies, Za doesn't know how pip-over-git interacts with
 # constraints.txt's .
-git+https://github.com/openstack/neutron@stable/newton
-git+https://github.com/openstack/neutron-lbaas.git@stable/newton
+git+https://github.com/openstack/neutron@newton-eol
+git+https://github.com/openstack/neutron-lbaas.git@newton-eol
 
 # F5 LBaaS dependancies
 git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@stable/newton
@@ -15,7 +15,7 @@ git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@stable/newton
 # misleading to readers of this file.
 -c https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/newton
 
-git+https://github.com/openstack/oslo.log.git@stable/newton
+git+https://github.com/openstack/oslo.log.git@newton-eol
 pytest==IGNORED    # See section comment
 mock==IGNORED      # See section comment
 coverage==IGNORED  # See section comment
