@@ -260,7 +260,7 @@ def ESD_Experiment(Experiment, request, services, icontrol_driver):
                    demo_esd,
                    Experiment.listener,
                    esd_name)
-    _apply_validate_remove_validate(ti)
+    return ti
 
 
 @pytest.fixture
@@ -275,10 +275,10 @@ def ESD_Pairs_Experiment(Experiment, request, services, icontrol_driver):
                    demo_esd,
                    Experiment.listener,
                    esd_name)
-    _apply_validate_remove_validate(ti)
+    return ti
 
 
-def _apply_validate_remove_validate(infra):
+def apply_validate_remove_validate(infra):
     """Apply an ESD, validate application, remove ESD, validate removal."""
     i = infra
     # apply ESD
