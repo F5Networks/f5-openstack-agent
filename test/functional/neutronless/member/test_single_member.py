@@ -13,7 +13,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from copy import deepcopy
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
     ResourceType
 import json
@@ -126,11 +125,10 @@ def lbaas_service_one_member(request,
     return service_iter
 
 
-def test_create_single_member_up(bigip,
-                                 service_create_member_up_down,
-                                 icd_config,
-                                 icontrol_driver):
-
+def test_create_single_member_up(
+        track_bigip_cfg, bigip, service_create_member_up_down, icd_config,
+        icontrol_driver):
+    """Tests the creation of a single member and that it is up"""
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(service_create_member_up_down)
 
@@ -161,11 +159,12 @@ def test_create_single_member_up(bigip,
     assert m.ratio == 1
 
 
-def test_create_single_member_down(bigip,
+def test_create_single_member_down(track_bigip_cfg,
+                                   bigip,
                                    service_create_member_down_up,
                                    icd_config,
                                    icontrol_driver):
-
+    """Tests a single member being down"""
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(service_create_member_down_up)
 
@@ -197,11 +196,12 @@ def test_create_single_member_down(bigip,
     assert m.ratio == 1
 
 
-def test_create_single_member_down_up(bigip,
+def test_create_single_member_down_up(track_bigip_cfg,
+                                      bigip,
                                       service_create_member_down_up,
                                       icd_config,
                                       icontrol_driver):
-
+    """Tests the creation and bringing a member up and then down"""
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(service_create_member_down_up)
 
@@ -244,8 +244,8 @@ def test_create_single_member_down_up(bigip,
 def test_create_single_member_up_down(bigip,
                                       service_create_member_up_down,
                                       icd_config,
-                                      icontrol_driver):
-
+                                      icontrol_driver, track_bigip_cfg):
+    """Tests single member can be brought up and then down"""
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(service_create_member_up_down)
 

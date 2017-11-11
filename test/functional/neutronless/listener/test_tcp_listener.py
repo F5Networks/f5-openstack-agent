@@ -38,7 +38,8 @@ def services():
     return (json.load(open(neutron_services_filename)))
 
 
-def test_single_pool_tcp_vs(bigip, services, icd_config, icontrol_driver):
+def test_single_pool_tcp_vs(track_bigip_cfg, bigip, services, icd_config,
+                            icontrol_driver):
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)

@@ -54,6 +54,7 @@ def get_folder_name(service, env_prefix):
 
 
 def test_listener_update(
+        track_bigip_cfg,
         bigip,
         services,
         icd_config,

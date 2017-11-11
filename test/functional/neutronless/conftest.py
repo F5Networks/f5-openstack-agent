@@ -20,14 +20,15 @@ import re
 import traceback
 import sys
 
-from inspect import currentframe as cf
-from inspect import getframeinfo as gfi
-from inspect import getouterframes as gof
 from collections import deque
 from collections import namedtuple
 from copy import deepcopy
+from inspect import currentframe as cf
+from inspect import getframeinfo as gfi
+from inspect import getouterframes as gof
 
 from .testlib.bigip_client import BigIpClient
+from bigip_interaction import BigIpInteraction
 from .testlib.fake_rpc import FakeRPCPlugin
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
@@ -236,6 +237,12 @@ def bigip(request):
     request.addfinalizer(fin)
 
     return bigip
+
+
+@pytest.fixture
+def track_bigip_cfg(request):
+    request.addfinalizer(BigIpInteraction.check_resulting_cfg)
+    BigIpInteraction.backup_bigip_cfg()
 
 
 def debug_msg(status):

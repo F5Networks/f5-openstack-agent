@@ -102,7 +102,8 @@ def esd():
     return (json.load(open(esd_file)))
 
 
-def test_esd_pools(bigip, services, icd_config, icontrol_driver, esd):
+def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
+                   icontrol_driver, esd):
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)

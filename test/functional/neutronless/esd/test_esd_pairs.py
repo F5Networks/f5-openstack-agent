@@ -15,141 +15,168 @@
 from .conftest import apply_validate_remove_validate
 
 
-def test_esd_lbaas_stcp_lbaas_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_stcp_lbaas_persist(track_bigip_cfg, ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_stcp_lbaas_cssl_profile(ESD_Pairs_Experiment):
+def test_esd_lbaas_stcp_lbaas_cssl_profile(track_bigip_cfg,
+                                           ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_persist_lbaas_sssl_profile(ESD_Pairs_Experiment):
+def test_esd_lbaas_persist_lbaas_sssl_profile(track_bigip_cfg,
+                                              ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_irule_lbaas_ctcp(ESD_Pairs_Experiment):
+def test_esd_lbaas_irule_lbaas_ctcp(track_bigip_cfg,
+                                    ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_fallback_persist_lbaas_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_fallback_persist_lbaas_persist(track_bigip_cfg,
+                                                  ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_cssl_profile_lbaas_fallback_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_cssl_profile_lbaas_fallback_persist(track_bigip_cfg,
+                                                       ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_cssl_profile_lbaas_sssl_profile(ESD_Pairs_Experiment):
+def test_esd_lbaas_cssl_profile_lbaas_sssl_profile(track_bigip_cfg,
+                                                   ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_ctcp_lbaas_fallback_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_ctcp_lbaas_fallback_persist(track_bigip_cfg,
+                                               ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_irule_lbaas_policy(ESD_Pairs_Experiment):
+def test_esd_lbaas_irule_lbaas_policy(track_bigip_cfg,
+                                      ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_cssl_profile_lbaas_policy(ESD_Pairs_Experiment):
+def test_esd_lbaas_cssl_profile_lbaas_policy(track_bigip_cfg,
+                                             ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_policy_lbaas_sssl_profile(ESD_Pairs_Experiment):
+def test_esd_lbaas_policy_lbaas_sssl_profile(track_bigip_cfg,
+                                             ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_stcp_lbaas_policy(ESD_Pairs_Experiment):
+def test_esd_lbaas_stcp_lbaas_policy(track_bigip_cfg,
+                                     ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_irule_lbaas_fallback_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_irule_lbaas_fallback_persist(track_bigip_cfg,
+                                                ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_stcp_lbaas_sssl_profile(ESD_Pairs_Experiment):
+def test_esd_lbaas_stcp_lbaas_sssl_profile(track_bigip_cfg,
+                                           ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_stcp_lbaas_irule(ESD_Pairs_Experiment):
+def test_esd_lbaas_stcp_lbaas_irule(track_bigip_cfg,
+                                    ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_irule_lbaas_sssl_profile(ESD_Pairs_Experiment):
+def test_esd_lbaas_irule_lbaas_sssl_profile(track_bigip_cfg,
+                                            ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_policy_lbaas_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_policy_lbaas_persist(track_bigip_cfg,
+                                        ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_ctcp_lbaas_sssl_profile(ESD_Pairs_Experiment):
+def test_esd_lbaas_ctcp_lbaas_sssl_profile(track_bigip_cfg,
+                                           ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_cssl_profile_lbaas_ctcp(ESD_Pairs_Experiment):
+def test_esd_lbaas_cssl_profile_lbaas_ctcp(track_bigip_cfg,
+                                           ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_stcp_lbaas_ctcp(ESD_Pairs_Experiment):
+def test_esd_lbaas_stcp_lbaas_ctcp(track_bigip_cfg,
+                                   ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_fallback_persist_lbaas_sssl_profile(ESD_Pairs_Experiment):
+def test_esd_lbaas_fallback_persist_lbaas_sssl_profile(track_bigip_cfg,
+                                                       ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_fallback_persist_lbaas_policy(ESD_Pairs_Experiment):
+def test_esd_lbaas_fallback_persist_lbaas_policy(track_bigip_cfg,
+                                                 ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_ctcp_lbaas_policy(ESD_Pairs_Experiment):
+def test_esd_lbaas_ctcp_lbaas_policy(track_bigip_cfg,
+                                     ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_irule_lbaas_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_irule_lbaas_persist(track_bigip_cfg,
+                                       ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_cssl_profile_lbaas_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_cssl_profile_lbaas_persist(track_bigip_cfg,
+                                              ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_stcp_lbaas_fallback_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_stcp_lbaas_fallback_persist(track_bigip_cfg,
+                                               ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_ctcp_lbaas_persist(ESD_Pairs_Experiment):
+def test_esd_lbaas_ctcp_lbaas_persist(track_bigip_cfg,
+                                      ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-def test_esd_lbaas_cssl_profile_lbaas_irule(ESD_Pairs_Experiment):
+def test_esd_lbaas_cssl_profile_lbaas_irule(track_bigip_cfg,
+                                            ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)

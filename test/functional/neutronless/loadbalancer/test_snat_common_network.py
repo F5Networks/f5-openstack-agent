@@ -72,7 +72,8 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     return icd
 
 
-def test_snat_common_network(bigip, services, icd_config, icontrol_driver):
+def test_snat_common_network(track_bigip_cfg, bigip, services, icd_config,
+                             icontrol_driver):
     """Test creating and deleting SNAT pools with common network listener.
 
     The test procedure is:

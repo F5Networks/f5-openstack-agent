@@ -25,52 +25,52 @@ The esd config used by ESD_Experiment:
 from .conftest import apply_validate_remove_validate
 
 
-def test_esd_two_irules(ESD_Experiment):
+def test_esd_two_irules(track_bigip_cfg, ESD_Experiment):
     """Refactor of an historical test of a 2 irule ESD."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
 # Single tag tests, each individual tag is tested.
-def test_esd_lbaas_ctcp(ESD_Experiment):
+def test_esd_lbaas_ctcp(track_bigip_cfg, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_lbaas_stcp(ESD_Experiment):
+def test_esd_lbaas_stcp(track_bigip_cfg, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_lbaas_cssl_profile(ESD_Experiment):
+def test_esd_lbaas_cssl_profile(track_bigip_cfg, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_lbaas_sssl_profile(ESD_Experiment):
+def test_esd_lbaas_sssl_profile(track_bigip_cfg, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_lbaas_irule(ESD_Experiment):
+def test_esd_lbaas_irule(track_bigip_cfg, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_lbaas_policy(ESD_Experiment):
+def test_esd_lbaas_policy(track_bigip_cfg, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_lbaas_persist(ESD_Experiment):
+def test_esd_lbaas_persist(track_bigip_cfg, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_lbaas_fallback_persist(ESD_Experiment):
+def test_esd_lbaas_fallback_persist(track_bigip_cfg, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_full_8_tag_set(ESD_Experiment):
+def test_esd_full_8_tag_set(track_bigip_cfg, ESD_Experiment):
     """Test of a full tag set.  Tags specifics are historical."""
     apply_validate_remove_validate(ESD_Experiment)
