@@ -54,31 +54,48 @@ class LBaaSBuilder(object):
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
         start_time = time()
-        LOG.debug("Starting assure_service")
+
+        LOG.debug("assuring loadbalancers")
 
         self._assure_loadbalancer_created(service, all_subnet_hints)
 
-        self._assure_listeners_created(service)
+        LOG.debug("assuring monitors")
+
+        self._assure_monitors_created(service)
+
+        LOG.debug("assuring pools")
 
         self._assure_pools_created(service)
 
-        self._assure_monitors(service)
+        LOG.debug("assuring pool members")
 
         self._assure_members(service, all_subnet_hints)
 
-        self._assure_pools_deleted(service)
+        LOG.debug("assuring l7 policies")
 
         self._assure_l7policies_created(service)
 
-        self._assure_l7rules_created(service)
+        LOG.debug("assuring listeners")
 
-        self._assure_l7rules_deleted(service)
+        self._assure_listeners_created(service)
+
+        LOG.debug("deleting listeners")
+
+        self._assure_listeners_deleted(service)
+
+        LOG.debug("deleting l7 policies")
 
         self._assure_l7policies_deleted(service)
 
-        self._assure_pools_configured(service)
+        LOG.debug("deleting pools")
 
-        self._assure_listeners_deleted(service)
+        self._assure_pools_deleted(service)
+
+        LOG.debug("deleting monitors")
+
+        self._assure_monitors_deleted(service)
+
+        LOG.debug("deleting loadbalancers")
 
         self._assure_loadbalancer_deleted(service)
 
