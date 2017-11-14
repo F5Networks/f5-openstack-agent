@@ -74,3 +74,29 @@ def test_esd_lbaas_fallback_persist(ESD_Experiment):
 def test_esd_full_8_tag_set(ESD_Experiment):
     """Test of a full tag set.  Tags specifics are historical."""
     apply_validate_remove_validate(ESD_Experiment)
+
+
+def test_esd_issue_1047_basic(ESD_Experiment, bigip):
+    """Test behavior of l7policy removal as documented in github issue.
+
+    https://github.com/F5Networks/f5-openstack-agent/issues/1047
+    """
+    test_virtual = bigip.bigip.tm.ltm.virtuals.get_collection()[0]
+    assert test_virtual.vlansEnabled is True
+    assert test_virtual.vlans != []
+    apply_validate_remove_validate(ESD_Experiment)
+    assert test_virtual.vlansEnabled is True
+    assert test_virtual.vlans != []
+
+
+def test_esd_dmzmobile(ESD_Experiment, bigip):
+    """Test behavior of l7policy removal as documented in github issue.
+
+    https://github.com/F5Networks/f5-openstack-agent/issues/1047
+    """
+    test_virtual = bigip.bigip.tm.ltm.virtuals.get_collection()[0]
+    assert test_virtual.vlansEnabled is True
+    assert test_virtual.vlans != []
+    apply_validate_remove_validate(ESD_Experiment)
+    assert test_virtual.vlansEnabled is True
+    assert test_virtual.vlans == ["REPLACE ME WITH A REAL VALUE!"]
