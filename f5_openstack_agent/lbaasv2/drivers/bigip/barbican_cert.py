@@ -165,3 +165,25 @@ class BarbicanCertManager(object):
 
         i = container_ref.rindex("/") + 1
         return prefix + container_ref[i:]
+
+    def get_container(self, container_ref):
+        """Retrieves container object from certificate manager.
+
+        :param string container_ref: Reference to container stored in a
+        certificate manager.
+        :returns string: Container Object
+        """
+        return self.barbican.containers.get(container_ref)
+
+    def get_intermediates(self, container_ref):
+        """Retrieves intermediates from barbican certificate.
+
+        :param string container_ref: Reference to container stored in a
+        certificate manager.
+        :returns string: Intermediate payload data.
+        """
+        container = self.barbican.containers.get(container_ref)
+        if (container.intermediates and container.intermediates.payload):
+            return container.intermediates.payload
+        else:
+            return None

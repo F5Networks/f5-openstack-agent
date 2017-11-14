@@ -28,14 +28,19 @@ class SSLProfileHelper(object):
 
     @staticmethod
     def create_client_ssl_profile(
-            bigip, name, cert, key, sni_default=False, parent_profile=None):
+            bigip, name, cert, key, intermediate=None, sni_default=False, parent_profile=None, caClientTrust=False):
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
+        intermediate_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
         ssl_client_profile = bigip.tm.ltm.profile.client_ssls.client_ssl
 
+        profilename = name
+        if not sni_default:
+            profilename = name + '_NotDefault'
+
         # No need to create if it exists
-        if ssl_client_profile.exists(name=name, partition='Common'):
+        if ssl_client_profile.exists(name=profilename, partition='Common'):
             return
 
         # Check that parent profile exists; use default if not.
@@ -45,12 +50,17 @@ class SSLProfileHelper(object):
 
         certfilename = name + '.crt'
         keyfilename = name + '.key'
+        # we need both names because uploader fiddles around with names
+        intermediatefilename = name + '.chain'
+        intermediatecrtfilename = intermediatefilename + '.crt'
 
         try:
             # In-memory upload -- data not written to local file system but
             # is saved as a file on the BIG-IP.
             uploader.upload_bytes(cert, certfilename)
             uploader.upload_bytes(key, keyfilename)
+            if intermediate:
+                uploader.upload_bytes(intermediate, intermediatefilename)
 
             # import certificate
             param_set = {}
@@ -65,15 +75,53 @@ class SSLProfileHelper(object):
                 '/var/config/rest/downloads/', keyfilename)
             key_registrar.exec_cmd('install', **param_set)
 
+            if intermediate:
+                # import intermediates
+                param_set = {}
+                param_set['name'] = intermediatefilename
+                param_set['from-local-file'] = os.path.join(
+                    '/var/config/rest/downloads/', intermediatefilename)
+                intermediate_registrar.exec_cmd('install', **param_set)
+
             # create ssl-client profile from cert/key pair
-            chain = [{'name': name,
+            if intermediate:
+                chain = [{'name': name,
+                      'cert': '/Common/' + certfilename,
+                      'key': '/Common/' + keyfilename,
+                      'chain': '/Common/' + intermediatecrtfilename}]
+            # create ssl-client profile from cert/key pair
+            else:
+                chain = [{'name': name,
                       'cert': '/Common/' + certfilename,
                       'key': '/Common/' + keyfilename}]
-            ssl_client_profile.create(name=name,
+
+
+            if caClientTrust and intermediate:
+                ssl_client_profile.create(name=profilename,
+                                      partition='Common',
+                                      certKeyChain=chain,
+                                      sniDefault=sni_default,
+                                      defaultsFrom=parent_profile,
+                                      clientCertCa=intermediatecrtfilename,
+                                      caFile=intermediatecrtfilename)
+                LOG.info("Creating SSL profile WITH caClientTrust and WITH intermediate %s", chain)
+            elif (not caClientTrust) and intermediate:
+                ssl_client_profile.create(name=profilename,
                                       partition='Common',
                                       certKeyChain=chain,
                                       sniDefault=sni_default,
                                       defaultsFrom=parent_profile)
+                LOG.info("Creating SSL profile WITHOUT caClientTrust and WITH intermediate %s", chain)
+            elif (not caClientTrust) and (not intermediate):
+                ssl_client_profile.create(name=profilename,
+                                          partition='Common',
+                                          certKeyChain=chain,
+                                          sniDefault=sni_default,
+                                          defaultsFrom=parent_profile)
+                LOG.info("Creating SSL profile WITHOUT caClientTrust and WITHOUT intermediate %s", chain)
+            else:
+                LOG.error("ERROR: Cannot create a SSL profile WITH caClientTrust and WITHOUT intermediate")
+                raise SSLProfileError("ERROR: Cannot create a SSL profile WITH caClientTrust and WITHOUT intermediate")
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
             raise SSLProfileError(err.message)

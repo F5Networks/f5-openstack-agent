@@ -91,7 +91,6 @@ class ListenerServiceBuilder(object):
                                   err.message)
                     raise
             if tls:
-                #pdb.set_trace()
                 self.add_ssl_profile(tls, bigip)
 
     def get_listener(self, service, bigip):
@@ -149,8 +148,12 @@ class ListenerServiceBuilder(object):
     def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False, add_to_vip=True):
         cert = self.cert_manager.get_certificate(container_ref)
         key = self.cert_manager.get_private_key(container_ref)
+        intermediate = self.cert_manager.get_intermediates(container_ref)
         name = self.cert_manager.get_name(container_ref,
                                           self.service_adapter.prefix)
+
+        container = self.cert_manager.get_container(container_ref)
+        caClientTrust = bool(container.name and container.name.startswith('CATrust'))
 
         try:
             # upload cert/key and create SSL profile
@@ -159,20 +162,28 @@ class ListenerServiceBuilder(object):
                 name,
                 cert,
                 key,
+                intermediate,
                 sni_default=True,
-                parent_profile=self.parent_ssl_profile)
+                parent_profile=self.parent_ssl_profile,
+                caClientTrust=caClientTrust
+            )
 
             # upload cert/key and create SSL profile
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
                 bigip,
-                name + '_NotDefault',
+                name,
                 cert,
                 key,
+                intermediate,
                 sni_default=False,
-                parent_profile=self.parent_ssl_profile)
+                parent_profile=self.parent_ssl_profile,
+                caClientTrust=caClientTrust
+            )
+
         finally:
             del cert
             del key
+            del intermediate
 
         # add ssl profile to virtual server
         if add_to_vip:
