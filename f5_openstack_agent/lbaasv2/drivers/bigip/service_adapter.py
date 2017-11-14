@@ -124,12 +124,48 @@ class ServiceModelAdapter(object):
         if pool and "session_persistence" in pool:
             listener["session_persistence"] = pool["session_persistence"]
 
+        listener_policies = self.get_listener_policies(service)
 
         vip = self._map_virtual(loadbalancer, listener, pool=pool,
                                 policies=listener_policies)
 
-        self._add_bigip_items(listener, vip)
         return vip
+
+    def get_listener_policies(self, service):
+        """Return a map of listener L7 policy ids to a list of L7 rules."""
+        lbaas_service = LbaasServiceObject(service)
+        listener_policies = list()
+
+        listener = service.get('listener', None)
+        if not listener:
+            return listener_policies
+
+        listener_l7policy_ids = listener.get('l7_policies', list())
+        LOG.debug("L7 debug: listener policies: %s", listener_l7policy_ids)
+        for policy in listener_l7policy_ids:
+            listener_policy = lbaas_service.get_l7policy(policy['id'])
+            LOG.debug("L7 debug: listener policy: %s", listener_policy)
+            if not listener_policy:
+                LOG.warning("Referenced L7 policy %s for listener %s not "
+                            "found in service.", policy['id'], listener['id'])
+                continue
+
+            listener_l7policy_rules = list()
+            rules = listener_policy.get('rules', list())
+            for rule in rules:
+                l7policy_rule = lbaas_service.get_l7rule(rule['id'])
+                if not l7policy_rule:
+                    LOG.warning("Referenced L7 rule %s for policy %s not "
+                                "found in service.", rule['id'], policy['id'])
+                    continue
+
+                if l7policy_rule['provisioning_status'] != "PENDING_DELETE":
+                    listener_l7policy_rules.append(l7policy_rule)
+
+            listener_policy['l7policy_rules'] = listener_l7policy_rules
+            listener_policies.append(listener_policy)
+
+        return listener_policies
 
     def get_virtual_name(self, service):
         vs_name = None
@@ -425,6 +461,17 @@ class ServiceModelAdapter(object):
             self._apply_l7_and_esd_policies(listener, policies, vip)
 
         return vip
+
+    def _apply_l7_and_esd_policies(self, listener, policies, vip):
+        if not policies:
+            return
+
+        partition = self.get_folder_name(listener['tenant_id'])
+        policy_name = "wrapper_policy_" + str(listener['id'])
+        bigip_policy = listener.get('f5_policy', {})
+        if bigip_policy.get('rules', list()):
+            vip['policies'] = [{'name': policy_name,
+                                'partition': partition}]
 
     def _add_profiles_session_persistence(self, listener, pool, vip):
 

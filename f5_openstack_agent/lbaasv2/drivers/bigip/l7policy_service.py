@@ -15,159 +15,94 @@
 #
 
 from oslo_log import log as logging
+from requests import HTTPError
 
-from f5_openstack_agent.lbaasv2.drivers.bigip.exceptions import \
-    PolicyHasNoRules
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_adapter import \
     L7PolicyServiceAdapter
-from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_builder import \
-    L7PolicyBuilder
-from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
-    LbaasServiceObject
-from f5_openstack_agent.lbaasv2.drivers.bigip.listener_adapter import \
-    ListenerAdapter
-from f5_openstack_agent.lbaasv2.drivers.bigip.vs_builder import \
-    VirtualServerBuilder
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
+    import BigIPResourceHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
+    import ResourceType
+
 
 LOG = logging.getLogger(__name__)
 
 
 class L7PolicyService(object):
     """Handles requests to create, update, delete L7 policies on BIG-IPs."""
+
     def __init__(self, conf):
         self.conf = conf
+        self.policy_helper = BigIPResourceHelper(ResourceType.l7policy)
 
-    def create_l7policy(self, l7policy, service_object, bigips):
+    def create_l7policy(self, f5_l7policy, bigips):
         LOG.debug("L7PolicyService: create_l7policy")
 
-        stack = []
-        event = 'CREATE_L7POLICY'
-        lbaas_service = LbaasServiceObject(service_object)
+        error = None
+        for bigip in bigips:
+            try:
+                self.policy_helper.create(bigip, f5_l7policy)
+                error = None
+            except HTTPError as err:
+                status_code = err.response.status_code
+                if status_code == 409:
+                    LOG.debug("L7 policy already exists...updating")
+                    try:
+                        self.policy_helper.update(bigip, f5_l7policy)
+                    except Exception as err:
+                        error = f5_ex.L7PolicyUpdateException(err.message)
+                else:
+                    error = f5_ex.L7PolicyCreationException(err.message)
+            except Exception as err:
+                error = f5_ex.L7PolicyCreationException(err.message)
 
-        if l7policy['listener_id']:
-            # add L7 policy to virtual server
-            listener = lbaas_service.get_listener(l7policy['listener_id'])
-            listener_adapter = ListenerAdapter(self.conf)
-            f5_vs = listener_adapter.translate(
-                lbaas_service, listener, l7policy=l7policy)
-            stack.append(VirtualServerBuilder(event, f5_vs))
+            if error:
+                LOG.error("L7 policy creation error: %s" %
+                          error.message)
 
-        # create L7 policy
-        try:
-            l7policy_adapter = L7PolicyServiceAdapter(self.conf)
-            policies = self.build_policy(l7policy, lbaas_service)
-            if policies['l7policies']:
-                f5_l7policy = l7policy_adapter.translate(policies)
-                stack.append(L7PolicyBuilder(event, f5_l7policy))
-            else:
-                # empty policy -- delete wrapper policy on BIG-IPs
-                self.delete_l7policy(l7policy, service_object, bigips)
-                return
+        return error
 
-        except PolicyHasNoRules as exc:
-            # For OpenStack, creating policies and rules are independent
-            # commands, so this exception is valid. Delete policy because
-            # it has no rules.
-            LOG.debug(exc.message)
-            self.delete_l7policy(l7policy, service_object, bigips)
-            return
-        except Exception:
-            import traceback
-            LOG.error(traceback.format_exc())
-            raise
-
-        self._process_stack(stack, bigips)
-
-    def delete_l7policy(self, l7policy, service_object, bigips):
+    def delete_l7policy(self, f5_l7policy, bigips):
         LOG.debug("L7PolicyService:delete_l7policy")
-        stack = []
-        event = 'DELETE_L7POLICY'
-        lbaas_service = LbaasServiceObject(service_object)
 
-        # only need name/partition for delete
-        l7policy_adapter = L7PolicyServiceAdapter(self.conf)
-        f5_l7policy = l7policy_adapter.translate_name(l7policy)
+        error = False
+        for bigip in bigips:
+            try:
+                self.policy_helper.delete(
+                    bigip, f5_l7policy['name'], f5_l7policy['partition'])
+                error = False
+            except HTTPError as err:
+                status_code = err.response.status_code
+                if status_code == 404:
+                    LOG.warn("Deleting L7 policy failed...not found: %s",
+                             err.message)
+                elif status_code == 400:
+                    LOG.debug("Deleting L7 policy failed...unknown "
+                              "client error: %s", err.message)
+                else:
+                    error = f5_ex.L7PolicyDeleteException(err.message)
+            except Exception as err:
+                LOG.exception(err)
+                error = f5_ex.L7PolicyDeleteException(err.message)
 
-        stack.append(L7PolicyBuilder(event, f5_l7policy))
+            if error:
+                LOG.error("L7 Policy deletion error: %s",
+                          error.message)
 
-        if l7policy['listener_id']:
-            # remove L7 policy from virtual server
-            listener = lbaas_service.get_listener(l7policy['listener_id'])
-            listener_adapter = ListenerAdapter(self.conf)
-            f5_vs = listener_adapter.translate(
-                lbaas_service, listener, l7policy=l7policy)
-            stack.append(VirtualServerBuilder(event, f5_vs))
+            return error
 
-        self._process_stack(stack, bigips)
-
-    def update_l7policy(self, l7policy, service_object, bigips):
-        LOG.debug("L7PolicyService:update_l7policy")
-
-        stack = []
-        event = 'UPDATE_L7POLICY'
-        lbaas_service = LbaasServiceObject(service_object)
-
-        try:
-            l7policy_adapter = L7PolicyServiceAdapter(self.conf)
-            policies = self.build_policy(l7policy, lbaas_service)
-            if policies['l7policies']:
-                f5_l7policy = l7policy_adapter.translate(policies)
-                stack.append(L7PolicyBuilder(event, f5_l7policy))
-            else:
-                # empty policy -- delete wrapper policy on BIG-IPs
-                self.delete_l7policy(l7policy, service_object, bigips)
-                return
-        except PolicyHasNoRules:
-            # Because this is an update, assume an existing policy
-            # and if the update results in a policy without rules,
-            # delete the policy.
-            LOG.debug("No rules for policy, deleting policy.")
-            self.delete_l7policy(l7policy, service_object, bigips)
-            return
-
-        self._process_stack(stack, bigips)
-
-    def create_l7rule(self, l7rule, service_object, bigips):
-        LOG.debug("L7PolicyService:create_l7rule")
-
-        # get l7policy for rule
-        lbaas_service = LbaasServiceObject(service_object)
-        l7policy = lbaas_service.get_l7policy(l7rule.get('policy_id', ''))
-        if l7policy:
-            # re-create policy with new rule
-            self.create_l7policy(l7policy, service_object, bigips)
-
-    def delete_l7rule(self, l7rule, service_object, bigips):
-        LOG.debug("L7PolicyService:delete_l7rule")
-
-        # get l7policy for rule
-        lbaas_service = LbaasServiceObject(service_object)
-        l7policy = lbaas_service.get_l7policy(l7rule.get('policy_id', ''))
-        if l7policy:
-            # update policy without rule
-            self.update_l7policy(l7policy, service_object, bigips)
-
-    def update_l7rule(self, l7rule, service_object, bigips):
-        LOG.debug("L7PolicyService:update_l7rule")
-
-        # get l7policy for rule
-        lbaas_service = LbaasServiceObject(service_object)
-        l7policy = lbaas_service.get_l7policy(l7rule.get('policy_id', ''))
-        if l7policy:
-            # re-create policy with updated rule
-            self.update_l7policy(l7policy, service_object, bigips)
-
-    @staticmethod
-    def build_policy(l7policy, lbaas_service):
+    def build_policy(self, l7policy, lbaas_service):
         # build data structure for service adapter input
         LOG.debug("L7PolicyService: service")
         import pprint
-        LOG.debug(pprint.pformat(lbaas_service.service_object, indent=4))
+        # LOG.debug(pprint.pformat(lbaas_service.service_object, indent=4))
         LOG.debug("L7PolicyService: l7policy")
-        LOG.debug(pprint.pformat(l7policy, indent=4))
+        # LOG.debug(pprint.pformat(l7policy, indent=4))
 
-        os_policies = {'l7rules': [],
-                       'l7policies': []}
+        l7policy_adapter = L7PolicyServiceAdapter(self.conf)
+
+        os_policies = {'l7rules': [], 'l7policies': [], 'f5_policy': {}}
 
         # get all policies and rules for listener referenced by this policy
         listener = lbaas_service.get_listener(l7policy['listener_id'])
@@ -180,17 +115,8 @@ class L7PolicyService(object):
                     if l7rule:
                         os_policies['l7rules'].append(l7rule)
 
-        LOG.debug(pprint.pformat(os_policies, indent=4))
+        if os_policies['l7policies']:
+            os_policies['f5_policy'] = l7policy_adapter.translate(os_policies)
+
+        LOG.debug(pprint.pformat(os_policies, indent=2))
         return os_policies
-
-    @staticmethod
-    def _process_stack(stack, bigips):
-        """Execute BIG-IP operations for builders in a stack
-
-        :param stack:
-        :return:
-        """
-        while len(stack):
-            builder = stack.pop()
-            for bigip in bigips:
-                builder.execute(bigip)

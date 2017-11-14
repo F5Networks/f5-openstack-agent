@@ -812,6 +812,7 @@ class iControlDriver(LBaaSBaseDriver):
         try:
             esd.process_esd(self.get_all_bigips())
             self.lbaas_builder.init_esd(esd)
+            self.service_adapter.init_esd(esd)
         except f5ex.esdJSONFileInvalidException as err:
             LOG.error("unable to initialize ESD. Error: %s.", err.message)
         self._set_agent_status(False)
