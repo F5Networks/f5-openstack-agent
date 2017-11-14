@@ -42,13 +42,24 @@ class ServiceModelAdapter(object):
         else:
             self.prefix = utils.OBJ_PREFIX + '_'
 
+    def _get_pool_monitor(self, pool, service):
+        """Return a reference to the pool monitor definition."""
+        pool_monitor_id = pool.get('healthmonitor_id', "")
+        if not pool_monitor_id:
+            return None
+
+        monitors = service.get("healthmonitors", list())
+        for monitor in monitors:
+            if monitor.get('id', "") == pool_monitor_id:
+                return monitor
+
+        return None
+
     def get_pool(self, service):
         pool = service["pool"]
-        members = service.get('members', [])
+        members = service.get('members', list())
         loadbalancer = service["loadbalancer"]
-        healthmonitor = None
-        if "healthmonitor" in service:
-            healthmonitor = service["healthmonitor"]
+        healthmonitor = self._get_pool_monitor(pool, service)
 
         return self._map_pool(loadbalancer, pool, healthmonitor, members)
 
@@ -64,6 +75,7 @@ class ServiceModelAdapter(object):
         return (network_id in self.conf.common_network_ids)
 
     def init_pool_name(self, loadbalancer, pool):
+        """Return a barebones pool object with name and partition."""
         partition = self.get_folder_name(loadbalancer['tenant_id'])
         name = self.prefix + pool["id"] if pool else ''
 
@@ -138,19 +150,25 @@ class ServiceModelAdapter(object):
 
         return tg
 
+    @staticmethod
+    def _pending_delete(resource):
+        return (
+            resource.get('provisioning_status', "") == "PENDING_DELETE"
+        )
+
     def get_vip_default_pool(self, service):
         listener = service["listener"]
-        loadbalancer = service["loadbalancer"]
-        pool = service["pool"]
-        vip = self._init_virtual_name(
-            loadbalancer, listener)
-        if "default_pool_id" in listener:
-            p = self.init_pool_name(loadbalancer, pool)
-            vip["pool"] = p["name"]
-        else:
-            vip["pool"] = ""
+        pools = service.get("pools", list())
 
-        return vip
+        default_pool = None
+        if "default_pool_id" in listener:
+            for pool in pools:
+                if listener['default_pool_id'] == pool['id']:
+                    if not self._pending_delete(pool):
+                        default_pool = pool
+                    break
+
+        return default_pool
 
     def get_member(self, service):
         loadbalancer = service["loadbalancer"]
@@ -312,15 +330,16 @@ class ServiceModelAdapter(object):
                 if not persist:
                     lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
 
-        if lbaas_hm is not None:
+        if lbaas_hm:
             hm = self.init_monitor_name(loadbalancer, lbaas_hm)
             pool["monitor"] = hm["name"]
+        else:
+            pool["monitor"] = ""
 
         return pool
 
     def _set_lb_method(self, lbaas_lb_method, lbaas_members):
-        '''Set pool lb method depending on member attributes.'''
-
+        """Set pool lb method depending on member attributes."""
         lb_method = self._get_lb_method(lbaas_lb_method)
 
         if lbaas_lb_method == 'SOURCE_IP':
