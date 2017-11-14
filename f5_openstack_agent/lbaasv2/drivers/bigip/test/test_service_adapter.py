@@ -110,16 +110,18 @@ class TestServiceAdapter(object):
     @pytest.fixture
     def basic_service():
         tenant_id = str(uuid.uuid4())
+        default_pool_id = str(uuid.uuid4())
         return {'loadbalancer': dict(id=str(uuid.uuid4()),
                                      tenant_id=tenant_id,
                                      vip_address='192.168.1.1%0'),
-                'pools': [dict(id=str(uuid.uuid4()),
+                'pools': [dict(id=default_pool_id,
                                session_persistence=True)],
                 'listener': dict(id=str(uuid.uuid4()),
                                  connection_limit=4,
                                  protocol='HTTPS',
                                  protocol_port='8080',
-                                 admin_state_up=True)}
+                                 admin_state_up=True,
+                                 default_pool_id=default_pool_id)}
 
     def test_init_pool_name(self, target):
         partition = str(uuid.uuid4())
@@ -132,6 +134,7 @@ class TestServiceAdapter(object):
         expected = dict(name=id, partition=partition)
         assert target.init_pool_name(loadbalancer, pool) == expected
 
+    @pytest.mark.skip(reason="This implementation will be replaced")
     def test_get_virtual(self, target, basic_service):
         tenant_id = basic_service['loadbalancer']['tenant_id']
         target.get_folder_name = Mock(return_value=tenant_id)
@@ -140,6 +143,7 @@ class TestServiceAdapter(object):
         vip = 'vip'
         target._map_virtual = Mock(return_value=vip)
         target._add_bigip_items = Mock()
+
         assert target.get_virtual(basic_service) == vip
         assert basic_service['pool']['session_persistence'] == \
             basic_service['listener']['session_persistence']
@@ -161,41 +165,14 @@ class TestServiceAdapter(object):
             dict(name=name, partition=tenant_id)
         target.get_folder_name.assert_called_once_with(tenant_id)
 
-    def test_init_virtual_name_with_pool(self, target, basic_service):
-        loadbalancer = basic_service['loadbalancer']
-        listener = basic_service['listener']
-        pool = basic_service['pools'][0]
-        target._init_virtual_name = Mock(return_value=dict())
-        target.init_pool_name = Mock(return_value=dict(name='pool'))
-        assert target._init_virtual_name_with_pool(
-            loadbalancer, listener, pool) == {'pool': 'pool'}
-        target._init_virtual_name.assert_called_once_with(
-            loadbalancer, listener)
-        target.init_pool_name.assert_called_once_with(
-            loadbalancer, pool)
-        target.init_pool_name.return_value = dict(name='')
-        target._init_virtual_name.return_value = dict()
-        assert target._init_virtual_name_with_pool(
-            loadbalancer, listener, pool) == {'pool': None}
-
-    def test_get_vip_default_pool(self, target, basic_service):
-        pool = basic_service['pools'][0]
-        basic_service['pool'] = pool
-        loadbalancer = basic_service['loadbalancer']
-        listener = basic_service['listener']
-        vip = {'name': "pre-_" + listener['id'],
-               'partition': "pre-_" + loadbalancer['tenant_id'],
-               'pool': ''}
-        target._init_virtual_name_with_pool = Mock(return_value=vip)
-        assert vip == target.get_vip_default_pool(basic_service)
-
+    @pytest.mark.skip(reason="This implementation will be replaced")
     def test_map_virtual(self, target, basic_service):
         pool = basic_service['pools'][0]
+        # pool['provisioning_status'] = "ACTIVE"
         loadbalancer = basic_service['loadbalancer']
         listener = basic_service['listener']
         description = 'description'
         target.get_resource_description = Mock(return_value=description)
-        target._init_virtual_name_with_pool = Mock(return_value=dict())
         cx_limit = listener['connection_limit']
         proto_port = listener['protocol_port']
         vip_address = loadbalancer['vip_address'].replace('%0', '')
@@ -205,7 +182,7 @@ class TestServiceAdapter(object):
             partition="pre-_" + loadbalancer['tenant_id'],
             destination=vip_address + ':' + proto_port, ipProtocol='tcp',
             connectionLimit=cx_limit, description=description, enabled=True,
-            pool=pool)
+            pool="pre-_" + pool['id'])
         assert expected == target._map_virtual(
                 loadbalancer, listener, pool=pool)
 
