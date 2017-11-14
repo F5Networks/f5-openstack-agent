@@ -157,40 +157,34 @@ class LBaaSBuilder(object):
 
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
-        networks = service["networks"]
+        networks = service.get("networks", list())
+        pools = service.get("pools", list())
+        l7policies = service.get("l7policies", list())
+        l7rules = service.get("l7policy_rules", list())
         bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
-            pool = self.get_pool_by_id(
-                service, listener.get('default_pool_id', None))
-            svc = {"loadbalancer": loadbalancer,
-                   "listener": listener,
-                   "networks": networks}
+            error = False
+            if self._is_not_pending_delete(listener):
 
-            if pool:
-                svc['pool'] = pool
-            if listener['provisioning_status'] == \
-                    plugin_const.PENDING_UPDATE:
-                try:
-                    self.listener_builder.update_listener(svc, bigips)
-                except Exception as err:
+                svc = {"loadbalancer": loadbalancer,
+                       "listener": listener,
+                       "pools": pools,
+                       "l7policies": l7policies,
+                       "l7policy_rules": l7rules,
+                       "networks": networks}
+
+                # create_listener() will do an update if VS exists
+                error = self.listener_builder.create_listener(
+                    svc, bigips)
+
+                if error:
                     loadbalancer['provisioning_status'] = \
                         plugin_const.ERROR
                     listener['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.VirtualServerUpdateException(err.message)
-
-            elif self._is_not_pending_delete(listener):
-                try:
-                    # create_listener() will do an update if VS exists
-                    self.listener_builder.create_listener(svc, bigips)
-                    listener['operating_status'] = \
-                        svc['listener']['operating_status']
-                except Exception as err:
-                    loadbalancer['provisioning_status'] = \
-                        plugin_const.ERROR
-                    listener['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.VirtualServerCreationException(err.message)
-            self._set_status_as_active(listener)
+                else:
+                    listener['provisioning_status'] = plugin_const.ACTIVE
+                    listener['operating_status'] = lb_const.ONLINE
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -363,22 +357,22 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = plugin_const.ERROR
 
     def _assure_listeners_deleted(self, service):
-        if 'listeners' not in service:
-            return
-
-        listeners = service["listeners"]
-        loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+        if 'listeners' in service:
+            listeners = service["listeners"]
+            loadbalancer = service["loadbalancer"]
+            for listener in listeners:
+                if listener['provisioning_status'] == \
+                        plugin_const.PENDING_DELETE:
+                    svc = {"loadbalancer": loadbalancer,
+                           "listener": listener}
+                    try:
+                        self.listener_builder.delete_listener(svc, bigips)
+                    except Exception as err:
+                        listener['provisioning_status'] = plugin_const.ERROR
+                        raise f5_ex.VirtualServerDeleteException(err.message)
 
-        for listener in listeners:
-            if listener['provisioning_status'] == plugin_const.PENDING_DELETE:
-                svc = {"loadbalancer": loadbalancer,
-                       "listener": listener}
-                try:
-                    self.listener_builder.delete_listener(svc, bigips)
-                except Exception as err:
-                    listener['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.VirtualServerDeleteException(err.message)
+        self.listener_builder.delete_orphaned_listeners(service, bigips)
 
     @staticmethod
     def _check_monitor_delete(service):

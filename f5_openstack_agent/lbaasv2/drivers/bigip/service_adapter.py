@@ -18,6 +18,8 @@ import hashlib
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
+    LbaasServiceObject
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 
 LOG = logging.getLogger(__name__)
@@ -41,6 +43,17 @@ class ServiceModelAdapter(object):
             self.prefix = self.conf.environment_prefix + '_'
         else:
             self.prefix = utils.OBJ_PREFIX + '_'
+
+        self.profiles = dict(
+            http={'name': "http", 'partition': "Common", 'context': "all"},
+            oneconnect={
+                'name': "oneconnect", 'partition': "Common", 'context': "all"},
+            fastl4={'name': "fastl4", 'partition': "Common", 'context': "all"})
+
+        self.esd = None
+
+    def init_esd(self, esd):
+        self.esd = esd
 
     def _get_pool_monitor(self, pool, service):
         """Return a reference to the pool monitor definition."""
@@ -106,13 +119,14 @@ class ServiceModelAdapter(object):
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
 
-        # transfer session_persistence from pool to listener
-        if "pool" in service and "session_persistence" in service["pool"]:
-            listener["session_persistence"] = \
-                service["pool"]["session_persistence"]
+        pool = self.get_vip_default_pool(service)
 
-        vip = self._map_virtual(
-            loadbalancer, listener, pool=service.get('pool', None))
+        if pool and "session_persistence" in pool:
+            listener["session_persistence"] = pool["session_persistence"]
+
+
+        vip = self._map_virtual(loadbalancer, listener, pool=pool,
+                                policies=listener_policies)
 
         self._add_bigip_items(listener, vip)
         return vip
@@ -130,16 +144,6 @@ class ServiceModelAdapter(object):
         partition = self.get_folder_name(loadbalancer['tenant_id'])
 
         return dict(name=name, partition=partition)
-
-    def _init_virtual_name_with_pool(self, loadbalancer, listener, pool=None):
-        vip = self._init_virtual_name(loadbalancer, listener)
-        pool = self.init_pool_name(loadbalancer, pool)
-        if pool['name']:
-            vip['pool'] = pool['name']
-        else:
-            vip['pool'] = None
-
-        return vip
 
     def get_traffic_group(self, service):
         tg = "traffic-group-local-only"
@@ -375,41 +379,37 @@ class ServiceModelAdapter(object):
         else:
             return 'round-robin'
 
-    def _map_virtual(self, loadbalancer, listener, pool=None):
+    def _map_virtual(self, loadbalancer, listener, pool=None, policies=None):
+        if policies:
+            LOG.debug("L7_debug: policies: %s", policies)
         vip = self._init_virtual_name(loadbalancer, listener)
-
-        if pool:
-            p = self.init_pool_name(loadbalancer, pool)
-            vip["pool"] = p["name"]
 
         vip["description"] = self.get_resource_description(listener)
 
-        if "protocol" in listener:
-            if not (listener["protocol"] == "HTTP" or
-               listener["protocol"] == "HTTPS" or
-               listener["protocol"] == "TCP"):
-                # msg = "Unsupported protocol:  %s" % listener["protocol"]
-                # raise UnsupportedProtocolException(msg)
-                pass
+        if pool:
+            pool_name = self.init_pool_name(loadbalancer, pool)
+            vip['pool'] = pool_name.get('name', "")
+        else:
+            vip['pool'] = ""
 
-            vip["ipProtocol"] = "tcp"
+        vip["connectionLimit"] = listener.get("connection_limit", 0)
+        if vip["connectionLimit"] < 0:
+            vip["connectionLimit"] = 0
 
-        if "connection_limit" in listener:
-            vip["connectionLimit"] = listener["connection_limit"]
-            if vip["connectionLimit"] < 0:
-                vip["connectionLimit"] = 0
+        port = listener.get("protocol_port", None)
+        ip_address = loadbalancer.get("vip_address", None)
+        if ip_address and port:
+            if str(ip_address).endswith('%0'):
+                ip_address = ip_address[:-2]
 
-        if "protocol_port" in listener:
-            port = listener["protocol_port"]
-            if "vip_address" in loadbalancer:
-                ip_address = loadbalancer["vip_address"]
-                if str(ip_address).endswith('%0'):
-                    ip_address = ip_address[:-2]
+            if ':' in ip_address:
+                vip['destination'] = ip_address + "." + str(port)
+            else:
+                vip['destination'] = ip_address + ":" + str(port)
+        else:
+            LOG.error("No VIP address or port specified")
 
-                if ':' in ip_address:
-                    vip['destination'] = ip_address + "." + str(port)
-                else:
-                    vip['destination'] = ip_address + ":" + str(port)
+        vip["mask"] = '255.255.255.255'
 
         if "admin_state_up" in listener:
             if listener["admin_state_up"]:
@@ -417,12 +417,63 @@ class ServiceModelAdapter(object):
             else:
                 vip["disabled"] = True
 
-        if "pool" in listener:
-            vip["pool"] = listener["pool"]
-        else:
-            vip["pool"] = None
+        self._add_vlan_and_snat(listener, vip)
+        self._add_profiles_session_persistence(listener, pool, vip)
+
+        vip['policies'] = list()
+        if policies:
+            self._apply_l7_and_esd_policies(listener, policies, vip)
 
         return vip
+
+    def _add_profiles_session_persistence(self, listener, pool, vip):
+
+        protocol = listener.get('protocol', "")
+        if protocol not in ["HTTP", "HTTPS", "TCP"]:
+            LOG.warning("Listener protocol unrecognized: %s",
+                        listener["protocol"])
+        vip["ipProtocol"] = "tcp"
+
+        if protocol == 'TCP':
+            virtual_type = 'fastl4'
+        else:
+            virtual_type = 'standard'
+
+        if virtual_type == 'fastl4':
+            vip['profiles'] = ['/Common/fastL4']
+        else:
+            # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
+            vip['profiles'] = ['/Common/http', '/Common/oneconnect']
+
+        vip['fallbackPersistence'] = ''
+        vip['persist'] = []
+
+        persistence = None
+        if pool:
+            persistence = pool.get('session_persistence', None)
+            lb_algorithm = pool.get('lb_algorithm', 'ROUND_ROBIN')
+
+        if persistence:
+            persistence_type = persistence.get('type', "")
+            if persistence_type == 'APP_COOKIE':
+                virtual_type = 'standard'
+                vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
+
+            elif persistence_type == 'SOURCE_IP':
+                vip['persist'] = [{'name': '/Common/source_addr'}]
+
+            elif persistence_type == 'HTTP_COOKIE':
+                vip['persist'] = [{'name': '/Common/cookie'}]
+
+            if persistence_type != 'SOURCE_IP':
+                if lb_algorithm == 'SOURCE_IP':
+                    vip['fallbackPersistence'] = '/Common/source_addr'
+
+            if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
+                if protocol == "TCP":
+                    vip['profiles'] = [p for p in vip['profiles']
+                                       if p != 'fastL4']
+                vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
     def get_vlan(self, vip, bigip, network_id):
         if network_id in bigip.assured_networks:
@@ -436,40 +487,7 @@ class ServiceModelAdapter(object):
             vip['vlansEnabled'] = True
             vip.pop('vlansDisabled', None)
 
-    def _add_bigip_items(self, listener, vip):
-        # following are needed to complete a create()
-        virtual_type = 'standard'
-        if 'protocol' in listener:
-            if listener['protocol'] == 'TCP':
-                virtual_type = 'fastl4'
-
-        if 'session_persistence' in listener:
-            persistence_type = listener['session_persistence']
-            if persistence_type == 'APP_COOKIE':
-                virtual_type = 'standard'
-                vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
-
-            elif persistence_type == 'SOURCE_IP':
-                vip['persist'] = [{'name': '/Common/source_addr'}]
-
-            elif persistence_type == 'HTTP_COOKIE':
-                vip['persist'] = [{'name': '/Common/cookie'}]
-
-        else:
-            vip['fallbackPersistence'] = ''
-            vip['persist'] = []
-
-        if virtual_type == 'fastl4':
-            vip['profiles'] = ['/Common/fastL4']
-        else:
-            # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
-            vip['profiles'] = ['/Common/http', '/Common/oneconnect']
-
-        # mask
-        if "ip_address" in vip:
-            ip_address = vip["ip_address"]
-            if '.' in ip_address:
-                vip["mask"] = '255.255.255.255'
+    def _add_vlan_and_snat(self, listener, vip):
 
         # snat
         if "use_snat" in listener and listener["use_snat"]:
@@ -523,30 +541,6 @@ class ServiceModelAdapter(object):
     def get_subnet_from_service(self, service, subnet_id):
         if 'subnets' in service:
             return service['subnets'][subnet_id]
-
-    def get_session_persistence(self, service):
-        pool = service['pool']
-        vip = self.get_virtual_name(service)
-        vip['fallbackPersistence'] = ''
-        vip['persist'] = []
-        persistence = pool.get('session_persistence', '')
-        if persistence:
-            persistence_type = persistence['type']
-            lb_algorithm = pool.get('lb_algorithm', '')
-            if persistence_type == 'APP_COOKIE':
-                vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
-                if lb_algorithm == 'SOURCE_IP':
-                    vip['fallbackPersistence'] = '/Common/source_addr'
-
-            elif persistence_type == 'SOURCE_IP':
-                vip['persist'] = [{'name': '/Common/source_addr'}]
-
-            elif persistence_type == 'HTTP_COOKIE':
-                vip['persist'] = [{'name': '/Common/cookie'}]
-                if lb_algorithm == 'SOURCE_IP':
-                    vip['fallbackPersistence'] = '/Common/source_addr'
-
-        return vip
 
     def get_tls(self, service):
         tls = {}
