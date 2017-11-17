@@ -23,7 +23,6 @@ install:
 script:
     - pep257 ./test/functional/neutronless/esd/test_esd.py
     - flake8 --ignore=H304 ./test/functional/neutronless/esd/test_esd.py
-    - pylint -E -d E1101 test/functional/neutronless/esd/test_esd.py
     - pep257 ./test/functional/neutronless/esd/conftest.py
     - flake8 --ignore=H304 ./test/functional/neutronless/esd/conftest.py
     - pep257 ./test/functional/neutronless/esd/test_esd_pairs.py
