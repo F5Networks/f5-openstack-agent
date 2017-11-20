@@ -52,21 +52,6 @@ class TestStats:
         stats = stats_helper.get_global_statistics(mgmt_root)
         assert stats
 
-    def test_get_composite_score(self, mgmt_root, stats_helper):
-        score = stats_helper.get_composite_score(mgmt_root)
-        assert score > 0
-        print "Composite Score: " + str(score)
-
-    def test_get_mem_health_score(self, mgmt_root, stats_helper):
-        score = stats_helper.get_mem_health_score(mgmt_root)
-        assert score > 0
-        print "Memory Health Score: " + str(score)
-
-    def test_get_cpu_health_score(self, mgmt_root, stats_helper):
-        score = stats_helper.get_cpu_health_score(mgmt_root)
-        assert score > 0
-        print "CPU Health Score: " + str(score)
-
     def test_get_active_connection_count(self, mgmt_root, stats_helper):
         score = stats_helper.get_active_connection_count(mgmt_root)
         assert score >= 0
@@ -79,12 +64,12 @@ class TestStats:
 
     def test_get_inbound_throughput(self, mgmt_root, stats_helper):
         score = stats_helper.get_inbound_throughput(mgmt_root)
-        assert score > 0
+        assert score >= 0
         print "Inbound Throughtput: " + str(score)
 
     def test_get_outbound_throughput(self, mgmt_root, stats_helper):
         score = stats_helper.get_outbound_throughput(mgmt_root)
-        assert score > 0
+        assert score >= 0
         print "Outbound Throughtput: " + str(score)
 
     def test_get_throughput(self, mgmt_root, stats_helper):
@@ -94,7 +79,7 @@ class TestStats:
 
     def test_get_node_count(self, mgmt_root):
         count = len(mgmt_root.tm.ltm.nodes.get_collection())
-        assert count == 1
+        assert count == 0
         print "Node Count: " + str(count)
 
     def test_get_clientssl_profile_count(self, mgmt_root):
@@ -109,7 +94,7 @@ class TestStats:
 
     def test_get_tunnel_count(self, mgmt_root, network_helper):
         count = network_helper.get_tunnel_count(mgmt_root)
-        assert count == 1
+        assert count == 0
         print "Tunnel Count: " + str(count)
 
 
@@ -120,5 +105,5 @@ class TestStats:
 
     def test_get_route_domain_count(self, mgmt_root, network_helper):
         count = network_helper.get_route_domain_count(mgmt_root)
-        assert count == 1
+        assert count == 0
         print "Route Domain Count: " + str(count)

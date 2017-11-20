@@ -28,7 +28,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import\
 
 cm = ClusterManager()
 
-
 def test_device_name(mgmt_root):
     device_name = mgmt_root._meta_data['device_name']
     assert cm.get_device_name(mgmt_root) == device_name
@@ -49,16 +48,19 @@ def test_get_sync_status(mgmt_root):
 
 
 def test_auto_sync(mgmt_root):
-    # assume BIG-IP has device group test-group
+    # create device group test-group on BIGIP
     device_group = 'test-group'
+    dg = mgmt_root.tm.cm.device_groups.device_group.create(name=device_group,
+                                                           partition='Common')
     cm.disable_auto_sync(device_group, mgmt_root)
-    dg = mgmt_root.cm.device_groups.device_group.load(name=device_group,
-                                                  partition='Common')
     assert dg.autoSync == 'disabled'
 
     cm.enable_auto_sync(device_group, mgmt_root)
     dg.refresh()
     assert dg.autoSync == 'enabled'
+
+    # delete the device group created
+    dg.delete()
 
 
 def test_get_traffic_groups(mgmt_root):
@@ -75,7 +77,6 @@ def test_get_device_group():
 def test_get_mgmt_addr_by_device(symbols, mgmt_root):
     pp(dir(symbols))
     device_name = mgmt_root._meta_data['device_name']
-    devices = cm.devices(mgmt_root)
     addr = cm.get_mgmt_addr_by_device(mgmt_root, device_name)
     mgmt_ips = (symbols.bigip_mgmt_ip, symbols.bigip_mgmt_ip_public)
     assert addr in mgmt_ips
