@@ -86,7 +86,7 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     return icd
 
 
-def test_tentant(track_bigip_cfg, gbigip, services, icd_config,
+def test_tenant(track_bigip_cfg, bigip, services, icd_config,
                  icontrol_driver):
     """Test creating and deleting SNAT pools with common network listener.
 
