@@ -241,8 +241,9 @@ def bigip(request):
 
 @pytest.fixture
 def track_bigip_cfg(request):
-    request.addfinalizer(BigIpInteraction.check_resulting_cfg)
-    BigIpInteraction.backup_bigip_cfg()
+    # request.addfinalizer(BigIpInteraction.check_resulting_cfg)
+    # BigIpInteraction.backup_bigip_cfg()
+    pass
 
 
 def debug_msg(status):
