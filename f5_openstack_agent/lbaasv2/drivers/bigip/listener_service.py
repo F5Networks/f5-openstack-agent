@@ -91,7 +91,12 @@ class ListenerServiceBuilder(object):
                                   err.message)
                     raise
             if tls:
-                self.add_ssl_profile(tls, bigip)
+                # Don't stop processing in case of errors. Otherwise the other F5's won't get the same vs
+                try:
+                    self.add_ssl_profile(tls, bigip)
+                except:
+                    pass
+
 
     def get_listener(self, service, bigip):
         u"""Retrieve BIG-IP virtual from a single BIG-IP system.
@@ -127,7 +132,11 @@ class ListenerServiceBuilder(object):
                                   partition=vip["partition"])
 
             # delete ssl profiles
-            self.remove_ssl_profiles(tls, bigip)
+            # Don't stop processing in case of errors. Otherwise the other F5's might have a different configuration
+            try:
+                self.remove_ssl_profiles(tls, bigip)
+            except:
+                pass
 
     def add_ssl_profile(self, tls, bigip, add_to_vip=True):
         # add profile to virtual server
