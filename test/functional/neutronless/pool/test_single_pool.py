@@ -13,7 +13,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from copy import deepcopy
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
 import json
@@ -77,7 +76,8 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     return icd
 
 
-def test_single_pool(bigip, services, icd_config, icontrol_driver):
+def test_single_pool(track_bigip_cfg, bigip, services, icd_config,
+                     icontrol_driver):
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)

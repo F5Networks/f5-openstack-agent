@@ -39,7 +39,8 @@ def services():
     return (json.load(open(neutron_services_filename)))
 
 
-def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
+def test_create_delete_basic_lb(track_bigip_cfg, bigip, services, icd_config,
+                                icontrol_driver):
 
     service_iter = iter(services)
     service = service_iter.next()
@@ -158,7 +159,7 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
 
 
 def test_create_delete_basic_lb_nodisconnected(
-        bigip, services, icd_config, icontrol_driver):
+        track_bigip_cfg, bigip, services, icd_config, icontrol_driver):
     service_iter = iter(services)
     service = service_iter.next()
     lb_reader = LoadbalancerReader(service)
