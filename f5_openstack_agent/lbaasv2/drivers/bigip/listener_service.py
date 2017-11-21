@@ -69,6 +69,7 @@ class ListenerServiceBuilder(object):
         service['listener']['operating_status'] = lb_const.ONLINE
 
         network_id = service['loadbalancer']['network_id']
+        error = None
         for bigip in bigips:
             self.service_adapter.get_vlan(vip, bigip, network_id)
             try:
@@ -85,7 +86,6 @@ class ListenerServiceBuilder(object):
                         LOG.exception(e)
                         LOG.warn('Exception %s',e)
                         raise e
-
                 else:
                     LOG.exception("Virtual server creation error: %s" %
                                   err.message)
@@ -94,8 +94,13 @@ class ListenerServiceBuilder(object):
                 # Don't stop processing in case of errors. Otherwise the other F5's won't get the same vs
                 try:
                     self.add_ssl_profile(tls, bigip)
-                except:
-                    pass
+                except Exception as err:
+                    LOG.error("Error adding SSL Profile to listener: {0}".format(err))
+                    error = err if error is None else error
+
+        if error:
+            service['listener']['provisioning_status'] = 'ERROR'
+            raise error
 
 
     def get_listener(self, service, bigip):
@@ -125,7 +130,7 @@ class ListenerServiceBuilder(object):
         if tls:
             tls['name'] = vip['name']
             tls['partition'] = vip['partition']
-
+        error = None
         for bigip in bigips:
             self.vs_helper.delete(bigip,
                                   name=vip["name"],
@@ -135,14 +140,18 @@ class ListenerServiceBuilder(object):
             # Don't stop processing in case of errors. Otherwise the other F5's might have a different configuration
             try:
                 self.remove_ssl_profiles(tls, bigip)
-            except:
-                pass
+            except Exception as err:
+                LOG.error("Error adding SSL Profile to listener: {0}".format(err))
+                error = err if error is None else error
+
+        if error:
+            raise error
 
     def add_ssl_profile(self, tls, bigip, add_to_vip=True):
         # add profile to virtual server
         vip = {'name': tls['name'],
                'partition': tls['partition']}
-
+        error = None
         if "default_tls_container_id" in tls:
             container_ref = tls["default_tls_container_id"]
             self.create_ssl_profile(
@@ -150,8 +159,14 @@ class ListenerServiceBuilder(object):
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
-                container_ref = container["tls_container_id"]
-                self.create_ssl_profile(container_ref, bigip, vip, False, add_to_vip)
+                try:
+                    container_ref = container["tls_container_id"]
+                    self.create_ssl_profile(container_ref, bigip, vip, False, add_to_vip)
+                except Exception as err:
+                    LOG.error("Error creating SSL Profile for listener: {0}".format(err))
+                    error = err if error is None else error
+        if error:
+            raise error
 
 
     def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False, add_to_vip=True):
@@ -278,10 +293,15 @@ class ListenerServiceBuilder(object):
         vip = self.apply_esds(service)
 
         # apply changes to listener AND remove not needed ssl profiles on F5
+        error = None
         network_id = service['loadbalancer']['network_id']
         for bigip in bigips:
             self.service_adapter.get_vlan(vip, bigip, network_id)
-            self.vs_helper.update(bigip, vip)
+            try:
+                self.vs_helper.update(bigip, vip)
+            except Exception as err:
+                LOG.error("Error changing listener: {0}".format(err))
+                error = err if error is None else error
             # delete ssl profiles
             if listener.get('protocol') == 'TERMINATED_HTTPS':
                 if old_tls != None:
@@ -295,6 +315,8 @@ class ListenerServiceBuilder(object):
                     except:
                         pass
 
+        if error:
+            raise error
 
     def _make_default_tls(self, vip, id):
         return {'name': vip['name'], 'partition': vip['partition'], 'default_tls_container_id': id}
