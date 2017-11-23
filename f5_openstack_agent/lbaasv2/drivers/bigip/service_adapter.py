@@ -376,6 +376,14 @@ class ServiceModelAdapter(object):
         else:
             pool["monitor"] = ""
 
+        members = list()
+        for member in lbaas_members:
+            provisioning_status = member.get('provisioning_status', "")
+            if provisioning_status != "PENDING_DELETE":
+                members.append(self._map_member(loadbalancer, member))
+
+        pool["members"] = members
+
         return pool
 
     def _set_lb_method(self, lbaas_lb_method, lbaas_members):

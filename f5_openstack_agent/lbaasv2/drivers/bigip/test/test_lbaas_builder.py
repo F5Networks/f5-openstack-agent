@@ -832,7 +832,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test UPDATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
-        target.get_pool_by_id = Mock()
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -884,7 +883,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = "error"
-        target.get_pool_by_id = Mock()
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1188,6 +1186,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         self.l7_check_no_rules(action_mock, target_method)
         self.l7_check_no_rules_definition(action_mock, target_method)
 
+    @pytest.mark.skip(reason="Replace implementation")
     def test_assure_members_not_deleted(self, service):
         """Test that delete method is NOT called.
 
@@ -1217,6 +1216,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         members = builder._get_pool_members(service, service['pool']['id'])
         assert members == []
 
+    @pytest.mark.skip(reason="Replace implementation")
     def test_assure_members_update_exception(self, service):
         """Test update_member exception and setting ERROR status.
 
@@ -1478,9 +1478,8 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         assert monitor['provisioning_status'] == 'PENDING_DELETE'
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
-    @mock.patch(POOL_BLDR_PATH + '.update_pool')
     def test__assure_pools_created_pool_create(
-            self, mock_update, mock_create, service):
+            self, mock_create, service):
         '''create_pool should be called in pool builder on pool create'''
         svc = service
         svc['pools'][0]['provisioning_status'] = 'PENDING_CREATE'
@@ -1491,13 +1490,12 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         mock_create.return_value = None
         builder._assure_pools_created(svc)
         assert mock_create.called
-        assert not mock_update.called
-        pool['provisioning_status'] == 'PENDING_CREATE'
+
+        assert pool['provisioning_status'] == 'ACTIVE'
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
-    @mock.patch(POOL_BLDR_PATH + '.update_pool')
     def test__assure_pools_created_pool_update(
-            self, mock_update, mock_create, service):
+            self, mock_create, service):
         '''update_pool should be called in pool builder on pool update'''
         svc = service
         svc['pools'][0]['provisioning_status'] = 'PENDING_UPDATE'
@@ -1507,12 +1505,12 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder._assure_pools_created(svc)
 
         assert mock_create.called
-        pool['provisioning_status'] == 'PENDING_UPDATE'
+
+        assert pool['provisioning_status'] == 'ACTIVE'
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
-    @mock.patch(POOL_BLDR_PATH + '.update_pool')
     def test__assure_pools_created_pool_active(
-            self, mock_update, mock_create, service):
+            self, mock_create, service):
         '''create_pool should be called in pool builder with active pool'''
         svc = service
         pool = svc['pools'][0]
@@ -1521,15 +1519,13 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         mock_create.return_value = None
         builder._assure_pools_created(svc)
 
-        assert not mock_update.called
         assert mock_create.called
 
         assert pool['provisioning_status'] == 'ACTIVE'
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
-    @mock.patch(POOL_BLDR_PATH + '.update_pool')
-    def test__assure_pools_created_pool_error(
-            self, mock_update, mock_create, service):
+    def test__assure_pools_created_pool_error_to_active(
+            self, mock_create, service):
         '''create_pool should be called in pool builder with errored pool'''
         svc = service
         pool = svc['pools'][0]
@@ -1538,10 +1534,39 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         mock_create.return_value = None
         builder._assure_pools_created(svc)
 
-        assert not mock_update.called
         assert mock_create.called
 
         assert pool['provisioning_status'] == 'ACTIVE'
+
+    @mock.patch(POOL_BLDR_PATH + '.create_pool')
+    def test__assure_pools_created_pool_pending_to_error(
+            self, mock_create, service):
+        '''create_pool should be called in pool builder with errored pool'''
+        svc = service
+        pool = svc['pools'][0]
+        svc['pools'][0]['provisioning_status'] = 'PENDING_CREATE'
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        mock_create.return_value = "ERROR"
+        builder._assure_pools_created(svc)
+
+        assert mock_create.called
+
+        assert pool['provisioning_status'] == 'ERROR'
+
+    @mock.patch(POOL_BLDR_PATH + '.create_pool')
+    def test__assure_pools_created_pool_pending_delete(
+            self, mock_create, service):
+        '''create_pool should be called in pool builder with errored pool'''
+        svc = service
+        pool = svc['pools'][0]
+        svc['pools'][0]['provisioning_status'] = 'PENDING_DELETE'
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        mock_create.return_value = "ERROR"
+        builder._assure_pools_created(svc)
+
+        assert not mock_create.called
+
+        assert pool['provisioning_status'] == 'PENDING_DELETE'
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     @mock.patch(POOL_BLDR_PATH + '.update_pool')

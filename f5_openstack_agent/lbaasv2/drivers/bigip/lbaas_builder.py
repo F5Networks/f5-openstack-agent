@@ -262,70 +262,50 @@ class LBaaSBuilder(object):
             return
 
         members = service["members"]
-        pools = service["pools"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
-        force_active = False
 
-        for pool in pools:
-            pool = self.get_pool_by_id(service, pool['id'])
-            svc = {"loadbalancer": loadbalancer,
-                   "pool": pool,
-                   "members": []}
-            for member in members:
-                if member['pool_id'] == pool['id']:
-                    svc['members'].append(member)
-            try:
-                self.pool_builder.delete_orphaned_members(svc, bigips)
-            except HTTPError as error:
-                LOG.error(str(error))
-
+        # Group the members by pool.
+        pool_to_member_map = dict()
         for member in members:
-            pool = self.get_pool_by_id(service, member["pool_id"])
-            svc = {"loadbalancer": loadbalancer,
-                   "member": member,
-                   "pool": pool}
-            # Create a pool service dict since the pool may need to be updated
-            # based upon changes in the members.
-            pool_svc = {
-                "loadbalancer": loadbalancer,
-                "pool": pool,
-                "members": self._get_pool_members(service, pool['id'])}
 
             if 'port' not in member and \
                member['provisioning_status'] != plugin_const.PENDING_DELETE:
                 LOG.warning("Member definition does not include Neutron port")
 
-            # delete member if pool is being deleted
-            member_status = member['provisioning_status']
-            if member_status == plugin_const.PENDING_DELETE or \
-               pool['provisioning_status'] == plugin_const.PENDING_DELETE:
-                try:
-                    self.pool_builder.delete_member(svc, bigips)
-                    self.pool_builder.update_pool(pool_svc, bigips)
-                except Exception as err:
-                    member['provisioning_status'] = plugin_const.ERROR
-                    LOG.error(
-                        "Caught unexpected error deleting member, "
-                        "continuing...%s", err.message)
-            else:
-                try:
-                    self.pool_builder.create_member(svc, bigips)
-                except Exception:
-                    member['provisioning_status'] = plugin_const.ERROR
-                    LOG.error(
-                        "Caught unexpected error assuring member, "
-                        "continuing...%s",
-                        err.message)
-                else:
-                    member['provisioning_status'] = plugin_const.ACTIVE
+            pool_id = member.get('pool_id', None)
+            if not pool_id:
+                LOG.error("Pool member %s does not have a valid pool id",
+                          member.get('id', "NO MEMBER ID"))
+                continue
+
+            if pool_id not in pool_to_member_map:
+                pool_to_member_map[pool_id] = list()
+
+            pool_to_member_map[pool_id].append(member)
 
             self._update_subnet_hints(member["provisioning_status"],
                                       member["subnet_id"],
                                       member["network_id"],
                                       all_subnet_hints,
                                       True)
-            self._set_status_as_active(member, force=force_active)
+
+        # Assure members by pool
+        for pool_id, pool_members in pool_to_member_map.iteritems():
+            pool = self.get_pool_by_id(service, pool_id)
+            svc = {"loadbalancer": loadbalancer,
+                   "members": pool_members,
+                   "pool": pool}
+
+            self.pool_builder.assure_pool_members(svc, bigips)
+
+            for member in pool_members:
+                provisioning = member.get('provisioning_status')
+                if 'missing' not in member \
+                   and provisioning != "PENDING_DELETE":
+                    member['provisioning_status'] = "ACTIVE"
+                elif 'missing' in member:
+                    member['provisioning_status'] = "ERROR"
 
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
@@ -354,12 +334,17 @@ class LBaaSBuilder(object):
         pools = service["pools"]
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
+        service_members = service.get('members', list())
 
         for pool in pools:
+
+            pool_members = [member for member in service_members
+                            if member.get('pool_id') == pool['id']]
+
+            svc = {"loadbalancer": loadbalancer,
+                   "pool": pool, "members": pool_members}
             # Is the pool being deleted?
             if pool['provisioning_status'] == plugin_const.PENDING_DELETE:
-                svc = {"loadbalancer": loadbalancer,
-                       "pool": pool}
                 # Delete pool
                 error = self.pool_builder.delete_pool(svc, bigips)
                 if error:
