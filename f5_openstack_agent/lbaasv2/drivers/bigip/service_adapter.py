@@ -15,7 +15,7 @@
 #
 
 import hashlib
-
+from operator import itemgetter
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
@@ -43,12 +43,6 @@ class ServiceModelAdapter(object):
             self.prefix = self.conf.environment_prefix + '_'
         else:
             self.prefix = utils.OBJ_PREFIX + '_'
-
-        self.profiles = dict(
-            http={'name': "http", 'partition': "Common", 'context': "all"},
-            oneconnect={
-                'name': "oneconnect", 'partition': "Common", 'context': "all"},
-            fastl4={'name': "fastl4", 'partition': "Common", 'context': "all"})
 
         self.esd = None
 
@@ -481,10 +475,32 @@ class ServiceModelAdapter(object):
             vip['policies'] = [{'name': policy_name,
                                 'partition': partition}]
 
+        esd_composite = dict()
+        for policy in sorted(
+                policies, key=itemgetter('position'), reverse=True):
+            if policy['provisioning_status'] == "PENDING_DELETE":
+                continue
+
+            policy_name = policy.get('name', None)
+            esd = self.esd.get_esd(policy_name)
+            if esd:
+                esd_composite.update(esd)
+
+        self._apply_esd(vip, esd_composite)
+
+    def get_esd(self, name):
+        if self.esd:
+            return self.esd.get_esd(name)
+
+        return None
+
+    def is_esd(self, name):
+        return self.esd.get_esd(name) is not None
+
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
         protocol = listener.get('protocol', "")
-        if protocol not in ["HTTP", "HTTPS", "TCP"]:
+        if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS"]:
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
         vip["ipProtocol"] = "tcp"
@@ -508,10 +524,15 @@ class ServiceModelAdapter(object):
             persistence = pool.get('session_persistence', None)
             lb_algorithm = pool.get('lb_algorithm', 'ROUND_ROBIN')
 
+        valid_persist_types = ['SOURCE_IP', 'APP_COOKIE', 'HTTP_COOKIE']
         if persistence:
             persistence_type = persistence.get('type', "")
+            if persistence_type not in valid_persist_types:
+                LOG.warning("Invalid peristence type: %s",
+                            persistence_type)
+                return
+
             if persistence_type == 'APP_COOKIE':
-                virtual_type = 'standard'
                 vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
 
             elif persistence_type == 'SOURCE_IP':
@@ -613,3 +634,70 @@ class ServiceModelAdapter(object):
 
     def get_name(self, uuid):
         return self.prefix + str(uuid)
+
+    def _apply_esd(self, vip, esd):
+        profiles = vip['profiles']
+
+        # start with server tcp profile
+        if 'lbaas_stcp' in esd:
+            # set serverside tcp profile
+            profiles.append({'name': esd['lbaas_stcp'],
+                             'partition': 'Common',
+                             'context': 'serverside'})
+            # restrict client profile
+            ctcp_context = 'clientside'
+        else:
+            # no serverside profile; use client profile for both
+            ctcp_context = 'all'
+
+        # must define client profile; default to tcp if not in ESD
+        if 'lbaas_ctcp' in esd:
+            ctcp_profile = esd['lbaas_ctcp']
+        else:
+            ctcp_profile = 'tcp'
+        profiles.append({'name':  ctcp_profile,
+                         'partition': 'Common',
+                         'context': ctcp_context})
+
+        # SSL profiles
+        if 'lbaas_cssl_profile' in esd:
+            profiles.append({'name': esd['lbaas_cssl_profile'],
+                             'partition': 'Common',
+                             'context': 'clientside'})
+        if 'lbaas_sssl_profile' in esd:
+            profiles.append({'name': esd['lbaas_sssl_profile'],
+                             'partition': 'Common',
+                             'context': 'serverside'})
+
+        # persistence
+        if 'lbaas_persist' in esd:
+            if vip['persist']:
+                LOG.warning("Overwriting the existing VIP persist profile: %s",
+                            vip['persist'])
+            vip['persist'] = [{'name': esd['lbaas_persist']}]
+
+        if 'lbaas_fallback_persist' in esd:
+            if vip['fallbackPersistence']:
+                LOG.warning(
+                    "Overwriting the existing VIP fallback persist "
+                    "profile: %s", vip['fallbackPersistence'])
+            vip['fallbackPersistence'] = esd['lbaas_fallback_persist']
+
+        # iRules
+        vip['rules'] = list()
+        if 'lbaas_irule' in esd:
+            irules = []
+            for irule in esd['lbaas_irule']:
+                irules.append('/Common/' + irule)
+            vip['rules'] = irules
+
+        # L7 policies
+        policies = list()
+        if 'lbaas_policy' in esd:
+            if vip['policies']:
+                LOG.warning(
+                    "LBaaS L7 policies and rules will be overridden "
+                    "by ESD policies")
+            for policy in esd['lbaas_policy']:
+                policies.append({'name': policy, 'partition': 'Common'})
+            vip['policies'] = policies

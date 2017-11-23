@@ -89,6 +89,7 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
                          registerOpts=False)
 
     icd.plugin_rpc = fake_plugin_rpc
+    icd.connect()
 
     return icd
 
@@ -102,6 +103,7 @@ def esd():
     return (json.load(open(esd_file)))
 
 
+@pytest.mark.skip(reason="ESD is not properly initialized and no cleanup")
 def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
                    icontrol_driver, esd):
     env_prefix = icd_config['environment_prefix']

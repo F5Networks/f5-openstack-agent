@@ -86,6 +86,9 @@ class EsdTagProcessor(EsdJSONValidation):
     def get_esd(self, name):
         return self.esd_dict.get(name, None)
 
+    def is_esd(self, name):
+        return self.get_esd(name) is not None
+
     def resource_exists(self, bigip, tag_name, resource_type):
         helper = BigIPResourceHelper(resource_type)
         name = tag_name

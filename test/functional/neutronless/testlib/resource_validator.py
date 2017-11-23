@@ -155,6 +155,11 @@ class ResourceValidator(object):
                 rule_name = '/Common/' + rule
                 assert rule_name in vs.rules
 
+        if 'lbaas_policy' in esd:
+            for rule in esd['lbaas_policy']:
+                rule_name = '/Common/' + rule
+                assert rule_name in vs.rules
+
     def assert_esd_removed(self, esd, listener, folder):
         listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
         assert self.bigip.resource_exists(
@@ -191,6 +196,9 @@ class ResourceValidator(object):
 
         if 'lbaas_irule' in esd:
             assert not getattr(vs, 'rules', None)
+
+        if 'lbaas_policy' in esd:
+            assert not getattr(vs, 'policies', None)
 
     def is_in_collection(self, collection, name):
         for item in collection:

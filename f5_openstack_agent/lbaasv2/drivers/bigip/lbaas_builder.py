@@ -52,6 +52,12 @@ class LBaaSBuilder(object):
         self.l7service = l7policy_service.L7PolicyService(conf)
         self.esd = None
 
+    def init_esd(self, esd):
+        self.esd = esd
+
+    def is_esd(self, esd):
+        return self.esd.is_esd(esd)
+
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
         start_time = time()
@@ -443,7 +449,7 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             LOG.debug("L7 debug: assuring policy: %s", l7policy)
             name = l7policy.get('name', None)
-            if not self.is_esd(name):
+            if not self.esd.is_esd(name):
                 listener_id = l7policy.get('listener_id', None)
                 if not listener_id or listener_id in listener_policy_map:
                     LOG.debug(
@@ -487,7 +493,7 @@ class LBaaSBuilder(object):
         l7policies = service['l7policies']
         for l7policy in l7policies:
             name = l7policy.get('name', None)
-            if not self.is_esd(name):
+            if not self.esd.is_esd(name):
                 listener_id = l7policy.get('listener_id', None)
                 if not listener_id or listener_id in listener_policy_map:
                     continue
@@ -615,15 +621,3 @@ class LBaaSBuilder(object):
                 return policy
 
         return None
-
-    def init_esd(self, esd):
-        self.esd = esd
-
-    def get_esd(self, name):
-        if self.esd:
-            return self.esd.get_esd(name)
-
-        return None
-
-    def is_esd(self, name):
-        return self.esd.get_esd(name) is not None
