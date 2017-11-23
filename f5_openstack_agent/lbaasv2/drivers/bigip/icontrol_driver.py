@@ -516,6 +516,7 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.hostname = hostname
             bigip.status = 'creating'
             bigip.status_message = 'creating BIG-IP from iControl hostnames'
+            bigip.device_interfaces = dict()
             self.agent_configurations[
                 'icontrol_endpoints'][hostname] = {}
             self.agent_configurations[
@@ -790,9 +791,11 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.debug('getting BIG-IP MAC Address for L3 Binding')
             self.l3_binding.register_bigip_mac_addresses()
 
-        endpoints = self.agent_configurations['icontrol_endpoints']
-        for ic_host in endpoints.keys():
-            hostbigip = self.__bigips[ic_host]
+        # endpoints = self.agent_configurations['icontrol_endpoints']
+        # for ic_host in endpoints.keys():
+        for hostbigip in self.get_all_bigips():
+
+            # hostbigip = self.__bigips[ic_host]
             mac_addrs = [mac_addr for interface, mac_addr in
                          hostbigip.device_interfaces.items()
                          if interface != "mgmt"]
@@ -905,7 +908,7 @@ class iControlDriver(LBaaSBaseDriver):
         ic_host['status'] = bigip.status
         ic_host['status_message'] = bigip.status_message
         ic_host['failover_state'] = self.get_failover_state(bigip)
-        if bigip.local_ip:
+        if hasattr(bigip, 'local_ip') and bigip.local_ip:
             ic_host['local_ip'] = bigip.local_ip
         else:
             ic_host['local_ip'] = 'VTEP disabled'
