@@ -132,12 +132,22 @@ class LBaaSBuilder(object):
             return
         bigips = self.driver.get_config_bigips()
         loadbalancer = service["loadbalancer"]
+        set_active = True
 
-        vip_address = virtual_address.VirtualAddress(
-            self.service_adapter,
-            loadbalancer)
-        for bigip in bigips:
-            vip_address.assure(bigip)
+        if self._is_not_pending_delete(loadbalancer):
+
+            vip_address = virtual_address.VirtualAddress(
+                self.service_adapter,
+                loadbalancer)
+            for bigip in bigips:
+                try:
+                    vip_address.assure(bigip)
+                except Exception as error:
+                    LOG.error(str(error))
+                    self._set_status_as_error(loadbalancer)
+                    set_active = False
+
+            self._set_status_as_active(loadbalancer, force=set_active)
 
         if self.driver.l3_binding:
             loadbalancer = service["loadbalancer"]
@@ -150,7 +160,6 @@ class LBaaSBuilder(object):
                                   loadbalancer["network_id"],
                                   all_subnet_hints,
                                   False)
-        self._set_status_as_active(loadbalancer)
 
     def _assure_listeners_created(self, service):
         if 'listeners' not in service:
@@ -411,14 +420,13 @@ class LBaaSBuilder(object):
         for bigip in bigips:
             subnet_hints = all_subnet_hints[bigip.device_name]
 
-            if status == plugin_const.PENDING_CREATE or \
-                    status == plugin_const.PENDING_UPDATE:
+            if status != plugin_const.PENDING_DELETE:
                 if subnet_id in subnet_hints['check_for_delete_subnets']:
                     del subnet_hints['check_for_delete_subnets'][subnet_id]
                 if subnet_id not in subnet_hints['do_not_delete_subnets']:
                     subnet_hints['do_not_delete_subnets'].append(subnet_id)
 
-            elif status == plugin_const.PENDING_DELETE:
+            else:
                 if subnet_id not in subnet_hints['do_not_delete_subnets']:
                     subnet_hints['check_for_delete_subnets'][subnet_id] = \
                         {'network_id': network_id,

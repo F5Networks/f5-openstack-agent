@@ -1434,3 +1434,183 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         pool_id = pool['id']
         assert target.get_pool_by_id(service, pool_id) == service['pools'][0]
         assert not target.get_pool_by_id(service, never_id)
+
+    def test_assure_loadbalancer_created_active_to_active(self, service):
+        svc = service
+        loadbalancer = svc.get('loadbalancer')
+        loadbalancer['provisioning_status'] = 'ACTIVE'
+
+        bigips = [Mock()]
+
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._update_subnet_hints = Mock()
+        builder.driver.get_config_bigips.return_value = bigips
+
+        mock_vaddr = Mock()
+        virtual_address = str(
+            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
+            'VirtualAddress')
+        with patch(virtual_address, return_value=mock_vaddr):
+
+            builder._assure_loadbalancer_created(svc, mock.MagicMock())
+            assert mock_vaddr.assure.called
+
+        assert loadbalancer['provisioning_status'] == 'ACTIVE'
+
+    def test_assure_loadbalancer_created_pending_to_active(self, service):
+        svc = service
+        loadbalancer = svc.get('loadbalancer')
+        loadbalancer['provisioning_status'] = 'PENDING_CREATE'
+
+        bigips = [Mock()]
+
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._update_subnet_hints = Mock()
+        builder.driver.get_config_bigips.return_value = bigips
+
+        mock_vaddr = Mock()
+        virtual_address = str(
+            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
+            'VirtualAddress')
+        with patch(virtual_address, return_value=mock_vaddr):
+
+            builder._assure_loadbalancer_created(svc, mock.MagicMock())
+            assert mock_vaddr.assure.called
+
+        assert loadbalancer['provisioning_status'] == 'ACTIVE'
+
+        loadbalancer['provisioning_status'] = 'PENDING_UPDATE'
+
+        mock_vaddr.reset_mock()
+        with patch(virtual_address, return_value=mock_vaddr):
+            builder._assure_loadbalancer_created(svc, mock.MagicMock())
+            assert mock_vaddr.assure.called
+
+        assert loadbalancer['provisioning_status'] == 'ACTIVE'
+
+    def test_assure_loadbalancer_created_error_to_active(self, service):
+        svc = service
+        loadbalancer = svc.get('loadbalancer')
+        loadbalancer['provisioning_status'] = 'ERROR'
+
+        bigips = [Mock()]
+
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._update_subnet_hints = Mock()
+        builder.driver.get_config_bigips.return_value = bigips
+
+        mock_vaddr = Mock()
+        virtual_address = str(
+            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
+            'VirtualAddress')
+        with patch(virtual_address, return_value=mock_vaddr):
+
+            builder._assure_loadbalancer_created(svc, mock.MagicMock())
+            assert mock_vaddr.assure.called
+
+        assert loadbalancer['provisioning_status'] == 'ACTIVE'
+
+    def test_assure_loadbalancer_created_pending_delete(self, service):
+        svc = service
+        loadbalancer = svc.get('loadbalancer')
+        loadbalancer['provisioning_status'] = 'PENDING_DELETE'
+
+        bigips = [Mock()]
+
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._update_subnet_hints = Mock()
+        builder.driver.get_config_bigips.return_value = bigips
+
+        mock_vaddr = Mock()
+        virtual_address = str(
+            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
+            'VirtualAddress')
+        with patch(virtual_address, return_value=mock_vaddr):
+
+            builder._assure_loadbalancer_created(svc, mock.MagicMock())
+            assert not mock_vaddr.assure.called
+
+        assert loadbalancer['provisioning_status'] == 'PENDING_DELETE'
+
+    def test_assure_loadbalancer_created_error(self, service):
+        svc = service
+        loadbalancer = svc.get('loadbalancer')
+        loadbalancer['provisioning_status'] = 'PENDING_CREATE'
+
+        bigips = [Mock()]
+
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._update_subnet_hints = Mock()
+        builder.driver.get_config_bigips.return_value = bigips
+
+        mock_vaddr = Mock()
+        mock_vaddr.assure.side_effect = MockHTTPError(
+            MockHTTPErrorResponse500())
+        virtual_address = str(
+            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
+            'VirtualAddress')
+        with patch(virtual_address, return_value=mock_vaddr):
+
+            builder._assure_loadbalancer_created(svc, mock.MagicMock())
+            assert mock_vaddr.assure.called
+
+        assert loadbalancer['provisioning_status'] == 'ERROR'
+
+    def test_assure_loadbalancer_deleted_pending_delete(self, service):
+        svc = service
+        loadbalancer = svc.get('loadbalancer')
+        loadbalancer['provisioning_status'] = 'PENDING_DELETE'
+
+        bigips = [Mock()]
+
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._update_subnet_hints = Mock()
+        builder.driver.get_config_bigips.return_value = bigips
+
+        mock_vaddr = Mock()
+        virtual_address = str(
+            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
+            'VirtualAddress')
+        with patch(virtual_address, return_value=mock_vaddr):
+
+            builder._assure_loadbalancer_deleted(svc)
+            mock_vaddr.assure.called_once_with(delete=True)
+
+        assert loadbalancer['provisioning_status'] == 'PENDING_DELETE'
+
+    def test_assure_loadbalancer_deleted_not_pending_delete(self, service):
+        svc = service
+        loadbalancer = svc.get('loadbalancer')
+        loadbalancer['provisioning_status'] = 'ACTIVE'
+
+        bigips = [Mock()]
+
+        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder._update_subnet_hints = Mock()
+        builder.driver.get_config_bigips.return_value = bigips
+
+        mock_vaddr = Mock()
+        virtual_address = str(
+            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
+            'VirtualAddress')
+        with patch(virtual_address, return_value=mock_vaddr):
+
+            loadbalancer['provisioning_status'] = 'ACTIVE'
+            builder._assure_loadbalancer_deleted(svc)
+            assert not mock_vaddr.assure.called
+            assert loadbalancer['provisioning_status'] == 'ACTIVE'
+
+            loadbalancer['provisioning_status'] = 'PENDING_CREATE'
+            builder._assure_loadbalancer_deleted(svc)
+            assert not mock_vaddr.assure.called
+            assert loadbalancer['provisioning_status'] == 'PENDING_CREATE'
+
+            loadbalancer['provisioning_status'] = 'PENDING_UPDATE'
+            builder._assure_loadbalancer_deleted(svc)
+            assert not mock_vaddr.assure.called
+            assert loadbalancer['provisioning_status'] == 'PENDING_UPDATE'
+
+            loadbalancer['provisioning_status'] = 'ERROR'
+            builder._assure_loadbalancer_deleted(svc)
+            assert not mock_vaddr.assure.called
+            assert loadbalancer['provisioning_status'] == 'ERROR'
