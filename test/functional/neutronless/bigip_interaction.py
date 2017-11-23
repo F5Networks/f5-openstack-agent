@@ -74,7 +74,7 @@ list sys folder recursive one-line" | cut -d " " -f3 |
 while read f; do echo \"====================\";
 echo \"Folder $f\"; tmsh -c "cd /$f; list\"; done;
 exit
-EOF'''.format(ssh_cmd)
+EOF'''
     __ucs_cmd_fmt = "{} tmsh {} /sys ucs /tmp/backup.ucs"
 
     @staticmethod
@@ -106,7 +106,8 @@ EOF'''.format(ssh_cmd)
 
         This method will perform the action of collecting BIG-IP config data.
         """
-        results = cls.__exec_shell(cls.__extract_cmd, shell=True)
+        results = cls.__exec_shell(
+            cls.__extract_cmd.format(cls.ssh_cmd), shell=True)
         cls.__check_results(results)
         return results.stdout
 
@@ -173,6 +174,14 @@ EOF'''.format(ssh_cmd)
         return diff_file
 
     @classmethod
+    def check_symbols(cls):
+        if hasattr(pytest, 'symbols') and \
+                hasattr(pytest.symbols, 'bigip_mgmt_ip_public'):
+            cls.ssh_cmd = "ssh {}@{}".format(
+                pytest.symbols.bigip_ssh_username,
+                pytest.symbols.bigip_mgmt_ip_public)
+
+    @classmethod
     def check_resulting_cfg(cls, test_name=current_test):
         """Check the current BIG-IP cfg agianst previous Reset upon Error
 
@@ -182,6 +191,7 @@ EOF'''.format(ssh_cmd)
 
         test_name := the name of the test currently in tearDown
         """
+        cls.check_symbols()
         cls._resulting_bigip_cfg(test_name)
 
     @classmethod
@@ -191,7 +201,8 @@ EOF'''.format(ssh_cmd)
         This method will store a backup of the BIG-IP's configuration on the
         BIG-IP for later restoration.
         """
-        if not os.path.isfile(cls.config_file):
+        if not os.path.isfile(cls.config_file.format(my_epoch)):
+            cls.check_symbols()
             cls.__exec_shell(
                 cls.__ucs_cmd_fmt.format(cls.ssh_cmd, 'save'), True)
             cls._get_existing_bigip_cfg()
