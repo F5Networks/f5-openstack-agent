@@ -73,7 +73,6 @@ class ListenerServiceBuilder(object):
                 if persist and persist.get('type', "") == "APP_COOKIE":
                     self._add_cookie_persist_rule(vip, persist, bigip)
                 self.vs_helper.create(bigip, vip)
-                error = None
             except HTTPError as err:
                 if err.response.status_code == 409:
                     LOG.debug("Virtual server already exists...updating")
@@ -82,20 +81,25 @@ class ListenerServiceBuilder(object):
                     except Exception as err:
                         error = f5_ex.VirtualServerUpdateException(
                             err.message)
+                        LOG.error("Virtual server update error: %s" %
+                                  error.message)
                 else:
                     error = f5_ex.VirtualServerCreationException(
                         err.message)
+                    LOG.error("Virtual server creation error: %s" %
+                              error.message)
 
             except Exception as err:
                 error = f5_ex.VirtualServerCreationException(
                     err.message)
-
-            if not persist:
-                self._remove_cookie_persist_rule(vip, bigip)
-
-            if error:
                 LOG.error("Virtual server creation error: %s" %
                           error.message)
+
+            if not persist:
+                try:
+                    self._remove_cookie_persist_rule(vip, bigip)
+                except HTTPError as err:
+                    LOG.exception(err.message)
 
         return error
 
@@ -133,19 +137,24 @@ class ListenerServiceBuilder(object):
                 self.vs_helper.delete(bigip,
                                       name=vip["name"],
                                       partition=vip["partition"])
-                error = None
             except HTTPError as err:
                 if err.response.status_code != 404:
                     error = f5_ex.VirtualServerDeleteException(err.message)
+                    LOG.error("Virtual server delete error: %s",
+                              error.message)
             except Exception as err:
                 error = f5_ex.VirtualServerDeleteException(err.message)
-
-            if error:
                 LOG.error("Virtual server delete error: %s",
                           error.message)
 
             # delete ssl profiles
             self.remove_ssl_profiles(tls, bigip)
+
+            # delete cookie perist rules
+            try:
+                self._remove_cookie_persist_rule(vip, bigip)
+            except HTTPError as err:
+                LOG.exception(err.message)
 
         return error
 
@@ -156,15 +165,16 @@ class ListenerServiceBuilder(object):
 
         if "default_tls_container_id" in tls:
             container_ref = tls["default_tls_container_id"]
-            self.create_ssl_profile(
+            self._create_ssl_profile(
                 container_ref, bigip, vip, True)
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
                 container_ref = container["tls_container_id"]
-                self.create_ssl_profile(container_ref, bigip, vip, False)
+                self._create_ssl_profile(container_ref, bigip, vip, False)
 
-    def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False):
+    def _create_ssl_profile(
+            self, container_ref, bigip, vip, sni_default=False):
         cert = self.cert_manager.get_certificate(container_ref)
         key = self.cert_manager.get_private_key(container_ref)
         name = self.cert_manager.get_name(container_ref,
@@ -187,16 +197,24 @@ class ListenerServiceBuilder(object):
         if "default_tls_container_id" in tls and \
                 tls["default_tls_container_id"]:
             container_ref = tls["default_tls_container_id"]
-            i = container_ref.rindex("/") + 1
-            name = self.service_adapter.prefix + container_ref[i:]
-            self._remove_ssl_profile(name, bigip)
+            try:
+                i = container_ref.rindex("/") + 1
+            except ValueError as error:
+                LOG.exception(error.message)
+            else:
+                name = self.service_adapter.prefix + container_ref[i:]
+                self._remove_ssl_profile(name, bigip)
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
                 container_ref = container["tls_container_id"]
-                i = container_ref.rindex("/") + 1
-                name = self.service_adapter.prefix + container_ref[i:]
-                self._remove_ssl_profile(name, bigip)
+                try:
+                    i = container_ref.rindex("/") + 1
+                except ValueError as error:
+                    LOG.exception(error.message)
+                else:
+                    name = self.service_adapter.prefix + container_ref[i:]
+                    self._remove_ssl_profile(name, bigip)
 
     def _remove_ssl_profile(self, name, bigip):
         """Delete profile.
