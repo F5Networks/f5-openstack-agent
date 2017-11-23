@@ -97,6 +97,9 @@ class FakeRPCPlugin(object):
     def set_current_service(self, service_id):
         self._current_service = service_id
 
+    def get_ports_for_mac_addresses(self, mac_addresses=list()):
+        return list()
+
     @track_call
     def create_port_on_subnet(self,
                               subnet_id=None,
