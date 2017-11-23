@@ -21,7 +21,6 @@ from oslo_log import log as logging
 from neutron.plugins.common import constants as plugin_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import l7policy_service
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
     LbaasServiceObject
@@ -51,7 +50,6 @@ class LBaaSBuilder(object):
             self.service_adapter
         )
         self.l7service = l7policy_service.L7PolicyService(conf)
-        self.clean_wrapper_policy = True
         self.esd = None
 
     def assure_service(self, service, traffic_group, all_subnet_hints):
@@ -235,7 +233,7 @@ class LBaaSBuilder(object):
         monitors = service.get("healthmonitors", list())
         loadbalancer = service.get("loadbalancer", dict())
         bigips = self.driver.get_config_bigips()
-        force_active_status = False
+        force_active_status = True
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
@@ -243,8 +241,9 @@ class LBaaSBuilder(object):
             if monitor['provisioning_status'] != plugin_const.PENDING_DELETE:
                 if self.pool_builder.create_healthmonitor(svc, bigips):
                     monitor['provisioning_status'] = plugin_const.ERROR
+                    force_active_status = False
 
-            self._set_status_as_active(monitor, force=force_active_status)
+                self._set_status_as_active(monitor, force=force_active_status)
 
     def _assure_monitors_deleted(self, service):
         monitors = service["healthmonitors"]
@@ -372,15 +371,16 @@ class LBaaSBuilder(object):
             listeners = service["listeners"]
             loadbalancer = service["loadbalancer"]
             for listener in listeners:
+                error = False
                 if listener['provisioning_status'] == \
                         plugin_const.PENDING_DELETE:
                     svc = {"loadbalancer": loadbalancer,
                            "listener": listener}
-                    try:
+                    error = \
                         self.listener_builder.delete_listener(svc, bigips)
-                    except Exception as err:
+
+                    if error:
                         listener['provisioning_status'] = plugin_const.ERROR
-                        raise f5_ex.VirtualServerDeleteException(err.message)
 
         self.listener_builder.delete_orphaned_listeners(service, bigips)
 
@@ -470,7 +470,7 @@ class LBaaSBuilder(object):
 
         for listener_id, policy in listener_policy_map.items():
             error = False
-            if len(policy['f5_policy'].get('rules', list())) > 0:
+            if policy['f5_policy'].get('rules', list()):
                 error = self.l7service.create_l7policy(
                     policy['f5_policy'], bigips)
 
@@ -509,23 +509,27 @@ class LBaaSBuilder(object):
                 listener_policy_map[listener_id] = \
                     self.l7service.build_policy(l7policy, lbaas_service)
 
-        if self.clean_wrapper_policy:
-            loadbalancer = service.get('loadbalancer', dict())
-            tenant_id = loadbalancer.get('tenant_id', "")
-            try:
-                wrapper_policy = {
-                    'name': 'wrapper_policy',
-                    'partition': self.service_adapter.get_folder_name(
-                        tenant_id)}
+        # Clean wrapper policy this is the legacy name of a policy
+        loadbalancer = service.get('loadbalancer', dict())
+        tenant_id = loadbalancer.get('tenant_id', "")
+        try:
+            wrapper_policy = {
+                'name': 'wrapper_policy',
+                'partition': self.service_adapter.get_folder_name(
+                    tenant_id)}
 
-                self.l7service.delete_l7policy(wrapper_policy, bigips)
-            except Exception as err:
+            self.l7service.delete_l7policy(wrapper_policy, bigips)
+        except HTTPError as err:
+            if err.response.status_code != 404:
                 LOG.error("Failed to remove wrapper policy: %s",
                           err.message)
+        except Exception as err:
+            LOG.error("Failed to remove wrapper policy: %s",
+                      err.message)
 
-        for listener, policy in listener_policy_map.items():
+        for _, policy in listener_policy_map.items():
             error = False
-            if len(policy['f5_policy'].get('rules', list())) == 0:
+            if not policy['f5_policy'].get('rules', list()):
                 error = self.l7service.delete_l7policy(
                     policy['f5_policy'], bigips)
 
