@@ -198,7 +198,8 @@ class LBaaSBuilder(object):
                     listener['provisioning_status'] = plugin_const.ERROR
                 else:
                     listener['provisioning_status'] = plugin_const.ACTIVE
-                    listener['operating_status'] = lb_const.ONLINE
+                    if listener['admin_state_up']:
+                        listener['operating_status'] = lb_const.ONLINE
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -376,33 +377,12 @@ class LBaaSBuilder(object):
         self.listener_builder.delete_orphaned_listeners(service, bigips)
 
     @staticmethod
-    def _check_monitor_delete(service):
-        # If the pool is being deleted, then delete related objects
-        if service['pool']['status'] == plugin_const.PENDING_DELETE:
-            # Everything needs to be go with the pool, so overwrite
-            # service state to appropriately remove all elements
-            service['vip']['status'] = plugin_const.PENDING_DELETE
-            for member in service['members']:
-                member['status'] = plugin_const.PENDING_DELETE
-            for monitor in service['pool']['health_monitors_status']:
-                monitor['status'] = plugin_const.PENDING_DELETE
-
-    @staticmethod
     def get_pool_by_id(service, pool_id):
         if pool_id and "pools" in service:
             pools = service["pools"]
             for pool in pools:
                 if pool["id"] == pool_id:
                     return pool
-        return None
-
-    @staticmethod
-    def get_listener_by_id(service, listener_id):
-        if "listeners" in service:
-            listeners = service["listeners"]
-            for listener in listeners:
-                if listener["id"] == listener_id:
-                    return listener
         return None
 
     def _update_subnet_hints(self, status, subnet_id,
@@ -465,7 +445,7 @@ class LBaaSBuilder(object):
                 error = self.l7service.create_l7policy(
                     policy['f5_policy'], bigips)
 
-            for p in policy['l7policies']:
+            for p in service['l7policies']:
                 if self._is_not_pending_delete(p):
                     if not error:
                         self._set_status_as_active(p, force=True)
@@ -477,8 +457,6 @@ class LBaaSBuilder(object):
                 listener = lbaas_service.get_listener(listener_id)
                 if listener:
                     listener['f5_policy'] = policy['f5_policy']
-                loadbalancer['provisioning_status'] = \
-                    plugin_const.ACTIVE
             else:
                 loadbalancer['provisioning_status'] = \
                     plugin_const.ERROR
@@ -613,11 +591,3 @@ class LBaaSBuilder(object):
             op_status = lb_const.NO_MONITOR
 
         return op_status
-
-    def get_l7policy_for_rule(self, l7policies, l7rule):
-        policy_id = l7rule['policy_id']
-        for policy in l7policies:
-            if policy_id == policy['id']:
-                return policy
-
-        return None
