@@ -49,6 +49,11 @@ FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
 FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
 FEATURE_OFF_COMMON_NET['icontrol_hostname'] = \
     pytest.symbols.bigip_mgmt_ip_public
+FEATURE_ON['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
+FEATURE_OFF['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
+FEATURE_OFF_GRM['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
+FEATURE_OFF_COMMON_NET['f5_vtep_selfip_name'] = \
+    pytest.symbols.f5_vtep_selfip_name
 
 
 tmos_version = ManagementRoot(
@@ -179,6 +184,8 @@ def configure_icd(icd_config, create_mock_rpc):
     icontroldriver = iControlDriver(ConfFake(icd_config),
                                     registerOpts=False)
     icontroldriver.plugin_rpc = create_mock_rpc()
+    icontroldriver.connect()
+
     return icontroldriver
 
 
@@ -234,6 +241,7 @@ def test_featureoff_withsegid_lb(track_bigip_cfg, setup_l2adjacent_test,
                                  bigip):
     icontroldriver, start_registry = handle_init_registry(bigip, FEATURE_OFF)
     service = deepcopy(SEGID_CREATELB)
+
     logcall(setup_l2adjacent_test,
             icontroldriver._common_service_handler,
             service)

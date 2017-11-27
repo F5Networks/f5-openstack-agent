@@ -13,6 +13,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import copy
 import os
 import pytest
 import sys
@@ -54,7 +55,8 @@ class TestingWithServiceConstructor(object):
     @classmethod
     @pytest.fixture
     def service_with_network(cls, new_id):
-        service = cls.defaultservice.copy()
+        # service = cls.defaultservice.copy()
+        service = copy.deepcopy(cls.defaultservice)
         new_network = dict(id=new_id, name='network', mtu=0, shared=False,
                            status='ACTIVE', subnets=[], tenant_id=cls.new_id(),
                            vlan_transparent=None)
@@ -133,6 +135,8 @@ class TestingWithServiceConstructor(object):
         svc['listeners'].append(new_listener)
         return svc
 
+    @staticmethod
+    @pytest.fixture
     def service_with_pool(new_id, service_with_listener):
         # update as needed for more intelligence...
         svc = service_with_listener
