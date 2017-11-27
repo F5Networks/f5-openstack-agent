@@ -1,0 +1,9 @@
+[run]
+omit =
+  # unit tests
+  */test/*
+  */tests/*
+  __init__.py
+
+  # setup etc.
+  setup.py

@@ -71,7 +71,6 @@ class L7PolicyService(object):
             try:
                 self.policy_helper.delete(
                     bigip, f5_l7policy['name'], f5_l7policy['partition'])
-                error = False
             except HTTPError as err:
                 status_code = err.response.status_code
                 if status_code == 404:
@@ -80,6 +79,7 @@ class L7PolicyService(object):
                 elif status_code == 400:
                     LOG.debug("Deleting L7 policy failed...unknown "
                               "client error: %s", err.message)
+                    error = f5_ex.L7PolicyDeleteException(err.message)
                 else:
                     error = f5_ex.L7PolicyDeleteException(err.message)
             except Exception as err:
