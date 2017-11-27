@@ -21,7 +21,7 @@ import uuid
 
 from mock import Mock
 
-
+import f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter
 from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
     ServiceModelAdapter
 
@@ -110,16 +110,142 @@ class TestServiceAdapter(object):
     @pytest.fixture
     def basic_service():
         tenant_id = str(uuid.uuid4())
+        default_pool_id = str(uuid.uuid4())
+        monitor_id = str(uuid.uuid4())
         return {'loadbalancer': dict(id=str(uuid.uuid4()),
                                      tenant_id=tenant_id,
                                      vip_address='192.168.1.1%0'),
-                'pools': [dict(id=str(uuid.uuid4()),
+                'pools': [dict(id=default_pool_id,
                                session_persistence=True)],
+                'healthmonitors': [dict(id=str(monitor_id))],
                 'listener': dict(id=str(uuid.uuid4()),
                                  connection_limit=4,
                                  protocol='HTTPS',
                                  protocol_port='8080',
-                                 admin_state_up=True)}
+                                 admin_state_up=True,
+                                 default_pool_id=default_pool_id)}
+
+    @staticmethod
+    @pytest.fixture
+    def basic_l7service():
+        tenant_id = str(uuid.uuid4())
+        default_pool_id = str(uuid.uuid4())
+        policy_id = str(uuid.uuid4())
+        l7policy_rules = list()
+        for i in range(5):
+            l7policy_rules.append(dict(id=str(uuid.uuid4()),
+                                       provisioning_status="ACTIVE"))
+
+        l7policy = dict(id=policy_id)
+        l7policy['rules'] = [dict(id=rule['id'])
+                             for rule in l7policy_rules]
+
+        return {'loadbalancer': dict(id=str(uuid.uuid4()),
+                                     tenant_id=tenant_id,
+                                     vip_address='192.168.1.100%0'),
+                'pools': [dict(id=default_pool_id,
+                               session_persistence=True)],
+                'l7policies': [l7policy],
+                'l7policy_rules': l7policy_rules,
+                'listener': dict(id=str(uuid.uuid4()),
+                                 connection_limit=4,
+                                 protocol='HTTP',
+                                 protocol_port='80',
+                                 admin_state_up=True,
+                                 default_pool_id=default_pool_id,
+                                 l7_policies=[dict(id=policy_id)])}
+
+    @staticmethod
+    @pytest.fixture
+    def basic_l7service_2policies():
+        tenant_id = str(uuid.uuid4())
+        default_pool_id = str(uuid.uuid4())
+        listener_policy_ids = [dict(id=str(uuid.uuid4())),
+                               dict(id=str(uuid.uuid4()))]
+        listener_id = str(uuid.uuid4())
+        l7policies = list()
+        l7policy_rules = list()
+        for policy in listener_policy_ids:
+            l7policy = dict(id=policy['id'],
+                            listener_id=listener_id)
+
+            rules = list()
+            for i in range(2):
+                rule = dict(id=str(uuid.uuid4()),
+                            provisioning_status="ACTIVE")
+                l7policy_rules.append(rule)
+                rules.append(rule)
+
+            l7policy['rules'] = [dict(id=r['id']) for r in rules]
+            l7policies.append(l7policy)
+
+        return {'loadbalancer': dict(id=str(uuid.uuid4()),
+                                     tenant_id=tenant_id,
+                                     vip_address='192.168.1.100%0'),
+                'pools': [dict(id=default_pool_id,
+                               session_persistence=True)],
+                'l7policies': l7policies,
+                'l7policy_rules': l7policy_rules,
+                'listener': dict(id=listener_id,
+                                 connection_limit=4,
+                                 protocol='HTTP',
+                                 protocol_port='80',
+                                 admin_state_up=True,
+                                 default_pool_id=default_pool_id,
+                                 l7_policies=listener_policy_ids)}
+
+    @staticmethod
+    @pytest.fixture
+    def basic_service_no_persist():
+        tenant_id = str(uuid.uuid4())
+        default_pool_id = str(uuid.uuid4())
+        monitor_id = str(uuid.uuid4())
+        return {'loadbalancer': dict(id=str(uuid.uuid4()),
+                                     tenant_id=tenant_id,
+                                     vip_address='192.168.1.1%0'),
+                'pools': [dict(id=default_pool_id,
+                               session_persistence=False)],
+                'healthmonitors': [dict(id=str(monitor_id))],
+                'listener': dict(id=str(uuid.uuid4()),
+                                 connection_limit=4,
+                                 protocol='HTTPS',
+                                 protocol_port='8080',
+                                 admin_state_up=True,
+                                 default_pool_id=default_pool_id)}
+
+    @staticmethod
+    @pytest.fixture
+    def basic_http_service_no_pool():
+        tenant_id = str(uuid.uuid4())
+        return {'loadbalancer': dict(id=str(uuid.uuid4()),
+                                     tenant_id=tenant_id,
+                                     vip_address='192.168.1.1%0'),
+                'listener': dict(id=str(uuid.uuid4()),
+                                 connection_limit=4,
+                                 protocol='HTTP',
+                                 protocol_port='8080',
+                                 admin_state_up=True,
+                                 default_pool_id='')}
+
+    @staticmethod
+    @pytest.fixture
+    def basic_service_with_monitor():
+        tenant_id = str(uuid.uuid4())
+        default_pool_id = str(uuid.uuid4())
+        monitor_id = str(uuid.uuid4())
+        return {'loadbalancer': dict(id=str(uuid.uuid4()),
+                                     tenant_id=tenant_id,
+                                     vip_address='192.168.1.1%0'),
+                'pools': [dict(id=default_pool_id,
+                               session_persistence=True,
+                               healthmonitor_id=monitor_id)],
+                'healthmonitors': [dict(id=str(monitor_id))],
+                'listener': dict(id=str(uuid.uuid4()),
+                                 connection_limit=4,
+                                 protocol='HTTPS',
+                                 protocol_port='8080',
+                                 admin_state_up=True,
+                                 default_pool_id=default_pool_id)}
 
     def test_init_pool_name(self, target):
         partition = str(uuid.uuid4())
@@ -132,6 +258,19 @@ class TestServiceAdapter(object):
         expected = dict(name=id, partition=partition)
         assert target.init_pool_name(loadbalancer, pool) == expected
 
+    def test_get_virtual_name(self, target, basic_service):
+        listener = basic_service['listener']
+        loadbalancer = basic_service['loadbalancer']
+        tenant_id = loadbalancer['tenant_id']
+        target.prefix = 'pre-'
+        target.get_folder_name = Mock(
+            return_value=target.prefix + tenant_id)
+
+        vs_name = target.get_virtual_name(basic_service)
+        assert vs_name['name'] == target.prefix + listener['id']
+        assert vs_name['partition'] == target.prefix + \
+            loadbalancer['tenant_id']
+
     def test_get_virtual(self, target, basic_service):
         tenant_id = basic_service['loadbalancer']['tenant_id']
         target.get_folder_name = Mock(return_value=tenant_id)
@@ -140,15 +279,14 @@ class TestServiceAdapter(object):
         vip = 'vip'
         target._map_virtual = Mock(return_value=vip)
         target._add_bigip_items = Mock()
+
         assert target.get_virtual(basic_service) == vip
         assert basic_service['pool']['session_persistence'] == \
             basic_service['listener']['session_persistence']
         assert basic_service['listener']['snat_pool_name'] == tenant_id
         target._map_virtual.assert_called_once_with(
             basic_service['loadbalancer'], basic_service['listener'],
-            pool=basic_service['pool'])
-        target._add_bigip_items.assert_called_once_with(
-            basic_service['listener'], vip)
+            pool=basic_service['pool'], policies=list())
 
     def test_init_virtual_name(self, target, basic_service):
         listener = basic_service['listener']
@@ -161,41 +299,14 @@ class TestServiceAdapter(object):
             dict(name=name, partition=tenant_id)
         target.get_folder_name.assert_called_once_with(tenant_id)
 
-    def test_init_virtual_name_with_pool(self, target, basic_service):
-        loadbalancer = basic_service['loadbalancer']
-        listener = basic_service['listener']
+    def test_map_virtual_no_persist(self, target, basic_service_no_persist):
+        basic_service = basic_service_no_persist
         pool = basic_service['pools'][0]
-        target._init_virtual_name = Mock(return_value=dict())
-        target.init_pool_name = Mock(return_value=dict(name='pool'))
-        assert target._init_virtual_name_with_pool(
-            loadbalancer, listener, pool) == {'pool': 'pool'}
-        target._init_virtual_name.assert_called_once_with(
-            loadbalancer, listener)
-        target.init_pool_name.assert_called_once_with(
-            loadbalancer, pool)
-        target.init_pool_name.return_value = dict(name='')
-        target._init_virtual_name.return_value = dict()
-        assert target._init_virtual_name_with_pool(
-            loadbalancer, listener, pool) == {'pool': None}
-
-    def test_get_vip_default_pool(self, target, basic_service):
-        pool = basic_service['pools'][0]
-        basic_service['pool'] = pool
-        loadbalancer = basic_service['loadbalancer']
-        listener = basic_service['listener']
-        vip = {'name': "pre-_" + listener['id'],
-               'partition': "pre-_" + loadbalancer['tenant_id'],
-               'pool': ''}
-        target._init_virtual_name_with_pool = Mock(return_value=vip)
-        assert vip == target.get_vip_default_pool(basic_service)
-
-    def test_map_virtual(self, target, basic_service):
-        pool = basic_service['pools'][0]
+        # pool['provisioning_status'] = "ACTIVE"
         loadbalancer = basic_service['loadbalancer']
         listener = basic_service['listener']
         description = 'description'
         target.get_resource_description = Mock(return_value=description)
-        target._init_virtual_name_with_pool = Mock(return_value=dict())
         cx_limit = listener['connection_limit']
         proto_port = listener['protocol_port']
         vip_address = loadbalancer['vip_address'].replace('%0', '')
@@ -205,12 +316,238 @@ class TestServiceAdapter(object):
             partition="pre-_" + loadbalancer['tenant_id'],
             destination=vip_address + ':' + proto_port, ipProtocol='tcp',
             connectionLimit=cx_limit, description=description, enabled=True,
-            pool=pool)
+            pool="pre-_" + pool['id'], mask="255.255.255.255",
+            vlansDisabled=True,
+            profiles=['/Common/http', '/Common/oneconnect'],
+            vlans=[], policies=[],
+            fallbackPersistence='', persist=[])
         assert expected == target._map_virtual(
                 loadbalancer, listener, pool=pool)
 
+    def test_add_vlan_and_snat_no_snat(self, basic_service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service['listener']
+
+        vip = dict()
+        adapter._add_vlan_and_snat(listener, vip)
+        expected = dict(vlansDisabled=True, vlans=[])
+        assert vip == expected
+
+    def test_add_vlan_and_snat_automap(self, basic_service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service['listener']
+        listener['use_snat'] = True
+        vip = dict()
+        adapter._add_vlan_and_snat(listener, vip)
+        expected = dict(
+            sourceAddressTranslation=dict(type='automap'),
+            vlansDisabled=True, vlans=[])
+        assert vip == expected
+
+    def test_add_vlan_and_snatpool(self, basic_service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service['listener']
+        listener['use_snat'] = True
+        listener['snat_pool_name'] = 'mysnat'
+        vip = dict()
+        adapter._add_vlan_and_snat(listener, vip)
+        expected = dict(sourceAddressTranslation=dict(
+            type='snat', pool='mysnat'), vlansDisabled=True,
+            vlans=[])
+        assert vip == expected
+
+    def test_add_session_persistence_http_no_pool(
+            self, basic_http_service_no_pool):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_http_service_no_pool['listener']
+
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, None, vip)
+
+        expected = dict(ipProtocol='tcp',
+                        profiles=['/Common/http',
+                                  '/Common/oneconnect'],
+                        fallbackPersistence='', persist=[])
+        assert vip == expected
+
+    def test_add_session_persistence_https_no_pool(
+            self, basic_http_service_no_pool):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_http_service_no_pool['listener']
+        listener['protocol'] = 'HTTPS'
+
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, None, vip)
+
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
+                                                    '/Common/oneconnect'],
+                        fallbackPersistence='', persist=[])
+        assert vip == expected
+
+    def test_add_session_peristence_tcp_no_pool(
+            self, basic_http_service_no_pool):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_http_service_no_pool['listener']
+        listener['protocol'] = 'TCP'
+
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, None, vip)
+
+        expected = dict(ipProtocol='tcp', profiles=['/Common/fastL4'],
+                        fallbackPersistence='', persist=[])
+        assert vip == expected
+
+    def test_add_session_persistence_pool_no_persist(
+            self, basic_service_no_persist):
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service_no_persist['listener']
+        pool = basic_service_no_persist['pools'][0]
+
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(ipProtocol='tcp',
+                        profiles=['/Common/http',
+                                  '/Common/oneconnect'],
+                        fallbackPersistence='', persist=[])
+        assert vip == expected
+
+    def test_add_session_persistence_pool_invalid_persist(
+            self, basic_service_no_persist):
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service_no_persist['listener']
+        pool = basic_service_no_persist['pools'][0]
+        pool['session_persistence'] = dict(type="INVALID")
+        f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter.LOG = Mock()
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(ipProtocol='tcp',
+                        profiles=['/Common/http',
+                                  '/Common/oneconnect'],
+                        fallbackPersistence='', persist=[])
+        assert vip == expected
+
+    def test_add_session_persistence_sourceip_persist(
+            self, basic_service_no_persist):
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service_no_persist['listener']
+        pool = basic_service_no_persist['pools'][0]
+        pool['session_persistence'] = dict(type="SOURCE_IP")
+
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
+                                                    '/Common/oneconnect'],
+                        fallbackPersistence='',
+                        persist=[dict(name='/Common/source_addr')])
+        assert vip == expected
+
+        pool['lb_algorithm'] = 'SOURCE_IP'
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
+                                                    '/Common/oneconnect'],
+                        fallbackPersistence='',
+                        persist=[dict(name='/Common/source_addr')])
+        assert vip == expected
+
+    def test_add_session_persistence_cookie_persist(
+            self, basic_service_no_persist):
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service_no_persist['listener']
+        pool = basic_service_no_persist['pools'][0]
+        pool['session_persistence'] = dict(type="HTTP_COOKIE")
+
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
+                                                    '/Common/oneconnect'],
+                        fallbackPersistence='',
+                        persist=[dict(name='/Common/cookie')])
+        assert vip == expected
+
+        pool['lb_algorithm'] = 'SOURCE_IP'
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
+                                                    '/Common/oneconnect'],
+                        fallbackPersistence='/Common/source_addr',
+                        persist=[dict(name='/Common/cookie')])
+        assert vip == expected
+
+    def test_add_session_persistence_cookie_persist_tcp(
+            self, basic_service_no_persist):
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service_no_persist['listener']
+        listener['protocol'] = 'TCP'
+        pool = basic_service_no_persist['pools'][0]
+        pool['session_persistence'] = dict(type="HTTP_COOKIE")
+
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
+                                                    '/Common/oneconnect'],
+                        fallbackPersistence='',
+                        persist=[dict(name='/Common/cookie')])
+        assert vip == expected
+
+        pool['lb_algorithm'] = 'SOURCE_IP'
+        vip = dict()
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
+                                                    '/Common/oneconnect'],
+                        fallbackPersistence='/Common/source_addr',
+                        persist=[dict(name='/Common/cookie')])
+        assert vip == expected
+
+    def test_add_session_persistence_app_cookie_persist(
+            self, basic_service_no_persist):
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        listener = basic_service_no_persist['listener']
+        pool = basic_service_no_persist['pools'][0]
+        pool['session_persistence'] = dict(type="APP_COOKIE")
+        vip_name = 'vip_name'
+        persist_name = "app_cookie_{}".format(vip_name)
+
+        vip = dict(name=vip_name)
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(
+            name=vip_name,
+            ipProtocol='tcp', profiles=['/Common/http',
+                                        '/Common/oneconnect'],
+            fallbackPersistence='',
+            persist=[dict(name=persist_name)])
+        assert vip == expected
+
+        pool['lb_algorithm'] = 'SOURCE_IP'
+        vip = dict(name=vip_name)
+        adapter._add_profiles_session_persistence(listener, pool, vip)
+
+        expected = dict(
+            name=vip_name,
+            ipProtocol='tcp', profiles=['/Common/http',
+                                        '/Common/oneconnect'],
+            fallbackPersistence='/Common/source_addr',
+            persist=[dict(name=persist_name)])
+        assert vip == expected
+
     def test_vs_http_profiles(self, service):
         adapter = ServiceModelAdapter(mock.MagicMock())
+        service['listener']['protocol'] = 'HTTPS'
 
         # should have http and oneconnect but not fastL4
         vs = adapter.get_virtual(service)
@@ -248,6 +585,35 @@ class TestServiceAdapter(object):
         assert '/Common/http' in vs['profiles']
         assert '/Common/oneconnect' in vs['profiles']
         assert '/Common/fastL4' not in vs['profiles']
+
+    def test_get_vip_default_pool_no_pool(self, service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+
+        pool = adapter.get_vip_default_pool(service)
+        assert not pool
+
+    def test_get_vip_default_pool(self, basic_service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+
+        pools = basic_service.get('pools', [None])
+        default_pool = adapter.get_vip_default_pool(basic_service)
+        assert default_pool == pools[0]
+
+    def test_get_vip_default_pool_pending_delete(self, basic_service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+
+        pools = basic_service.get('pools', [None])
+        pools[0]['provisioning_status'] = "PENDING_DELETE"
+        default_pool = adapter.get_vip_default_pool(basic_service)
+        assert not default_pool
+
+    def test_get_vip_default_pool_pending_create(self, basic_service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+
+        pools = basic_service.get('pools', [None])
+        pools[0]['provisioning_status'] = "PENDING_CREATE"
+        default_pool = adapter.get_vip_default_pool(basic_service)
+        assert default_pool == pools[0]
 
     def test_pool_member_weight_least_conns(self, pool_member_service):
         '''lb method changes if member has weight and lb method least conns.
@@ -342,3 +708,101 @@ class TestServiceAdapter(object):
         srvc['pool']['lb_algorithm'] = 'SOURCE_IP'
         pool = adapter.get_pool(srvc)
         assert pool['loadBalancingMode'] == 'least-connections-node'
+
+    def test_get_pool_monitor_no_monitor(self, basic_service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        pools = basic_service.get('pools', [None])
+        assert not adapter._get_pool_monitor(pools[0], basic_service)
+
+        pools[0]['healthmonitor_id'] = str(uuid.uuid4())
+        assert not adapter._get_pool_monitor(pools[0], basic_service)
+
+    def test_get_pool_monitor(self, basic_service_with_monitor):
+        basic_service = basic_service_with_monitor
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        pools = basic_service.get('pools', [None])
+        monitor = adapter._get_pool_monitor(pools[0], basic_service)
+
+        assert monitor == basic_service.get('healthmonitors')[0]
+
+    def test_get_vlan(self, basic_service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        vip = dict(vlans=[], vlansDisabled=True)
+        bigip = Mock()
+
+        # Test case where network is not assured
+        bigip.assured_networks = {}
+        adapter.get_vlan(vip, bigip, "net_UUID")
+
+        expected = dict(vlans=[], vlansDisabled=True)
+
+        assert vip == expected
+
+        # Test case where network is assured.
+        vip = dict(vlans=[], vlansDisabled=True)
+        bigip.assured_networks = {'net_UUID': 'tunnel-vxlan-100'}
+        adapter.get_vlan(vip, bigip, "net_UUID")
+
+        expected = dict(vlans=['tunnel-vxlan-100'], vlansEnabled=True)
+
+        assert vip == expected
+
+        # Test case where network is not assured, but in common networks
+        vip = dict(vlans=[], vlansDisabled=True)
+        bigip.assured_networks = {}
+        adapter.conf.common_network_ids = {'net_UUID': 'vlan-100'}
+
+        adapter.get_vlan(vip, bigip, "net_UUID")
+
+        expected = dict(vlans=['vlan-100'], vlansEnabled=True)
+
+        assert vip == expected
+
+    def test_get_l7policy(self, basic_l7service):
+
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        vip = dict(policies=list())
+        listener = basic_l7service['listener']
+        policies = list()
+
+        adapter._apply_l7_and_esd_policies(listener, policies, vip)
+        assert vip == dict(policies=list())
+
+    def test_get_listener_policies(self, basic_l7service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        policies = adapter.get_listener_policies(basic_l7service)
+        policy = policies[0]
+
+        assert len(policy['rules']) == len(policy['l7policy_rules'])
+        for rule in policy['l7policy_rules']:
+            assert rule.get('provisioning_status', "") == "ACTIVE"
+
+    def test_get_listener_policies_pending_delete(self, basic_l7service):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        service_rules = basic_l7service['l7policy_rules']
+        service_rules[2]['provisioning_status'] = "PENDING_DELETE"
+        policies = adapter.get_listener_policies(basic_l7service)
+        policy = policies[0]
+
+        assert len(policy['rules']) == 5
+        assert len(policy['l7policy_rules']) == 4
+
+        for rule in policy['l7policy_rules']:
+            assert rule.get('provisioning_status', "") == "ACTIVE"
+
+    def test_get_listener_policies_2_policies(self, basic_l7service_2policies):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        l7service = basic_l7service_2policies
+        listener = l7service.get('listener', None)
+
+        policies = adapter.get_listener_policies(l7service)
+
+        assert len(policies) == 2
+        for policy in policies:
+            assert len(policy['rules']) == 2
+            assert len(policy['l7policy_rules']) == 2
+            assert policy['listener_id'] == listener['id']
+
+    def test_get_tls(self, basic_l7service):
+        pass
+        # adapter = ServiceModelAdapter(mock.MagicMock())

@@ -15,7 +15,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
     ServiceModelAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
 
-from conftest import makelogdir
 from conftest import ConfFake
 from conftest import setup_neutronless_test
 
@@ -161,7 +160,7 @@ def logcall(lh, call, *cargs, **ckwargs):
 
 def handle_init_registry(bigip, icd_configuration,
                          create_mock_rpc=create_default_mock_rpc_plugin):
-    init_registry = register_device(bigip)
+    register_device(bigip)
     icontroldriver = configure_icd(icd_configuration, create_mock_rpc)
     start_registry = register_device(bigip)
 
@@ -180,12 +179,16 @@ def deploy_service(bigip, service_name):
             service)
 
 
-def test_create_config(setup_test_wrapper, bigip, service_name):
+def test_create_config(track_bigip_cfg, setup_test_wrapper, bigip,
+                       service_name):
+    """Tests creation of a config"""
     print("Creating service for %s" % service_name)
     deploy_service(bigip, service_name)
 
 
-def test_cleanup_config(bigip, service_name, service_adapter, system_helper):
+def test_cleanup_config(track_bigip_cfg, bigip, service_name, service_adapter,
+                        system_helper):
+    """Tests the cleanup of a config"""
     print("Teardown service for %s" % service_name)
 
     icontroldriver, start_registry = handle_init_registry(bigip, TEST_CONFIG)
@@ -210,8 +213,9 @@ def get_listener_name(service, listener, service_adapter, unique_name=False):
     return vs_name
 
 
-def test_rename_service_objects(bigip, service, service_adapter):
-
+def test_rename_service_objects(track_bigip_cfg, bigip, service,
+                                service_adapter):
+    """Tests the renaming of service objects"""
     icontroldriver, start_registry = handle_init_registry(bigip, TEST_CONFIG)
 
     folder_name = service_adapter.get_folder_name(
@@ -255,8 +259,9 @@ def test_rename_service_objects(bigip, service, service_adapter):
         assert(v == post_vs_status[k])
 
 
-def test_no_rename_service_objects(bigip, service, service_name):
-
+def test_no_rename_service_objects(track_bigip_cfg, bigip, service,
+                                   service_name):
+    """Tests the no renaming of service objects"""
     deploy_service(bigip, service_name)
 
     icontroldriver, start_registry = handle_init_registry(bigip, TEST_CONFIG)

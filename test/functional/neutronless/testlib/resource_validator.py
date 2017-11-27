@@ -148,10 +148,15 @@ class ResourceValidator(object):
 
         if 'lbaas_fallback_persist' in esd:
             assert vs.fallbackPersistence == \
-                   '/Common/' + esd['lbaas_fallback_persist']
+                '/Common/' + esd['lbaas_fallback_persist']
 
         if 'lbaas_irule' in esd:
             for rule in esd['lbaas_irule']:
+                rule_name = '/Common/' + rule
+                assert rule_name in vs.rules
+
+        if 'lbaas_policy' in esd:
+            for rule in esd['lbaas_policy']:
                 rule_name = '/Common/' + rule
                 assert rule_name in vs.rules
 
@@ -187,10 +192,13 @@ class ResourceValidator(object):
             fallback_persist = getattr(vs, 'fallbackPersistence', None)
             if fallback_persist:
                 assert fallback_persist != \
-                       '/Common/' + esd['lbaas_fallback_persist']
+                    '/Common/' + esd['lbaas_fallback_persist']
 
         if 'lbaas_irule' in esd:
             assert not getattr(vs, 'rules', None)
+
+        if 'lbaas_policy' in esd:
+            assert not getattr(vs, 'policies', None)
 
     def is_in_collection(self, collection, name):
         for item in collection:

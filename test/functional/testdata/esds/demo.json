@@ -1,0 +1,45 @@
+{
+  "f5_ESD_full_8_tag_set": {
+    "lbaas_ctcp": "tcp-mobile-optimized",
+    "lbaas_stcp": "tcp-lan-optimized",
+    "lbaas_cssl_profile": "clientssl",
+    "lbaas_sssl_profile": "serverssl",
+    "lbaas_irule": ["_sys_https_redirect"],
+    "lbaas_policy": ["demo_policy"],
+    "lbaas_persist": "hash",
+    "lbaas_fallback_persist": "source_addr"
+  },
+
+  "f5_ESD_two_irules": {
+    "lbaas_irule": [
+      "_sys_https_redirect",
+      "_sys_APM_ExchangeSupport_helper"
+    ]
+  },
+
+  "f5_ESD_lbaas_ctcp":             { "lbaas_ctcp": "tcp-mobile-optimized" },
+  "f5_ESD_lbaas_stcp":             { "lbaas_stcp": "tcp-lan-optimized" },
+  "f5_ESD_lbaas_cssl_profile":     { "lbaas_cssl_profile": "clientssl"},
+  "f5_ESD_lbaas_sssl_profile":     { "lbaas_sssl_profile": "serverssl" },
+  "f5_ESD_lbaas_irule":            { "lbaas_irule": ["_sys_https_redirect"] },
+  "f5_ESD_lbaas_policy":           { "lbaas_policy": ["demo_policy"] },
+  "f5_ESD_lbaas_persist":          { "lbaas_persist": "hash" },
+  "f5_ESD_lbaas_fallback_persist": { "lbaas_fallback_persist": "source_addr" },
+
+  "f5_ESD_issue_1047_basic":             { "lbaas_ctcp": "tcp-mobile-optimized" },
+  "f5_ESD_dmzmobile": {
+    "lbaas_ctcp": "tcp-mobile-optimized",
+    "lbaas_stcp": "tcp-lan-optimized",
+    "lbaas_cssl_profile": "clientssl-secure",
+    "lbaas_sssl_profile": "serverssl",
+    "lbaas_irule": ["server_header_scrub","cve-2017-5638","cve-2015-1635","cve-2013-0156"],
+    "lbaas_policy": ["dmz"],
+    "lbaas_persist": "cookie",
+    "lbaas_fallback_persist": "source_addr"
+    },
+
+  "f5_ESD_issue_1046_basic": {
+    "lbaas_persist": "cookie",
+    "lbaas_fallback_persist": "source_addr"
+    }
+}

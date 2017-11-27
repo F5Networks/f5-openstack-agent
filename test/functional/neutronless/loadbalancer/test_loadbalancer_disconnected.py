@@ -33,8 +33,10 @@ LOG = logging.getLogger(__name__)
 @pytest.fixture
 def services():
     neutron_services_filename = (
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/create_delete_disconnected_lb.json')
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            str('../../testdata/service_requests/'
+                'create_delete_disconnected_lb.json'))
     )
     return (json.load(open(neutron_services_filename)))
 
@@ -42,14 +44,17 @@ def services():
 @pytest.fixture
 def disconnected_service_no_seg():
     neutron_services_filename = (
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/create_delete_disconnected_noseg_lb.json')
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            str('../../testdata/service_requests/'
+                'create_delete_disconnected_noseg_lb.json'))
     )
     return (json.load(open(neutron_services_filename)))
 
 
-def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
-                               icd_config, icontrol_driver):
+def test_featureoff_nosegid_lb(
+        track_bigip_cfg, bigip, disconnected_service_no_seg, icd_config,
+        icontrol_driver):
 
     service_iter = iter(disconnected_service_no_seg)
     service = service_iter.next()
@@ -115,7 +120,8 @@ def test_featureoff_nosegid_lb(bigip, disconnected_service_no_seg,
     assert not bigip.folder_exists(folder)
 
 
-def test_featureon_nosegid_to_segid_lb(bigip, services, icd_config, icontrol_driver):
+def test_featureon_nosegid_to_segid_lb(track_bigip_cfg, bigip, services,
+                                       icd_config, icontrol_driver):
 
     service_iter = iter(services)
     service = service_iter.next()

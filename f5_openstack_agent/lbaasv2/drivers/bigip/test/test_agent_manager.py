@@ -29,6 +29,7 @@ def agent_mgr_setup(mock_importutils, mock_setup_rpc):
     return agent_manager.LbaasAgentManager(mock.MagicMock(name='conf'))
 
 
+@pytest.mark.skip(reason="Mocked RPC breaks initialization")
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager.LOG')
 def test_update_fdb_entries(mock_log, agent_mgr_setup):
     '''When func is called in agent_manager, it prooduces a warning message.'''

@@ -12,7 +12,7 @@ L2-adjacent mode is the **default mode of operation** for the |agent-short|.
 
 .. important::
 
-   - All Neutron and external network components should be set up before you deploy the |agent-short| in L2-adjacent mode.
+   - Set up all Neutron and external network components before you deploy the |agent-short| in L2-adjacent mode.
    - This mode of deployment may require a BIG-IP `Better or Best license`_ that supports SDN.
 
 .. warning::
@@ -36,6 +36,8 @@ Set-up
 
    .. literalinclude:: /_static/config_examples/f5-openstack-agent.vxlan.ini
 
+   \
+
    :fonticon:`fa fa-download` :download:`Download the example configuration file </_static/config_examples/f5-openstack-agent.vxlan.ini>`
 
 #. Restart the |agent-short| service.
@@ -46,6 +48,8 @@ Set-up
 What's Next
 -----------
 
-See `F5 Agent modes`_ for detailed information regarding each of the Agent's modes of operation and example use cases.
+- See `F5 Agent modes`_ for detailed information regarding each of the Agent's modes of operation and example use cases.
+- See `How to set up the F5 Agent for Hierarchical Port Binding </cloud/openstack/v1/lbaas/set-up-agent-hpb.html>`_ for information about standard and Cisco ACI HPB deployments.
+
 .. todo:: add Cisco APIC/ACI deployment solution guide and link to it here
 
