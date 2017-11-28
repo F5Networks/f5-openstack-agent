@@ -170,7 +170,8 @@ def check_host_and_guest_vlans_on_create(vcmp_host, bigip):
         name='vlan-46', partition='Common')
 
 
-def test_vcmp_createlb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+def test_vcmp_createlb(track_bigip_cfg, setup_bigip_devices, bigip, vcmp_setup,
+                       vcmp_uris):
     '''Create lb with vcmp turned on.'''
 
     vcmp_host = vcmp_setup
@@ -199,7 +200,8 @@ def test_vcmp_createlb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
     check_host_and_guest_vlans_on_create(vcmp_host[0], bigip)
 
 
-def test_vcmp_deletelb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+def test_vcmp_deletelb(track_bigip_cfg, setup_bigip_devices, bigip, vcmp_setup,
+                       vcmp_uris):
     '''Create and delete lb with vcmp turned on.'''
 
     vcmp_host = vcmp_setup
@@ -233,7 +235,8 @@ def test_vcmp_deletelb(setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
 
 
 def test_vcmp_deletelb_with_mgmt_vlan(
-        setup_bigip_devices, bigip, vcmp_setup, vcmp_uris, mgmt_vlan):
+        track_bigip_cfg, setup_bigip_devices, bigip, vcmp_setup, vcmp_uris,
+        mgmt_vlan):
     '''Create and delete lb with vcmp turned on and mgmt vlan exists.
 
     We need to ensure a pre-existing management vlan, which is associated
@@ -273,7 +276,7 @@ def test_vcmp_deletelb_with_mgmt_vlan(
 
 
 def test_vcmp_create_listener(
-        setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+        track_bigip_cfg, setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
     '''Create listener with vcmp turned on.'''
 
     vcmp_host = vcmp_setup
@@ -304,7 +307,7 @@ def test_vcmp_create_listener(
 
 
 def test_vcmp_delete_listener(
-        setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+        track_bigip_cfg, setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
     '''Create and delete listener with vcmp turned on.'''
 
     vcmp_host = vcmp_setup
@@ -347,7 +350,7 @@ def test_vcmp_delete_listener(
             'ClusterManager')
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG')
 def test_vcmp_clustered_guests(
-        mock_log, mock_cm, setup_bigip_devices,
+        mock_log, mock_cm, track_bigip_cfg, setup_bigip_devices,
         bigip, bigip2, vcmp_setup, vcmp_uris):
     '''Test creation of lb with guests clustered across hosts.'''
 
@@ -453,7 +456,7 @@ def test_vcmp_clustered_guests(
             'ClusterManager')
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG')
 def test_vcmp_clustered_guests_more_hosts_than_guests(
-        mock_log, mock_cm, setup_bigip_devices,
+        mock_log, mock_cm, track_bigip_cfg, setup_bigip_devices,
         bigip, bigip2, vcmp_setup, vcmp_uris):
     '''Exception should raise when given host that is not licensed for vcmp.'''
 
@@ -480,7 +483,7 @@ def test_vcmp_clustered_guests_more_hosts_than_guests(
 
 
 def test_vcmp_delete_listener_flat(
-        setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
+        track_bigip_cfg, setup_bigip_devices, bigip, vcmp_setup, vcmp_uris):
     '''Create listener with vcmp turned on and flat as network type.'''
 
     vcmp_host = vcmp_setup

@@ -15,7 +15,6 @@
 
 
 from ..testlib.service_reader import LoadbalancerReader
-from copy import deepcopy
 import json
 import logging
 import os
@@ -34,13 +33,14 @@ LOG = logging.getLogger(__name__)
 @pytest.fixture
 def services():
     neutron_services_filename = (
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/create_delete_opflex_lb.json')
-    )
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            '../../testdata/service_requests/create_delete_opflex_lb.json'))
     return (json.load(open(neutron_services_filename)))
 
 
-def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
+def test_create_delete_basic_lb(
+        track_bigip_cfg, bigip, services, icd_config, icontrol_driver):
 
     service_iter = iter(services)
     service = service_iter.next()
@@ -104,7 +104,6 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
                               partition=folder)
     assert vlan
 
-
     # Assert route domain created
     rd_name = folder
     assert bigip.resource_exists(ResourceType.route_domain, rd_name)
@@ -135,15 +134,16 @@ def test_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
                                   snatpool_name,
                                   partition=folder)
     assert snatpool
-    snat_members = snatpool.members
 
     # Delete the loadbalancer
     service = service_iter.next()
-    icontrol_driver._common_service_handler(service, delete_partition=True, delete_event=True)
+    icontrol_driver._common_service_handler(service, delete_partition=True,
+                                            delete_event=True)
     assert not bigip.folder_exists(folder)
 
-def test_featureoff_create_delete_basic_lb(bigip, services, icd_config, icontrol_driver):
 
+def test_featureoff_create_delete_basic_lb(track_bigip_cfg, bigip, services,
+                                           icd_config, icontrol_driver):
     service_iter = iter(services)
     service = service_iter.next()
     lb_reader = LoadbalancerReader(service)
@@ -207,7 +207,6 @@ def test_featureoff_create_delete_basic_lb(bigip, services, icd_config, icontrol
                               partition=folder)
     assert vlan
 
-
     # Assert route domain created
     rd_name = folder
     assert bigip.resource_exists(ResourceType.route_domain, rd_name)
@@ -238,11 +237,9 @@ def test_featureoff_create_delete_basic_lb(bigip, services, icd_config, icontrol
                                   snatpool_name,
                                   partition=folder)
     assert snatpool
-    snat_members = snatpool.members
 
     # Delete the loadbalancer
     service = service_iter.next()
     icontrol_driver._common_service_handler(service, delete_partition=True,
                                             delete_event=True)
     assert not bigip.folder_exists(folder)
-    

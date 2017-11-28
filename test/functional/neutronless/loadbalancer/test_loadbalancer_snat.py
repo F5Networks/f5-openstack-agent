@@ -40,8 +40,8 @@ def services():
     return (json.load(open(neutron_services_filename)))
 
 
-def test_create_delete_lb_autosnat(bigip, services, icd_config, icontrol_driver):
-
+def test_create_delete_lb_autosnat(track_bigip_cfg, bigip, services,
+                                   icd_config, icontrol_driver):
     service_iter = iter(services)
     service = service_iter.next()
     lb_reader = LoadbalancerReader(service)
@@ -105,7 +105,7 @@ def test_create_delete_lb_autosnat(bigip, services, icd_config, icontrol_driver)
     assert fake_rpc.get_call_count('create_port_on_subnet') == 1
     call = fake_rpc.get_calls('create_port_on_subnet')[0]
     assert call['name'] == selfip_name
-    
+
     # Assert that a snat pool was not created.
     snatpool_name = folder
     assert not bigip.resource_exists(ResourceType.snatpool, snatpool_name)
@@ -128,8 +128,8 @@ def test_create_delete_lb_autosnat(bigip, services, icd_config, icontrol_driver)
     assert not bigip.folder_exists(folder)
 
 
-def test_create_delete_lb_multisnat(bigip, services, icd_config, icontrol_driver):
-
+def test_create_delete_lb_multisnat(track_bigip_cfg, bigip, services,
+                                    icd_config, icontrol_driver):
     service_iter = iter(services)
     service = service_iter.next()
     lb_reader = LoadbalancerReader(service)
@@ -233,8 +233,8 @@ def test_create_delete_lb_multisnat(bigip, services, icd_config, icontrol_driver
     assert not bigip.folder_exists(folder)
 
 
-def test_create_delete_lb_snatoff(bigip, services, icd_config, icontrol_driver):
-
+def test_create_delete_lb_snatoff(track_bigip_cfg, bigip, services, icd_config,
+                                  icontrol_driver):
     service_iter = iter(services)
     service = service_iter.next()
     lb_reader = LoadbalancerReader(service)
@@ -299,7 +299,7 @@ def test_create_delete_lb_snatoff(bigip, services, icd_config, icontrol_driver):
     assert fake_rpc.get_call_count('create_port_on_subnet') == 1
     call = fake_rpc.get_calls('create_port_on_subnet')[0]
     assert call['name'] == selfip_name
-    
+
     # Assert that a snat pool was not created.
     snatpool_name = folder
     assert not bigip.resource_exists(ResourceType.snatpool, snatpool_name)

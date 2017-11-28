@@ -13,17 +13,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from copy import deepcopy
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
-    ResourceType
 import json
 import logging
 import os
 import pytest
 import requests
-import urllib
-
-from ..testlib.resource_validator import ResourceValidator
 from ..testlib.service_reader import LoadbalancerReader
 
 
@@ -36,16 +30,15 @@ LOG = logging.getLogger(__name__)
 def services():
     neutron_services_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/create_delete_opflex_member.json')
+                     '../../testdata/service_requests/'
+                     'create_delete_opflex_member.json')
     )
     return (json.load(open(neutron_services_filename)))
 
 
-def test_lbaas_service_one_opflex_member(request,
-                                    bigip,
-                                    services,
-                                    icd_config,
-                                    icontrol_driver):
+def test_lbaas_service_one_opflex_member(
+        track_bigip_cfg, request, bigip, services, icd_config,
+        icontrol_driver):
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
     service = service_iter.next()
@@ -61,15 +54,13 @@ def test_lbaas_service_one_opflex_member(request,
 
     # create member, node
     service = service_iter.next()
-    member = service['members'][0]
     lb_pending = icontrol_driver._common_service_handler(service)
     assert lb_pending
     # Assert that update loadbalancer status was called once
-    assert fake_rpc.get_call_count('update_loadbalancer_status') == 1    
+    assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
 
     # create member, node
     service = service_iter.next()
-    member = service['members'][0]
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
     # Assert that update loadbalancer status was called once

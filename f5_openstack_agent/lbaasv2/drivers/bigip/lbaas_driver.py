@@ -15,13 +15,13 @@
 
 
 class LBaaSBaseDriver(object):
-    """Abstract base LBaaS Driver class for interfacing with Agent Manager """
+    """Abstract base LBaaS Driver class for interfacing with Agent Manager."""
 
     def __init__(self, conf):  # XXX 'conf' appears to be unused
-        '''Maybe we can remove this method altogether? Or maybe it's for future
+        """Maybe we can remove this method altogether? Or maybe it's for future.
 
         subclassing...
-        '''
+        """
         self.agent_id = None
         self.plugin_rpc = None  # XXX overridden in the only known subclass
         self.connected = False  # XXX overridden in the only known subclass
@@ -29,144 +29,148 @@ class LBaaSBaseDriver(object):
         self.agent_configurations = {}  # XXX overridden in subclass
 
     def set_context(self, context):
-        """Set the global context object for the lbaas driver """
+        """Set the global context object for the lbaas driver."""
         raise NotImplementedError()
 
-    def post_init(self):
-        """Run after agent is fully connected """
+    def set_plugin_rpc(self, plugin_rpc):
+        """Provide LBaaS Plugin RPC access."""
+
+    def set_agent_report_state(self, report_state_callback):
+        """Set Agent Report State."""
         raise NotImplementedError()
 
-    def set_tunnel_rpc(self, tunnel_rpc):  # XXX into this class?
-        """Provide FDB Connector RPC access """
+    def set_tunnel_rpc(self, tunnel_rpc):
+        """Provide FDB Connector RPC access."""
         raise NotImplementedError()
 
     def set_l2pop_rpc(self, l2pop_rpc):
-        """Provide FDB Connector with L2 Population RPC access """
-        raise NotImplementedError()
-
-    def connect(self):
-        """Connect backend API endpoints """
+        """Provide FDB Connector with L2 Population RPC access."""
         raise NotImplementedError()
 
     def flush_cache(self):
-        """Remove all cached items """
+        """Remove all cached items."""
         raise NotImplementedError()
+
+    def backend_integrity(self):
+        """Return True, if the agent is be considered viable for services."""
+        raise NotImplemented()
 
     def backup_configuration(self):
-        """Persist backend configuratoins """
+        """Persist backend configuratoins."""
         raise NotImplementedError()
 
+    def generate_capacity_score(self, capacity_policy):
+        """Generate the capacity score of connected devices."""
+        raise NotImplemented
+
+    def update_operating_status(self):
+        """Update pool member operational status from devices to controller."""
+        raise NotImplemented
+
+    def recover_errored_devices(self):
+        """Trigger attempt to reconnect any errored devices."""
+        raise NotImplemented
+
     def get_stats(self, service):
-        """Get Stats for a loadbalancer Service """
+        """Get Stats for a loadbalancer Service."""
         raise NotImplementedError()
 
     def get_all_deployed_loadbalancers(self, purge_orphaned_folders=True):
-        """Get all Loadbalancers defined on devices"""
+        """Get all Loadbalancers defined on devices."""
         raise NotImplemented
 
-    def purge_orphaned_loadbalancer(self, tenant_id, loadbalancer_id):
-        """Remove all loadbalancers without references in Neutron"""
+    def purge_orphaned_loadbalancer(self, tenant_id, loadbalancer_id,
+                                    hostnames):
+        """Remove all loadbalancers without references in Neutron."""
         raise NotImplemented
 
-    def exists(self, service):
-        """Check If LBaaS Service is Defined on Driver Target """
+    def service_exists(self, service):
+        """Check If LBaaS Service is Defined on Driver Target."""
         raise NotImplementedError()
 
     def sync(self, service):
-        """Force Sync a Service on Driver Target """
-        raise NotImplementedError()
-
-    def create_vip(self, vip, service):
-        """LBaaS Create VIP """
-        raise NotImplementedError()
-
-    def update_vip(self, old_vip, vip, service):
-        """LBaaS Update VIP """
-        raise NotImplementedError()
-
-    def delete_vip(self, vip, service):
-        """LBaaS Delete VIP """
+        """Force Sync a Service on Driver Target."""
         raise NotImplementedError()
 
     def create_pool(self, pool, service):
-        """LBaaS Delete VIP """
+        """LBaaS Create Pool."""
         raise NotImplementedError()
 
     def update_pool(self, old_pool, pool, service):
-        """LBaaS Update Pool """
+        """LBaaS Update Pool."""
         raise NotImplementedError()
 
     def delete_pool(self, pool, service):
-        """LBaaS Delete Pool """
+        """LBaaS Delete Pool."""
         raise NotImplementedError()
 
     def create_member(self, member, service):
-        """LBaaS Create Member """
+        """LBaaS Create Member."""
         raise NotImplementedError()
 
     def update_member(self, old_member, member, service):
-        """LBaaS Update Member """
+        """LBaaS Update Member."""
         raise NotImplementedError()
 
     def delete_member(self, member, service):
-        """LBaaS Delete Member """
+        """LBaaS Delete Member."""
         raise NotImplementedError()
 
     def create_pool_health_monitor(self, health_monitor, pool, service):
-        """LBaaS Create Pool Health Monitor """
+        """LBaaS Create Pool Health Monitor."""
         raise NotImplementedError()
 
     def update_health_monitor(self, old_health_monitor,
                               health_monitor,
                               pool,
                               service):
-        """LBaaS Update Health Monitor """
+        """LBaaS Update Health Monitor."""
         raise NotImplementedError()
 
     def delete_pool_health_monitor(self, health_monitor, pool, service):
-        """LBaaS Delete Health Monitor """
+        """LBaaS Delete Health Monitor."""
         raise NotImplementedError()
 
     def tunnel_update(self, **kwargs):
-        """Neutron Core Tunnel Update """
+        """Neutron Core Tunnel Update."""
         raise NotImplementedError()
 
     def tunnel_sync(self):
-        """Neutron Core Tunnel Sync Messages """
+        """Neutron Core Tunnel Sync Messages."""
         raise NotImplementedError()
 
     def fdb_add(self, fdb_entries):
-        """L2 Population FDB Add """
+        """L2 Population FDB Add."""
         raise NotImplementedError()
 
     def fdb_remove(self, fdb_entries):
-        """L2 Population FDB Remove """
+        """L2 Population FDB Remove."""
         raise NotImplementedError()
 
     def fdb_update(self, fdb_entries):
-        """L2 Population FDB Update """
+        """L2 Population FDB Update."""
         raise NotImplementedError()
 
     def create_l7policy(self, l7policy, service):
-        """LBaaS Create l7policy """
+        """LBaaS Create l7policy."""
         raise NotImplementedError()
 
     def update_l7policy(self, old_l7policy, l7policy, service):
-        """LBaaS Update l7policy """
+        """LBaaS Update l7policy."""
         raise NotImplementedError()
 
     def delete_l7policy(self, l7policy, service):
-        """LBaaS Delete l7policy """
+        """LBaaS Delete l7policy."""
         raise NotImplementedError()
 
     def create_l7rule(self, l7rule, service):
-        """LBaaS Create l7rule """
+        """LBaaS Create l7rule."""
         raise NotImplementedError()
 
     def update_l7rule(self, old_l7rule, l7rule, service):
-        """LBaaS Update l7rule """
+        """LBaaS Update l7rule."""
         raise NotImplementedError()
 
     def delete_l7rule(self, l7rule, service):
-        """LBaaS Delete l7rule """
+        """LBaaS Delete l7rule."""
         raise NotImplementedError()

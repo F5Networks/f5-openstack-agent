@@ -82,11 +82,13 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
                          registerOpts=False)
 
     icd.plugin_rpc = fake_plugin_rpc
+    icd.connect()
 
     return icd
 
 
-def test_tentant(bigip, services, icd_config, icontrol_driver):
+def test_tenant(track_bigip_cfg, bigip, services, icd_config,
+                 icontrol_driver):
     """Test creating and deleting SNAT pools with common network listener.
 
     The test procedure is testing that the needed items as follows:
@@ -159,7 +161,8 @@ def test_tentant(bigip, services, icd_config, icontrol_driver):
 
 @pytest.mark.skip(reason=str("Route domain and snatpool Common handling "
                              "not done yet"))
-def test_common_owned_objs(bigip, services, icd_config, icontrol_driver):
+def test_common_owned_objs(track_bigip_cfg, bigip, services, icd_config,
+                           icontrol_driver):
     """Tests that route domain and snatpool objects are in Common
 
     This test simply validates whether or not the snatpool and route domain are

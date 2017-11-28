@@ -225,13 +225,13 @@ The example configuration files provided here can help guide you in setting up t
 
 .. rubric:: Global routed mode
 
-* :download:`Download global routed mode example </_static/config_examples/f5-openstack-agent.grm.ini>`
+* :fonticon:`fa fa-download` :download:`Global routed mode example </_static/config_examples/f5-openstack-agent.grm.ini>`
 
 .. rubric:: L2-adjacent mode
 
-* :download:`GRE example </_static/config_examples/f5-openstack-agent.gre.ini>`
-* :download:`VLAN example </_static/config_examples/f5-openstack-agent.vlan.ini>`
-* :download:`VXLAN example </_static/config_examples/f5-openstack-agent.vxlan.ini>`
+* :fonticon:`fa fa-download` :download:`GRE example </_static/config_examples/f5-openstack-agent.gre.ini>`
+* :fonticon:`fa fa-download` :download:`VLAN example </_static/config_examples/f5-openstack-agent.vlan.ini>`
+* :fonticon:`fa fa-download` :download:`VXLAN example </_static/config_examples/f5-openstack-agent.vxlan.ini>`
 
 .. index::
    single: f5-openstack-agent; unsupported features

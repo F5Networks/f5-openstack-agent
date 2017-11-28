@@ -19,12 +19,43 @@ import pytest
 from mock import Mock
 
 from neutron.plugins.common import constants as plugin_const
+from requests import HTTPError
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.listener_service \
     as listener_service
 import f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.test.conftest as ct
+
+
+class MockError(Exception):
+    pass
+
+
+class MockHTTPError(HTTPError):
+    def __init__(self, response_obj, message=''):
+        self.response = response_obj
+        self.message = message
+
+
+class MockHTTPErrorResponse400(HTTPError):
+    def __init__(self):
+        self.status_code = 400
+
+
+class MockHTTPErrorResponse404(HTTPError):
+    def __init__(self):
+        self.status_code = 404
+
+
+class MockHTTPErrorResponse409(HTTPError):
+    def __init__(self):
+        self.status_code = 409
+
+
+class MockHTTPErrorResponse500(HTTPError):
+    def __init__(self):
+        self.status_code = 500
 
 
 class TestListenerServiceBuilderConstructor(ct.TestingWithServiceConstructor):
@@ -98,6 +129,383 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
         self.resource_bigip.assert_called_once_with(
             self.resource_type.virtual)
 
+    def test_create_listener(self, target, service_with_loadbalancer,
+                             service_with_listener):
+        svc = service_with_listener
+
+        def clean_target(self, target):
+            target.vs_helper.reset_mock()
+            target.vs_helper.update.reset_mock()
+            target.vs_helper.create.reset_mock()
+            svc = self.clean_svc_with_listener()
+            self.creation_mode_listener(svc, svc['listeners'][0])
+            return target, svc
+
+        def create_basic_listener_200(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            bigips = [Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert not retval
+            assert not target.vs_helper.update.called
+
+        def create_basic_listener_200_two_bigip(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            bigips = [Mock(), Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert not retval
+            assert not target.vs_helper.update.called
+
+        def create_basic_listener_409(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse409())
+            bigips = [Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert not retval
+            assert target.vs_helper.update.called
+
+        def create_basic_listener_400(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse400())
+            bigips = [Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert retval
+            assert not target.vs_helper.update.called
+
+        def create_basic_listener_exception(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.create.side_effect = MockError()
+
+            bigips = [Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert retval
+            assert not target.vs_helper.update.called
+
+        def create_basic_listener_update_exception(target,
+                                                   service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse409())
+            target.vs_helper.update.side_effect = MockError()
+
+            bigips = [Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert retval
+            assert target.vs_helper.update.called
+
+        self.creation_mode_listener(svc, svc['listeners'][0])
+        create_basic_listener_200(target, svc)
+        create_basic_listener_200_two_bigip(target, svc)
+        create_basic_listener_409(target, svc)
+        clean_target(self, target)
+        create_basic_listener_400(target, svc)
+        create_basic_listener_exception(target, svc)
+        create_basic_listener_update_exception(target, svc)
+
+    def test_delete_listener(self, target, service_with_loadbalancer,
+                             service_with_listener):
+        svc = service_with_listener
+
+        def clean_target(self, target):
+            target.vs_helper.reset_mock()
+            target.vs_helper.create.reset_mock()
+            target.vs_helper.update.reset_mock()
+            target.vs_helper.delete.reset_mock()
+
+            svc = self.clean_svc_with_listener()
+            self.creation_mode_listener(svc, svc['listeners'][0])
+            return target, svc
+
+        def delete_listener_200(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual_name.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            bigips = [Mock()]
+            retval = target.delete_listener(service_with_listener, bigips)
+
+            assert not retval
+
+        def delete_listener_200_two_bigip(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual_name.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            bigips = [Mock(), Mock()]
+            retval = target.delete_listener(service_with_listener, bigips)
+
+            assert not retval
+
+        def delete_listener_404(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual_name.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.delete.side_effect = MockHTTPError(
+                MockHTTPErrorResponse404())
+            bigips = [Mock()]
+            retval = target.delete_listener(service_with_listener, bigips)
+
+            assert not retval
+
+        def delete_listener_400(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual_name.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.delete.side_effect = MockHTTPError(
+                MockHTTPErrorResponse400())
+            bigips = [Mock()]
+            retval = target.delete_listener(service_with_listener, bigips)
+
+            assert retval
+
+        def delete_listener_exception(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual_name.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.delete.side_effect = MockError()
+
+            bigips = [Mock()]
+            retval = target.delete_listener(service_with_listener, bigips)
+
+            assert retval
+
+        self.creation_mode_listener(svc, svc['listeners'][0])
+        delete_listener_200(target, svc)
+        delete_listener_200_two_bigip(target, svc)
+        delete_listener_404(target, svc)
+        clean_target(self, target)
+        delete_listener_400(target, svc)
+        delete_listener_exception(target, svc)
+
+    def test_create_listener_two_bigip(self, target, service_with_loadbalancer,
+                                       service_with_listener):
+        svc = service_with_listener
+
+        def clean_target(self, target):
+            target.vs_helper.reset_mock()
+            target.vs_helper.update.reset_mock()
+            target.vs_helper.create.reset_mock()
+            svc = self.clean_svc_with_listener()
+            self.creation_mode_listener(svc, svc['listeners'][0])
+            return target, svc
+
+        def create_listener_two_bigip_noerror(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            bigips = [Mock(), Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert not retval
+            assert not target.vs_helper.update.called
+
+        def create_listener_two_bigip_error_noerror(target,
+                                                    service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.create.side_effect = [MockError(), None]
+            bigips = [Mock(), Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert retval
+            assert not target.vs_helper.update.called
+
+        def create_listener_two_bigip_409_noerror(target,
+                                                  service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.create.side_effect = [
+                MockHTTPError(MockHTTPErrorResponse409()), None]
+            bigips = [Mock(), Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert not retval
+            assert target.vs_helper.update.called
+
+        def create_listener_two_bigip_409_409(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            vs = dict(name='name', partition='partition')
+            tls = dict()
+            target.service_adapter.get_virtual.return_value = vs
+            target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.create.side_effect = [
+                MockHTTPError(MockHTTPErrorResponse409()),
+                MockHTTPError(MockHTTPErrorResponse409())]
+            bigips = [Mock(), Mock()]
+            retval = target.create_listener(service_with_listener, bigips)
+
+            assert not retval
+            assert target.vs_helper.update.called
+
+        self.creation_mode_listener(svc, svc['listeners'][0])
+        create_listener_two_bigip_noerror(target, svc)
+        clean_target(self, target)
+        create_listener_two_bigip_error_noerror(target, svc)
+        target, svc = clean_target(self, target)
+        create_listener_two_bigip_409_noerror(target, svc)
+
+        target, svc = clean_target(self, target)
+        create_listener_two_bigip_409_noerror(target, svc)
+
+    def test_add_ssl_profile(self, target, service_with_listener):
+        svc = service_with_listener
+
+        def add_ssl_profile_no_tls_or_sni(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            tls = dict(name='name', partition='partition')
+            bigip = Mock()
+            target._create_ssl_profile = Mock()
+
+            target.add_ssl_profile(tls, bigip)
+
+            assert not target._create_ssl_profile.called
+
+        def add_ssl_profile_one_tls_no_sni(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            tls = dict(name='name', partition='partition')
+            tls['default_tls_container_id'] = '12345'
+            bigip = Mock()
+            target._create_ssl_profile = Mock()
+
+            target.add_ssl_profile(tls, bigip)
+
+            assert target._create_ssl_profile.call_count == 1
+            target._create_ssl_profile.assert_called_once_with(
+                '12345', bigip, dict(name='name', partition='partition'),
+                True)
+
+        def add_ssl_profile_no_tls_one_sni(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            tls = dict(name='name', partition='partition')
+            sni_container = dict(tls_container_id="12345")
+            tls['sni_containers'] = [sni_container]
+            bigip = Mock()
+            target._create_ssl_profile = Mock()
+
+            target.add_ssl_profile(tls, bigip)
+
+            assert target._create_ssl_profile.call_count == 1
+            target._create_ssl_profile.assert_called_once_with(
+                '12345', bigip, dict(name='name', partition='partition'),
+                False)
+
+        self.creation_mode_listener(svc, svc['listeners'][0])
+        add_ssl_profile_no_tls_or_sni(target, svc)
+        add_ssl_profile_one_tls_no_sni(target, svc)
+        add_ssl_profile_no_tls_one_sni(target, svc)
+
+    def test_remove_ssl_profile(self, target, service_with_listener):
+        svc = service_with_listener
+
+        def delete_ssl_profile_no_tls_or_sni(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            tls = dict(name='name', partition='partition')
+            bigip = Mock()
+            target._remove_ssl_profile = Mock()
+
+            target.remove_ssl_profiles(tls, bigip)
+
+            assert not target._remove_ssl_profile.called
+
+        def delete_ssl_profile_one_tls_no_sni(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            tls = dict(name='name', partition='partition')
+            tls['default_tls_container_id'] = '12345/6789'
+            bigip = Mock()
+            target._remove_ssl_profile = Mock()
+            target.service_adapter.prefix = "pre_"
+
+            target.remove_ssl_profiles(tls, bigip)
+
+            assert target._remove_ssl_profile.call_count == 1
+            target._remove_ssl_profile.assert_called_once_with(
+                'pre_6789', bigip)
+
+            tls['default_tls_container_id'] = '123456789'
+            target._remove_ssl_profile.reset_mock()
+
+            target.remove_ssl_profiles(tls, bigip)
+
+            assert not target._remove_ssl_profile.called
+
+        def delete_ssl_profile_no_tls_one_sni(target, service_with_listener):
+            svc['listener']['protocol'] = 'HTTP'
+            tls = dict(name='name', partition='partition')
+            bigip = Mock()
+            target._remove_ssl_profile = Mock()
+            target.service_adapter = Mock()
+            target.service_adapter.prefix = "pre_"
+
+            sni_container = dict(tls_container_id="123/45")
+            tls['sni_containers'] = [sni_container]
+
+            target.remove_ssl_profiles(tls, bigip)
+
+            assert target._remove_ssl_profile.call_count == 1
+            target._remove_ssl_profile.assert_called_once_with(
+                'pre_45', bigip)
+
+            sni_container = dict(tls_container_id="12345")
+            tls['sni_containers'] = [sni_container]
+            target._remove_ssl_profile.reset_mock()
+
+            target.remove_ssl_profiles(tls, bigip)
+
+            assert not target._remove_ssl_profile.called
+
+        self.creation_mode_listener(svc, svc['listeners'][0])
+        delete_ssl_profile_no_tls_or_sni(target, svc)
+        delete_ssl_profile_one_tls_no_sni(target, svc)
+        delete_ssl_profile_no_tls_one_sni(target, svc)
+
+    @pytest.mark.skip(reason="ESD implementation not valid")
     def test_apply_esd(self, target, service_with_loadbalancer, esd,
                        service_with_listener):
         svc = service_with_listener
@@ -180,6 +588,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
         target, svc, esd = clean_target(self, target)
         positive_no_listener(target, service_with_loadbalancer, esd)
 
+    @pytest.mark.skip(reason="ESD implementation changed")
     def test_remove_esd(self, target, service_with_listener, esd):
         svc = service_with_listener
 

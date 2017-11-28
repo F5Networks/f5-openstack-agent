@@ -1,0 +1,142 @@
+{
+    "f5_ESD_lbaas_stcp_lbaas_persist": {
+        "lbaas_stcp": "tcp-lan-optimized", 
+        "lbaas_persist": "hash"
+    }, 
+    "f5_ESD_lbaas_stcp_lbaas_cssl_profile": {
+        "lbaas_stcp": "tcp-lan-optimized", 
+        "lbaas_cssl_profile": "clientssl"
+    }, 
+    "f5_ESD_lbaas_irule_lbaas_persist": {
+        "lbaas_persist": "hash", 
+        "lbaas_irule": [
+            "_sys_https_redirect"
+        ]
+    }, 
+    "f5_ESD_lbaas_persist_lbaas_sssl_profile": {
+        "lbaas_persist": "hash", 
+        "lbaas_sssl_profile": "serverssl"
+    }, 
+    "f5_ESD_lbaas_irule_lbaas_ctcp": {
+        "lbaas_ctcp": "tcp-mobile-optimized", 
+        "lbaas_irule": [
+            "_sys_https_redirect"
+        ]
+    }, 
+    "f5_ESD_lbaas_fallback_persist_lbaas_persist": {
+        "lbaas_persist": "hash", 
+        "lbaas_fallback_persist": "source_addr"
+    }, 
+    "f5_ESD_lbaas_cssl_profile_lbaas_fallback_persist": {
+        "lbaas_cssl_profile": "clientssl", 
+        "lbaas_fallback_persist": "source_addr"
+    }, 
+    "f5_ESD_lbaas_cssl_profile_lbaas_sssl_profile": {
+        "lbaas_cssl_profile": "clientssl", 
+        "lbaas_sssl_profile": "serverssl"
+    }, 
+    "f5_ESD_lbaas_irule_lbaas_policy": {
+        "lbaas_policy": [
+            "demo_policy"
+        ], 
+        "lbaas_irule": [
+            "_sys_https_redirect"
+        ]
+    }, 
+    "f5_ESD_lbaas_cssl_profile_lbaas_policy": {
+        "lbaas_policy": [
+            "demo_policy"
+        ], 
+        "lbaas_cssl_profile": "clientssl"
+    }, 
+    "f5_ESD_lbaas_policy_lbaas_sssl_profile": {
+        "lbaas_policy": [
+            "demo_policy"
+        ], 
+        "lbaas_sssl_profile": "serverssl"
+    }, 
+    "f5_ESD_lbaas_cssl_profile_lbaas_irule": {
+        "lbaas_cssl_profile": "clientssl", 
+        "lbaas_irule": [
+            "_sys_https_redirect"
+        ]
+    }, 
+    "f5_ESD_lbaas_stcp_lbaas_policy": {
+        "lbaas_stcp": "tcp-lan-optimized", 
+        "lbaas_policy": [
+            "demo_policy"
+        ]
+    }, 
+    "f5_ESD_lbaas_irule_lbaas_fallback_persist": {
+        "lbaas_irule": [
+            "_sys_https_redirect"
+        ], 
+        "lbaas_fallback_persist": "source_addr"
+    }, 
+    "f5_ESD_lbaas_stcp_lbaas_sssl_profile": {
+        "lbaas_stcp": "tcp-lan-optimized", 
+        "lbaas_sssl_profile": "serverssl"
+    }, 
+    "f5_ESD_lbaas_stcp_lbaas_irule": {
+        "lbaas_stcp": "tcp-lan-optimized", 
+        "lbaas_irule": [
+            "_sys_https_redirect"
+        ]
+    }, 
+    "f5_ESD_lbaas_irule_lbaas_sssl_profile": {
+        "lbaas_sssl_profile": "serverssl", 
+        "lbaas_irule": [
+            "_sys_https_redirect"
+        ]
+    }, 
+    "f5_ESD_lbaas_policy_lbaas_persist": {
+        "lbaas_policy": [
+            "demo_policy"
+        ], 
+        "lbaas_persist": "hash"
+    }, 
+    "f5_ESD_lbaas_ctcp_lbaas_sssl_profile": {
+        "lbaas_ctcp": "tcp-mobile-optimized", 
+        "lbaas_sssl_profile": "serverssl"
+    }, 
+    "f5_ESD_lbaas_cssl_profile_lbaas_ctcp": {
+        "lbaas_ctcp": "tcp-mobile-optimized", 
+        "lbaas_cssl_profile": "clientssl"
+    }, 
+    "f5_ESD_lbaas_stcp_lbaas_ctcp": {
+        "lbaas_stcp": "tcp-lan-optimized", 
+        "lbaas_ctcp": "tcp-mobile-optimized"
+    }, 
+    "f5_ESD_lbaas_fallback_persist_lbaas_sssl_profile": {
+        "lbaas_sssl_profile": "serverssl", 
+        "lbaas_fallback_persist": "source_addr"
+    }, 
+    "f5_ESD_lbaas_fallback_persist_lbaas_policy": {
+        "lbaas_policy": [
+            "demo_policy"
+        ], 
+        "lbaas_fallback_persist": "source_addr"
+    }, 
+    "f5_ESD_lbaas_ctcp_lbaas_policy": {
+        "lbaas_ctcp": "tcp-mobile-optimized", 
+        "lbaas_policy": [
+            "demo_policy"
+        ]
+    }, 
+    "f5_ESD_lbaas_cssl_profile_lbaas_persist": {
+        "lbaas_persist": "hash", 
+        "lbaas_cssl_profile": "clientssl"
+    }, 
+    "f5_ESD_lbaas_stcp_lbaas_fallback_persist": {
+        "lbaas_stcp": "tcp-lan-optimized", 
+        "lbaas_fallback_persist": "source_addr"
+    }, 
+    "f5_ESD_lbaas_ctcp_lbaas_persist": {
+        "lbaas_ctcp": "tcp-mobile-optimized", 
+        "lbaas_persist": "hash"
+    }, 
+    "f5_ESD_lbaas_ctcp_lbaas_fallback_persist": {
+        "lbaas_ctcp": "tcp-mobile-optimized", 
+        "lbaas_fallback_persist": "source_addr"
+    }
+}

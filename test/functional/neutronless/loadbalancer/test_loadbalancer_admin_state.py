@@ -40,7 +40,8 @@ def services():
     return (json.load(open(neutron_services_filename)))
 
 
-def test_create_update_lb_state(bigip, services, icd_config, icontrol_driver):
+def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
+                                icontrol_driver):
     """Test creating and updating loadbalancer with differing admin states.
 
 
