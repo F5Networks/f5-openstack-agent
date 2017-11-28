@@ -13,7 +13,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from copy import deepcopy
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
     ResourceType
 import json
@@ -23,10 +22,6 @@ import pytest
 import requests
 import urllib
 
-from ..testlib.resource_validator import ResourceValidator
-from ..testlib.service_reader import LoadbalancerReader
-
-
 requests.packages.urllib3.disable_warnings()
 
 LOG = logging.getLogger(__name__)
@@ -34,7 +29,8 @@ LOG = logging.getLogger(__name__)
 """
 Commands to create a member for the weight testing.
 
-(neutron) lbaas-member-create --protocol-port 8080 --address 192.168.101.9 --subnet admin-subnet pool1
+(neutron) lbaas-member-create --protocol-port 8080 --address 192.168.101.9 \
+    --subnet admin-subnet pool1
 Created a new member:
 +----------------+--------------------------------------+
 | Field          | Value                                |
@@ -48,24 +44,34 @@ Created a new member:
 | tenant_id      | dfd83103ce2047d5b20ccd6ef272f3cc     |
 | weight         | 1                                    |
 +----------------+--------------------------------------+
-(neutron) lbaas-member-update --weight 5 a3e24756-4131-4157-a6cc-f9066260ad61 pool1
+(neutron) lbaas-member-update --weight 5 a3e24756-4131-4157-a6cc-f9066260ad61 \
+    pool1
 Updated member: a3e24756-4131-4157-a6cc-f9066260ad61
-(neutron) lbaas-member-update --weight 1 a3e24756-4131-4157-a6cc-f9066260ad61 pool1
+(neutron) lbaas-member-update --weight 1 a3e24756-4131-4157-a6cc-f9066260ad61 \
+    pool1
 Updated member: a3e24756-4131-4157-a6cc-f9066260ad61
-(neutron) lbaas-member-update --weight 0 a3e24756-4131-4157-a6cc-f9066260ad61 pool1
+(neutron) lbaas-member-update --weight 0 a3e24756-4131-4157-a6cc-f9066260ad61 \
+    pool1
 Updated member: a3e24756-4131-4157-a6cc-f9066260ad61
-(neutron) lbaas-member-update --weight 1 a3e24756-4131-4157-a6cc-f9066260ad61 pool1
+(neutron) lbaas-member-update --weight 1 a3e24756-4131-4157-a6cc-f9066260ad61 \
+    pool1
 Updated member: a3e24756-4131-4157-a6cc-f9066260ad61
-(neutron) lbaas-member-update --weight 256 a3e24756-4131-4157-a6cc-f9066260ad61 pool1
+(neutron) lbaas-member-update --weight 256 \
+    a3e24756-4131-4157-a6cc-f9066260ad61 pool1
 Updated member: a3e24756-4131-4157-a6cc-f9066260ad61
-(neutron) lbaas-member-update --weight 257 a3e24756-4131-4157-a6cc-f9066260ad61 pool1
-Invalid input for weight. Reason: '257' is too large - must be no larger than '256'.
+(neutron) lbaas-member-update --weight 257 \
+    a3e24756-4131-4157-a6cc-f9066260ad61 pool1
+Invalid input for weight. Reason: '257' is too large - must be no larger than
+'256'.
 Neutron server returns request_ids: ['req-5517a572-3f7f-4f8c-812c-268c252b382b']
-(neutron) lbaas-member-update --weight 1 a3e24756-4131-4157-a6cc-f9066260ad61 pool1
+(neutron) lbaas-member-update --weight 1 a3e24756-4131-4157-a6cc-f9066260ad61 \
+    pool1
 Updated member: a3e24756-4131-4157-a6cc-f9066260ad61
 (neutron) lbaas-member-delete a3e24756-4131-4157-a6cc-f9066260ad61 pool1
 Deleted member: a3e24756-4131-4157-a6cc-f9066260ad61
 """
+
+
 @pytest.fixture(scope="module")
 def services():
     neutron_services_filename = (
@@ -87,13 +93,13 @@ def get_next_member(service_iterator, icontrol_driver, bigip, env_prefix):
     pool_name = '{0}_{1}'.format(env_prefix, pool['id'])
     member_name = '{0}:{1}'.format(member['address'],
                                    member['protocol_port'])
-    node_name = '{0}'.format(member['address'])
 
     p = bigip.get_resource(ResourceType.pool, pool_name, partition=folder)
     m = p.members_s.members
     m = m.load(name=urllib.quote(member_name), partition=folder)
 
     return m
+
 
 def get_names_from_service(service, env_prefix):
     member = service['members'][0]
@@ -108,19 +114,21 @@ def get_names_from_service(service, env_prefix):
 
     return (member_name, pool_name, node_name, folder)
 
+
 def test_single_member_weight_updates(
+        track_bigip_cfg,
         bigip,
         services,
         icd_config,
         icontrol_driver):
-
+    """Tests a single member's weight with updates"""
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
 
     # create loadbalancer with pool
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
-    
+
     # Create a member
     m = get_next_member(service_iter, icontrol_driver, bigip, env_prefix)
     assert m.session == "user-enabled"
@@ -174,5 +182,5 @@ def test_single_member_weight_updates(
 
     service = service_iter.next()
     icontrol_driver._common_service_handler(service, delete_partition=True)
-    
+
     assert not bigip.folder_exists(folder)

@@ -179,6 +179,10 @@ class MemberDeleteException(F5AgentException):
     pass
 
 
+class NodeDeleteException(F5AgentException):
+    pass
+
+
 class MonitorCreationException(F5AgentException):
     pass
 

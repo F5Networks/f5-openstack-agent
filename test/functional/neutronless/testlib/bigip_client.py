@@ -43,7 +43,10 @@ class BigIpClient(object):
         folders.remove('/')
         folders.remove('Common')
         if 'Drafts' in folders:
-            folders.remove('Drafts')
+            try:
+                folders.remove('Drafts')
+            except Exception:
+                pass
 
         # for folder in folders:
         for folder in folders:
