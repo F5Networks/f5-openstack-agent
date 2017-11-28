@@ -139,6 +139,9 @@ class ServiceModelAdapter(object):
         listener_l7policy_ids = listener.get('l7_policies', list())
         LOG.debug("L7 debug: listener policies: %s", listener_l7policy_ids)
         for policy in listener_l7policy_ids:
+            if self.is_esd(policy.get('name')):
+                continue
+
             listener_policy = lbaas_service.get_l7policy(policy['id'])
             LOG.debug("L7 debug: listener policy: %s", listener_policy)
             if not listener_policy:
@@ -460,6 +463,7 @@ class ServiceModelAdapter(object):
         self._add_vlan_and_snat(listener, vip)
         self._add_profiles_session_persistence(listener, pool, vip)
 
+        vip['rules'] = list()
         vip['policies'] = list()
         if policies:
             self._apply_l7_and_esd_policies(listener, policies, vip)
@@ -488,7 +492,10 @@ class ServiceModelAdapter(object):
             if esd:
                 esd_composite.update(esd)
 
-        self._apply_esd(vip, esd_composite)
+        if listener['protocol'] == 'TCP':
+            self._apply_fastl4_esd(vip, esd_composite)
+        else:
+            self._apply_esd(vip, esd_composite)
 
     def get_esd(self, name):
         if self.esd:
@@ -637,7 +644,53 @@ class ServiceModelAdapter(object):
     def get_name(self, uuid):
         return self.prefix + str(uuid)
 
+    def _apply_fastl4_esd(self, vip, esd):
+        if not esd:
+            return
+
+        # Application of ESD implies some type of L7 traffic routing.  Add
+        # an HTTP profile.
+        vip['profiles'] = ["/Common/http", "/Common/fastL4"]
+
+        # persistence
+        if 'lbaas_persist' in esd:
+            if vip.get('persist'):
+                LOG.warning("Overwriting the existing VIP persist profile: %s",
+                            vip['persist'])
+            vip['persist'] = [{'name': esd['lbaas_persist']}]
+
+        if 'lbaas_fallback_persist' in esd and vip.get('persist'):
+            if vip.get('fallbackPersistence'):
+                LOG.warning(
+                    "Overwriting the existing VIP fallback persist "
+                    "profile: %s", vip['fallbackPersistence'])
+            vip['fallbackPersistence'] = esd['lbaas_fallback_persist']
+
+        # iRules
+        vip['rules'] = list()
+        if 'lbaas_irule' in esd:
+            irules = []
+            for irule in esd['lbaas_irule']:
+                irules.append('/Common/' + irule)
+            vip['rules'] = irules
+
+        # L7 policies
+        if 'lbaas_policy' in esd:
+            if vip.get('policies'):
+                LOG.warning(
+                    "LBaaS L7 policies and rules will be overridden "
+                    "by ESD policies")
+                vip['policies'] = list()
+
+            policies = list()
+            for policy in esd['lbaas_policy']:
+                policies.append({'name': policy, 'partition': 'Common'})
+            vip['policies'] = policies
+
     def _apply_esd(self, vip, esd):
+        if not esd:
+            return
+
         profiles = vip['profiles']
 
         # start with server tcp profile
@@ -673,13 +726,13 @@ class ServiceModelAdapter(object):
 
         # persistence
         if 'lbaas_persist' in esd:
-            if vip['persist']:
+            if vip.get('persist', None):
                 LOG.warning("Overwriting the existing VIP persist profile: %s",
                             vip['persist'])
             vip['persist'] = [{'name': esd['lbaas_persist']}]
 
-        if 'lbaas_fallback_persist' in esd:
-            if vip['fallbackPersistence']:
+        if 'lbaas_fallback_persist' in esd and vip.get('persist'):
+            if vip.get('fallbackPersistence', None):
                 LOG.warning(
                     "Overwriting the existing VIP fallback persist "
                     "profile: %s", vip['fallbackPersistence'])
@@ -694,12 +747,14 @@ class ServiceModelAdapter(object):
             vip['rules'] = irules
 
         # L7 policies
-        policies = list()
         if 'lbaas_policy' in esd:
-            if vip['policies']:
+            if vip.get('policies'):
                 LOG.warning(
                     "LBaaS L7 policies and rules will be overridden "
                     "by ESD policies")
+                vip['policies'] = list()
+
+            policies = list()
             for policy in esd['lbaas_policy']:
                 policies.append({'name': policy, 'partition': 'Common'})
             vip['policies'] = policies
