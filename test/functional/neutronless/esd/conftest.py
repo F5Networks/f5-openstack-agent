@@ -52,7 +52,38 @@ LOG = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def Experiment(request, bigip):
+def demo_policy(request, bigip):
+    """create a `demo_policy` in `Common` partition."""
+    mgmt_root = bigip.bigip
+    name = "demo_policy"
+    partition = "Common"
+    rules = [
+        dict(
+            name='demo_rule',
+            ordinal=0,
+            actions=[],
+            conditions=[],
+            description='This is a rule description')
+    ]
+
+    def teardown_policy():
+        if mgmt_root.tm.ltm.policys.policy.exists(
+                name=name, partition=partition):
+            pol = mgmt_root.tm.ltm.policys.policy.load(
+                name=name, partition=partition)
+            pol.delete()
+
+    pc = mgmt_root.tm.ltm.policys
+    policy = pc.policy.create(name=name, partition=partition,
+                              strategy="first-match",
+                              subPath="Drafts", rules=rules)
+    policy.publish()
+    request.addfinalizer(teardown_policy)
+    return policy
+
+
+@pytest.fixture
+def Experiment(request):
     """Build/Remove an invariant test environment.
 
     NOTE:  This fixture is modfiying the state of the BigIP device.  That is
