@@ -37,9 +37,9 @@ Configuration
 
 #. Set :code:`f5_ha_type` as appropriate for your environment.
 
-    - ``standalone``: A single BIG-IP device
-    - ``pair``: An :term:`active-standby` pair of BIG-IP devices
-    - ``scalen``: An active :term:`device service cluster` of 2 to 4 BIG-IP devices
+   - ``standalone``: A single BIG-IP device
+   - ``pair``: An :term:`active-standby` pair of BIG-IP devices
+   - ``scalen``: An active :term:`device service cluster` of 2 to 4 BIG-IP devices
 
    .. code-block:: text
 
@@ -48,6 +48,8 @@ Configuration
       #
       f5_ha_type = standalone
       #
+
+   \
 
 #. Set up the |agent-long| to use :ref:`L2-adjacent mode <l2-adjacent-setup>` or :ref:`Global Routed mode <global-routed-setup>`.
 
