@@ -1224,6 +1224,26 @@ class iControlDriver(LBaaSBaseDriver):
                     LOG.exception('Exception purging loadbalancer %s'
                                   % str(exc))
 
+    @serialized('purge_orphaned_listener')
+    @is_operational
+    def purge_orphaned_listener(
+            self, tenant_id=None, listener_id=None, hostnames=[]):
+        for bigip in self.get_all_bigips():
+            if bigip.hostname in hostnames:
+                try:
+                    listener_name = self.service_adapter.prefix + listener_id
+                    partition = self.service_adapter.prefix + tenant_id
+                    listener = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.virtual).load(
+                            bigip, listener_name, partition)
+                    listener.delete()
+                except HTTPError as err:
+                    if err.response.status_code == 404:
+                        LOG.debug('listener %s not on BIG-IP %s.'
+                                  % (listener_id, bigip.hostname))
+                except Exception as exc:
+                    LOG.exception('Exception purging listener %s' % str(exc))
+
     @serialized('create_loadbalancer')
     @is_operational
     def create_loadbalancer(self, loadbalancer, service):
