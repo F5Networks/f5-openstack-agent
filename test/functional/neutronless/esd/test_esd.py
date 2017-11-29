@@ -23,7 +23,6 @@ The esd config used by ESD_Experiment:
     f5-openstack-agent/etc/neutron/services/f5/esd/demo.json
 """
 from .conftest import apply_validate_remove_validate
-import pytest
 
 
 def test_esd_two_irules(track_bigip_cfg, ESD_Experiment):
@@ -91,18 +90,3 @@ def test_esd_issue_1047_basic(ESD_GRF_False_Experiment, bigip):
     assert test_virtual.vlansEnabled is True
     tvvlans = test_virtual.__dict__.pop('vlans', "MISSING")
     assert tvvlans == "MISSING"
-
-
-@pytest.mark.skip(reason="ESD contains invalid iRule names")
-def test_esd_dmzmobile(ESD_Experiment, bigip):
-    """Test behavior of l7policy removal as documented in github issue.
-
-    https://github.com/F5Networks/f5-openstack-agent/issues/1047
-    """
-    test_virtual = bigip.bigip.tm.ltm.virtuals.get_collection()[0]
-    assert test_virtual.vlansEnabled is True
-    assert test_virtual.vlans != []
-    pytest.set_trace()
-    apply_validate_remove_validate(ESD_Experiment)
-    assert test_virtual.vlansEnabled is True
-    assert test_virtual.vlans == ["REPLACE ME WITH A REAL VALUE!"]
