@@ -23,6 +23,7 @@ from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
 from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 
 LOG = logging.getLogger(__name__)
@@ -681,9 +682,11 @@ class NetworkHelper(object):
             bigip,
             partition=const.DEFAULT_PARTITION):
         """Returns list of virtual server addresses"""
-        vs = bigip.tm.ltm.virtuals
-        va = bigip.tm.ltm.virtual_address_s.virtual_address
-        virtual_servers = vs.get_collection(partition=partition)
+        vs_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual)
+        va_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual_address)
+        virtual_servers = vs_helper.get_resources(bigip, partition=partition)
         virtual_services = []
 
         for virtual_server in virtual_servers:
@@ -692,14 +695,18 @@ class NetworkHelper(object):
             dest = os.path.basename(virtual_server.destination)
             (vip_addr, vip_port) = self.split_addr_port(dest)
 
-            # extract from the bigip the address, if possible
+            # Get virtual address associated with the virtual server.
+            # split_addr_port can return a tuple where the vip addr is either
+            # a name of the virt address, or the actual IP address.
+            # This code gets a reference to the virt address in the event the
+            # virtual server destination is a named resource, not an IP addr.
             try:
-                vaddr = va.load(name=vip_addr, partition=partition)
-            except HTTPError as err:
-                if not str(err.response.status_code) == '404':
-                    # we may have a valid ip address, if so this will happen
-                    raise
+                vaddr = va_helper.load(
+                    bigip, name=vip_addr, partition=partition)
+            except HTTPError:
+                continue
             else:
+                # there was no exception: legit VA, so use address from VA
                 vip_addr = vaddr.raw['address']
 
             virtual_address[name]['address'] = vip_addr
