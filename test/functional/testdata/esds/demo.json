@@ -26,7 +26,7 @@
   "f5_ESD_lbaas_persist":          { "lbaas_persist": "hash" },
   "f5_ESD_lbaas_fallback_persist": { "lbaas_fallback_persist": "source_addr" },
 
-  "f5_ESD_issue_1047_basic":             { "lbaas_ctcp": "tcp-mobile-optimized" },
+  "f5_ESD_issue_1047_basic":       { "lbaas_ctcp": "tcp-mobile-optimized" },
   "f5_ESD_dmzmobile": {
     "lbaas_ctcp": "tcp-mobile-optimized",
     "lbaas_stcp": "tcp-lan-optimized",

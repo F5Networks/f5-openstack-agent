@@ -77,18 +77,20 @@ def test_esd_full_8_tag_set(track_bigip_cfg, demo_policy, ESD_Experiment):
     apply_validate_remove_validate(ESD_Experiment)
 
 
-@pytest.mark.skip(reason="Test assumptions not valid for GlobalRoutedMode")
-def test_esd_issue_1047_basic(ESD_Experiment, bigip):
+def test_esd_issue_1047_basic(ESD_GRF_False_Experiment, bigip):
     """Test behavior of l7policy removal as documented in github issue.
 
     https://github.com/F5Networks/f5-openstack-agent/issues/1047
     """
     test_virtual = bigip.bigip.tm.ltm.virtuals.get_collection()[0]
+    test_virtual.modify(vlansEnabled=True)
     assert test_virtual.vlansEnabled is True
-    assert test_virtual.vlans != []
-    apply_validate_remove_validate(ESD_Experiment)
+    tvvlans = test_virtual.__dict__.pop('vlans', "MISSING")
+    assert tvvlans == "MISSING"
+    apply_validate_remove_validate(ESD_GRF_False_Experiment)
     assert test_virtual.vlansEnabled is True
-    assert test_virtual.vlans != []
+    tvvlans = test_virtual.__dict__.pop('vlans', "MISSING")
+    assert tvvlans == "MISSING"
 
 
 @pytest.mark.skip(reason="ESD contains invalid iRule names")

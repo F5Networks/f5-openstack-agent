@@ -126,6 +126,16 @@ def ESD_Experiment(Experiment, request):
 
 
 @pytest.fixture
+def ESD_GRF_False_Experiment(Experiment, request):
+    """Run tests in a single tag-per-ESD regime, the base (control) case."""
+    testconfig = Experiment
+    testconfig.OSLO_CONF["f5_global_routed_mode"] = False
+    testconfig.load_esd("demo.json")
+    testconfig.define_esd_services(request)
+    return testconfig
+
+
+@pytest.fixture
 def ESD_Pairs_Experiment(Experiment, request):
     """Run tests in a regime run ESDs that contain pairs of tags."""
     testconfig = Experiment
