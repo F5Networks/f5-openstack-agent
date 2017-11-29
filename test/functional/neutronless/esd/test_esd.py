@@ -57,8 +57,7 @@ def test_esd_lbaas_irule(track_bigip_cfg, ESD_Experiment):
     apply_validate_remove_validate(ESD_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
-def test_esd_lbaas_policy(track_bigip_cfg, ESD_Experiment):
+def test_esd_lbaas_policy(track_bigip_cfg, demo_policy, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
@@ -73,8 +72,7 @@ def test_esd_lbaas_fallback_persist(track_bigip_cfg, ESD_Experiment):
     apply_validate_remove_validate(ESD_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
-def test_esd_full_8_tag_set(track_bigip_cfg, ESD_Experiment):
+def test_esd_full_8_tag_set(track_bigip_cfg, demo_policy, ESD_Experiment):
     """Test of a full tag set.  Tags specifics are historical."""
     apply_validate_remove_validate(ESD_Experiment)
 
