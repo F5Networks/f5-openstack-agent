@@ -22,6 +22,8 @@ from requests import HTTPError
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as const
 import f5_openstack_agent.lbaasv2.drivers.bigip.network_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
+    import BigIPResourceHelper
 
 
 class TestNetworkHelperConstructor(object):
@@ -405,14 +407,14 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
             partition = 'Common'
             va = Mock()
             vs = Mock()
-            bigip.tm.ltm.virtuals.get_collection.return_value = \
-                [vs]
+            BigIPResourceHelper.get_resources = Mock()
+            BigIPResourceHelper.get_resources.return_value = [vs]
             vs.destination = dest
             vs.mask = netmask
             vs.ipProtocol = protocol
             vs.name = name
-            bigip.tm.ltm.virtual_address_s.virtual_address.load.return_value \
-                = va
+            BigIPResourceHelper.load = Mock()
+            BigIPResourceHelper.load.return_value = va
             va.raw = dict(address=vaddr)
             bigip.vip_port = vip_port
             bigip.vaddr = vaddr
@@ -423,59 +425,39 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
             bigip.name = name
             bigip.dest = dest
             bigip.partition = partition
+            bigip.tmos_version = '12.1.2'
             return bigip
 
-        def positive_load_va(target):
+        def valid_virtual_address(target):
             setup_target(target)
             bigip = make_bigip()
             # local, test variables...
+
             target.split_addr_port.return_value = \
                 tuple([bigip.lb_id, bigip.vip_port])
+
             # bigip mocking...
             expected = [{bigip.name: dict(address=bigip.vaddr,
                                           netmask=bigip.netmask,
                                           protocol=bigip.protocol,
                                           port=bigip.vip_port)}]
+
             # Test code...
             assert target.get_virtual_service_insertion(
                 bigip, partition='Common') == expected
-            target.split_addr_port.assert_called_once_with(
-                "{}:{}".format(bigip.lb_id, bigip.vip_port))
-            bigip.tm.ltm.virtuals.get_collection.assert_called_once_with(
-                partition=bigip.partition)
-            bigip.tm.ltm.virtual_address_s.virtual_address.load.\
-                assert_called_once_with(
-                    name=bigip.lb_id, partition=bigip.partition)
 
-        def negative_load_va(target):
-            setup_target(target)
-            bigip = make_bigip()
-            bigip.tm.ltm.virtual_address_s.virtual_address.load.\
-                side_effect = AssertionError('foo')
-            target.split_addr_port.return_value = \
-                tuple([bigip.lb_id, bigip.vip_port])
-            with pytest.raises(AssertionError):
-                target.get_virtual_service_insertion(
-                    bigip, partition=bigip.partition)
-
-        def positive_w_exception(target):
+        def invalid_virtual_address(target):
             setup_target(target)
             bigip = make_bigip()
             http_error = HTTPError('foo')
             http_error.response = Mock()
-            http_error.response.status_code = 404
-            bigip.tm.ltm.virtual_address_s.virtual_address.load.side_effect = \
-                http_error
+            http_error.response.status_code = 400
+            BigIPResourceHelper.load.side_effect = http_error
             target.split_addr_port.return_value = \
                 tuple([bigip.lb_id, bigip.vip_port])
-            expected = \
-                [{bigip.name: dict(address=bigip.lb_id,
-                                   netmask=bigip.netmask,
-                                   protocol=bigip.protocol,
-                                   port=bigip.vip_port)}]
+            expected = []
             assert target.get_virtual_service_insertion(
                 bigip, partition=bigip.partition) == expected
 
-        positive_load_va(fully_mocked_target)
-        negative_load_va(self.fully_mocked_target())
-        positive_w_exception(self.fully_mocked_target())
+        valid_virtual_address(fully_mocked_target)
+        invalid_virtual_address(fully_mocked_target)
