@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from neutron.common import constants as q_const
+from neutron_lib import constants as q_const
 
 from oslo_log import log as logging
 
