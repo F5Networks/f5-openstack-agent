@@ -149,7 +149,9 @@ class SystemHelper(object):
                 ResourceType.snat,
                 ResourceType.snatpool,
                 ResourceType.snat_translation,
-                ResourceType.rule
+                ResourceType.universal_persistence,
+                ResourceType.rule,
+                ResourceType.l7policy
             ]
             for ltm_type in ltm_types:
                 resource = BigIPResourceHelper(ltm_type)
