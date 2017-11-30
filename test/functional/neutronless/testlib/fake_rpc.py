@@ -200,6 +200,12 @@ class FakeRPCPlugin(object):
         pass
 
     @track_call
+    def update_l7rule_status(self, l7rule_id, l7policy_id,
+                                   provisioning_status="ERROR",
+                                   operating_status="OFFLINE"):
+        pass
+
+    @track_call
     def health_monitor_destroyed(self, id):
         pass
 
