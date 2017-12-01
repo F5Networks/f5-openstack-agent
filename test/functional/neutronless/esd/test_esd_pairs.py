@@ -13,7 +13,6 @@
 #   limitations under the License.
 """Tests of all (unordered) pairs of ESD tags."""
 from .conftest import apply_validate_remove_validate
-import pytest
 
 
 def test_esd_lbaas_stcp_lbaas_persist(track_bigip_cfg, ESD_Pairs_Experiment):
@@ -63,29 +62,29 @@ def test_esd_lbaas_ctcp_lbaas_fallback_persist(track_bigip_cfg,
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
 def test_esd_lbaas_irule_lbaas_policy(track_bigip_cfg,
+                                      demo_policy,
                                       ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
 def test_esd_lbaas_cssl_profile_lbaas_policy(track_bigip_cfg,
+                                             demo_policy,
                                              ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
 def test_esd_lbaas_policy_lbaas_sssl_profile(track_bigip_cfg,
+                                             demo_policy,
                                              ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
 def test_esd_lbaas_stcp_lbaas_policy(track_bigip_cfg,
+                                     demo_policy,
                                      ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
@@ -115,8 +114,8 @@ def test_esd_lbaas_irule_lbaas_sssl_profile(track_bigip_cfg,
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
 def test_esd_lbaas_policy_lbaas_persist(track_bigip_cfg,
+                                        demo_policy,
                                         ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
@@ -146,15 +145,15 @@ def test_esd_lbaas_fallback_persist_lbaas_sssl_profile(track_bigip_cfg,
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
 def test_esd_lbaas_fallback_persist_lbaas_policy(track_bigip_cfg,
+                                                 demo_policy,
                                                  ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
 def test_esd_lbaas_ctcp_lbaas_policy(track_bigip_cfg,
+                                     demo_policy,
                                      ESD_Pairs_Experiment):
     """Validate application of a pair of tags."""
     apply_validate_remove_validate(ESD_Pairs_Experiment)

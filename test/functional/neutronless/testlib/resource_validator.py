@@ -156,9 +156,10 @@ class ResourceValidator(object):
                 assert rule_name in vs.rules
 
         if 'lbaas_policy' in esd:
-            for rule in esd['lbaas_policy']:
-                rule_name = '/Common/' + rule
-                assert rule_name in vs.rules
+            policy_names_list = ["/"+p.partition+"/"+p.name for p in policies]
+            for policy in esd['lbaas_policy']:
+                policy_name = '/Common/' + policy
+                assert policy_name in policy_names_list
 
     def assert_esd_removed(self, esd, listener, folder):
         listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
