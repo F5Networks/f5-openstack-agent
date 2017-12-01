@@ -23,7 +23,6 @@ The esd config used by ESD_Experiment:
     f5-openstack-agent/etc/neutron/services/f5/esd/demo.json
 """
 from .conftest import apply_validate_remove_validate
-import pytest
 
 
 def test_esd_two_irules(track_bigip_cfg, ESD_Experiment):
@@ -57,8 +56,7 @@ def test_esd_lbaas_irule(track_bigip_cfg, ESD_Experiment):
     apply_validate_remove_validate(ESD_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
-def test_esd_lbaas_policy(track_bigip_cfg, ESD_Experiment):
+def test_esd_lbaas_policy(track_bigip_cfg, demo_policy, ESD_Experiment):
     """Test a single tag."""
     apply_validate_remove_validate(ESD_Experiment)
 
@@ -73,36 +71,22 @@ def test_esd_lbaas_fallback_persist(track_bigip_cfg, ESD_Experiment):
     apply_validate_remove_validate(ESD_Experiment)
 
 
-@pytest.mark.skip(reason="No demo policy created by the test")
-def test_esd_full_8_tag_set(track_bigip_cfg, ESD_Experiment):
+def test_esd_full_8_tag_set(track_bigip_cfg, demo_policy, ESD_Experiment):
     """Test of a full tag set.  Tags specifics are historical."""
     apply_validate_remove_validate(ESD_Experiment)
 
 
-@pytest.mark.skip(reason="Test assumptions not valid for GlobalRoutedMode")
-def test_esd_issue_1047_basic(ESD_Experiment, bigip):
+def test_esd_issue_1047_basic(ESD_GRF_False_Experiment, bigip):
     """Test behavior of l7policy removal as documented in github issue.
 
     https://github.com/F5Networks/f5-openstack-agent/issues/1047
     """
     test_virtual = bigip.bigip.tm.ltm.virtuals.get_collection()[0]
+    test_virtual.modify(vlansEnabled=True)
     assert test_virtual.vlansEnabled is True
-    assert test_virtual.vlans != []
-    apply_validate_remove_validate(ESD_Experiment)
+    tvvlans = test_virtual.__dict__.pop('vlans', "MISSING")
+    assert tvvlans == "MISSING"
+    apply_validate_remove_validate(ESD_GRF_False_Experiment)
     assert test_virtual.vlansEnabled is True
-    assert test_virtual.vlans != []
-
-
-@pytest.mark.skip(reason="ESD contains invalid iRule names")
-def test_esd_dmzmobile(ESD_Experiment, bigip):
-    """Test behavior of l7policy removal as documented in github issue.
-
-    https://github.com/F5Networks/f5-openstack-agent/issues/1047
-    """
-    test_virtual = bigip.bigip.tm.ltm.virtuals.get_collection()[0]
-    assert test_virtual.vlansEnabled is True
-    assert test_virtual.vlans != []
-    pytest.set_trace()
-    apply_validate_remove_validate(ESD_Experiment)
-    assert test_virtual.vlansEnabled is True
-    assert test_virtual.vlans == ["REPLACE ME WITH A REAL VALUE!"]
+    tvvlans = test_virtual.__dict__.pop('vlans', "MISSING")
+    assert tvvlans == "MISSING"
