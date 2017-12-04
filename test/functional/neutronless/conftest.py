@@ -22,7 +22,7 @@ to provide a configuration specific to some test needs via the TestConfig
 objects methods (primarily, __init__, but also others e.g. "load_esd").
 
    The expected caller of the TestConfig object is an Experiment fixture, where
-the experiment instantiates, and configures, a particular TestConfig instance, 
+the experiment instantiates, and configures, a particular TestConfig instance,
 before handing off to the test code.   Examples of "Experiments" can be found
 in esd/conftest.py.
 """
@@ -46,6 +46,7 @@ import traceback
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
 
+from .bigip_interaction import BigIpInteraction
 from .testlib.bigip_client import BigIpClient
 from .testlib.fake_rpc import FakeRPCPlugin
 from .testlib.resource_validator import ResourceValidator
@@ -69,7 +70,7 @@ class TestConfig(object):
 
         self.oslo_config:  A faked interface to the oslo configuration system
         self.TENANT_ID:    Usually a static fake specific to our test regime.
-        self.SERVICES:     Obtained by running replay scripts against neutron, 
+        self.SERVICES:     Obtained by running replay scripts against neutron,
         we use these services to patch out neutron, by playing them through
         the icontrol_driver._common_service_handler.
         self.fake_rpc_OBJ: We can observe messages intended for neutron by
@@ -80,7 +81,7 @@ class TestConfig(object):
         self.validator:   A useful object that checks specific configurations
         of the bigip according to agent-derived rules.
         self.icontrol_driver:  An agent-internal method that submits service
-        objects (from neutron) to be interpreted and applied to the device. 
+        objects (from neutron) to be interpreted and applied to the device.
         """
         self.oslo_config = json.load(open(opj(CONFIGDIR, oslo_config_file)))
         self.TENANT_ID, self.SERVICES =\
@@ -402,9 +403,8 @@ def bigip(request):
 
 @pytest.fixture
 def track_bigip_cfg(request):
-    # request.addfinalizer(BigIpInteraction.check_resulting_cfg)
-    # BigIpInteraction.backup_bigip_cfg()
-    pass
+    request.addfinalizer(BigIpInteraction.check_resulting_cfg)
+    BigIpInteraction.backup_bigip_cfg()
 
 
 def debug_msg(status):
