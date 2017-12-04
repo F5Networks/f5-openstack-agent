@@ -139,9 +139,7 @@ EOF'''
             * Generate a diff file against the polluted config
         """
         try:
-            with open(cls.config_file.format(my_epoch)) as fh:
-                content = fh.read()
-            diff_file = cls.__collect_diff(content, test_method)
+            diff_file = cls.__collect_diff(test_method)
             os.remove(diff_file)
         except AssertionError as err:
             cls.__restore_from_backup()
@@ -165,7 +163,7 @@ EOF'''
         return diff_file
 
     @classmethod
-    def __collect_diff(cls, clean, test_method):
+    def __collect_diff(cls, test_method):
         """An internal method"""
         dirty_file = cls.dirty_file.format(test_method, my_epoch)
         dirty_content = cls._get_current_bigip_cfg()
