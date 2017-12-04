@@ -123,6 +123,12 @@ EOF'''
             fh.write(result)
 
     @classmethod
+    def __restore_from_backup(cls):
+        cmd = cls.__ucs_cmd_fmt.format(cls.ssh_cmd, 'load')
+        result = cls.__exec_shell(cmd, True)
+        cls.__check_results(result)
+
+    @classmethod
     def _resulting_bigip_cfg(cls, test_method):
         """Checks the resulting BIG-IP config as it stands against snap shot
 
@@ -133,9 +139,7 @@ EOF'''
             * Generate a diff file against the polluted config
         """
         try:
-            with open(cls.config_file.format(my_epoch)) as fh:
-                content = fh.read()
-            diff_file = cls.__collect_diff(content, test_method)
+            diff_file = cls.__collect_diff(test_method)
             os.remove(diff_file)
         except AssertionError as err:
             cls.__restore_from_backup()
@@ -159,17 +163,19 @@ EOF'''
         return diff_file
 
     @classmethod
-    def __collect_diff(cls, result, test_method):
+    def __collect_diff(cls, test_method):
         """An internal method"""
         dirty_file = cls.dirty_file.format(test_method, my_epoch)
+        dirty_content = cls._get_current_bigip_cfg()
         with open(dirty_file, 'w') as fh:
-            fh.write(result)
+            fh.write(dirty_content)
         diff_file = cls.diff_file.format(test_method, my_epoch)
         cmd = "diff -u {} {} > {}".format(
             cls.config_file.format(my_epoch), dirty_file, diff_file)
         result = cls.__exec_shell(cmd, True)
-        cls.__check_results(result)
-        if os.path.getsize(diff_file) > 0:
+        try:
+            cls.__check_results(result)
+        except RuntimeError:
             raise AssertionError(diff_file)
         return diff_file
 
