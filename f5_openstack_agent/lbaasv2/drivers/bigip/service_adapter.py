@@ -95,12 +95,14 @@ class ServiceModelAdapter(object):
 
         full_description = resource.get('name', "")
         description = resource.get('description', "")
-        if len(full_description):
+        if full_description:
             full_description += ":"
-            if len(description):
+            if description:
                 full_description += (" %s" % (description))
+        elif description:
+            full_description = description
         else:
-            full_description += description
+            full_description = ""
 
         return full_description
 
