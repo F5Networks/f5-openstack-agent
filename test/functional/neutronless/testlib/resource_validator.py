@@ -22,6 +22,7 @@ class ResourceValidator(object):
     def __init__(self, bigip, prefix):
         self.bigip = bigip
         self.prefix = prefix
+        self.policy_prefix = "wrapper_policy"
 
     def assert_healthmonitor_deleted(self, monitor, folder):
         monitor_name = '{0}_{1}'.format(self.prefix, monitor['id'])
@@ -66,6 +67,11 @@ class ResourceValidator(object):
         pool_name = '{0}_{1}'.format(self.prefix, pool['id'])
         assert self.bigip.resource_exists(
             ResourceType.pool, pool_name, partition=folder)
+
+    def assert_policy_valid(self, listener, folder):
+        policy_name = '{0}_{1}'.format(self.policy_prefix, listener['id'])
+        assert self.bigip.resource_exists(
+            ResourceType.l7policy, policy_name, partition=folder)
 
     def assert_virtual_deleted(self, listener, folder):
         listener_name = '{0}_{1}'.format(self.prefix, listener['id'])
