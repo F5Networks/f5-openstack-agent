@@ -806,3 +806,51 @@ class TestServiceAdapter(object):
     def test_get_tls(self, basic_l7service):
         pass
         # adapter = ServiceModelAdapter(mock.MagicMock())
+
+    def test_get_resource_description(self):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        resource = dict(name='test_name',
+                        description='test_description')
+
+        # invalid input type
+        with pytest.raises(ValueError):
+            description = adapter.get_resource_description('')
+
+        # both name and description
+        description = adapter.get_resource_description(resource)
+        assert description == 'test_name: test_description'
+
+        # name but no description
+        resource['description'] = ''
+        description = adapter.get_resource_description(resource)
+        assert description == 'test_name:'
+
+        # handle None for value
+        resource['description'] = None
+        description = adapter.get_resource_description(resource)
+        assert description == 'test_name:'
+
+        # neither name nor description
+        resource['name'] = ''
+        description = adapter.get_resource_description(resource)
+        assert description == ''
+
+        # handle None for value
+        resource['name'] = None
+        description = adapter.get_resource_description(resource)
+        assert description == ''
+
+        # description but no name
+        resource['description'] = 'test_description'
+        description = adapter.get_resource_description(resource)
+        assert description == 'test_description'
+
+        # no keys defined
+        resource.pop('name')
+        description = adapter.get_resource_description(resource)
+        assert description == 'test_description'
+
+        resource['name'] = 'test_name'
+        resource.pop('description')
+        description = adapter.get_resource_description(resource)
+        assert description == 'test_name:'
