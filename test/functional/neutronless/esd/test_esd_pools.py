@@ -16,6 +16,8 @@
 from copy import deepcopy
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
+from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
+    EsdTagProcessor
 import json
 import logging
 import os
@@ -26,6 +28,7 @@ from ..testlib.bigip_client import BigIpClient
 from ..testlib.fake_rpc import FakeRPCPlugin
 from ..testlib.service_reader import LoadbalancerReader
 from ..testlib.resource_validator import ResourceValidator
+
 
 requests.packages.urllib3.disable_warnings()
 
@@ -74,7 +77,16 @@ def fake_plugin_rpc(services):
 
 
 @pytest.fixture
-def icontrol_driver(icd_config, fake_plugin_rpc):
+def esd():
+    esd_dir = (
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     '../../../../etc/neutron/services/f5/esd')
+    )
+    return EsdTagProcessor(esd_dir)
+
+
+@pytest.fixture
+def icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip):
     class ConfFake(object):
         def __init__(self, params):
             self.__dict__ = params
@@ -90,12 +102,15 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
 
     icd.plugin_rpc = fake_plugin_rpc
     icd.connect()
+    esd.process_esd(icd.get_all_bigips())
+    icd.lbaas_builder.init_esd(esd)
+    icd.service_adapter.init_esd(esd)
 
     return icd
 
 
 @pytest.fixture
-def esd():
+def esd_json():
     esd_file = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      '../../../../etc/neutron/services/f5/esd/demo.json')
@@ -103,9 +118,10 @@ def esd():
     return (json.load(open(esd_file)))
 
 
-@pytest.mark.skip(reason="ESD is not properly initialized and no cleanup")
+
+
 def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
-                   icontrol_driver, esd):
+                   demo_policy, icontrol_driver, esd_json):
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)
@@ -139,7 +155,7 @@ def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
     # --description "Override pool session persistence"
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
-    validator.assert_esd_applied(esd['esd_demo_1'], listener, folder)
+    validator.assert_esd_applied(esd_json['esd_demo_1'], listener, folder)
 
     # delete pool
     # lbaas-pool-delete p1
@@ -147,19 +163,19 @@ def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_deleted(pool, None, folder)
     # deleting pool should NOT remove ESD
-    validator.assert_esd_applied(esd['esd_demo_1'], listener, folder)
+    validator.assert_esd_applied(esd_json['esd_demo_1'], listener, folder)
 
     # delete ESD
     # lbaas-l7policy-delete esd_demo_1
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
-    validator.assert_esd_removed(esd['esd_demo_1'], listener, folder)
+    validator.assert_esd_removed(esd_json['esd_demo_1'], listener, folder)
 
     # create new ESD
     # lbaas-l7policy-create --name esd_demo_1 --listener l1 --action REJECT
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
-    validator.assert_esd_applied(esd['esd_demo_1'], listener, folder)
+    validator.assert_esd_applied(esd_json['esd_demo_1'], listener, folder)
 
     # create pool with session persistence
     # lbaas-pool-create --name p1 --listener l1 --protocol HTTP
@@ -170,7 +186,7 @@ def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
     pool = service['pools'][0]
     validator.assert_pool_valid(pool, folder)
     # creating pool should NOT remove ESD
-    validator.assert_esd_applied(esd['esd_demo_1'], listener, folder)
+    validator.assert_esd_applied(esd_json['esd_demo_1'], listener, folder)
 
     # delete pool
     # lbaas-pool-delete p1
@@ -182,7 +198,7 @@ def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
     # lbaas-l7policy-delete esd_demo_1
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
-    validator.assert_esd_removed(esd['esd_demo_1'], listener, folder)
+    validator.assert_esd_removed(esd_json['esd_demo_1'], listener, folder)
 
     # delete listener
     # lbaas-listener-delete l1
@@ -195,3 +211,4 @@ def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
     service = service_iter.next()
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)
+
