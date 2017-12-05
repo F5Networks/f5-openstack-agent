@@ -26,3 +26,6 @@ coverage==IGNORED  # See section comment
 # Test utilities
 pytest-cov>=2.4.0,<3
 python-coveralls==2.8.0
+
+#using testenv symbols to run functional single bigip tests
+git+https://gitlab.pdbld.f5net.com/tools/pytest-symbols.git@5fe78c9f

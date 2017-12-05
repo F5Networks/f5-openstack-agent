@@ -25,7 +25,6 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.ssl_profile import \
     SSLProfileHelper
 
@@ -56,7 +55,7 @@ JbZPlUsnZV6Xo/b7StCfDd0ODLugbxq87lHx/RN2WC3/M223gLx7S0Py0ZEdHWDm
 GpmzRO2r9gpv/VEMlKsCQQCV+EffCQ4wKBIYeCchdntop1/A9PWWCS+pjUNdIJNR
 CKxlxUfEZw9yNfLw9g0FKxrdSZiHCAw7fwN7s+CszjT4
 -----END RSA PRIVATE KEY-----"""
-def test_create_client_ssl_profile(symbols):
+def test_create_client_ssl_profile(mgmt_root):
 
     # set of valid and invalid parent profile names
     test_parents = [None,
@@ -65,7 +64,7 @@ def test_create_client_ssl_profile(symbols):
                     "clientssl",
                     "clientssl-insecure-compatible"]
 
-    bigip = ManagementRoot(symbols.bigip_mgmt_ip_public, 'admin', 'admin')
+    bigip = mgmt_root
 
     for parent in test_parents:
         name = random_name('Project_', 16)
