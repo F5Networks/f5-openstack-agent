@@ -25,3 +25,6 @@ python-coveralls==2.8.0
 git+https://github.com/openstack/oslo.log.git@mitaka-eol
 mock==IGNORED      # See section comment
 coverage==IGNORED  # See section comment
+
+#using testenv symbols to run functional single bigip tests
+git+https://gitlab.pdbld.f5net.com/tools/pytest-symbols.git@5fe78c9f
