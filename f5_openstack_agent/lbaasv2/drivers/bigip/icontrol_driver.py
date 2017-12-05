@@ -1818,8 +1818,9 @@ class iControlDriver(LBaaSBaseDriver):
                         operating_status
                     )
                 elif provisioning_status == plugin_const.PENDING_DELETE:
-                    self.plugin_rpc.member_destroyed(
-                        member['id'])
+                    if not member.get('parent_pool_deleted', False):
+                        self.plugin_rpc.member_destroyed(
+                            member['id'])
                 elif provisioning_status == plugin_const.ERROR:
                     self.plugin_rpc.update_member_status(
                         member['id'],
