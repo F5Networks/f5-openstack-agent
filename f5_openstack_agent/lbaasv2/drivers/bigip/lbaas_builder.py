@@ -128,6 +128,10 @@ class LBaaSBuilder(object):
         return svc_obj['provisioning_status'] != plugin_const.PENDING_DELETE
 
     @staticmethod
+    def _is_pending_delete(svc_obj):
+        return svc_obj['provisioning_status'] == plugin_const.PENDING_DELETE
+
+    @staticmethod
     def _is_not_error(svc_obj):
         return svc_obj['provisioning_status'] != plugin_const.ERROR
 
@@ -291,12 +295,6 @@ class LBaaSBuilder(object):
 
             pool_to_member_map[pool_id].append(member)
 
-            self._update_subnet_hints(member["provisioning_status"],
-                                      member["subnet_id"],
-                                      member["network_id"],
-                                      all_subnet_hints,
-                                      True)
-
         # Assure members by pool
         for pool_id, pool_members in pool_to_member_map.iteritems():
             pool = self.get_pool_by_id(service, pool_id)
@@ -306,13 +304,24 @@ class LBaaSBuilder(object):
 
             self.pool_builder.assure_pool_members(svc, bigips)
 
+            pool_deleted = self._is_pending_delete(pool)
             for member in pool_members:
+                if pool_deleted:
+                    member['provisioning_status'] = "PENDING_DELETE"
+                    member['parent_pool_deleted'] = True
+
                 provisioning = member.get('provisioning_status')
                 if 'missing' not in member \
                    and provisioning != "PENDING_DELETE":
                     member['provisioning_status'] = "ACTIVE"
                 elif 'missing' in member:
                     member['provisioning_status'] = "ERROR"
+
+                self._update_subnet_hints(member["provisioning_status"],
+                                          member["subnet_id"],
+                                          member["network_id"],
+                                          all_subnet_hints,
+                                          True)
 
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
