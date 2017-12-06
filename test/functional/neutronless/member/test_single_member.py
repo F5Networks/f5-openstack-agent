@@ -78,9 +78,9 @@ def check_member_down(member):
 
 
 def test_create_single_member_down_up(track_bigip_cfg,
-                              bigip,
-                              icd_config,
-                              icontrol_driver):
+                                      bigip,
+                                      icd_config,
+                                      icontrol_driver):
 
     env_prefix = icd_config['environment_prefix']
 
@@ -109,10 +109,9 @@ def test_create_single_member_down_up(track_bigip_cfg,
     m = get_member_created(bigip, pool_name, member_name, folder)
     check_member_up(m)
 
-def test_create_single_member_up_down(track_bigip_cfg,
-                              bigip,
-                              icd_config,
-                              icontrol_driver):
+
+def test_create_single_member_up_down(track_bigip_cfg, bigip, icd_config,
+                                      icontrol_driver):
 
     env_prefix = icd_config['environment_prefix']
 

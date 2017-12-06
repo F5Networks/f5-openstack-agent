@@ -140,7 +140,7 @@ EOF'''
         """
         try:
             diff_file = cls.__collect_diff(test_method)
-            os.remove(diff_file)
+            # os.remove(diff_file)
         except AssertionError as err:
             cls.__restore_from_backup()
             sleep(5)  # after nuke, BIG-IP needs a delay...

@@ -76,7 +76,8 @@ def test_esd_full_8_tag_set(track_bigip_cfg, demo_policy, ESD_Experiment):
     apply_validate_remove_validate(ESD_Experiment)
 
 
-def test_esd_issue_1047_basic(ESD_GRF_False_Experiment, bigip):
+def test_esd_issue_1047_basic(track_bigip_cfg, ESD_GRF_False_Experiment,
+                              bigip):
     """Test behavior of l7policy removal as documented in github issue.
 
     https://github.com/F5Networks/f5-openstack-agent/issues/1047
