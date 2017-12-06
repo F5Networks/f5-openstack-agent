@@ -35,13 +35,41 @@ requests.packages.urllib3.disable_warnings()
 LOG = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="module")
-def services():
+def get_services(filename):
     neutron_services_filename = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/l7_esd_pools.json')
+                     filename)
     )
     return (json.load(open(neutron_services_filename)))
+
+
+def get_fake_plugin_rpc(services):
+
+    rpcObj = FakeRPCPlugin(services)
+
+    return rpcObj
+
+def get_icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip):
+    class ConfFake(object):
+        def __init__(self, params):
+            self.__dict__ = params
+            for k, v in self.__dict__.items():
+                if isinstance(v, unicode):
+                    self.__dict__[k] = v.encode('utf-8')
+
+        def __repr__(self):
+            return repr(self.__dict__)
+
+    icd = iControlDriver(ConfFake(icd_config),
+                         registerOpts=False)
+
+    icd.plugin_rpc = fake_plugin_rpc
+    icd.connect()
+    esd.process_esd(icd.get_all_bigips())
+    icd.lbaas_builder.init_esd(esd)
+    icd.service_adapter.init_esd(esd)
+
+    return icd
 
 
 @pytest.fixture()
@@ -69,44 +97,12 @@ def bigip():
 
 
 @pytest.fixture
-def fake_plugin_rpc(services):
-
-    rpcObj = FakeRPCPlugin(services)
-
-    return rpcObj
-
-
-@pytest.fixture
 def esd():
     esd_dir = (
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      '../../../../etc/neutron/services/f5/esd')
     )
     return EsdTagProcessor(esd_dir)
-
-
-@pytest.fixture
-def icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip):
-    class ConfFake(object):
-        def __init__(self, params):
-            self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
-                    self.__dict__[k] = v.encode('utf-8')
-
-        def __repr__(self):
-            return repr(self.__dict__)
-
-    icd = iControlDriver(ConfFake(icd_config),
-                         registerOpts=False)
-
-    icd.plugin_rpc = fake_plugin_rpc
-    icd.connect()
-    esd.process_esd(icd.get_all_bigips())
-    icd.lbaas_builder.init_esd(esd)
-    icd.service_adapter.init_esd(esd)
-
-    return icd
 
 
 @pytest.fixture
@@ -118,11 +114,12 @@ def esd_json():
     return (json.load(open(esd_file)))
 
 
-
-
-def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
-                   demo_policy, icontrol_driver, esd_json):
+def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
+                   esd_json):
     env_prefix = icd_config['environment_prefix']
+    services = get_services('../../testdata/service_requests/l7_esd_pools.json')
+    fake_plugin_rpc = get_fake_plugin_rpc(services)
+    icontrol_driver = get_icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip)
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)
 
@@ -212,3 +209,68 @@ def test_esd_pools(track_bigip_cfg, bigip, services, icd_config,
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)
 
+
+
+def test_multiple_esd_add_remove(track_bigip_cfg, bigip, icd_config, demo_policy,
+                                 esd, esd_json):
+    services = get_services('../../testdata/service_requests/'
+                            'l7_multiple_esd_add_remove.json')
+    fake_plugin_rpc = get_fake_plugin_rpc(services)
+    icontrol_driver = get_icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip)
+    env_prefix = icd_config['environment_prefix']
+    service_iter = iter(services)
+    validator = ResourceValidator(bigip, env_prefix)
+
+    # create loadbalancer
+    # lbaas-loadbalancer-create --name lb1 admin_subnet
+    service = service_iter.next()
+    lb_reader = LoadbalancerReader(service)
+    folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
+    icontrol_driver._common_service_handler(service)
+    assert bigip.folder_exists(folder)
+
+    # create listener
+    # lbaas-listener-create --name listener1 --loadbalancer lb1 --protocol HTTP
+    # --protocol-port 80
+    service = service_iter.next()
+    listener = service['listeners'][0]
+    icontrol_driver._common_service_handler(service)
+    validator.assert_virtual_valid(listener, folder)
+
+    # apply ESD1
+    # lbaas-l7policy-create --name esd_demo_1 --listener listener1 --action REJECT
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service)
+
+    # apply ESD2
+    # lbaas-l7policy-create --name esd_demo_2 --listener listener1 --action REJECT
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service)
+
+    # validate ESD1 applied
+    validator.assert_esd_applied(esd_json['esd_demo_1'], listener, folder)
+
+    # delete ESD1 and check if ESD2 is still applied
+    # lbaas-l7policy-delete esd_demo_1
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service)
+    validator.assert_esd_applied(esd_json['esd_demo_2'], listener, folder)
+
+    # delete ESD2
+    # lbaas-l7policy-delete esd_demo_1
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service)
+    validator.assert_esd_removed(esd_json['esd_demo_1'], listener, folder)
+    validator.assert_esd_removed(esd_json['esd_demo_2'], listener, folder)
+
+    # delete listener
+    # lbaas-listener-delete listener1
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service)
+    validator.assert_virtual_deleted(listener, folder)
+
+    # delete loadbalancer
+    # neutron lbaas-loadbalancer-delete lb1
+    service = service_iter.next()
+    icontrol_driver._common_service_handler(service, delete_partition=True)
+    assert not bigip.folder_exists(folder)
