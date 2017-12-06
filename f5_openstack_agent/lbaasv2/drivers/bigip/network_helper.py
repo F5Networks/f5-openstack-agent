@@ -697,7 +697,7 @@ class NetworkHelper(object):
                 obj.modify(records=new_records)
 
     @log_helpers.log_method_call
-    def delete_fdb_entries(self, bigip, tunnel_name=None, fdb_entries=None):
+    def delete_fdb_entries(self, bigip, fdb_entries=None):
         for tunnel_name in fdb_entries:
             folder = fdb_entries[tunnel_name]['folder']
             existing_records = self.get_fdb_entry(bigip,
@@ -710,8 +710,9 @@ class NetworkHelper(object):
             delete_records = fdb_entries[tunnel_name]['records']
             for record in existing_records:
                 for mac_addr, entry in delete_records.iteritems():
-                    if record['name'] == mac_addr and entry['ip_address']:
-                        arps_to_delete[mac_addr] = entry['ip_address']
+                    if record['name'] == mac_addr:
+                        if entry['ip_address']:
+                            arps_to_delete[mac_addr] = entry['ip_address']
                         break
                 else:
                     new_records.append(record)
