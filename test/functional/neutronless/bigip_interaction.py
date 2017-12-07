@@ -22,12 +22,7 @@ import subprocess
 from collections import namedtuple
 from time import sleep
 
-ssh_cfg = os.environ.get('ssh_cfg', None)
-if not ssh_cfg:
-    ssh_cfg = '/home/ubuntu/testenv_symbols/testenv_ssh_config'
 my_epoch = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-current_test = ''  # should contain the current tests's name
-
 
 """Allows test interaction with the BIG-IP
 
@@ -62,12 +57,12 @@ class BigIpInteraction(object):
     This class assumes that you are in testenv and that there is a BIG-IP
     configured for test runner's use.
     """
-    config_file = "/tmp/agent_only_bigip_{}.cfg"
+    __current_test = ''
     diff_file = '/tmp/agent_only_bigip_{}_{}.diff'
     dirty_file = '/tmp/agent_only_bigip_dirty_{}_{}.cfg'
+    config_file = '/tmp/agent_only_bigip_{}.cfg'
     _lbs_to_delete = []
-    ssh_cmd = \
-        str("ssh -F {} openstack_bigip").format(ssh_cfg)
+    ssh_cmd = ''
     __extract_cmd = '''{} << EOF
 tmsh -c \"cd /;
 list sys folder recursive one-line" | cut -d " " -f3 |
@@ -180,13 +175,6 @@ EOF'''
         return diff_file
 
     @classmethod
-    def check_symbols(cls):
-        if hasattr(pytest, 'symbols') and \
-                hasattr(pytest.symbols, 'bigip_mgmt_ip_public'):
-            cls.ssh_cmd = "ssh {}@{}".format(
-                pytest.symbols.bigip_ssh_username,
-                pytest.symbols.bigip_mgmt_ip_public)
-
     @classmethod
     def check_resulting_cfg(cls, test_name=current_test):
         """Check the current BIG-IP cfg agianst previous Reset upon Error
@@ -197,7 +185,6 @@ EOF'''
 
         test_name := the name of the test currently in tearDown
         """
-        cls.check_symbols()
         cls._resulting_bigip_cfg(test_name)
 
     @classmethod
@@ -208,15 +195,43 @@ EOF'''
         BIG-IP for later restoration.
         """
         if not os.path.isfile(cls.config_file.format(my_epoch)):
-            cls.check_symbols()
             cls.__exec_shell(
                 cls.__ucs_cmd_fmt.format(cls.ssh_cmd, 'save'), True)
             cls._get_existing_bigip_cfg()
 
 
-@pytest.fixture
-def track_bigip_cfg(request):
-    global current_test
-    request.addfinalizer(BigIpInteraction.check_resulting_cfg)
-    BigIpInteraction.backup_bigip_cfg()
-    current_test = request.node.name  # current test's scoped name
+def begin():
+    """Performs library's initial, imported setup
+
+    This setup function will perform basic consolidation in meaning provided in
+    environment variables.
+
+    User Notes: if it is found that bigip config tracking is unnecessary and is
+    reducing or impacting production time, an added 'no_bigip_tracker' variable
+    can be added to the --symbols <file>.  In this instance, this library will
+    not execute, and all fixtures that use this library will not perform
+    bigip config tracking.
+
+    WARNING: Nightly will perform this tracking; thus, a user does themselves
+    no justice if lingering config is later discovered.  It is; therefore,
+    still recommended to run this as a last step to assure proper config
+    tracking is assured.
+    """
+    ssh_options = """ssh -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    {}"""
+    ssh_host_specific_fmt = "{}@{}"
+    hostname = ''
+    username = ''
+    if hasattr(pytest.symbols, 'bigip_mgmt_ip') and \
+            hasattr(pytest.symbols, 'bigip_ssh_username'):
+        hostname = pytest.symbols.bigip_mgmt_ip
+        username = pytest.symbols.bigip_ssh_username
+    else:
+        raise EnvironmentError("Cannot perform tests without symbols!")
+    ssh_cmd = ssh_options.format(
+        ssh_host_specific_fmt.format(username, hostname))
+    BigIpInteraction.ssh_cmd = ssh_cmd
+
+
+begin()
