@@ -39,7 +39,7 @@ def test_devices(mgmt_root, symbols):
     for k, v in symbols.__dict__.items():
         print('key: {}'.format(k))
         print('value: {}'.format(v))
-    assert devices[0].managementIp == symbols.bigip_mgmt_ip
+    assert devices[0].managementIp == symbols.bigip_mgmt_ip_public
 
 
 def test_get_sync_status(mgmt_root):
