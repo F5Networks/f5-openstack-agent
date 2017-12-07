@@ -233,9 +233,9 @@ def begin():
     ssh_host_specific_fmt = "{}@{}"
     hostname = ''
     username = ''
-    if hasattr(pytest.symbols, 'bigip_mgmt_ip') and \
+    if hasattr(pytest.symbols, 'bigip_mgmt_ip_public') and \
             hasattr(pytest.symbols, 'bigip_ssh_username'):
-        hostname = pytest.symbols.bigip_mgmt_ip
+        hostname = pytest.symbols.bigip_mgmt_ip_public
         username = pytest.symbols.bigip_ssh_username
     else:
         raise EnvironmentError("Cannot perform tests without symbols!")
