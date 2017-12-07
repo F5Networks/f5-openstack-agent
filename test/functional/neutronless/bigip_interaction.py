@@ -160,23 +160,25 @@ EOF'''
     @classmethod
     def __collect_diff(cls, test_method):
         """An internal method"""
-        dirty_file = cls.dirty_file.format(test_method, my_epoch)
+        dirty_file = cls.dirty_file.format(my_epoch, test_method)
+        session_file = cls.config_file.format(my_epoch)
         dirty_content = cls._get_current_bigip_cfg()
         with open(dirty_file, 'w') as fh:
             fh.write(dirty_content)
         diff_file = cls.diff_file.format(test_method, my_epoch)
         cmd = "diff -u {} {} > {}".format(
-            cls.config_file.format(my_epoch), dirty_file, diff_file)
+            session_file, dirty_file, diff_file)
         result = cls.__exec_shell(cmd, True)
         try:
             cls.__check_results(result)
         except RuntimeError:
-            raise AssertionError(diff_file)
+            if os.path.getsize(diff_file) != os.path.getsize(session_file):
+                raise AssertionError(diff_file)
+        os.remove(dirty_file)
         return diff_file
 
     @classmethod
-    @classmethod
-    def check_resulting_cfg(cls, test_name=current_test):
+    def check_resulting_cfg(cls, test_name=None):
         """Check the current BIG-IP cfg agianst previous Reset upon Error
 
         This classmethod will check the current BIG-IP config and raise if
@@ -185,16 +187,21 @@ EOF'''
 
         test_name := the name of the test currently in tearDown
         """
+        if test_name:
+            cls.__current_test = test_name
+        else:
+            test_name = cls.__current_test
         if not hasattr(pytest.symbols, 'no_bigip_tracking'):
             cls._resulting_bigip_cfg(test_name)
 
     @classmethod
-    def backup_bigip_cfg(cls):
+    def backup_bigip_cfg(cls, test_name):
         """Performs a config backup of the BIG-IP's configuration
 
         This method will store a backup of the BIG-IP's configuration on the
         BIG-IP for later restoration.
         """
+        cls.__current_test = test_name
         if hasattr(pytest.symbols, 'no_bigip_tracking'):
             pass
         elif not os.path.isfile(cls.config_file.format(my_epoch)):
