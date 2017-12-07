@@ -185,7 +185,8 @@ EOF'''
 
         test_name := the name of the test currently in tearDown
         """
-        cls._resulting_bigip_cfg(test_name)
+        if not hasattr(pytest.symbols, 'no_bigip_tracking'):
+            cls._resulting_bigip_cfg(test_name)
 
     @classmethod
     def backup_bigip_cfg(cls):
@@ -194,7 +195,9 @@ EOF'''
         This method will store a backup of the BIG-IP's configuration on the
         BIG-IP for later restoration.
         """
-        if not os.path.isfile(cls.config_file.format(my_epoch)):
+        if hasattr(pytest.symbols, 'no_bigip_tracking'):
+            pass
+        elif not os.path.isfile(cls.config_file.format(my_epoch)):
             cls.__exec_shell(
                 cls.__ucs_cmd_fmt.format(cls.ssh_cmd, 'save'), True)
             cls._get_existing_bigip_cfg()
