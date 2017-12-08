@@ -69,7 +69,7 @@ class ListenerServiceBuilder(object):
             self.service_adapter.get_vlan(vip, bigip, network_id)
             try:
                 if tls:
-                    self.add_ssl_profile(tls, bigip)
+                    self.add_ssl_profile(tls, vip, bigip)
                 if persist and persist.get('type', "") == "APP_COOKIE":
                     self._add_cookie_persist_rule(vip, persist, bigip)
                 self.vs_helper.create(bigip, vip)
@@ -158,10 +158,7 @@ class ListenerServiceBuilder(object):
 
         return error
 
-    def add_ssl_profile(self, tls, bigip):
-        # add profile to virtual server
-        vip = {'name': tls['name'],
-               'partition': tls['partition']}
+    def add_ssl_profile(self, tls, vip, bigip):
 
         if "default_tls_container_id" in tls:
             container_ref = tls["default_tls_container_id"]
@@ -190,6 +187,9 @@ class ListenerServiceBuilder(object):
             del key
 
         # add ssl profile to virtual server
+        if 'profiles' not in vip:
+            vip['profiles'] = list()
+
         vip['profiles'].append({'name': name, 'context': "clientside"})
 
     def remove_ssl_profiles(self, tls, bigip):
