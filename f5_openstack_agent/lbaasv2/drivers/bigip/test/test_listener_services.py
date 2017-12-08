@@ -402,8 +402,9 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict(name='name', partition='partition')
             bigip = Mock()
             target._create_ssl_profile = Mock()
+            vip = {}
 
-            target.add_ssl_profile(tls, bigip)
+            target.add_ssl_profile(tls, vip, bigip)
 
             assert not target._create_ssl_profile.called
 
@@ -413,8 +414,9 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls['default_tls_container_id'] = '12345'
             bigip = Mock()
             target._create_ssl_profile = Mock()
+            vip = dict(name='name', partition='partition')
 
-            target.add_ssl_profile(tls, bigip)
+            target.add_ssl_profile(tls, vip, bigip)
 
             assert target._create_ssl_profile.call_count == 1
             target._create_ssl_profile.assert_called_once_with(
@@ -428,8 +430,9 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls['sni_containers'] = [sni_container]
             bigip = Mock()
             target._create_ssl_profile = Mock()
+            vip = dict(name='name', partition='partition')
 
-            target.add_ssl_profile(tls, bigip)
+            target.add_ssl_profile(tls, vip, bigip)
 
             assert target._create_ssl_profile.call_count == 1
             target._create_ssl_profile.assert_called_once_with(
