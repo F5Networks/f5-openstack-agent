@@ -31,6 +31,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 from pprint import pprint
 from requests.exceptions import HTTPError
 
@@ -73,7 +74,7 @@ def setup(request, mgmt_root):
     request.addfinalizer(teardown)
 
     system_helper.create_folder(mgmt_root, {'name': default_partition,
-                                        'subPath': '/'})
+                                            'subPath': '/'})
     assert system_helper.folder_exists(mgmt_root, default_partition)
 
     te = ExecTestEnv
@@ -87,10 +88,12 @@ def setup(request, mgmt_root):
 def test_gre_profile(setup):
     te = setup
     name = 'test_gre_profile'
-    profile = network_helper.create_l2gre_multipoint_profile(te.mgmt_root, name,
-                                                             te.partition)
+    profile = network_helper.create_l2gre_multipoint_profile(
+        te.mgmt_root, name, te.partition)
     add_resource_teardown(te.request, profile)
-    params = {'params': {'$filter': 'partition eq %s' % te.partition}}
+    params = {
+        'params': get_filter(te.mgmt_root, 'partition', 'eq', te.partition)
+    }
     gc = te.mgmt_root.tm.net.tunnels.gres
     profiles = gc.get_collection(requests_params=params)
     profile_names = (r.name for r in profiles)
@@ -108,10 +111,12 @@ def test_gre_profile(setup):
 def test_vxlan_profile(setup):
     te = setup
     name = 'test_vxlan_profile'
-    profile = network_helper.create_vxlan_multipoint_profile(te.mgmt_root, name,
-                                                             te.partition)
+    profile = network_helper.create_vxlan_multipoint_profile(
+        te.mgmt_root, name, te.partition)
     add_resource_teardown(te.request, profile)
-    params = {'params': {'$filter': 'partition eq %s' % te.partition}}
+    params = {
+        'params': get_filter(te.mgmt_root, 'partition', 'eq', te.partition)
+    }
     vc = te.mgmt_root.tm.net.tunnels.vxlans
     profiles = vc.get_collection(requests_params=params)
     profile_names = (r.name for r in profiles)
@@ -133,8 +138,8 @@ def test_get_gre_tunnel_key(setup):
     local_ip = '192.168.102.1'
     remote_ip = '192.168.102.2'
     t_obj = te.mgmt_root.tm.net.tunnels.tunnels.tunnel
-    t = t_obj.create(name=name, partition=te.partition,
-             localAddress=local_ip, remoteAddress=remote_ip, profile=profile)
+    t = t_obj.create(name=name, partition=te.partition, localAddress=local_ip,
+                     remoteAddress=remote_ip, profile=profile)
     add_resource_teardown(te.request, t)
     key = network_helper.get_l2gre_tunnel_key(te.mgmt_root, name, te.partition)
     assert(key == t.key)
@@ -148,8 +153,9 @@ def test_get_vxlan_tunnel_key(setup):
     local_ip = '224.0.0.1'
     remote_ip = '224.0.0.2'
     t_obj = te.mgmt_root.tm.net.tunnels.tunnels.tunnel
-    t = t_obj.create(name=name, partition=te.partition,
-             localAddress=local_ip, remoteAddress=remote_ip, profile=profile)
+    t = t_obj.create(
+        name=name, partition=te.partition, localAddress=local_ip,
+        remoteAddress=remote_ip, profile=profile)
     add_resource_teardown(te.request, t)
     key = network_helper.get_vxlan_tunnel_key(te.mgmt_root, name, te.partition)
     assert(key == t.key)
@@ -170,8 +176,8 @@ def create_selfip(te, vname, index):
     sname = 'test_selfip_%s' % index
     saddr = '192.168.101.%s/32' % index
     s_obj = te.mgmt_root.tm.net.selfips.selfip
-    s = s_obj.create(name=sname, partition=te.partition, address=saddr,
-             vlan=vname)
+    s = s_obj.create(
+        name=sname, partition=te.partition, address=saddr, vlan=vname)
     add_resource_teardown(te.request, s)
     return s
 
@@ -187,17 +193,21 @@ def test_get_selfip_addr(setup):
     addr = network_helper.get_selfip_addr(te.mgmt_root, s.name, te.partition)
     assert(addr == s.address)
 
+
 class TestRouteDomain(object):
 
     @log_test_call
     def test_route_domain_CRUD(self, setup):
         te = setup
-        rd_create = network_helper.create_route_domain(te.mgmt_root, te.partition)
+        rd_create = network_helper.create_route_domain(
+            te.mgmt_root, te.partition)
         add_resource_teardown(te.request, rd_create)
         rd_read = network_helper.get_route_domain(te.mgmt_root, te.partition)
         assert(rd_read.name == rd_read.name)
         rdc = te.mgmt_root.tm.net.route_domains
-        params = {'params': {'$filter': 'partition eq %s' % te.partition}}
+        params = {
+            'params': get_filter(te.mgmt_root, 'partition', 'eq', te.partition)
+        }
         route_domains = rdc.get_collection(requests_params=params)
         rd_names = (rd.name for rd in route_domains)
         assert(rd_create.name in rd_names)
@@ -215,7 +225,8 @@ class TestRouteDomain(object):
                                                     is_aux=True)
             add_resource_teardown(te.request, rd)
             exp_rd_ids.append(rd.id)
-        rd_ids = network_helper.get_route_domain_ids(te.mgmt_root, te.partition)
+        rd_ids = network_helper.get_route_domain_ids(
+            te.mgmt_root, te.partition)
         assert(num_route_domains == len(rd_ids))
         for exp_rd_id in exp_rd_ids:
             assert(exp_rd_id in rd_ids)
@@ -255,15 +266,18 @@ class TestRouteDomain(object):
 
 def create_arp(te, name, ipaddr, macaddr):
     a_obj = te.mgmt_root.tm.net.arps.arp
-    a = a_obj.create(name=name, partition=te.partition, ipAddress=ipaddr,
-             macAddress=macaddr)
+    a = a_obj.create(
+        name=name, partition=te.partition,
+        ipAddress=ipaddr, macAddress=macaddr)
     add_resource_teardown(te.request, a)
     return a
 
 
 def print_arps(te):
     ac = te.mgmt_root.tm.net.arps
-    params = {'params': {'$filter': 'partition eq %s' % te.partition}}
+    params = {
+        'params': get_filter(te.mgmt_root, 'partition', 'eq', te.partition)
+    }
     arps = ac.get_collection(requests_params=params)
     for arp in arps:
         pprint(arp.__dict__)
@@ -276,26 +290,27 @@ def test_arp_delete_by_network(setup):
     create_arp(te, 'test_arp_0', '192.168.101.1', 'ff:ee:dd:cc:bb:aa')
     create_arp(te, 'test_arp_1', '192.168.101.2', 'ff:aa:bb:cc:dd:ee')
     subnet = '192.168.101.1'
-    deleted_macs = network_helper.arp_delete_by_subnet(te.mgmt_root, subnet, None,
-                                                       te.partition)
+    deleted_macs = network_helper.arp_delete_by_subnet(
+        te.mgmt_root, subnet, None, te.partition)
     assert(len(deleted_macs) == 0)
+
     #  iteration 1, subnet = CIDR which should return non-empty list
     create_arp(te, 'test_arp_2', '192.168.102.1', 'ff:ee:dd:cc:bb:aa')
     create_arp(te, 'test_arp_3', '192.168.102.2', 'ff:aa:bb:cc:dd:ee')
     subnet = '192.168.102.1/32'
-    deleted_macs = network_helper.arp_delete_by_subnet(te.mgmt_root, subnet, None,
-                                                       te.partition)
+    deleted_macs = network_helper.arp_delete_by_subnet(
+        te.mgmt_root, subnet, None, te.partition)
     assert(len(deleted_macs) == 1)
     assert(deleted_macs[0] == 'ff:ee:dd:cc:bb:aa')
+
     #  iteration 2, subnet with mask which should return non-empty list
     create_arp(te, 'test_arp_4', '192.168.103.1', 'ff:ee:dd:cc:bb:aa')
     create_arp(te, 'test_arp_5', '192.168.103.2', 'ff:aa:bb:cc:dd:ee')
     subnet = '192.168.103.1'
     mask = '24'
-    deleted_macs = network_helper.arp_delete_by_subnet(te.mgmt_root, subnet, mask,
-                                                       te.partition)
+    deleted_macs = network_helper.arp_delete_by_subnet(
+        te.mgmt_root, subnet, mask, te.partition)
     deleted_macs = sorted(deleted_macs)
     assert(len(deleted_macs) == 2)
     assert(deleted_macs[0] == 'ff:aa:bb:cc:dd:ee')
     assert(deleted_macs[1] == 'ff:ee:dd:cc:bb:aa')
-
