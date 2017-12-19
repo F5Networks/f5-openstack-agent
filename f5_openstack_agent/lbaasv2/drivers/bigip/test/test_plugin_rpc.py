@@ -25,9 +25,7 @@ import oslo_messaging as messaging
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as constants
 import f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc as target_mod
 
-import conftest
 import mock_builder_base_class
-import class_tester_base_class
 
 
 class TestPluginRpcMockBuilder(mock_builder_base_class.MockBuilderBase):

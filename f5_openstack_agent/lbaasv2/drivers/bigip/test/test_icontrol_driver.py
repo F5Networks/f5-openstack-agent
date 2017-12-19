@@ -28,7 +28,6 @@ import f5_openstack_agent.lbaasv2.drivers.bigip.utils
 
 import conftest as ct
 import mock_builder_base_class
-import class_tester_base_class
 
 
 class TestiControlDriverMockBuilder(mock_builder_base_class.MockBuilderBase,

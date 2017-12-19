@@ -14,14 +14,10 @@
 #   limitations under the License.
 
 import copy
-import mock
 import os
 import pytest
 import sys
 import uuid
-import re
-
-from collections import namedtuple
 
 from neutron.plugins.common import constants as plugin_const
 

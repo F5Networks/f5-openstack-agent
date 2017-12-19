@@ -23,8 +23,8 @@ import test_plugin_rpc
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import agent_manager
 
-import mock_builder_base_class
 import class_tester_base_class
+import mock_builder_base_class
 
 
 @pytest.fixture
