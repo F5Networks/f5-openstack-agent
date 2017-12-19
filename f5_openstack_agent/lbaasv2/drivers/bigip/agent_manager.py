@@ -794,6 +794,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 if listeners:
                     self.purge_orphaned_listeners(listeners)
 
+                policies = self.lbdriver.get_all_deployed_l7_policys()
+                if policies:
+                    self.purge_orphaned_l7_policys(policies)
+
                 # Ask the BIG-IP for all deployed pools not associated
                 # to a virtual server
                 pools = self.lbdriver.get_all_deployed_pools()
@@ -865,6 +869,25 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     tenant_id=listeners[listenerid]['tenant_id'],
                     listener_id=listenerid,
                     hostnames=listeners[listenerid]['hostnames'])
+
+    def purge_orphaned_l7_policys(self, policies):
+        """Deletes hanging l7_policies from the deleted listeners"""
+        policies_used = set()
+        listeners = self.lbdriver.get_all_deployed_listeners()
+        for li_id in listeners:
+            policy = listeners[li_id]['l7_policy']
+            if policy:
+                policy = policy.split('/')[2]
+            policies_used.add(policy)
+        # Ask Neutron for the status of all deployed l7_policys
+        for policy_key in policies:
+            policy = policies.get(policy_key)
+            if policy_key not in policies_used:
+                LOG.debug('removing orphaned policy {}'.format(policy_key))
+                self.lbdriver.purge_orphaned_l7_policy(
+                    tenant_id=policy['tenant_id'],
+                    l7_policy_id=policy_key,
+                    hostname=policy['hostnames'])
 
     def purge_orphaned_pools(self, pools):
         """Deletes hanging pools from the deleted listeners"""

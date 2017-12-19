@@ -1125,6 +1125,10 @@ class iControlDriver(LBaaSBaseDriver):
                         for virtual in deployed_listeners:
                             virtual_id = \
                                 virtual.name[len(self.service_adapter.prefix):]
+                            l7_policy = ''
+                            if 'items' in virtual.policyReference:
+                                l7_policy = virtual.policyReference['items'][0]
+                                l7_policy = l7_policy['fullPath']
                             if virtual_id in deployed_virtual_dict:
                                 deployed_virtual_dict[virtual_id][
                                     'hostnames'].append(bigip.hostname)
@@ -1132,7 +1136,8 @@ class iControlDriver(LBaaSBaseDriver):
                                 deployed_virtual_dict[virtual_id] = {
                                     'id': virtual_id,
                                     'tenant_id': tenant_id,
-                                    'hostnames': [bigip.hostname]
+                                    'hostnames': [bigip.hostname],
+                                    'l7_policy': l7_policy
                                 }
         return deployed_virtual_dict
 
@@ -1255,6 +1260,57 @@ class iControlDriver(LBaaSBaseDriver):
                                       monitor_name))
                 except Exception as exc:
                     LOG.exception('Exception purging monitor %s' % str(exc))
+
+    @serialized('get_all_deployed_l7_policys')
+    @is_operational
+    def get_all_deployed_l7_policys(self):
+        """Retrieve a list of all Health Monitors deployed"""
+        LOG.debug('getting all deployed l7_policys on BIG-IP\'s')
+        deployed_l7_policy_dict = {}
+        for bigip in self.get_all_bigips():
+            folders = self.system_helper.get_folders(bigip)
+            for folder in folders:
+                tenant_id = folder[len(self.service_adapter.prefix):]
+                if str(folder).startswith(self.service_adapter.prefix):
+                    resource = resource_helper.BigIpResourceHelper(
+                        resource_helper.ResourceType.l7policy)
+                    deployed_l7_policys = resource.get_resources(bigip, folder)
+                    if deployed_l7_policys:
+                        for l7_policy in deployed_l7_policys:
+                            l7_policy_id = \
+                                l7_policy.name[
+                                    len(self.service_adapter.prefix):]
+                            if l7_policy_id in deployed_l7_policy_dict:
+                                deployed_l7_policy_dict[l7_policy_id][
+                                    'hostnames'].append(bigip.hostname)
+                            else:
+                                deployed_l7_policy_dict[l7_policy_id] = {
+                                    'id': l7_policy_id,
+                                    'tenant_id': tenant_id,
+                                    'hostnames': [bigip.hostname]
+                                }
+        return deployed_l7_policy_dict
+
+    @serialized('purge_orphaned_l7_policy')
+    @is_operational
+    def purge_orphaned_l7_policy(self, tenant_id=None, l7_policy_id=None,
+                                 hostnames=list()):
+        """Purge all l7_policys that exist on the BIG-IP but not in Neutron"""
+        for bigip in self.get_all_bigips():
+            if bigip.hostname in hostnames:
+                try:
+                    l7_policy_name = self.service_adapter.prefix + l7_policy_id
+                    partition = self.service_adapter.prefix + tenant_id
+                    l7_policy = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.l7policy).load(
+                            bigip, l7_policy_name, partition)
+                    l7_policy.delete()
+                except HTTPError as err:
+                    if err.response.status_code == 404:
+                        LOG.debug('l7_policy %s not on BIG-IP %s.'
+                                  % (l7_policy_id, bigip.hostname))
+                except Exception as exc:
+                    LOG.exception('Exception purging l7_policy %s' % str(exc))
 
     @serialized('purge_orphaned_loadbalancer')
     @is_operational
