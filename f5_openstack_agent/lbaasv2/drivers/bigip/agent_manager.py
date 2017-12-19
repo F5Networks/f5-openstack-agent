@@ -851,6 +851,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                                 pool_id=poolid,
                                 hostnames=pools[poolid]['hostnames'])
 
+                # Ask the BIG-IP for all deployed monitors not associated
+                # to a pool
+                monitors = self.lbdriver.get_all_deployed_health_monitors()
+                if monitors:
+                    self.purge_orphaned_health_monitors(monitors)
+
             else:
                 LOG.debug('the global agent is %s' % (global_agent['host']))
                 return True
@@ -861,6 +867,22 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             cleaned = True
 
         return cleaned
+
+    def purge_orphaned_health_monitors(self, monitors):
+        """Deletes hanging Health Monitors from the deleted Pools"""
+        # ask Neutron for for the status of all deployed monitors...
+        monitors_used = set()
+        pools = self.lbdriver.get_all_deployed_pools()
+        for pool_id in pools:
+            monitors_used.union(set(pools[pool_id]['monitor']))
+        LOG.debug('health monitors in use: {}'.format(monitors_used))
+        for monitorid in monitors:
+            if monitorid not in monitors_used:
+                LOG.debug('removing orphaned health monitor %s' % monitorid)
+                self.lbdriver.purge_orphaned_health_monitor(
+                    tenant_id=monitors[monitorid]['tenant_id'],
+                    monitor_id=monitorid,
+                    hostnames=monitors[monitorid]['hostnames'])
 
     ######################################################################
     #
