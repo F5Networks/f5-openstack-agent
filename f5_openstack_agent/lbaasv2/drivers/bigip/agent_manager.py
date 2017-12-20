@@ -785,71 +785,30 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 lbs = self.lbdriver.get_all_deployed_loadbalancers(
                     purge_orphaned_folders=True)
                 if lbs:
-                    # Ask Neutron for the status of each deployed loadbalancer
-                    lbs_status = self.plugin_rpc.validate_loadbalancers_state(
-                        list(lbs.keys()))
-                    LOG.debug('validate_loadbalancers_state returned: %s'
-                              % lbs_status)
-                    lbs_removed = False
-                    for lbid in lbs_status:
-                        # If the statu is Unknown, it no longer exists
-                        # in Neutron and thus should be removed from the BIG-IP
-                        if lbs_status[lbid] in ['Unknown']:
-                            LOG.debug('removing orphaned loadbalancer %s'
-                                      % lbid)
-                            # This will remove pools, virtual servers and
-                            # virtual addresses
-                            self.lbdriver.purge_orphaned_loadbalancer(
-                                tenant_id=lbs[lbid]['tenant_id'],
-                                loadbalancer_id=lbid,
-                                hostnames=lbs[lbid]['hostnames'])
-                            lbs_removed = True
-                    if lbs_removed:
-                        # If we have removed load balancers, then scrub
-                        # for tenant folders we can delete because they
-                        # no longer contain loadbalancers.
-                        self.lbdriver.get_all_deployed_loadbalancers(
-                            purge_orphaned_folders=True)
+                    self.purge_orphaned_loadbalancers(lbs)
 
                 # Ask the BIG-IP for all deployed listeners to make
                 # sure we are not orphaning listeners which have
                 # valid loadbalancers in a OK state
                 listeners = self.lbdriver.get_all_deployed_listeners()
                 if listeners:
-                    # Ask Neutron for the status of all deployed listeners
-                    listener_status = self.plugin_rpc.validate_listeners_state(
-                        list(listeners.keys()))
-                    LOG.debug('validated_pools_state returned: %s'
-                              % listener_status)
-                    for listenerid in listener_status:
-                        # If the pool status is Unknown, it no longer exists
-                        # in Neutron and thus should be removed from BIG-IP
-                        if listener_status[listenerid] in ['Unknown']:
-                            LOG.debug('removing orphaned listener %s'
-                                      % listenerid)
-                            self.lbdriver.purge_orphaned_listener(
-                                tenant_id=listeners[listenerid]['tenant_id'],
-                                listener_id=listenerid,
-                                hostnames=listeners[listenerid]['hostnames'])
+                    self.purge_orphaned_listeners(listeners)
+
+                policies = self.lbdriver.get_all_deployed_l7_policys()
+                if policies:
+                    self.purge_orphaned_l7_policys(policies)
 
                 # Ask the BIG-IP for all deployed pools not associated
                 # to a virtual server
                 pools = self.lbdriver.get_all_deployed_pools()
                 if pools:
-                    # Ask Neutron for the status of all deployed pools
-                    pools_status = self.plugin_rpc.validate_pools_state(
-                        list(pools.keys()))
-                    LOG.debug('validated_pools_state returned: %s'
-                              % pools_status)
-                    for poolid in pools_status:
-                        # If the pool status is Unknown, it no longer exists
-                        # in Neutron and thus should be removed from BIG-IP
-                        if pools_status[poolid] in ['Unknown']:
-                            LOG.debug('removing orphaned pool %s' % poolid)
-                            self.lbdriver.purge_orphaned_pool(
-                                tenant_id=pools[poolid]['tenant_id'],
-                                pool_id=poolid,
-                                hostnames=pools[poolid]['hostnames'])
+                    self.purge_orphaned_pools(pools)
+
+                # Ask the BIG-IP for all deployed monitors not associated
+                # to a pool
+                monitors = self.lbdriver.get_all_deployed_health_monitors()
+                if monitors:
+                    self.purge_orphaned_health_monitors(monitors)
 
             else:
                 LOG.debug('the global agent is %s' % (global_agent['host']))
@@ -861,6 +820,106 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             cleaned = True
 
         return cleaned
+
+    def purge_orphaned_loadbalancers(self, lbs):
+        """Gets 'unknown' loadbalancers from Neutron and purges them
+
+        Provisioning status of 'unknown' on loadbalancers means that the object
+        does not exist in Neutron.  These should be deleted to consolidate
+        hanging objects.
+        """
+        lbs_status = self.plugin_rpc.validate_loadbalancers_state(
+            list(lbs.keys()))
+        LOG.debug('validate_loadbalancers_state returned: %s'
+                  % lbs_status)
+        lbs_removed = False
+        for lbid in lbs_status:
+            # If the statu is Unknown, it no longer exists
+            # in Neutron and thus should be removed from the BIG-IP
+            if lbs_status[lbid] in ['Unknown']:
+                LOG.debug('removing orphaned loadbalancer %s'
+                          % lbid)
+                # This will remove pools, virtual servers and
+                # virtual addresses
+                self.lbdriver.purge_orphaned_loadbalancer(
+                    tenant_id=lbs[lbid]['tenant_id'],
+                    loadbalancer_id=lbid,
+                    hostnames=lbs[lbid]['hostnames'])
+                lbs_removed = True
+        if lbs_removed:
+            # If we have removed load balancers, then scrub
+            # for tenant folders we can delete because they
+            # no longer contain loadbalancers.
+            self.lbdriver.get_all_deployed_loadbalancers(
+                purge_orphaned_folders=True)
+
+    def purge_orphaned_listeners(self, listeners):
+        """Deletes the hanging listeners from the deleted loadbalancers"""
+        listener_status = self.plugin_rpc.validate_listeners_state(
+            list(listeners.keys()))
+        LOG.debug('validated_pools_state returned: %s'
+                  % listener_status)
+        for listenerid in listener_status:
+            # If the pool status is Unknown, it no longer exists
+            # in Neutron and thus should be removed from BIG-IP
+            if listener_status[listenerid] in ['Unknown']:
+                LOG.debug('removing orphaned listener %s'
+                          % listenerid)
+                self.lbdriver.purge_orphaned_listener(
+                    tenant_id=listeners[listenerid]['tenant_id'],
+                    listener_id=listenerid,
+                    hostnames=listeners[listenerid]['hostnames'])
+
+    def purge_orphaned_l7_policys(self, policies):
+        """Deletes hanging l7_policies from the deleted listeners"""
+        policies_used = set()
+        listeners = self.lbdriver.get_all_deployed_listeners()
+        for li_id in listeners:
+            pools_used.union(set(listeners[li_id]['l7policies']))
+        # Ask Neutron for the status of all deployed l7_policys
+        for policy_key in policies:
+            policy = policies.get(policy_key)
+            if policy_key not in policies_used:
+                LOG.debug('removing orphaned policy {}'.format(policy_key))
+                self.lbdriver.purge_orphaned_l7_policy(
+                    tenant_id=policy['tenant_id'],
+                    l7_policy_id=policy_key,
+                    hostname=policy['hostnames'])
+
+    def purge_orphaned_pools(self, pools):
+        """Deletes hanging pools from the deleted listeners"""
+        # Ask Neutron for the status of all deployed pools
+        pools_status = self.plugin_rpc.validate_pools_state(
+            list(pools.keys()))
+        LOG.debug('validated_pools_state returned: %s'
+                  % pools_status)
+        for poolid in pools_status:
+            # If the pool status is Unknown, it no longer exists
+            # in Neutron and thus should be removed from BIG-IP
+            if pools_status[poolid] in ['Unknown']:
+                LOG.debug('removing orphaned pool %s' % poolid)
+                self.lbdriver.purge_orphaned_pool(
+                    tenant_id=pools[poolid]['tenant_id'],
+                    pool_id=poolid,
+                    hostnames=pools[poolid]['hostnames'])
+
+    def purge_orphaned_health_monitors(self, monitors):
+        """Deletes hanging Health Monitors from the deleted Pools"""
+        # ask Neutron for for the status of all deployed monitors...
+        monitors_used = set()
+        pools = self.lbdriver.get_all_deployed_pools()
+        for pool_id in pools:
+            monitors_used.union(set(pools[pool_id]['monitors']))
+        LOG.debug('validated_monitors_state returned: %s'
+                  % monitors_status)
+        for monitorid in monitors:
+            monitor = monitors[monitorid]
+            if monitorid not in monitors_used:
+                LOG.debug('removing orphaned health monitor %s' % monitorid)
+                self.lbdriver.purge_orphaned_health_monitor(
+                    tenant_id=monitors[monitorid]['tenant_id'],
+                    monitor_id=monitorid,
+                    hostnames=monitors[monitorid]['hostnames'])
 
     ######################################################################
     #
