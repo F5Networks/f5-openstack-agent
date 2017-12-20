@@ -680,3 +680,21 @@ class LBaaSv2PluginRPC(object):
                       "validate_pool_state")
 
         return pool_status
+
+    @log_helpers.log_method_call
+    def validate_health_monitors_state(self, health_monitors):
+        """Get the status of a list of health_monitors IDs in Neutron"""
+        health_monitor_status = {}
+        try:
+            health_monitor_status = self._call(
+                self.context,
+                self._make_msg('validate_health_monitors_state',
+                               health_monitors=health_monitors,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_health_monitor_state")
+
+        return health_monitor_status

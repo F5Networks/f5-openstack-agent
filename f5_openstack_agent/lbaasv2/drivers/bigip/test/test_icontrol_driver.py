@@ -27,16 +27,180 @@ import f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver as target_mod
 import f5_openstack_agent.lbaasv2.drivers.bigip.utils
 
 import conftest as ct
+import mock_builder_base_class
 
 
-class TestiControlDriverConstructor(ct.TestingWithServiceConstructor):
+class TestiControlDriverMockBuilder(mock_builder_base_class.MockBuilderBase,
+                                    ct.TestingWithServiceConstructor):
+    """This class creates targets for icontrol_driver.iControlDriver
+
+    This MockBuilder class (see contest.MockBuilder for details) provides the
+    TesterClass different levels of abstraction to provide a mock-builder
+    factory that is driven by layering of targets.  This class will provide
+    the targets (currently) listed in the _other_builders attribute.
+    """
+    _other_builders = dict()
+
     @staticmethod
     @pytest.fixture
     @patch('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
            'iControlDriver.__init__')
-    def fully_mocked_target(init):
+    def mocked_target(init):
         init.return_value = None
         return target_mod.iControlDriver()
+
+    @pytest.fixture
+    def fully_mocked_target(self, mocked_target):
+        """Creates a mocked target that mocks all lower other_builders' targets
+
+        This does not mean that the caller's black-box is limited to this
+        target, but can drill further using a system of either mocks or
+        non-mocks.  Please see conftest.MockBuilder for details.
+        """
+        self._construct_others()
+        # continue to fill in other_builders as needed...
+        mocked_target.conf = Mock()  # may need to be a shared one...
+        mocked_target.hostnames = None
+        mocked_target.device_type = None
+        mocked_target.plugin_rpc = None
+        mocked_target.agent_report_state = None
+        mocked_target.operational = False
+        mocked_target.driver_name = 'f5-lbaasv2-icontrol'
+        mocked_target.__bigips = {}
+        mocked_target.__last_connect_attempt = None
+        mocked_target.ha_validated = False
+        mocked_target.tg_initialized = False
+        mocked_target.__traffic_groups = []
+        mocked_target.agent_configurations = {}
+        mocked_target.agent_configurations['device_drivers'] = \
+            ['mocked_target.driver_name']
+        mocked_target.agent_configurations['icontrol_endpoints'] = {}
+        mocked_target.tenant_manager = None
+        mocked_target.cluster_manager = None
+        mocked_target.system_helper = None
+        mocked_target.lbaas_builder = None
+        mocked_target.service_adapter = None
+        mocked_target.vlan_binding = None
+        mocked_target.l3_binding = None
+        mocked_target.cert_manager = None  # overrides register_OPTS
+        mocked_target.stat_helper = None
+        mocked_target.network_helper = None
+        mocked_target.vs_manager = None
+        mocked_target.pool_manager = None
+        mocked_target.agent_configurations['tunnel_types'] = []
+        mocked_target.agent_configurations['bridge_mappings'] = {}
+        mocked_target.agent_configurations['tunnel_types'] = \
+            'advertised_tunnel_types'
+        mocked_target.agent_configurations['common_networks'] = \
+            'common_network_ids'
+        mocked_target.agent_configurations['f5_common_external_networks'] = \
+            'f5_common_external_networks'
+        mocked_target.initialized = True
+
+    def new_fully_mocked_target(self):
+        mocked_target = self.mocked_target()
+        self.fully_mocked_target(mocked_target)
+        return mocked_target
+
+    def mock_backup_configuration(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """mocks iControlDriver.backup_configuration method"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'backup_configuration', static, call_cnt,
+                          expected_args, kwargs)
+        return target
+
+    def mock_purge_orphaned_loadbalancer(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks icontrol_driver.iControlDriver.purge_orphaned_loadbalancer"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'purge_orphaned_loadbalancer', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_purge_orphaned_listener(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks icontrol_driver.iControlDriver.purge_orphaned_listener"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'purge_orphaned_listener', static, call_cnt,
+                          expected_args, kwargs)
+        return target
+
+    def mock_purge_orphaned_pool(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks icontrol_driver.iControlDriver.purge_orphaned_pool"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'purge_orphaned_pool', static, call_cnt,
+                          expected_args, kwargs)
+        return target
+
+    def mock_purge_orphaned_health_monitor(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks iControlDriver.purge_orphaned_health_monitor"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'purge_orphaned_health_monitor', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_purge_orphaned_policy(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks icontrol_driver.iControlDriver.purge_orphaned_policy"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'purge_orphaned_policy', static, call_cnt,
+                          expected_args, kwargs)
+        return target
+
+    def mock_get_all_deployed_loadbalancers(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks iControlDriver.get_all_deployed_loadbalancers"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'get_all_deployed_loadbalancers', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_get_all_deployed_listeners(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks iControlDriver.get_all_deployed_listeners"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'get_all_deployed_listeners', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_get_all_deployed_pools(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks iControlDriver.get_all_deployed_pools"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'get_all_deployed_pools', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_get_all_deployed_health_monitors(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks iControlDriver.get_all_deployed_health_monitors"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'get_all_deployed_health_monitors', static,
+                          call_cnt, expected_args, kwargs)
+        return target
 
     @staticmethod
     @pytest.fixture
@@ -92,7 +256,7 @@ class TestiControlDriverConstructor(ct.TestingWithServiceConstructor):
         return fully_mocked_target
 
 
-class TestiControlDriverBuilder(TestiControlDriverConstructor):
+class TestiControlDriverBuilder(TestiControlDriverMockBuilder):
     @pytest.fixture
     def mock_is_operational(self, request):
         request.addfinalizer(self.cleanup)
