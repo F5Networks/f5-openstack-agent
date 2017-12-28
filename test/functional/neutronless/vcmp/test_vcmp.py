@@ -350,7 +350,7 @@ def test_vcmp_delete_listener(
             'ClusterManager')
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG')
 def test_vcmp_clustered_guests(
-        mock_log, mock_cm, track_bigip_cfg, setup_bigip_devices,
+        track_bigip_cfg, mock_log, mock_cm, setup_bigip_devices,
         bigip, bigip2, vcmp_setup, vcmp_uris):
     '''Test creation of lb with guests clustered across hosts.'''
 
@@ -456,8 +456,8 @@ def test_vcmp_clustered_guests(
             'ClusterManager')
 @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.vcmp.LOG')
 def test_vcmp_clustered_guests_more_hosts_than_guests(
-        mock_log, mock_cm, track_bigip_cfg, setup_bigip_devices,
-        bigip, bigip2, vcmp_setup, vcmp_uris):
+        track_bigip_cfg, mock_log, mock_cm, setup_bigip_devices, bigip, bigip2,
+        vcmp_setup, vcmp_uris):
     '''Exception should raise when given host that is not licensed for vcmp.'''
 
     mock_cm_obj = mock.MagicMock()
