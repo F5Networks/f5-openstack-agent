@@ -127,8 +127,30 @@ class LBaaSBaseDriver(object):
         """LBaaS Update Health Monitor."""
         raise NotImplementedError()
 
+    def delete_health_monitor(self, health_monitor, pool, service):
+        """LBaaS Delete Health Monior."""
+        raise NotImplementedError()
+
     def delete_pool_health_monitor(self, health_monitor, pool, service):
         """LBaaS Delete Health Monitor."""
+        raise NotImplementedError()
+
+    def get_all_deployed_health_monitors(self):
+        """Get listing of all deployed Health Monitors"""
+        raise NotImplementedError()
+
+    def purge_orphaned_health_monitor(self, tenant_id=None, monitor_id=None,
+                                      hostnames=list()):
+        """LBaaS Purge Health Monitor."""
+        raise NotImplementedError()
+
+    def get_all_deployed_l7_policys(self):
+        """Get listing of all deployed Health Monitors"""
+        raise NotImplementedError()
+
+    def purge_orphaned_l7_policy(self, tenant_id=None, monitor_id=None,
+                                 hostnames=list()):
+        """LBaaS Purge Health Monitor."""
         raise NotImplementedError()
 
     def tunnel_update(self, **kwargs):
