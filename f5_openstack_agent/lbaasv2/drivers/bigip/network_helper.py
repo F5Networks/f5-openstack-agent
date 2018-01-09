@@ -1,4 +1,4 @@
-# Copyright 2014-2016 F5 Networks Inc.
+# Copyright 2014-2018 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -570,43 +570,29 @@ class NetworkHelper(object):
             arp_ip_address=None,
             partition=const.DEFAULT_PARTITION):
 
-        records = self.get_fdb_entry(bigip,
-                                     tunnel_name=tunnel_name,
-                                     mac=None,
-                                     partition=partition)
-
-        fdb_entry = dict()
-        fdb_entry['name'] = mac_address
-        fdb_entry['endpoint'] = vtep_ip_address
-
-        for i in range(len(records)):
-            if records[i]['name'] == mac_address:
-                records[i] = fdb_entry
-                break
-        else:
-            records.append(fdb_entry)
-
         try:
             tunnel = bigip.tm.net.fdb.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 obj = tunnel.load(name=tunnel_name, partition=partition)
-                obj.modify(records=records)
-                if const.FDB_POPULATE_STATIC_ARP:
-                    # arp_ip_address is typcially member address.
-                    if arp_ip_address:
-                        try:
-                            LOG.debug("Creating ARP with IP address %s and"
-                                      "MAC addess %s" % (arp_ip_address,
-                                                         mac_address))
-                            arp = bigip.tm.net.arps.arp
-                            arp.create(ip_address=arp_ip_address,
-                                       mac_address=mac_address,
-                                       partition=partition)
-                        except Exception as e:
-                            LOG.error('add_fdb_entry',
-                                      'could not create static arp: %s'
-                                      % e.message)
-                            return False
+                if not obj.records_s.records.exists(name=mac_address):
+                    rec = obj.records_s.records.create(
+                        name=mac_address, endpoint=vtep_ip_address)
+                    if const.FDB_POPULATE_STATIC_ARP:
+                        # arp_ip_address is typcially member address.
+                        if arp_ip_address:
+                            try:
+                                LOG.debug("Creating ARP with IP address %s and"
+                                          "MAC addess %s" % (arp_ip_address,
+                                                             mac_address))
+                                arp = bigip.tm.net.arps.arp
+                                arp.create(ip_address=arp_ip_address,
+                                           mac_address=mac_address,
+                                           partition=partition)
+                            except Exception as e:
+                                LOG.error('add_fdb_entry',
+                                          'could not create static arp: %s'
+                                          % e.message)
+                                return False
                 return True
             else:
                 LOG.debug("Tunnel %s does not exist." % tunnel_name)
@@ -627,29 +613,19 @@ class NetworkHelper(object):
             arp_ip_address=None,
             partition=const.DEFAULT_PARTITION):
 
-        if const.FDB_POPULATE_STATIC_ARP:
-            if arp_ip_address:
-                self.arp_delete(bigip,
-                                ip_address=arp_ip_address,
-                                partition=partition)
-
-        records = self.get_fdb_entry(
-            bigip, tunnel_name, mac=None, partition=partition)
-        if not records:
-            return False
-
-        original_len = len(records)
-        records = [record for record in records
-                   if record.get('name') != mac_address]
-        if original_len != len(records):
-            if len(records) == 0:
-                records = None
-
+        if const.FDB_POPULATE_STATIC_ARP and arp_ip_address:
+            self.arp_delete(bigip,
+                            ip_address=arp_ip_address,
+                            partition=partition)
         try:
             tunnel = bigip.tm.net.fdb.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 obj = tunnel.load(name=tunnel_name, partition=partition)
-                obj.modify(records=records)
+                r = obj.records_s.records
+                if r.exists(name=mac_address):
+                    r = r.load(name=mac_address)
+                    r.delete()
+
         except HTTPError as err:
             LOG.error("Error updating tunnel %s. "
                       "Repsponse status code: %s. Response "
@@ -662,78 +638,26 @@ class NetworkHelper(object):
         # Add vxlan fdb entries
         for tunnel_name in fdb_entries:
             folder = fdb_entries[tunnel_name]['folder']
-            existing_records = self.get_fdb_entry(bigip,
-                                                  tunnel_name=tunnel_name,
-                                                  mac=None,
-                                                  partition=folder)
-            new_records = []
-            new_mac_addresses = []
-            new_arp_addresses = {}
-
             tunnel_records = fdb_entries[tunnel_name]['records']
             for mac in tunnel_records:
-                fdb_entry = dict()
-                fdb_entry['name'] = mac
-                fdb_entry['endpoint'] = tunnel_records[mac]['endpoint']
-                new_records.append(fdb_entry)
-                new_mac_addresses.append(mac)
-                if tunnel_records[mac]['ip_address']:
-                    new_arp_addresses[mac] = tunnel_records[mac]['ip_address']
-
-            for record in existing_records:
-                if not record['name'] in new_mac_addresses:
-                    new_records.append(record)
-                else:
-                    # This fdb entry exists and is not being updated.
-                    # So, do not update the ARP record either.
-                    if record['name'] in new_arp_addresses:
-                        del new_arp_addresses[record['name']]
-
-            tunnel = bigip.tm.net.fdb.tunnels.tunnel
-            # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
-            # default to 11.6.0, so we expect it to work in 12 and greater.
-            if tunnel.exists(name=tunnel_name, partition=folder):
-                obj = tunnel.load(name=tunnel_name, partition=folder)
-                obj.modify(records=new_records)
+                self.add_fdb_entry(
+                    bigip,
+                    tunnel_name,
+                    mac_address=mac,
+                    vtep_ip_address=tunnel_records[mac]['endpoint'],
+                    partition=folder)
 
     @log_helpers.log_method_call
     def delete_fdb_entries(self, bigip, fdb_entries=None):
         for tunnel_name in fdb_entries:
             folder = fdb_entries[tunnel_name]['folder']
-            existing_records = self.get_fdb_entry(bigip,
-                                                  tunnel_name=tunnel_name,
-                                                  mac=None,
-                                                  partition=folder)
-            arps_to_delete = {}
-            new_records = []
-
-            delete_records = fdb_entries[tunnel_name]['records']
-            for record in existing_records:
-                for mac_addr, entry in delete_records.iteritems():
-                    if record['name'] == mac_addr:
-                        if entry['ip_address']:
-                            arps_to_delete[mac_addr] = entry['ip_address']
-                        break
-                else:
-                    new_records.append(record)
-
-            if len(new_records) == 0:
-                new_records = None
-
-            tunnel = bigip.tm.net.fdb.tunnels.tunnel
-            # IMPORTANT: v1 code specifies version 11.5.0. f5-sdk should
-            # default to 11.6.0, so we expect it to work in 12 and greater.
-            if tunnel.exists(name=tunnel_name, partition=folder):
-                obj = tunnel.load(name=tunnel_name, partition=folder)
-                obj.modify(records=new_records)
-
-            if const.FDB_POPULATE_STATIC_ARP:
-                for mac in arps_to_delete:
-                    self.arp_delete(bigip,
-                                    ip_address=arps_to_delete[mac],
-                                    partition='Common')
-            return True
-        return False
+            tunnel_records = fdb_entries[tunnel_name]['records']
+            for mac in tunnel_records:
+                self.delete_fdb_entry(
+                    bigip,
+                    tunnel_name=tunnel_name,
+                    mac_address=mac,
+                    partition=folder)
 
     @log_helpers.log_method_call
     def get_fdb_entry(self,
@@ -741,19 +665,19 @@ class NetworkHelper(object):
                       tunnel_name=None,
                       mac=None,
                       partition=const.DEFAULT_PARTITION):
+
         try:
             tunnel = bigip.tm.net.fdb.tunnels.tunnel
             if tunnel.exists(name=tunnel_name, partition=partition):
                 obj = tunnel.load(name=tunnel_name, partition=partition)
-                if hasattr(obj, "records"):
-                    records = obj.records
-                    if mac is None:
-                        return records
+                records = obj.records_s.get_collection()
+                if mac is None:
+                    return records
 
-                    for record in records:
-                        if record['name'] == mac:
-                            LOG.debug("FOUND RECORD for MAC %s" % mac)
-                            return record
+                for record in records:
+                    if record['name'] == mac:
+                        LOG.debug("FOUND RECORD for MAC %s" % mac)
+                        return record
 
         except Exception as err:
             LOG.error("Error in get_fdb_entry"

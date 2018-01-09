@@ -75,7 +75,7 @@ version = VERSION
 release = VERSION
 
 # F5 SDK release version should be set here
-f5_sdk_version = '2.3.3'
+f5_sdk_version = '3.0.8'
 # F5 icontrol REST version should be set here
 f5_icontrol_version = '1.3.0'
 
