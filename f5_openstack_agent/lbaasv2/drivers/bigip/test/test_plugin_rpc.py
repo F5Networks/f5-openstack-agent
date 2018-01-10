@@ -25,8 +25,120 @@ import oslo_messaging as messaging
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as constants
 import f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc as target_mod
 
+import class_tester_base_class
+import mock_builder_base_class
 
-class TestPluginRpcBuilder(object):
+
+class TestPluginRpcMockBuilder(mock_builder_base_class.MockBuilderBase):
+    """Builder class for Mock objects that mock LBaaSv2PluginRPC
+
+    This class builds mock-module class objects for isolation of the
+    LbaasAgentManager.  As such, all reference to `target` are pointing to
+    either an instantiated instance of LBaaSv2PluginRPC or is a mocked
+    instance of this class.
+
+    Use:
+        class Tester(object):
+            my_mock_builder = TestLBaaSv2PluginRPCMockBuilder
+            standalone = TestLBaaSv2PluginRPCMockBuilder.standalone
+            neutron_only = TestLBaaSv2PluginRPCMockBuilder.neutron_only
+            bigip_only = TestLBaaSv2PluginRPCMockBuilder.bigip_only
+            fully_int = TestLBaaSv2PluginRPCMockBuilder.fully_int
+            fixture = my_mock_builder.fixture
+
+            def test_foo(fixture):
+                # this then uses the pytest.fixture fixture from MockBuilder
+    """
+    # non-instantiated original:
+    _other_builders = dict()
+
+    @staticmethod
+    @patch('f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc.'
+           'LBaaSv2PluginRPC.__init__')
+    def mocked_target(init):
+        init.return_value = None
+        return target_mod.LBaaSv2PluginRPC()
+
+    def fully_mocked_target(self, mocked_target):
+        """Creates a mocked target that mocks all lower other_builders' targets
+
+        This does not mean that the caller's black-box is limited to this
+        target, but can drill further using a system of either mocks or
+        non-mocks.  Please see conftest.MockBuilder for details.
+        """
+        # instantiate other_builders...
+        self._construct_others()
+        mocked_target.topic = None
+        mocked_target.target = Mock()  # replace with logic for icontrol mocker
+        mocked_target._client = Mock()  # replace with icontrol mocker later...
+        mocked_target.context = 'context'
+        mocked_target.env = 'env'
+        mocked_target.group = 'group'
+        mocked_target.host = 'host'
+        return mocked_target
+
+    def mock_get_clusterwide_agent(self, target=None, call_cnt=1,
+                                   expected_args=None, static=None, **kwargs):
+        """mocks LBaaSv2PluginRPC.get_clusterwide_agent method
+
+        This will mock the method in the instantiated production target.
+        """
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'get_clusterwide_agent', static, call_cnt,
+                          expected_args, kwargs)
+        return target
+
+    def mock__call(self, target=None, call_cnt=1, expected_args=None,
+                   static=None, **kwargs):
+        """mocks LBaaSv2PluginRPC._call method"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, '_call', static, call_cnt, expected_args,
+                          kwargs)
+
+    def mock_validate_loadbalancers_state(
+            self, target=None, call_cnt=1, expected_args=None, static=None,
+            **kwargs):
+        """mocks LBaaSv2PluginRPC.validate_loadbalancers_state method"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'validate_loadbalancers_state', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_validate_listeners_state(
+            self, target=None, call_cnt=1, expected_args=None, static=None,
+            **kwargs):
+        """mocks LBaaSv2PluginRPC.validate_listeners_state method"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'validate_listeners_state', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_validate_pools_state(
+            self, target=None, call_cnt=1, expected_args=None, static=None,
+            **kwargs):
+        """mocks LBaaSv2PluginRPC.validate_pools_state method"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'validate_pools_state', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_validate_health_monitors_state(
+            self, target=None, call_cnt=1, expected_args=None, static=None,
+            **kwargs):
+        """mocks LBaaSv2PluginRPC.validate_health_monitors_state method"""
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'validate_health_monitors_state', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+
+class TestPluginRpcConstructor(object):
     payload = dict(topic='topic', context='context', env='env', group='group',
                    host='host')
     payload_order = ('topic', 'context', 'env', 'group', 'host')
@@ -58,8 +170,6 @@ class TestPluginRpcBuilder(object):
     def get_uuid():
         return uuid.uuid4()
 
-
-class TestPluginRpcConstructor(TestPluginRpcBuilder):
     @pytest.fixture
     def mock_logger(self, request):
         logger = Mock()
@@ -73,7 +183,10 @@ class TestPluginRpcConstructor(TestPluginRpcBuilder):
         target_mod.LOG = log if log else target_mod.LOG
 
 
-class TestPluginRpc(TestPluginRpcConstructor):
+class TestPluginRpc(TestPluginRpcConstructor,
+                    class_tester_base_class.ClassTesterBase):
+    builder = TestPluginRpcMockBuilder
+
     def test__init__(self, target, topic_less_target):
 
         def positive_case_fully_populated(self, target, expected_args):
