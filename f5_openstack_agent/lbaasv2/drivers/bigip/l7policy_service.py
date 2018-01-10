@@ -90,7 +90,7 @@ class L7PolicyService(object):
                 LOG.error("L7 Policy deletion error: %s",
                           error.message)
 
-            return error
+        return error
 
     def build_policy(self, l7policy, lbaas_service):
         # build data structure for service adapter input
