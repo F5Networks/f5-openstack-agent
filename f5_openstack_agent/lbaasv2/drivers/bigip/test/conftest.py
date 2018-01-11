@@ -29,6 +29,11 @@ class TestingWithServiceConstructor(object):
     steps to create a unique service object.  From there, the tests themselves
     can perform additional operations to make the service object what they
     need.
+
+    MockBuilder classes will use this method upon occasion, but it should not
+    be inherited or used directly by tester, but can be owned by for fixture
+    de-referencing.  For an example of this, please see:
+    test_agent_manager.py::TestAgentManager::test_fcwb_purge_orphaned_listeners
     """
     defaultservice = \
         dict(listeners=[], loadbalancer={}, pools=[], networks={}, subnets={},
@@ -36,7 +41,9 @@ class TestingWithServiceConstructor(object):
 
     @staticmethod
     @pytest.fixture
-    def new_id():
+    def new_id(*args):
+        # this may or may not be called by an instantiated element... mind
+        # blown...
         return str(uuid.uuid4())
 
     @staticmethod
@@ -63,9 +70,13 @@ class TestingWithServiceConstructor(object):
         service['networks'][new_id] = new_network
         return service
 
-    @staticmethod
+    @classmethod
+    def new_service_with_network(cls):
+        return cls.service_with_network(cls.new_id())
+
+    @classmethod
     @pytest.fixture
-    def service_with_subnet(new_id, service_with_network):
+    def service_with_subnet(cls, new_id, service_with_network):
         network_id = service_with_network['networks'].keys()[0]
         network = service_with_network['networks'][network_id]
         tenant_id = network['tenant_id']
@@ -75,12 +86,18 @@ class TestingWithServiceConstructor(object):
         new_subnet = \
             dict(allocation_pools=allocation_pools, tenant_id=tenant_id,
                  dns_servers=dns_servers, host_routes=host_routes,
-                 cidr='10.22.22.0/22', gateway='10.22.22.1', id=new_id,
+                 cidr='10.22.22.0/22', gateway='10.22.22.1', id=cls.new_id(),
                  ip_version=4, ipv6_address_mode=None, ipv6_ra_mode=None,
                  enable_dhcp=True)
         network['subnets'].append(new_subnet)
-        service_with_network['subnets'][new_id] = new_subnet
+        service_with_network['subnets'][cls.new_id()] = new_subnet
         return service_with_network
+
+    @classmethod
+    def new_service_with_subnet(cls):
+        return \
+            cls.service_with_subnet(
+                cls.new_id(), cls.new_service_with_network())
 
     @classmethod
     @pytest.fixture
@@ -105,8 +122,8 @@ class TestingWithServiceConstructor(object):
                  mac_address='xx:xx:xx:xx:xx:xx', status='UP',
                  tenant_id=tenant_id, fixed_ips=fixed_ips)
         new_lb = \
-            dict(admin_state_up=True, description='', gre_vteps=[], id=new_id,
-                 listeners=[], name='lb1', network_id=network_id,
+            dict(admin_state_up=True, description='', gre_vteps=[],
+                 id=new_id, listeners=[], name='lb1', network_id=network_id,
                  operating_status='OFFLINE', provider=None, vip_port=vip_port,
                  provisioning_status=plugin_const.PENDING_CREATE,
                  vip_address=vip_address, dns_name=None,
@@ -116,9 +133,15 @@ class TestingWithServiceConstructor(object):
         service_with_subnet['loadbalancer'] = new_lb
         return service_with_subnet
 
-    @staticmethod
+    @classmethod
+    def new_service_with_loadbalancer(cls):
+        return \
+            cls.service_with_loadbalancer(cls.new_id(),
+                                          cls.new_service_with_subnet())
+
+    @classmethod
     @pytest.fixture
-    def service_with_listener(new_id, service_with_loadbalancer):
+    def service_with_listener(cls, new_id, service_with_loadbalancer):
         svc = service_with_loadbalancer
         lb = svc['loadbalancer']
         lb['listeners'].append(new_id)
@@ -135,9 +158,38 @@ class TestingWithServiceConstructor(object):
         svc['listeners'].append(new_listener)
         return svc
 
-    @staticmethod
+    @classmethod
+    def new_service_with_listener(cls):
+        return \
+            cls.service_with_listener(cls.new_id(),
+                                      cls.new_service_with_loadbalancer())
+
+    @classmethod
     @pytest.fixture
-    def service_with_pool(new_id, service_with_listener):
+    def service_with_l7_policy(cls, new_id, service_with_listener):
+        # update as needed for more intelligence...
+        svc = service_with_listener
+        li = svc['listeners'][0]
+        li_id = li['id']
+        tenant_id = li['tenant_id']
+        li['l7_policies'] = [new_id]
+        new_l7_policy = {
+            "action": "REJECT", "admin_state_up": True, "description": "",
+            "id": new_id, "listener_id": li_id, "name": "f5_ESD_ABSTRACT_ESD",
+            "position": 1, "provisioning_status": "PENDING_CREATE",
+            "redirect_pool_id": None, "redirect_url": None, "rules": [],
+            "tenant_id": tenant_id}
+        svc['l7_policies'] = [new_l7_policy]
+        return svc
+
+    @classmethod
+    def new_service_with_l7_policy(cls):
+        return cls.service_with_l7_policy(cls.new_id(),
+                                          cls.new_service_with_listener())
+
+    @classmethod
+    @pytest.fixture
+    def service_with_pool(cls, new_id, service_with_listener):
         # update as needed for more intelligence...
         svc = service_with_listener
         li = svc['listeners'][0]
@@ -149,6 +201,30 @@ class TestingWithServiceConstructor(object):
                     'tenant_id': tenant_id}
         svc['pools'].append(new_pool)
         return svc
+
+    @classmethod
+    def new_service_with_pool(cls):
+        return cls.service_with_pool(cls.new_id(),
+                                     cls.new_service_with_listener())
+
+    @classmethod
+    @pytest.fixture
+    def service_with_health_monitor(cls, new_id, service_with_pool):
+        pool_id = service_with_pool['pools'][0]['id']
+        tenant_id = service_with_pool['loadbalancer']['tenant_id']
+        service_with_pool['pools'][0]['healthmonitor_id'] = new_id
+        new_monitor = dict(admin_state_up=True, delay=10, expected_codes=200,
+                           http_method='GET', id=new_id, max_retries=5,
+                           name='hm1', pool_id=pool_id, tenant_id=tenant_id,
+                           timeout=5, type='HTTP', url_path='/')
+        service_with_pool['healthmonitors'].append(new_monitor)
+        return service_with_pool
+
+    @classmethod
+    def new_service_with_health_monitor(cls):
+        return \
+            cls.service_with_health_monitor(cls.new_id(),
+                                            cls.new_service_with_pool())
 
 
 @pytest.fixture
