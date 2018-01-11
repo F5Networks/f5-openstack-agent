@@ -3,7 +3,7 @@ test_requirements = {'devices':         [VE],
                      'openstack_infra': []}
 
 '''
-# Copyright 2015-2016 F5 Networks Inc.
+# Copyright 2015-2018 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ def test_devices(mgmt_root, symbols):
     for k, v in symbols.__dict__.items():
         print('key: {}'.format(k))
         print('value: {}'.format(v))
-    assert devices[0].managementIp == symbols.bigip_mgmt_ip_public
+    assert devices[0].managementIp == symbols.bigip_mgmt_ip
 
 
 def test_get_sync_status(mgmt_root):
