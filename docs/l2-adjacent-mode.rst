@@ -21,6 +21,18 @@ L2-adjacent mode is the **default mode of operation** for the |agent-short|.
    Many L3 segmentation mode parameters depend on other configuration parameters.
    Read about the :ref:`F5 agent configuration parameters <agent-config-parameters>` before changing these settings to ensure they don't conflict.
 
+**L2 Population Service**
+
+The F5 LBaaS agent supports the OpenStack Neutron ML2 population service. When you enable L2 population, the agent registers for Neutron L2 population updates and populates tunnel FDB entries in your BIG-IP device. When you place VIPs on tenant overlay networks, the F5 LBaaS agent sends tunnel update messages to the Open vSwitch agents, informing them of TMOS device VTEPs. This enables tenant guest virtual machines or network node services to interact with the TMOS provisioned VIPs across overlay networks. The F5 LBaaS Agent reports the BIG-IP VTEP addresses stored in its configuration to Neutron.
+
+Enable L2 population if you intend to migrate pool members to different virtual machines without re-creating your load balancer configuration. Pool member migration won't function properly if L2 population isn't enabled.
+
+With L2 population enabled, the F5 agent can also create static ARP entries on the BIG-IP device(s). This eliminates the need for the BIG-IP device to use ARP broadcast (flooding) across tunnels to learn the location of pool members.
+
+.. note::
+
+   You can set the F5 Agent to create Static ARP entries for BIG-IP devices running version 12.x or later. 
+
 Set-up
 ------
 
@@ -40,6 +52,18 @@ Set-up
    \
 
    :fonticon:`fa fa-download` :download:`Download the example configuration file </_static/config_examples/f5-openstack-agent.vxlan.ini>`
+
+   .. tip:: To enable L2 population and static ARP (optional), use the settings shown below.
+
+      .. code-block:: text
+
+         #
+         f5_populate_static_arp = True
+         #
+         l2_population = True
+         #
+
+
 
 #. Restart the |agent-short| service.
 
