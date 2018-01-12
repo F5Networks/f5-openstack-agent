@@ -3,8 +3,15 @@
 
 .PHONY: help
 help:
+	@echo "  docker-html        one-time HTML build using a docker container"
 	@echo "  docker-preview     to build live preview of docs using sphinx-autobuild in a docker container"
 	@echo "  docker-test        to build and test docs in a docker container"
+
+# run quality tests in a docker container
+.PHONY: docker-test
+docker-html:
+	make -C docs clean
+	./docs/scripts/docker-docs.sh make -C docs/ html
 
 # Build live preview docs in a docker container
 .PHONY: docker-preview
