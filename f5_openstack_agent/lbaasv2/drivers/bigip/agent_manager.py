@@ -918,11 +918,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         pools = self.lbdriver.get_all_deployed_pools()
         LOG.debug("pools found: {}".format(pools))
         for pool_id in pools:
-            monitors_used.union(set(pools[pool_id]['monitor']))
+            monitorid = pools.get(pool_id).get('monitors', 'None')
+            monitors_used.add(monitorid)
         LOG.debug('health monitors in use: {}'.format(monitors_used))
         for monitorid in monitors:
             if monitorid not in monitors_used:
-                LOG.debug('removing orphaned health monitor %s' % monitorid)
+                LOG.debug("purging healthmonitor {} as it is not "
+                          "in ({})".format(monitorid, monitors_used))
                 self.lbdriver.purge_orphaned_health_monitor(
                     tenant_id=monitors[monitorid]['tenant_id'],
                     monitor_id=monitorid,
