@@ -606,7 +606,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       % list(known_services))
 
         except Exception as e:
-            LOG.error("Unable to sync state: %s" % e.message)
+            LOG.exception("Unable to sync state: %s" % e.message)
             resync = True
 
         return resync
@@ -821,6 +821,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         return cleaned
 
+    @log_helpers.log_method_call
     def purge_orphaned_loadbalancers(self, lbs):
         """Gets 'unknown' loadbalancers from Neutron and purges them
 
@@ -853,6 +854,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.get_all_deployed_loadbalancers(
                 purge_orphaned_folders=True)
 
+    @log_helpers.log_method_call
     def purge_orphaned_listeners(self, listeners):
         """Deletes the hanging listeners from the deleted loadbalancers"""
         listener_status = self.plugin_rpc.validate_listeners_state(
@@ -870,6 +872,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     listener_id=listenerid,
                     hostnames=listeners[listenerid]['hostnames'])
 
+    @log_helpers.log_method_call
     def purge_orphaned_l7_policys(self, policies):
         """Deletes hanging l7_policies from the deleted listeners"""
         policies_used = set()
@@ -889,6 +892,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     l7_policy_id=policy_key,
                     hostname=policy['hostnames'])
 
+    @log_helpers.log_method_call
     def purge_orphaned_pools(self, pools):
         """Deletes hanging pools from the deleted listeners"""
         # Ask Neutron for the status of all deployed pools
@@ -906,11 +910,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     pool_id=poolid,
                     hostnames=pools[poolid]['hostnames'])
 
+    @log_helpers.log_method_call
     def purge_orphaned_health_monitors(self, monitors):
         """Deletes hanging Health Monitors from the deleted Pools"""
         # ask Neutron for for the status of all deployed monitors...
         monitors_used = set()
         pools = self.lbdriver.get_all_deployed_pools()
+        LOG.debug("pools found: {}".format(pools))
         for pool_id in pools:
             monitors_used.union(set(pools[pool_id]['monitor']))
         LOG.debug('health monitors in use: {}'.format(monitors_used))
