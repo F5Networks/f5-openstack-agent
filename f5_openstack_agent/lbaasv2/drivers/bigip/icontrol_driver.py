@@ -1170,12 +1170,13 @@ class iControlDriver(LBaaSBaseDriver):
                                     'id': pool_id,
                                     'tenant_id': tenant_id,
                                     'hostnames': [bigip.hostname],
-                                    'monitor': monitor
+                                    'monitors': monitor_id
                                 }
         return deployed_pool_dict
 
     @serialized('purge_orphaned_pool')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_pool(self, tenant_id=None, pool_id=None,
                             hostnames=list()):
         for bigip in self.get_all_bigips():
@@ -1231,6 +1232,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_health_monitor')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_health_monitor(self, tenant_id=None, monitor_id=None,
                                       hostnames=list()):
         """Purge all monitors that exist on the BIG-IP but not in Neutron"""
@@ -1294,6 +1296,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_l7_policy')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_l7_policy(self, tenant_id=None, l7_policy_id=None,
                                  hostnames=list()):
         """Purge all l7_policys that exist on the BIG-IP but not in Neutron"""
@@ -1315,6 +1318,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_loadbalancer')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_loadbalancer(self, tenant_id=None,
                                     loadbalancer_id=None, hostnames=list()):
         for bigip in self.get_all_bigips():
@@ -1355,6 +1359,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_listener')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_listener(
             self, tenant_id=None, listener_id=None, hostnames=[]):
         for bigip in self.get_all_bigips():
