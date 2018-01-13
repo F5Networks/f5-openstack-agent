@@ -1159,9 +1159,18 @@ class iControlDriver(LBaaSBaseDriver):
                         for pool in deployed_pools:
                             pool_id = \
                                 pool.name[len(self.service_adapter.prefix):]
-                            monitor = ''
-                            if pool.monitor:
+                            monitor_id = ''
+                            if hasattr(pool, 'monitor'):
                                 monitor = pool.monitor.split('/')[2].strip()
+                                monitor_id = \
+                                    monitor[len(self.service_adapter.prefix):]
+                                LOG.debug(
+                                    'pool {} has monitor {}'.format(
+                                        pool.name, monitor))
+                            else:
+                                LOG.debug(
+                                    'pool {} has no healthmonitors'.format(
+                                        pool.name))
                             if pool_id in deployed_pool_dict:
                                 deployed_pool_dict[pool_id][
                                     'hostnames'].append(bigip.hostname)
