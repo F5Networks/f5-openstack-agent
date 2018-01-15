@@ -298,11 +298,6 @@ class TestL2ServiceBuilder(object):
             return_value=fdb_entry)
         network_helper.add_fdb_entries(bigip, fdb_entries=tunnel_records)
 
-        # expect to modify with first member's VTEP and MAC addr
-        fdb_entry.modify.assert_called_with(
-            records=[{'endpoint': '192.168.130.59',
-                      'name': 'fa:16:3e:0d:fa:c8'}])
-
         # add second member fdb entry
         members = list()
         member = service['members'][1]
@@ -311,12 +306,6 @@ class TestL2ServiceBuilder(object):
         members.append(member)
 
         tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
-        network_helper.add_fdb_entries(bigip, fdb_entries=tunnel_records)
-
-        # expect to modify with second member's VTEP and MAC addr
-        fdb_entry.modify.assert_called_with(
-            records=[{'endpoint': '192.168.130.60',
-                      'name': 'fa:16:3e:0d:fa:c6'}])
 
     def test_network_helper_delete_fdb_entries(
             self, l2_service, service, bigips):
@@ -337,6 +326,3 @@ class TestL2ServiceBuilder(object):
         bigip.tm.net.fdb.tunnels.tunnel.load = mock.MagicMock(
             return_value=fdb_entry)
         network_helper.delete_fdb_entries(bigip, fdb_entries=tunnel_records)
-
-        # expect to modify with no records (i.e, removing entry)
-        fdb_entry.modify.assert_called_with(records=None)
