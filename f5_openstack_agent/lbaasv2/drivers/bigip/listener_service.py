@@ -67,11 +67,14 @@ class ListenerServiceBuilder(object):
         for bigip in bigips:
 
             self.service_adapter.get_vlan(vip, bigip, network_id)
+
+            if tls:
+                self.add_ssl_profile(tls, vip, bigip)
+
+            if persist and persist.get('type', "") == "APP_COOKIE":
+                self._add_cookie_persist_rule(vip, persist, bigip)
+
             try:
-                if tls:
-                    self.add_ssl_profile(tls, vip, bigip)
-                if persist and persist.get('type', "") == "APP_COOKIE":
-                    self._add_cookie_persist_rule(vip, persist, bigip)
                 self.vs_helper.create(bigip, vip)
             except HTTPError as err:
                 if err.response.status_code == 409:
@@ -182,6 +185,10 @@ class ListenerServiceBuilder(object):
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
                 bigip, name, cert, key, sni_default=sni_default,
                 parent_profile=self.parent_ssl_profile)
+        except HTTPError as err:
+            if err.response.status_code != 409:
+                LOG.error("SSL profile creation error: %s" %
+                          err.message)
         finally:
             del cert
             del key
@@ -190,7 +197,9 @@ class ListenerServiceBuilder(object):
         if 'profiles' not in vip:
             vip['profiles'] = list()
 
-        vip['profiles'].append({'name': name, 'context': "clientside"})
+        client_ssl_profile = {'name': name, 'context': "clientside"}
+        if client_ssl_profile not in vip['profiles']:
+            vip['profiles'].append(client_ssl_profile)
 
     def remove_ssl_profiles(self, tls, bigip):
 
@@ -284,17 +293,25 @@ class ListenerServiceBuilder(object):
 
         r = bigip.tm.ltm.rules.rule
         if not r.exists(name=rule_name, partition=vip["partition"]):
-            r.create(name=rule_name,
-                     apiAnonymous=rule_def,
-                     partition=vip["partition"])
-            LOG.debug("Created rule %s" % rule_name)
+            try:
+                r.create(name=rule_name,
+                         apiAnonymous=rule_def,
+                         partition=vip["partition"])
+                LOG.debug("Created rule %s" % rule_name)
+            except Exception as err:
+                LOG.error("Failed to create rule %s", rule_name)
 
         u = bigip.tm.ltm.persistence.universals.universal
         if not u.exists(name=rule_name, partition=vip["partition"]):
-            u.create(name=rule_name,
-                     rule=rule_name,
-                     partition=vip["partition"])
-            LOG.debug("Created persistence universal %s" % rule_name)
+            try:
+                u.create(name=rule_name,
+                         rule=rule_name,
+                         partition=vip["partition"])
+                LOG.debug("Created persistence universal %s" % rule_name)
+            except Exception as err:
+                LOG.error("Failed to create persistence universal %s" %
+                          rule_name)
+                LOG.exception(err)
 
     def _create_app_cookie_persist_rule(self, cookiename):
         """Create cookie persistence rule.
