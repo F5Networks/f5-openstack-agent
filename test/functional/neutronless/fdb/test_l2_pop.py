@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2017 F5 Networks Inc.
+# Copyright 2017-2018 F5 Networks Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import json
+"""Test high rate of FDB updates."""
+
 import logging
-import os
-import pytest
 import random
+import pprint
+import pytest
 import requests
+
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
@@ -27,44 +29,27 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
 
 from ..testlib.bigip_client import BigIpClient
 from ..testlib.fake_rpc import FakeRPCPlugin
-from ..testlib.resource_validator import ResourceValidator
 
 requests.packages.urllib3.disable_warnings()
 
 LOG = logging.getLogger(__name__)
 
-
-@pytest.fixture(scope="module")
-def services():
-    neutron_services_filename = (
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     '../../testdata/service_requests/single_pool.json')
-    )
-    return (json.load(open(neutron_services_filename)))
-
-
 @pytest.fixture(scope="module")
 def bigip():
+    """Create an F5-sdk client."""
     return BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
                        pytest.symbols.bigip_username,
                        pytest.symbols.bigip_password)
 
 
 @pytest.fixture
-def fake_plugin_rpc(services):
-
-    rpcObj = FakeRPCPlugin(services)
-
-    return rpcObj
-
-@pytest.fixture
-def icontrol_driver(icd_config, fake_plugin_rpc):
+def icontrol_driver(icd_config):
     class ConfFake(object):
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
-                    self.__dict__[k] = v.encode('utf-8')
+            for _k, _v in self.__dict__.items():
+                if isinstance(_v, unicode):
+                    self.__dict__[_k] = _v.encode('utf-8')
 
         def __repr__(self):
             return repr(self.__dict__)
@@ -72,15 +57,16 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     icd = iControlDriver(ConfFake(icd_config),
                          registerOpts=False)
 
-    icd.plugin_rpc = fake_plugin_rpc
+    icd.plugin_rpc = FakeRPCPlugin(list())
 
     return icd
 
 def random_ip():
-    ip = ".".join(map(str, (random.randint(0, 255) for _ in range(4))))
-    return ip
+    "Create a random IP address."
+    return ".".join(map(str, (random.randint(0, 255) for _ in range(4))))
 
 def random_mac():
+    "Create a random MAC address."
     return "%02x:%02x:%02x:%02x:%02x:%02x" % (
         random.randint(0, 255),
         random.randint(0, 255),
@@ -128,31 +114,44 @@ def test_add_remove_fdbs(bigip, icontrol_driver):
     tunnels = list()
     fdb_entries = list()
 
+    seg_id_start = 167
+    seg_id_end = 187
+    n_records = 19
+
     # create tunnels on BIG-IP, and fake fdb entries
-    for seg_id in range(50, 55):
+    for seg_id in range(seg_id_start, seg_id_end):
         tunnel_name = 'tunnel-vxlan-{}'.format(seg_id)
-        net_helper.create_multipoint_tunnel(bigip.bigip,
-            {'name': tunnel_name,
-             'key': seg_id,
-             'profile': 'vxlan_ovs',
-             'localAddress': '201.0.155.10'})
+        model = {
+            'name': tunnel_name,
+            'key': seg_id,
+            'profile': 'vxlan_ovs',
+            'localAddress': '201.0.155.10'}
+        net_helper.create_multipoint_tunnel(bigip.bigip, model)
         tunnels.append(tunnel_name)
 
         # create a set of fdb entries that reference network seg ID
-        for _ in range(3):
+        for _ in range(n_records):
             entry = create_fdb_entry(seg_id)
             fdb_entries.append(entry)
 
     # add fdb entries
+    print "Adding records..."
+    for fdb_entry in fdb_entries:
+        # mimic neutron L2 pop add_fdb_entries
+        icontrol_driver.fdb_add(fdb_entry)
+
+    print "Trying duplicate  records..."
     for fdb_entry in fdb_entries:
         # mimic neutron L2 pop add_fdb_entries
         icontrol_driver.fdb_add(fdb_entry)
 
     # check created
+    print "Checking created..."
     for tunnel_name in tunnels:
         records = net_helper.get_fdb_entry(bigip.bigip, tunnel_name=tunnel_name)
-        assert len(records) > 0
+        assert records
 
+    print "Removing records..."
     # remove fdb entries
     for fdb_entry in fdb_entries:
         # mimic neutron L2 pop remove_fdb_entries
@@ -161,5 +160,5 @@ def test_add_remove_fdbs(bigip, icontrol_driver):
     # check removed
     for tunnel_name in tunnels:
         records = net_helper.get_fdb_entry(bigip.bigip, tunnel_name=tunnel_name)
-        assert len(records) == 0
+        assert not records
         net_helper.delete_tunnel(bigip.bigip, tunnel_name)
