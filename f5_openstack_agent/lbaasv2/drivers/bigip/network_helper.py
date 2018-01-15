@@ -575,7 +575,7 @@ class NetworkHelper(object):
             if tunnel.exists(name=tunnel_name, partition=partition):
                 obj = tunnel.load(name=tunnel_name, partition=partition)
                 if not obj.records_s.records.exists(name=mac_address):
-                    rec = obj.records_s.records.create(
+                    obj.records_s.records.create(
                         name=mac_address, endpoint=vtep_ip_address)
                     if const.FDB_POPULATE_STATIC_ARP:
                         # arp_ip_address is typcially member address.
