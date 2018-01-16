@@ -1126,7 +1126,8 @@ class iControlDriver(LBaaSBaseDriver):
                             virtual_id = \
                                 virtual.name[len(self.service_adapter.prefix):]
                             l7_policy = ''
-                            if 'items' in virtual.policyReference:
+                            if hasattr(virtual, 'policyReference') and \
+                                    'items' in virtual.policyReference:
                                 l7_policy = virtual.policyReference['items'][0]
                                 l7_policy = l7_policy['fullPath']
                             if virtual_id in deployed_virtual_dict:
@@ -1158,9 +1159,18 @@ class iControlDriver(LBaaSBaseDriver):
                         for pool in deployed_pools:
                             pool_id = \
                                 pool.name[len(self.service_adapter.prefix):]
-                            monitor = ''
-                            if pool.monitor:
+                            monitor_id = ''
+                            if hasattr(pool, 'monitor'):
                                 monitor = pool.monitor.split('/')[2].strip()
+                                monitor_id = \
+                                    monitor[len(self.service_adapter.prefix):]
+                                LOG.debug(
+                                    'pool {} has monitor {}'.format(
+                                        pool.name, monitor))
+                            else:
+                                LOG.debug(
+                                    'pool {} has no healthmonitors'.format(
+                                        pool.name))
                             if pool_id in deployed_pool_dict:
                                 deployed_pool_dict[pool_id][
                                     'hostnames'].append(bigip.hostname)
@@ -1169,12 +1179,13 @@ class iControlDriver(LBaaSBaseDriver):
                                     'id': pool_id,
                                     'tenant_id': tenant_id,
                                     'hostnames': [bigip.hostname],
-                                    'monitor': monitor
+                                    'monitors': monitor_id
                                 }
         return deployed_pool_dict
 
     @serialized('purge_orphaned_pool')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_pool(self, tenant_id=None, pool_id=None,
                             hostnames=list()):
         for bigip in self.get_all_bigips():
@@ -1208,7 +1219,7 @@ class iControlDriver(LBaaSBaseDriver):
                 tenant_id = folder[len(adapter_prefix):]
                 if str(folder).startswith(adapter_prefix):
                     resources = map(
-                        lambda x: resource_helper.BigIpResourceHelper(
+                        lambda x: resource_helper.BigIPResourceHelper(
                             getattr(resource_helper.ResourceType, x)),
                         monitor_types)
                     for resource in resources:
@@ -1230,6 +1241,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_health_monitor')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_health_monitor(self, tenant_id=None, monitor_id=None,
                                       hostnames=list()):
         """Purge all monitors that exist on the BIG-IP but not in Neutron"""
@@ -1272,7 +1284,7 @@ class iControlDriver(LBaaSBaseDriver):
             for folder in folders:
                 tenant_id = folder[len(self.service_adapter.prefix):]
                 if str(folder).startswith(self.service_adapter.prefix):
-                    resource = resource_helper.BigIpResourceHelper(
+                    resource = resource_helper.BigIPResourceHelper(
                         resource_helper.ResourceType.l7policy)
                     deployed_l7_policys = resource.get_resources(bigip, folder)
                     if deployed_l7_policys:
@@ -1293,6 +1305,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_l7_policy')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_l7_policy(self, tenant_id=None, l7_policy_id=None,
                                  hostnames=list()):
         """Purge all l7_policys that exist on the BIG-IP but not in Neutron"""
@@ -1314,6 +1327,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_loadbalancer')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_loadbalancer(self, tenant_id=None,
                                     loadbalancer_id=None, hostnames=list()):
         for bigip in self.get_all_bigips():
@@ -1354,6 +1368,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('purge_orphaned_listener')
     @is_operational
+    @log_helpers.log_method_call
     def purge_orphaned_listener(
             self, tenant_id=None, listener_id=None, hostnames=[]):
         for bigip in self.get_all_bigips():
