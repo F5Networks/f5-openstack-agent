@@ -1711,6 +1711,10 @@ class iControlDriver(LBaaSBaseDriver):
             loadbalancer['tenant_id']
         )
 
+        if self.network_builder:
+            # append route domain to member address
+            self.network_builder._annotate_service_route_domains(service)
+
         # Foreach bigip in the cluster:
         for bigip in self.get_config_bigips():
             # Does the tenant folder exist?
@@ -1767,6 +1771,8 @@ class iControlDriver(LBaaSBaseDriver):
                                    "member": member,
                                    "pool": pool}
                             if not lb.pool_builder.member_exists(svc, bigip):
+                                LOG.warn("Pool member not found: %s",
+                                         svc['member'])
                                 return False
 
             # Ensure that each health monitor exists.
