@@ -1188,6 +1188,8 @@ class iControlDriver(LBaaSBaseDriver):
     @log_helpers.log_method_call
     def purge_orphaned_pool(self, tenant_id=None, pool_id=None,
                             hostnames=list()):
+        node_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.node)
         for bigip in self.get_all_bigips():
             if bigip.hostname in hostnames:
                 try:
@@ -1196,7 +1198,21 @@ class iControlDriver(LBaaSBaseDriver):
                     pool = resource_helper.BigIPResourceHelper(
                         resource_helper.ResourceType.pool).load(
                             bigip, pool_name, partition)
+                    members = pool.members_s.get_collection()
                     pool.delete()
+                    for member in members:
+                        node_name = member.address
+                        try:
+                            node_helper.delete(bigip,
+                                               name=urllib.quote(node_name),
+                                               partition=partition)
+                        except HTTPError as e:
+                            if e.response.status_code == 404:
+                                pass
+                            if e.response.status_code == 400:
+                                LOG.warn("Failed to delete node -- in use")
+                            else:
+                                LOG.exception("Failed to delete node")
                 except HTTPError as err:
                     if err.response.status_code == 404:
                         LOG.debug('pool %s not on BIG-IP %s.'
@@ -1711,6 +1727,10 @@ class iControlDriver(LBaaSBaseDriver):
             loadbalancer['tenant_id']
         )
 
+        if self.network_builder:
+            # append route domain to member address
+            self.network_builder._annotate_service_route_domains(service)
+
         # Foreach bigip in the cluster:
         for bigip in self.get_config_bigips():
             # Does the tenant folder exist?
@@ -1767,6 +1787,8 @@ class iControlDriver(LBaaSBaseDriver):
                                    "member": member,
                                    "pool": pool}
                             if not lb.pool_builder.member_exists(svc, bigip):
+                                LOG.warn("Pool member not found: %s",
+                                         svc['member'])
                                 return False
 
             # Ensure that each health monitor exists.
