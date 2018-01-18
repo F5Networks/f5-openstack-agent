@@ -166,6 +166,7 @@ class TestLbaasAgentManagerMockBuilder(mock_builder_base_class.MockBuilderBase,
         self.mock_purge_orphaned_listeners(target)
         self.mock_purge_orphaned_l7_policys(target)
         self.mock_purge_orphaned_pools(target)
+        self.mock_purge_orphaned_nodes(target)
         self.mock_purge_orphaned_health_monitors(target)
 
     def mock_purge_orphaned_loadbalancers(
@@ -229,6 +230,22 @@ class TestLbaasAgentManagerMockBuilder(mock_builder_base_class.MockBuilderBase,
         if not target:
             target = self.new_fully_mocked_target()
         self._mockfactory(target, 'purge_orphaned_pools', static,
+                          call_cnt, expected_args, kwargs)
+        return target
+
+    def mock_purge_orphaned_nodes(
+            self, target=None, call_cnt=1, static=None, expected_args=None,
+            **kwargs):
+        """Mocks the target's purge_orphaned_nodes method
+
+        The given kwargs will be passed to the mock.Mock call
+
+        This will also create a new fully_mocked_target if target is not
+        specified.
+        """
+        if not target:
+            target = self.new_fully_mocked_target()
+        self._mockfactory(target, 'purge_orphaned_nodes', static,
                           call_cnt, expected_args, kwargs)
         return target
 
