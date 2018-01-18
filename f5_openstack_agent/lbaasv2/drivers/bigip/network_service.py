@@ -15,6 +15,7 @@
 
 import itertools
 import netaddr
+from requests import HTTPError
 
 from neutron.plugins.common import constants as plugin_const
 from neutron_lib.exceptions import NeutronException
@@ -278,7 +279,7 @@ class NetworkServiceBuilder(object):
                 bigip, partition=partition_id)
             rd_id = tenant_rd.id
         except HTTPError as error:
-            LOG.error(e)
+            LOG.error(error)
 
         return rd_id
 

@@ -1161,7 +1161,7 @@ class iControlDriver(LBaaSBaseDriver):
                     node_name = "{}%{}".format(member['address'], rd)
                     node_dict.pop(node_name, None)
 
-                for node_name,node in node_dict.iteritems():
+                for node_name, node in node_dict.iteritems():
                     try:
                         node_helper.delete(bigip, name=urllib.quote(node_name),
                                            partition=partition)
