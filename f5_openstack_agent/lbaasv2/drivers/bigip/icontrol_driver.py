@@ -1143,6 +1143,32 @@ class iControlDriver(LBaaSBaseDriver):
                                 }
         return deployed_virtual_dict
 
+    @serialized('purge_orphaned_nodes')
+    @is_operational
+    @log_helpers.log_method_call
+    def purge_orphaned_nodes(self, tenant_members):
+        node_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.node)
+        for bigip in self.get_all_bigips():
+            for tenant_id, members in tenant_members.iteritems():
+                partition = self.service_adapter.prefix + tenant_id
+                nodes = node_helper.get_resources(bigip, partition=partition)
+                node_dict = {n.name: n for n in nodes}
+
+                for member in members:
+                    rd = self.network_builder.find_subnet_route_domain(
+                        tenant_id, member.get('subnet_id', None))
+                    node_name = "{}%{}".format(member['address'], rd)
+                    node_dict.pop(node_name, None)
+
+                for node_name, node in node_dict.iteritems():
+                    try:
+                        node_helper.delete(bigip, name=urllib.quote(node_name),
+                                           partition=partition)
+                    except HTTPError as error:
+                        if error.response.status_code == 400:
+                            LOG.error(error.response)
+
     @serialized('get_all_deployed_pools')
     @is_operational
     def get_all_deployed_pools(self):
@@ -1778,6 +1804,18 @@ class iControlDriver(LBaaSBaseDriver):
                                bigip.hostname))
                     return False
                 else:
+                    deployed_pool = self.pool_manager.load(
+                        bigip,
+                        name=bigip_pool['name'],
+                        partition=folder_name)
+                    deployed_members = \
+                        deployed_pool.members_s.get_collection()
+
+                    # First check that number of members deployed
+                    # is equal to the number in the service.
+                    if len(deployed_members) != len(service['members']):
+                        return False
+
                     # Ensure each pool member exists
                     for member in service['members']:
                         if member['pool_id'] == pool['id']:
