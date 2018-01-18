@@ -680,3 +680,21 @@ class LBaaSv2PluginRPC(object):
                       "validate_pool_state")
 
         return pool_status
+
+    @log_helpers.log_method_call
+    def get_pools_members(self, pools):
+        """Get the members of a list of pools IDs in Neutron."""
+        pools_members = {}
+        try:
+            pools_members = self._call(
+                self.context,
+                self._make_msg('get_pools_members',
+                               pools=pools,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_pools_members")
+
+        return pools_members

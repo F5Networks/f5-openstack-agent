@@ -803,6 +803,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 pools = self.lbdriver.get_all_deployed_pools()
                 if pools:
                     self.purge_orphaned_pools(pools)
+                    self.purge_orphaned_nodes(pools)
 
                 # Ask the BIG-IP for all deployed monitors not associated
                 # to a pool
@@ -891,6 +892,24 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     tenant_id=policy['tenant_id'],
                     l7_policy_id=policy_key,
                     hostname=policy['hostnames'])
+
+    @log_helpers.log_method_call
+    def purge_orphaned_nodes(self, pools):
+        """Deletes hanging pools from the deleted listeners"""
+        pools_members = self.plugin_rpc.get_pools_members(
+            list(pools.keys()))
+
+        tenant_members = dict()
+        for pool_id, pool in pools.iteritems():
+            tenant_id = pool['tenant_id']
+            members = pools_members.get(pool_id, list())
+
+            if tenant_id not in tenant_members:
+                tenant_members[tenant_id] = members
+            else:
+                tenant_members[tenant_id].extend(members)
+
+        self.lbdriver.purge_orphaned_nodes(tenant_members)
 
     @log_helpers.log_method_call
     def purge_orphaned_pools(self, pools):
