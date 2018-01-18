@@ -913,7 +913,7 @@ class iControlDriver(LBaaSBaseDriver):
             ic_host['local_ip'] = bigip.local_ip
         else:
             ic_host['local_ip'] = 'VTEP disabled'
-            self.agent_configurations['tunnel_types'] = 'None'
+            self.agent_configurations['tunnel_types'] = list()
         self.agent_configurations['icontrol_endpoints'][bigip.hostname] = \
             ic_host
         if self.network_builder:
