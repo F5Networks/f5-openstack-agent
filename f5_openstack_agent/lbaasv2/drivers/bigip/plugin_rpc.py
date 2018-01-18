@@ -698,3 +698,20 @@ class LBaaSv2PluginRPC(object):
                       "get_pools_members")
 
         return pools_members
+
+    @log_helpers.log_method_call
+    def validate_l7policys_state_by_listener(self, listeners):
+        """Get the status of a list of l7policys IDs in Neutron"""
+        l7policy_status = {}
+        try:
+            l7policy_status = self._call(
+                self.context,
+                self._make_msg('validate_l7policys_state_by_listener',
+                               listeners=listeners),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_l7policys_state_by_listener")
+
+        return l7policy_status
