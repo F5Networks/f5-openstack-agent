@@ -647,7 +647,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     self.service_timeout(lb_id)
 
             if not lb_pending:
-                del self.pending_services[lb_id]
+                try:
+                    del self.pending_services[lb_id]
+                except KeyError as error:
+                    LOG.error("LB not found in pending services: {0}".
+                        format(e.message))
 
         # If there are services in the pending cache resync
         if self.pending_services:
