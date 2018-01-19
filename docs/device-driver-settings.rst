@@ -21,7 +21,7 @@ The |agent-short| can manage a :term:`standalone` device or a :term:`device serv
 
 .. seealso::
 
-   `Manage BIG-IP Clusters with F5 LBaaSv2 </cloud/openstack/latest/lbaas/manage-bigip-clusters>`_
+   `Manage BIG-IP Clusters with F5 LBaaSv2`_
 
 
 Configuration
@@ -38,19 +38,19 @@ Configuration
 
    .. code-block:: text
 
-   ###############################################################################
-   #  Device Driver - iControl Driver Setting
-   ###############################################################################
-   #
-   icontrol_hostname = 10.190.7.232 \\ replace with the IP address(es) of your BIG-IP(s)
-   #
-   # icontrol_vcmp_hostname = 192.168.1.245
-   #
-   icontrol_username = admin
-   #
-   icontrol_password = admin
-   #
+      ###############################################################################
+      #  Device Driver - iControl Driver Setting
+      ###############################################################################
+      #
+      icontrol_hostname = 10.190.7.232 \\ replace with the IP address(es) of your BIG-IP(s)
+      #
+      # icontrol_vcmp_hostname = 192.168.1.245
+      #
+      icontrol_username = admin
+      #
+      icontrol_password = admin
+      #
 
 #. Set up the |agent-long| to use :ref:`L2-adjacent mode <l2-adjacent-setup>` or :ref:`Global Routed mode <global-routed-setup>`.
 
-.. _vCMP: /cloud/openstack/v1/lbaas/lbaas-manage-vcmp.html
+

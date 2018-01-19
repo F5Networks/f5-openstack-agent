@@ -74,7 +74,7 @@ What's Next
 -----------
 
 - See `F5 Agent modes`_ for detailed information regarding each of the Agent's modes of operation and example use cases.
-- See `How to set up the F5 Agent for Hierarchical Port Binding </cloud/openstack/v1/lbaas/set-up-agent-hpb.html>`_ for information about standard and Cisco ACI HPB deployments.
+- See `How to set up the F5 Agent for Hierarchical Port Binding`_ for information about standard and Cisco ACI HPB deployments.
 
 .. todo:: add Cisco APIC/ACI deployment solution guide and link to it here
 
