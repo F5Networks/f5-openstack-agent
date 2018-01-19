@@ -15,6 +15,7 @@
 
 import constants_v2 as const
 from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
+from icontrol.exceptions import iControlUnexpectedHTTPError
 import netaddr
 import os
 import urllib
@@ -418,6 +419,12 @@ class NetworkHelper(object):
                 except TagModeDisallowedForTMOSVersion as e:
                     # Providing the tag-mode is not supported
                     LOG.warn(e.message)
+                    payload.pop('tagMode')
+                    i.create(**payload)
+                # ccloud: 12.1.3 throws a different exception in case QinQ isn't allowed
+                except iControlUnexpectedHTTPError as ie:
+                    # Providing the tag-mode is not supported
+                    LOG.info(ie.message)
                     payload.pop('tagMode')
                     i.create(**payload)
 
