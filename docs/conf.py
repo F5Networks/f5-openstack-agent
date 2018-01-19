@@ -386,8 +386,8 @@ rst_epilog = '''
     <a class="btn btn-info" href="https://github.com/F5Networks/f5-openstack-agent/releases/download/v%(version)s/f5-openstack-agent-%(version)s-1.el7.noarch.rpm">RPM package</a>
 .. |release-notes| raw:: html
 
-    <a class="btn btn-success" href="https://github.com/F5Networks/f5-openstack-agent/releases/tag/v%(version)s/">Release Notes</a>
-.. _Hierarchical Port Binding: /cloud/openstack/latest/lbaas/hierarchical-port-binding.html
+    <a class="btn btn-success" href="%(base_url)s/products/openstack/agent/v%(version)s/RELEASE_NOTES.html">Release Notes</a>
+.. _Hierarchical Port Binding: %(base_url)s/cloud/openstack/latest/lbaas/hierarchical-port-binding.html
 .. _external provider network: https://docs.openstack.org/newton/networking-guide/intro-os-networking.html#provider-networks
 .. _Cisco ACI: http://www.cisco.com/c/en/us/solutions/data-center-virtualization/application-centric-infrastructure/index.html
 .. _system configuration: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/bigip-system-initial-configuration-13-0-0/2.html
@@ -398,14 +398,25 @@ rst_epilog = '''
 .. _self IP: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/6.html
 .. _Better or Best license: https://f5.com/products/how-to-buy/simplified-licensing
 .. _secure network address translation: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/8.html
-.. _F5 Integration for OpenStack: /cloud/openstack/latest/lbaas
-.. _Install the F5 LBaaSv2 Driver: /products/openstack/f5-openstack-lbaasv2-driver/v%(version)s/index.html#installation
-.. _F5 Agent modes: /cloud/openstack/latest/lbaas/f5-agent-modes.html
-.. _Differentiated service environments: /cloud/openstack/latest/lbaas/differentiated-service-environments.html
+.. _F5 Integration for OpenStack: %(base_url)s/cloud/openstack/latest/lbaas
+.. _Install the F5 LBaaSv2 Driver: %(base_url)s/products/openstack/f5-openstack-lbaasv2-driver/v%(version)s/index.html#installation
+.. _F5 Agent modes: %(base_url)s/cloud/openstack/latest/lbaas/f5-agent-modes.html
+.. _Differentiated service environments: %(base_url)s/cloud/openstack/latest/lbaas/differentiated-service-environments.html
+.. _F5 Driver for OpenStack LBaaS: %(base_url)s/products/openstack/lbaasv2-driver/%(version)s/
+.. _configures the requested objects: %(base_url)s/cloud/openstack/latest/lbaas/bigip-command-mapping.html
+.. _How to set up the F5 Agent for Hierarchical Port Binding: %(base_url)s/cloud/openstack/v1/lbaas/set-up-agent-hpb.html
+.. _Manage BIG-IP Clusters with F5 LBaaSv2: %(base_url)s/cloud/openstack/latest/lbaas/manage-bigip-clusters
+.. _vCMP: %(base_url)s/cloud/openstack/v1/lbaas/lbaas-manage-vcmp.html
 ''' % {
   'version': version,
   'f5_sdk_version': f5_sdk_version,
   'f5_icontrol_version': f5_icontrol_version,
   'openstack_release': openstack_release,
   'openstack_release_l': openstack_release.lower(),
+  'base_url': 'http://clouddocs.f5.com'
 }
+
+# Links to external sites (i.e., outside of clouddocs)
+# Use: :issues:`287` would transform to "issue 287" and link to issue #287 in GitHub
+extlinks = {'issues': ('https://github.com/F5Networks/f5-openstack-agent/issues/%s',
+                          'issue ')}

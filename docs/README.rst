@@ -31,7 +31,7 @@ version |release|
 |release-notes|
 
 The |agent-long| (``f5-openstack-agent``) is an OpenStack `Neutron plugin agent <https://docs.openstack.org/security-guide/networking/architecture.html>`_.
-It works in conjunction with the `F5 Driver for OpenStack LBaaS </products/openstack/lbaasv2-driver/latest/index.html>`_ to manage F5 BIG-IP `Local Traffic Manager <https://f5.com/products/big-ip/local-traffic-manager-ltm>`_ (LTM) services via the OpenStack Neutron API.
+It works in conjunction with the `F5 Driver for OpenStack LBaaS`_ to manage F5 BIG-IP `Local Traffic Manager <https://f5.com/products/big-ip/local-traffic-manager-ltm>`_ (LTM) services via the OpenStack Neutron API.
 
 .. seealso::
 
@@ -146,7 +146,7 @@ Architecture
 The |driver-long| assigns LBaaS tasks from the Neutron RPC Messaging queue to the |agent-long|.
 The |agent-short| translates the Neutron LBaaS API calls to iControl REST API calls and `configures the requested objects`_ on the BIG-IP device(s) identified in the :ref:`F5 Agent Configuration File <agent-config-file>`.
 
-When the |agent-short| and |driver-short| run on your OpenStack Neutron Controller, you can use the standard ``neutron lbaas`` commands to manage BIG-IP LTM objects. [#neutroncli]_
+When the |agent-short| and |driver-short| run on your OpenStack Neutron Controller, you can use the native OpenStack CLI commands to manage BIG-IP LTM objects. [#oscli]_
 The table below shows the corresponding iControl endpoint and BIG-IP object for each :code:`neutron lbaas-* create` command.
 
 .. table:: OpenStack Neutron to F5 iControl REST/BIG-IP command mapping
@@ -278,7 +278,7 @@ Perform the steps below on every server running |agent-short|.
       Your configuration file (:file:`/etc/neutron/services/f5/f5-openstack-agent.ini` gets overwritten when you install a new package.
       If you don't save a copy elsewhere, you will lose your config settings.
 
-   .. code-block:: bash
+   .. code-block:: console
 
       $ cp /etc/neutron/services/f5/f5-openstack-agent.ini ~/f5-upgrade-temp
 
@@ -287,19 +287,19 @@ Perform the steps below on every server running |agent-short|.
    Your new |agent-short| will not start if it finds an existing |agent| .log file.
    You can either move the log file to a new location, or rename it.
 
-   .. code-block:: bash
+   .. code-block:: console
 
       $ mv /var/log/neutron/f5-openstack-agent.log ~/f5-upgrade-temp
 
 #. Stop and remove the current version of the |agent-short|.
 
-   .. code-block:: bash
+   .. code-block:: console
       :caption: Debian/Ubuntu
 
       $ sudo service f5-oslbaasv2-agent stop
       $ pip uninstall f5-openstack-agent
 
-   .. code-block:: bash
+   .. code-block:: console
       :caption: Red Hat/CentOS
 
       $ sudo systemctl stop f5-openstack-agent
@@ -316,13 +316,13 @@ Perform the steps below on every server running |agent-short|.
       Verify that the only differences between the two are those required for your deployment.
       If new options appear in the config file, see :ref:`supported features <agent-supported-features>` and :ref:`configuration parameters <agent-config-parameters>` for explanations and config instructions.
 
-   .. code-block:: bash
+   .. code-block:: console
 
       $ cp ~/f5-upgrade-temp/f5-openstack-agent.ini /etc/neutron/services/f5/f5-openstack-agent.ini
 
 
-.. rubric:: Footnotes
-.. [#neutroncli] See the `Neutron LBaaS documentation <https://docs.openstack.org/mitaka/networking-guide/config-lbaas.html>`_
+.. rubric:: **Footnotes**
+.. [#oscli] See the `OpenStack CLI documentation <https://docs.openstack.org/python-openstackclient/newton/>`_
 .. [#agent] Similar to BIG-IP :term:`high availability`, but applies to the |agent-short| processes.
 
 .. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=liberty
@@ -337,7 +337,6 @@ Perform the steps below on every server running |agent-short|.
 .. _OpenStack Keystone: https://wiki.openstack.org/wiki/Keystone
 .. _Binds VLANs to BIG-IP interfaces: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/4.html
 .. _automap SNAT: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/7.html
-.. _configures the requested objects: /cloud/openstack/latest/lbaas/bigip-command-mapping.html
 .. _Distributed Virtual Router: https://specs.openstack.org/openstack/neutron-specs/specs/juno/neutron-ovs-dvr.html
 .. _Role Based Access Control: http://specs.openstack.org/openstack/neutron-specs/specs/liberty/rbac-networks.html
 .. _f5-openstack-ansible: https://github.com/f5devcentral/f5-openstack-ansible
