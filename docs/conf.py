@@ -418,3 +418,8 @@ rst_epilog = '''
   'openstack_release_l': openstack_release.lower(),
   'base_url': 'http://clouddocs.f5.com'
 }
+
+# Links to external sites (i.e., outside of clouddocs)
+# Use: :issues:`287` would transform to "issue 287" and link to issue #287 in GitHub
+extlinks = {'issues': ('https://github.com/F5Networks/f5-openstack-agent/issues/%s',
+                          'issue ')}
