@@ -18,17 +18,17 @@ F5 Agent for OpenStack Neutron
    :maxdepth: 1
    :glob:
 
+   RELEASE-NOTES
    config-file
    global-routed-mode
    l2-adjacent-mode
    device-driver-settings
    ha-mode
 
-
 version |release|
 -----------------
 
-|release-notes|
+:ref:`Release Notes`
 
 The |agent-long| (``f5-openstack-agent``) is an OpenStack `Neutron plugin agent <https://docs.openstack.org/security-guide/networking/architecture.html>`_.
 It works in conjunction with the `F5 Driver for OpenStack LBaaS`_ to manage F5 BIG-IP `Local Traffic Manager <https://f5.com/products/big-ip/local-traffic-manager-ltm>`_ (LTM) services via the OpenStack Neutron API.
@@ -322,7 +322,7 @@ Perform the steps below on every server running |agent-short|.
 
 
 .. rubric:: **Footnotes**
-.. [#oscli] See the `OpenStack CLI documentation <https://docs.openstack.org/python-openstackclient/newton/>`_
+.. [#oscli] See the `OpenStack CLI documentation <https://docs.openstack.org/python-openstackclient/latest/>`_
 .. [#agent] Similar to BIG-IP :term:`high availability`, but applies to the |agent-short| processes.
 
 .. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=liberty

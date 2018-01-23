@@ -26,8 +26,8 @@ version |release|
 -----------------
 
 
-.. image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=mitaka
-:target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=mitaka
+.. image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=newton
+:target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=newton
          
 Introduction
 ------------
@@ -49,7 +49,7 @@ See the `F5 OpenStack Releases and Support Matrix <http://clouddocs.f5.com/cloud
 Installing the F5 Agent
 -----------------------
 
-Please see `installing the F5 agent </docs/README.rst#installation>`_.
+Please see the `product documentation <http://clouddocs.f5.com/products/openstack/agent/latest/#installation>`_.
 
 
 Using the Built-in Debugger
@@ -204,13 +204,13 @@ Contributor License Agreement
 Individuals or business entities who contribute to this project must complete and submit the `F5 Contributor License Agreement <http://clouddocs.f5.com/cloud/openstack/v1/support/cla_landing.html>`_ to Openstack\_CLA@f5.com **before** their code submission can be added to this project.
 
 
-.. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=mitaka
-   :target: https://travis-ci.org/F5Networks/f5-openstack-agent?branch=mitaka
+.. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=newton
+   :target: https://travis-ci.org/F5Networks/f5-openstack-agent?branch=newton
 
 .. |slack badge| image:: https://f5-openstack-slack.herokuapp.com/badge.svg
     :target: https://f5-openstack-slack.herokuapp.com/
     :alt: Slack
 
-.. |coveralls badge| image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=mitaka
-    :target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=mitaka
+.. |coveralls badge| image:: https://coveralls.io/repos/github/F5Networks/f5-openstack-agent/badge.svg?branch=newton
+    :target: https://coveralls.io/github/F5Networks/f5-openstack-agent?branch=newton
     :alt: Coveralls
