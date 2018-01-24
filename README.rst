@@ -49,7 +49,7 @@ See the `F5 OpenStack Releases and Support Matrix <http://clouddocs.f5.com/cloud
 Installing the F5 Agent
 -----------------------
 
-Please see `installing the F5 agent </docs/README.rst#installation>`_.
+Please see the `product documentation <http://clouddocs.f5.com/products/openstack/agent/latest/#installation>`_.
 
 
 Using the Built-in Debugger

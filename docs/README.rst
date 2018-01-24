@@ -322,7 +322,7 @@ Perform the steps below on every server running |agent-short|.
 
 
 .. rubric:: **Footnotes**
-.. [#oscli] See the `OpenStack CLI documentation <https://docs.openstack.org/python-openstackclient/mitaka/>`_
+.. [#oscli] See the `OpenStack CLI documentation <https://docs.openstack.org/python-openstackclient/latest/>`_
 .. [#agent] Similar to BIG-IP :term:`high availability`, but applies to the |agent-short| processes.
 
 .. |Build Status| image:: https://travis-ci.org/F5Networks/f5-openstack-agent.svg?branch=liberty

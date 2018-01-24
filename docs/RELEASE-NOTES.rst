@@ -23,4 +23,4 @@ Bug Fixes
 
 Limitations
 ```````````
-* Support for enabling static ARP entries is limited to BIG-IP devices running version 12.x or later.
+* The |agent| supports enabling static ARP entries on BIG-IP devices running version 12.x or later.

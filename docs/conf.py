@@ -386,15 +386,15 @@ rst_epilog = '''
 .. _Better or Best license: https://f5.com/products/how-to-buy/simplified-licensing
 .. _secure network address translation: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/8.html
 .. _F5 Integration for OpenStack: %(base_url)s/cloud/openstack/latest/lbaas
-.. _Install the F5 LBaaSv2 Driver: %(base_url)s/products/openstack/f5-openstack-lbaasv2-driver/v%(version)s/index.html#installation
+.. _Install the F5 LBaaSv2 Driver: %(base_url)s/products/openstack/lbaasv2-driver/%(openstack_release_l)s/#installation
 .. _F5 Agent modes: %(base_url)s/cloud/openstack/latest/lbaas/f5-agent-modes.html
 .. _Differentiated service environments: %(base_url)s/cloud/openstack/latest/lbaas/differentiated-service-environments.html
-.. _F5 Driver for OpenStack LBaaS: %(base_url)s/products/openstack/lbaasv2-driver/%(version)s/
+.. _F5 Driver for OpenStack LBaaS: %(base_url)s/products/openstack/lbaasv2-driver/%(openstack_release_l)s/
 .. _configures the requested objects: %(base_url)s/cloud/openstack/latest/lbaas/bigip-command-mapping.html
-.. _How to set up the F5 Agent for Hierarchical Port Binding: %(base_url)s/cloud/openstack/v1/lbaas/set-up-agent-hpb.html
-.. _Manage BIG-IP Clusters with F5 LBaaSv2: %(base_url)s/cloud/openstack/latest/lbaas/manage-bigip-clusters
-.. _vCMP: %(base_url)s/cloud/openstack/v1/lbaas/lbaas-manage-vcmp.html
-.. _ESD documentation: %(base_url)s/cloud/openstack/v1/lbaas/enhanced-service-definitions.html
+.. _How to set up the F5 Agent for Hierarchical Port Binding: %(base_url)s/cloud/openstack/latest/lbaas/set-up-agent-hpb.html
+.. _Manage BIG-IP Clusters with F5 LBaaSv2: %(base_url)s/cloud/openstack/latest/lbaas/manage-bigip-clusters.html
+.. _vCMP: %(base_url)s/cloud/openstack/latest/lbaas/manage-vcmp.html
+.. _ESD documentation: %(base_url)s/cloud/openstack/latest/lbaas/enhanced-service-definitions.html
 ''' % {
   'version': version,
   'f5_sdk_version': f5_sdk_version,
