@@ -396,7 +396,7 @@ os_project_name                 string                      OpenStack project (t
 os_project_domain_name          string                      OpenStack project domain                                                        N/A
 =============================== =========================== =================================== =========================================== =====================
 
-.. _OpenStack provider network: https://docs.openstack.org/newton/networking-guide/intro-os-networking.html#provider-networks
+.. _OpenStack provider network: https://docs.openstack.org/mitaka/networking-guide/intro-os-networking.html#provider-networks
 .. _Address Resolution Protocol: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/11.html
 .. _Neutron Modular Layer 2: https://wiki.openstack.org/wiki/Neutron/ML2
 .. _BIG-IP route domains: https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/8.html

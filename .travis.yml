@@ -70,7 +70,7 @@ deploy:
       python: 2.7
     skip_cleanup: true
   # deploy docs to s3
-  # if this is not a tagged release, the docs go to /products/openstack/agent/$TRAVIS_BRANCH
+  # if this is not a tagged release, the docs go to /products/openstack/agent/mitaka
   - provider: script
     skip_cleanup: true
     on:
@@ -78,15 +78,16 @@ deploy:
       branch: mitaka
       condition: $TRAVIS_TAG = ""
     script:
-    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $TRAVIS_BRANCH
-  # if this is a tagged release, the docs go to /products/openstack/agent/$TRAVIS_BRANCH/vX.Y
+    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent mitaka
+  # For tagged releases, the docs publish at /products/openstack/lbaasv2-driver/mitaka/vX.Y
+  # This section is commented out on the master branch because we don't need to publish tagged releases to /master
   - provider: script
     skip_cleanup: true
     on:
       tags: true
       repo: F5Networks/f5-openstack-agent
     script:
-    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent/$TRAVIS_BRANCH $RELEASE_TAG
+    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent/mitaka $RELEASE_TAG
 
 notifications:
   slack:
