@@ -708,6 +708,11 @@ class LBaaSv2PluginRPC(object):
                 self.context,
                 self._make_msg('validate_l7policys_state_by_listener',
                                listeners=listeners,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
                       "validate_l7policys_state_by_listener")
 
         return l7policy_status
