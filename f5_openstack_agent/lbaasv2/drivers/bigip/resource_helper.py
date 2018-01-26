@@ -166,11 +166,9 @@ class BigIPResourceHelper(object):
             raise err
 
         if collection:
-            expand_subcollections_param = ''
             params = {'params': ''}
-            partition_filter = ''
             if partition:
-                params['params'] =  get_filter(
+                params['params'] = get_filter(
                     bigip, 'partition', 'eq', partition)
                 if expand_subcollections and \
                         isinstance(params['params'], dict):
