@@ -881,21 +881,41 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def purge_orphaned_l7_policys(self, policies):
         """Deletes hanging l7_policies from the deleted listeners"""
         policies_used = set()
-        listeners = self.lbdriver.get_all_deployed_listeners()
+        listeners = self.lbdriver.get_all_deployed_listeners(
+            expand_subcollections=True)
         for li_id in listeners:
             policy = listeners[li_id]['l7_policy']
             if policy:
                 policy = policy.split('/')[2]
             policies_used.add(policy)
+        has_l7policies = \
+            self.plugin_rpc.validate_l7policys_state_by_listener(
+                listeners.keys())
         # Ask Neutron for the status of all deployed l7_policys
         for policy_key in policies:
             policy = policies.get(policy_key)
+            purged = False
             if policy_key not in policies_used:
-                LOG.debug('removing orphaned policy {}'.format(policy_key))
+                LOG.debug("policy '{}' no longer referenced by a listener: "
+                          "({})".format(policy_key, policies_used))
                 self.lbdriver.purge_orphaned_l7_policy(
                     tenant_id=policy['tenant_id'],
                     l7_policy_id=policy_key,
-                    hostname=policy['hostnames'])
+                    hostnames=policy['hostnames'])
+                purged = True
+            elif not has_l7policies.get(policy['id'], False):
+                # should always be present on Neutron DB!
+                LOG.debug("policy '{}' no longer present in Neutron's DB: "
+                          "({})".format(policy_key, has_l7policies))
+                self.lbdriver.purge_orphaned_l7_policy(
+                    tenant_id=policy['tenant_id'],
+                    l7_policy_id=policy_key,
+                    hostnames=policy['hostnames'],
+                    listener_id=li_id)
+                purged = True
+            if purged:
+                LOG.info("purging orphaned l7policy {} as it's no longer in "
+                         "Neutron".format(policy_key))
 
     @log_helpers.log_method_call
     def purge_orphaned_nodes(self, pools):
