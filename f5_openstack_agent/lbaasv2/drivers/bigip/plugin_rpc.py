@@ -707,8 +707,7 @@ class LBaaSv2PluginRPC(object):
             l7policy_status = self._call(
                 self.context,
                 self._make_msg('validate_l7policys_state_by_listener',
-                               listeners=listeners,
-                               host=self.host),
+                               listeners=listeners),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
