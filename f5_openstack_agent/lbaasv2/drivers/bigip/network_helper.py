@@ -15,7 +15,6 @@
 
 import constants_v2 as const
 from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
-from icontrol.exceptions import iControlUnexpectedHTTPError
 import netaddr
 import os
 import urllib
@@ -24,6 +23,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
+#from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
 
 LOG = logging.getLogger(__name__)
 
@@ -615,14 +615,21 @@ class NetworkHelper(object):
             partition=const.DEFAULT_PARTITION):
         """Returns list of virtual server addresses"""
         vs = bigip.tm.ltm.virtuals
-        virtual_servers = vs.get_collection(partition=partition)
+        filter = "$filter=partition%20eq%20" + partition
+        # The filtering for partition of origin call below doesn't work. Therefore a new filtering is used
+        #virtual_servers = vs.get_collection(partition=partition)
+        virtual_servers = vs.get_collection(requests_params={'params': filter})
         virtual_services = []
 
         for virtual_server in virtual_servers:
             name = virtual_server.name
             virtual_address = {name: {}}
             dest = os.path.basename(virtual_server.destination)
-            (vip_addr, vip_port) = self.split_addr_port(dest)
+            # Don't take vs with snap pools instead of real ip's
+            if (virtual_server.sourceAddressTranslation and virtual_server.sourceAddressTranslation['type'] == 'snat'):
+                continue
+            else:
+                (vip_addr, vip_port) = self.split_addr_port(dest)
 
             virtual_address[name]['address'] = vip_addr
             virtual_address[name]['netmask'] = virtual_server.mask
@@ -631,6 +638,26 @@ class NetworkHelper(object):
             virtual_services.append(virtual_address)
 
         return virtual_services
+
+    @log_helpers.log_method_call
+    def get_snat_addresses(
+            self,
+            bigip,
+            partition=const.DEFAULT_PARTITION):
+        """Returns list of snat addresses"""
+        filter = "$filter=partition%20eq%20" + partition
+
+        snat_addrs = []
+        try:
+            snats =  bigip.tm.ltm.snat_translations.get_collection(requests_params={'params': filter})
+            for snat in snats:
+                snat_addrs.append(snat.address)
+
+        except Exception as e:
+            LOG.error('get_snat_addresses',
+                      'could not get addresses due to: %s'
+                      % e.message)
+        return snat_addrs
 
     @log_helpers.log_method_call
     def get_node_addresses(self, bigip, partition=const.DEFAULT_PARTITION):
@@ -642,6 +669,82 @@ class NetworkHelper(object):
             node_addrs.append(node.address)
 
         return node_addrs
+
+    # Dummy method to check functionality from a standalone python script.
+    # The origin is in network_service as privta emethod descared
+    # def ips_exist_on_subnet(self, bigip, service, subnet, route_domain):
+    #     # Does the big-ip have any IP addresses on this subnet?
+    #     LOG.debug("_ips_exist_on_subnet entry %s rd %s"
+    #               % (str(subnet['cidr']), route_domain))
+    #     route_domain = str(route_domain)
+    #     ipsubnet = netaddr.IPNetwork(subnet['cidr'])
+    #
+    #     # Are there any virtual addresses on this subnet?
+    #     folder = service['loadbalancer']['tenant_id']
+    #     virtual_services = self.get_virtual_service_insertion(
+    #         bigip,
+    #         partition=folder
+    #     )
+    #     for virt_serv in virtual_services:
+    #         print virt_serv
+    #         (_, dest) = virt_serv.items()[0]
+    #         LOG.debug("            _ips_exist_on_subnet: checking vip %s"
+    #                   % str(dest['address']))
+    #         if len(dest['address'].split('%')) > 1:
+    #             vip_route_domain = dest['address'].split('%')[1]
+    #         else:
+    #             vip_route_domain = '0'
+    #         if vip_route_domain != route_domain:
+    #             continue
+    #         vip_addr = strip_domain_address(dest['address'])
+    #         if netaddr.IPAddress(vip_addr) in ipsubnet:
+    #             LOG.debug("            _ips_exist_on_subnet: found")
+    #             return True
+    #
+    #     # If there aren't any virtual addresses, are there
+    #     # snat addresses on this subnet?
+    #     snats = self.get_snat_addresses(
+    #         bigip,
+    #         partition=folder
+    #     )
+    #     for snat in snats:
+    #         LOG.debug("            _ips_exist_on_subnet: checking snat %s"
+    #                   % str(snat))
+    #         if len(snat.split('%')) > 1:
+    #             snat_route_domain = snat.split('%')[1]
+    #         else:
+    #             snat_route_domain = '0'
+    #         if snat_route_domain != route_domain:
+    #             continue
+    #         snat_addr = strip_domain_address(snat)
+    #         if netaddr.IPAddress(snat_addr) in ipsubnet:
+    #             LOG.debug("        _ips_exist_on_subnet: found")
+    #             return True
+    #
+    #     # If there aren't any virtual addresses and snats, are there
+    #     # node addresses on this subnet?
+    #     nodes = self.get_node_addresses(
+    #         bigip,
+    #         partition=folder
+    #     )
+    #     for node in nodes:
+    #         LOG.debug("            _ips_exist_on_subnet: checking node %s"
+    #                   % str(node))
+    #         if len(node.split('%')) > 1:
+    #             node_route_domain = node.split('%')[1]
+    #         else:
+    #             node_route_domain = '0'
+    #         if node_route_domain != route_domain:
+    #             continue
+    #         node_addr = strip_domain_address(node)
+    #         if netaddr.IPAddress(node_addr) in ipsubnet:
+    #             LOG.debug("        _ips_exist_on_subnet: found")
+    #             return True
+    #
+    #     LOG.debug("            _ips_exist_on_subnet exit %s"
+    #               % str(subnet['cidr']))
+    #     # nothing found
+    #     return False
 
     @log_helpers.log_method_call
     def add_fdb_entry(

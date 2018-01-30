@@ -26,6 +26,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
     ResourceType
 from oslo_log import log as logging
 
+#import pdb
+
 LOG = logging.getLogger(__name__)
 
 

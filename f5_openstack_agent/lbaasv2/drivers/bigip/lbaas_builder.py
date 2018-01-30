@@ -83,8 +83,6 @@ class LBaaSBuilder(object):
 
         self._assure_l7policies_deleted(service)
 
-
-
         self._assure_listeners_deleted(service)
 
         self._assure_loadbalancer_deleted(service)
