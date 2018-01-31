@@ -60,8 +60,10 @@ tmos_version = ManagementRoot(
     pytest.symbols.bigip_mgmt_ip_public,
     pytest.symbols.bigip_username,
     pytest.symbols.bigip_password).tmos_version
-dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip_public.replace('.', '-')
-icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
+# Note, BIG-IP generates selfip based upon the net it is on (172), not the
+# public net (10)...  This is based upon testenv.
+mgmt_ip = pytest.symbols.bigip_mgmt_ip
+icontrol_fqdn = 'host-' + mgmt_ip + '.openstacklocal'
 if StrictVersion(tmos_version) >= StrictVersion('12.1.0'):
     icontrol_fqdn = 'bigip1'
 neutron_services_filename =\
