@@ -60,8 +60,10 @@ tmos_version = ManagementRoot(
     pytest.symbols.bigip_mgmt_ip_public,
     pytest.symbols.bigip_username,
     pytest.symbols.bigip_password).tmos_version
-dashed_mgmt_ip = pytest.symbols.bigip_mgmt_ip_public.replace('.', '-')
-icontrol_fqdn = 'host-' + dashed_mgmt_ip + '.openstacklocal'
+# Note, BIG-IP generates selfip based upon the net it is on (172), not the
+# public net (10)...  This is based upon testenv.
+mgmt_ip = pytest.symbols.bigip_mgmt_ip
+icontrol_fqdn = 'host-' + mgmt_ip + '.openstacklocal'
 if StrictVersion(tmos_version) >= StrictVersion('12.1.0'):
     icontrol_fqdn = 'bigip1'
 neutron_services_filename =\
@@ -132,9 +134,10 @@ SEG_INDEPENDENT_LB_URIS_COMMON_NET =\
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
 
-         u'https://localhost/mgmt/tm/net/self/'
-         '~Common'
-         '~local-' + icontrol_fqdn + '-ce69e293-56e7-43b8-b51c-01b91d66af20?ver='+tmos_version,
+         unicode(
+            'https://localhost/mgmt/tm/net/self/~Common~local-{}'
+            '-ce69e293-56e7-43b8-b51c-01b91d66af20?ver={}').format(
+            icontrol_fqdn, tmos_version),
 
          u'https://localhost/mgmt/tm/ltm/virtual-address/'
          '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
@@ -197,7 +200,8 @@ def logcall(lh, call, *cargs, **ckwargs):
 def bigip():
     LOG.debug(pytest.symbols)
     LOG.debug(pytest.symbols.bigip_mgmt_ip_public)
-    return ManagementRoot(pytest.symbols.bigip_mgmt_ip_public, 'admin', 'admin')
+    return \
+        ManagementRoot(pytest.symbols.bigip_mgmt_ip_public, 'admin', 'admin')
 
 
 @pytest.fixture
@@ -231,7 +235,7 @@ def handle_init_registry(bigip, icd_configuration,
     icontroldriver = configure_icd(icd_configuration, create_mock_rpc)
     LOG.debug(bigip.raw)
     start_registry = register_device(bigip)
-    if icd_configuration['f5_global_routed_mode'] == False:
+    if icd_configuration['f5_global_routed_mode'] is False:
         assert set(start_registry.keys()) - set(init_registry.keys()) == \
             AGENT_INIT_URIS
     return icontroldriver, start_registry
