@@ -92,9 +92,9 @@ class NetworkServiceBuilder(object):
             # profiles may already exist
             # create vxlan_multipoint_profile`
             self.network_helper.create_vxlan_multipoint_profile(
-                    bigip,
-                    'vxlan_ovs',
-                    partition='Common')
+                bigip,
+                'vxlan_ovs',
+                partition='Common')
             # create l2gre_multipoint_profile
             self.network_helper.create_l2gre_multipoint_profile(
                 bigip,
@@ -180,6 +180,8 @@ class NetworkServiceBuilder(object):
                 LOG.debug("Annotating the service definition networks "
                           "with route domain ID.")
                 self._annotate_service_route_domains(service)
+            except f5_ex.InvalidNetworkType as exc:
+                LOG.warning(exc.msg)
             except Exception as err:
                 LOG.exception(err)
                 raise f5_ex.RouteDomainCreationException(
@@ -226,7 +228,6 @@ class NetworkServiceBuilder(object):
         # Add route domain notation to pool member and vip addresses.
         tenant_id = service['loadbalancer']['tenant_id']
         self.update_rds_cache(tenant_id)
-
         if 'members' in service:
             for member in service['members']:
                 if 'address' in member:
@@ -251,7 +252,6 @@ class NetworkServiceBuilder(object):
                             member['address'] += rd_id
                     else:
                         member['address'] += '%0'
-
         if 'vip_address' in service['loadbalancer']:
             loadbalancer = service['loadbalancer']
             if 'network_id' in loadbalancer:
@@ -569,7 +569,11 @@ class NetworkServiceBuilder(object):
         net_type = network.get('provider:network_type', None)
         net_seg_key = network.get('provider:segmentation_id', None)
         if not net_type or not net_seg_key:
-            raise f5_ex.InvalidNetworkType
+            raise f5_ex.InvalidNetworkType(
+                'Provider network attributes not complete:'
+                'provider: network_type - {0} '
+                'and provider:segmentation_id - {1}'
+                .format(net_type, net_seg_key))
 
         return net_type + '-' + str(net_seg_key)
 
