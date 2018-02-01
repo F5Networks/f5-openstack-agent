@@ -2213,7 +2213,12 @@ class iControlDriver(LBaaSBaseDriver):
         if 'members' in service:
             if self.network_builder:
                 # append route domain to member address
-                self.network_builder._annotate_service_route_domains(service)
+                try:
+                    self.network_builder._annotate_service_route_domains(
+                        service)
+                except f5ex.InvalidNetworkType as exc:
+                    LOG.warning(exc.msg)
+                    return
 
             # get currrent member status
             self.lbaas_builder.update_operating_status(service)

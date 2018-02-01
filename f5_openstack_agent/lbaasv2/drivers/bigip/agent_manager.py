@@ -36,8 +36,8 @@ from neutron_lib import constants as plugin_const
 from neutron_lib import exceptions as q_exception
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
-
 
 LOG = logging.getLogger(__name__)
 
@@ -684,6 +684,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             else:
                 LOG.debug("Found service definition for '{}', state is ACTIVE"
                           " move on.".format(lb_id))
+        except f5_ex.InvalidNetworkType as exc:
+            LOG.warning(exc.msg)
         except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
