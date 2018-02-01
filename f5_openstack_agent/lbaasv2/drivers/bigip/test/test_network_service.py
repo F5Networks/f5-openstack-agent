@@ -355,15 +355,17 @@ class TestNetworkServiceBuilder(object):
         assert net_short_name == 'vlan-608'
 
         # invalid network type
-        with pytest.raises(f5_ex.InvalidNetworkType):
+        with pytest.raises(f5_ex.InvalidNetworkType) as excinfo:
             network['provider:network_type'] = ''
             network_service.get_route_domain_from_cache(network)
+            assert 'provider:network_type' in str(excinfo.value)
 
         # invalid segmentation ID
-        with pytest.raises(f5_ex.InvalidNetworkType):
+        with pytest.raises(f5_ex.InvalidNetworkType) as excinfo:
             network['provider:network_type'] = 'vlan'
             network['provider:segmentation_id'] = ''
             network_service.get_route_domain_from_cache(network)
+            assert 'provider:network_type - vlan' in str(excinfo.value)
 
     def test_get_route_domain_from_cache(self, network_service, network):
         # valid cache entries
