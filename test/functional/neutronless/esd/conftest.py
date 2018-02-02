@@ -57,13 +57,13 @@ def demo_policy(request, bigip):
     mgmt_root = bigip.bigip
     name = "demo_policy"
     partition = "Common"
+
     rules = [
         dict(
             name='demo_rule',
             ordinal=0,
             actions=[],
-            conditions=[],
-            description='This is a rule description')
+            conditions=[])
     ]
 
     def teardown_policy():
@@ -74,10 +74,13 @@ def demo_policy(request, bigip):
             pol.delete()
 
     pc = mgmt_root.tm.ltm.policys
+
+    # setting legacy to True inorder for the test
+    # to work for BIGIP versions 11.5, 11.6, 12.1 and 13
+
     policy = pc.policy.create(name=name, partition=partition,
                               strategy="first-match",
-                              subPath="Drafts", rules=rules)
-    policy.publish()
+                              rules=rules, legacy=True)
     request.addfinalizer(teardown_policy)
     return policy
 
