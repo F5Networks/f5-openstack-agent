@@ -49,7 +49,7 @@ def icd_config():
     OSLO_CONFIGS = json.load(open(oslo_config_filename))
 
     config = deepcopy(OSLO_CONFIGS)
-    config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+    config['icontrol_hostname'] = pytest.symbols.bigip_floating_ips[0]
     config['icontrol_username'] = pytest.symbols.bigip_username
     config['icontrol_password'] = pytest.symbols.bigip_password
     #config['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
