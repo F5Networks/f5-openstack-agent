@@ -1,6 +1,6 @@
 {
-    "bigip_mgmt_ip": "10.190.7.183",
-    "bigip_mgmt_ip_public": "10.190.7.183",
+    "bigip_mgmt_ips": ["10.190.7.183"],
+    "bigip_floating_ips": ["10.190.7.183"],
     "bigip_ssh_username": "root",
     "bigip_username": "admin",
     "bigip_password": "admin",

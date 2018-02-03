@@ -122,7 +122,7 @@ class TestConfig(object):
     def icd_config(self):
         """Configure the icontrol_driver by mocking an historic oslo confg."""
         config = deepcopy(self.oslo_config)
-        config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+        config['icontrol_hostname'] = pytest.symbols.bigip_floating_ips[0]
         config['icontrol_username'] = pytest.symbols.bigip_username
         config['icontrol_password'] = pytest.symbols.bigip_password
         ENV_PREFIX = config['environment_prefix']
@@ -131,7 +131,7 @@ class TestConfig(object):
 
     def bigip(self):
         """Return a device-connected, agent-style, BigIpClient."""
-        bigip = BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
+        bigip = BigIpClient(pytest.symbols.bigip_floating_ips[0],
                             pytest.symbols.bigip_username,
                             pytest.symbols.bigip_password)
         VALIDATOR = ResourceValidator(bigip, self.ENV_PREFIX)
@@ -390,7 +390,7 @@ class Resource4TestTracker(object):
 
 @pytest.fixture
 def bigip(request):
-    bigip = BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
+    bigip = BigIpClient(pytest.symbols.bigip_floating_ips[0],
                         pytest.symbols.bigip_username,
                         pytest.symbols.bigip_password)
 
@@ -455,7 +455,7 @@ def icd_config():
     OSLO_CONFIGS = json.load(open(oslo_config_filename))
 
     config = deepcopy(OSLO_CONFIGS)
-    config['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+    config['icontrol_hostname'] = pytest.symbols.bigip_floating_ips[0]
     config['icontrol_username'] = pytest.symbols.bigip_username
     config['icontrol_password'] = pytest.symbols.bigip_password
     try:

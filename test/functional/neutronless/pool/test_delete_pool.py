@@ -43,7 +43,7 @@ def services():
 @pytest.fixture(scope="module")
 def bigip():
 
-    return BigIpClient(pytest.symbols.bigip_mgmt_ip_public,
+    return BigIpClient(pytest.symbols.bigip_floating_ips[0],
                        pytest.symbols.bigip_username,
                        pytest.symbols.bigip_password)
 

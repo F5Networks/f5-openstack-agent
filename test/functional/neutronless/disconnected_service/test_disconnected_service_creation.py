@@ -44,11 +44,11 @@ FEATURE_ON = OSLO_CONFIGS["feature_on"]
 FEATURE_OFF = OSLO_CONFIGS["feature_off"]
 FEATURE_OFF_GRM = OSLO_CONFIGS["feature_off_grm"]
 FEATURE_OFF_COMMON_NET = OSLO_CONFIGS["feature_off_common_net"]
-FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
-FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
-FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_mgmt_ip_public
+FEATURE_ON['icontrol_hostname'] = pytest.symbols.bigip_floating_ips[0]
+FEATURE_OFF['icontrol_hostname'] = pytest.symbols.bigip_floating_ips[0]
+FEATURE_OFF_GRM['icontrol_hostname'] = pytest.symbols.bigip_floating_ips[0]
 FEATURE_OFF_COMMON_NET['icontrol_hostname'] = \
-    pytest.symbols.bigip_mgmt_ip_public
+    pytest.symbols.bigip_floating_ips[0]
 FEATURE_ON['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
 FEATURE_OFF['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
 FEATURE_OFF_GRM['f5_vtep_selfip_name'] = pytest.symbols.f5_vtep_selfip_name
@@ -57,12 +57,12 @@ FEATURE_OFF_COMMON_NET['f5_vtep_selfip_name'] = \
 
 
 tmos_version = ManagementRoot(
-    pytest.symbols.bigip_mgmt_ip_public,
+    pytest.symbols.bigip_floating_ips[0],
     pytest.symbols.bigip_username,
     pytest.symbols.bigip_password).tmos_version
 # Note, BIG-IP generates selfip based upon the net it is on (172), not the
 # public net (10)...  This is based upon testenv.
-mgmt_ip = pytest.symbols.bigip_mgmt_ip
+mgmt_ip = pytest.symbols.bigip_mgmt_ips[0]
 icontrol_fqdn = 'host-' + mgmt_ip + '.openstacklocal'
 if StrictVersion(tmos_version) >= StrictVersion('12.1.0'):
     icontrol_fqdn = 'bigip1'
@@ -199,9 +199,9 @@ def logcall(lh, call, *cargs, **ckwargs):
 @pytest.fixture
 def bigip():
     LOG.debug(pytest.symbols)
-    LOG.debug(pytest.symbols.bigip_mgmt_ip_public)
+    LOG.debug(pytest.symbols.bigip_floating_ips[0])
     return \
-        ManagementRoot(pytest.symbols.bigip_mgmt_ip_public, 'admin', 'admin')
+        ManagementRoot(pytest.symbols.bigip_floating_ips[0], 'admin', 'admin')
 
 
 @pytest.fixture

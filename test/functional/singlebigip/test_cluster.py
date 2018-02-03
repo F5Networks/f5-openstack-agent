@@ -39,7 +39,7 @@ def test_devices(mgmt_root, symbols):
     for k, v in symbols.__dict__.items():
         print('key: {}'.format(k))
         print('value: {}'.format(v))
-    assert devices[0].managementIp == symbols.bigip_mgmt_ip
+    assert devices[0].managementIp == symbols.bigip_mgmt_ips[0]
 
 
 def test_get_sync_status(mgmt_root):
@@ -78,6 +78,4 @@ def test_get_mgmt_addr_by_device(symbols, mgmt_root):
     pp(dir(symbols))
     device_name = mgmt_root._meta_data['device_name']
     addr = cm.get_mgmt_addr_by_device(mgmt_root, device_name)
-    mgmt_ips = (symbols.bigip_mgmt_ip, symbols.bigip_mgmt_ip_public)
-    assert addr in mgmt_ips
-    print(addr)
+    assert addr == symbols.bigip_mgmt_ips[0]
