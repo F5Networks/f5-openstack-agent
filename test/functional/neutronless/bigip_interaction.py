@@ -231,14 +231,8 @@ def begin():
     -o UserKnownHostsFile=/dev/null \
     {}"""
     ssh_host_specific_fmt = "{}@{}"
-    hostname = ''
-    username = ''
-    if hasattr(pytest.symbols, 'bigip_mgmt_ip_public') and \
-            hasattr(pytest.symbols, 'bigip_ssh_username'):
-        hostname = pytest.symbols.bigip_mgmt_ip_public
-        username = pytest.symbols.bigip_ssh_username
-    else:
-        raise EnvironmentError("Cannot perform tests without symbols!")
+    hostname = pytest.symbols.bigip_floating_ips[0]
+    username = pytest.symbols.bigip_ssh_username
     ssh_cmd = ssh_options.format(
         ssh_host_specific_fmt.format(username, hostname))
     BigIpInteraction.ssh_cmd = ssh_cmd
