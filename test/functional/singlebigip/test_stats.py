@@ -100,7 +100,7 @@ class TestStats:
 
     def test_get_vlan_count(self, mgmt_root, network_helper):
         count = network_helper.get_vlan_count(mgmt_root)
-        assert count == 2
+        assert count == 4
         print "VLAN Count: " + str(count)
 
     def test_get_route_domain_count(self, mgmt_root, network_helper):

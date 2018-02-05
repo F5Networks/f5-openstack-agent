@@ -41,7 +41,7 @@ def service_name(request):
 
 @pytest.fixture
 def bigip():
-    return ManagementRoot(pytest.symbols.bigip_mgmt_ip_public, 'admin', 'admin')
+    return ManagementRoot(pytest.symbols.bigip_floating_ips[0], 'admin', 'admin')
 
 
 @pytest.fixture
