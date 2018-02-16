@@ -13,8 +13,7 @@
 # limitations under the License.
 #
 
-from neutron.common import constants as q_const
-
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from oslo_log import log as logging
 
 from fdb_connector import FDBConnector
@@ -68,7 +67,8 @@ class FDBConnectorML2(FDBConnector):
         if self.conf.l2_population and self._l2pop_rpc:
             fdb_entries = {network['id']:
                            {'ports':
-                            {vtep_ip_address: [q_const.FLOODING_ENTRY]},
+                            {vtep_ip_address:
+                                [constants_v2.F5_FLOODING_ENTRY]},
                             'network_type': network['provider:network_type'],
                             'segment_id': network['provider:segmentation_id']}}
             self._l2pop_rpc.add_fdb_entries(self._context, fdb_entries)
@@ -79,7 +79,8 @@ class FDBConnectorML2(FDBConnector):
         if self.conf.l2_population and self._l2pop_rpc:
             fdb_entries = {network['id']:
                            {'ports':
-                            {vtep_ip_address: [q_const.FLOODING_ENTRY]},
+                            {vtep_ip_address:
+                                [constants_v2.F5_FLOODING_ENTRY]},
                             'network_type': network['provider:network_type'],
                             'segment_id': network['provider:segmentation_id']}}
             self._l2pop_rpc.remove_fdb_entries(self._context, fdb_entries)

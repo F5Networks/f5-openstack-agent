@@ -17,11 +17,9 @@ import itertools
 import netaddr
 from requests import HTTPError
 
-from neutron.plugins.common import constants as plugin_const
-from neutron_lib.exceptions import NeutronException
-
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
     L2ServiceBuilder
@@ -702,7 +700,7 @@ class NetworkServiceBuilder(object):
             return
 
         if loadbalancer.get('provisioning_status', None) == \
-                plugin_const.PENDING_DELETE:
+                constants_v2.F5_PENDING_DELETE:
             delete_loadbalancer = loadbalancer
         else:
             update_loadbalancer = loadbalancer
@@ -712,7 +710,7 @@ class NetworkServiceBuilder(object):
             member['network'] = service_adapter.get_network_from_service(
                 service, member['network_id'])
             if member.get('provisioning_status', None) == \
-                    plugin_const.PENDING_DELETE:
+                    constants_v2.F5_PENDING_DELETE:
                 delete_members.append(member)
             else:
                 update_members.append(member)
@@ -752,7 +750,7 @@ class NetworkServiceBuilder(object):
                 for in_use_subnetid in my_in_use_subnets:
                     subnet_hints['check_for_delete_subnets'].pop(
                         in_use_subnetid, None)
-            except NeutronException as exc:
+            except f5_ex.F5NeutronException as exc:
                 LOG.error("assure_delete_nets_shared: exception: %s"
                           % str(exc.msg))
             except Exception as exc:
@@ -828,7 +826,7 @@ class NetworkServiceBuilder(object):
                         bigip.assured_tenant_snat_subnets[tenant_id]
                     if subnet['id'] in tenant_snat_subnets:
                         tenant_snat_subnets.remove(subnet['id'])
-            except NeutronException as exc:
+            except f5_ex.F5NeutronException as exc:
                 LOG.error("assure_delete_nets_nonshared: exception: %s"
                           % str(exc.msg))
             except Exception as exc:
@@ -936,7 +934,7 @@ class NetworkServiceBuilder(object):
         loadbalancer = service['loadbalancer']
         service_adapter = self.service_adapter
         lb_status = loadbalancer['provisioning_status']
-        if lb_status != plugin_const.PENDING_DELETE:
+        if lb_status != constants_v2.F5_PENDING_DELETE:
             if 'network_id' in loadbalancer:
                 network = service_adapter.get_network_from_service(
                     service,
@@ -951,7 +949,7 @@ class NetworkServiceBuilder(object):
                                           'is_for_member': False}
 
         for member in service['members']:
-            if member['provisioning_status'] != plugin_const.PENDING_DELETE:
+            if member['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
                 if 'network_id' in member:
                     network = service_adapter.get_network_from_service(
                         service,

@@ -19,8 +19,6 @@ from oslo_log import log as logging
 import oslo_messaging as messaging
 
 from neutron.common import rpc
-from neutron.plugins.common import constants as plugin_const
-from neutron_lbaas.services.loadbalancer import constants as lb_const
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as constants
 
@@ -129,8 +127,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_listener_status(self,
                                listener_id,
-                               provisioning_status=plugin_const.ERROR,
-                               operating_status=lb_const.OFFLINE):
+                               provisioning_status=constants.F5_ERROR,
+                               operating_status=constants.F5_OFFLINE):
         """Update the database with listener status."""
         return self._cast(
             self.context,
@@ -154,8 +152,8 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def update_pool_status(self,
                            pool_id,
-                           provisioning_status=plugin_const.ERROR,
-                           operating_status=lb_const.OFFLINE):
+                           provisioning_status=constants.F5_ERROR,
+                           operating_status=constants.F5_OFFLINE):
         """Update the database with pool status."""
         return self._cast(
             self.context,
@@ -205,8 +203,8 @@ class LBaaSv2PluginRPC(object):
     def update_health_monitor_status(
             self,
             health_monitor_id,
-            provisioning_status=plugin_const.ERROR,
-            operating_status=lb_const.OFFLINE):
+            provisioning_status=constants.F5_ERROR,
+            operating_status=constants.F5_OFFLINE):
         """Update the database with health_monitor status."""
         return self._cast(
             self.context,
@@ -232,8 +230,8 @@ class LBaaSv2PluginRPC(object):
             self,
             l7rule_id,
             l7policy_id,
-            provisioning_status=plugin_const.ERROR,
-            operating_status=lb_const.OFFLINE):
+            provisioning_status=constants.F5_ERROR,
+            operating_status=constants.F5_OFFLINE):
         return self._cast(
             self.context,
             self._make_msg('update_l7rule_status',
@@ -258,8 +256,8 @@ class LBaaSv2PluginRPC(object):
     def update_l7policy_status(
             self,
             l7policy_id,
-            provisioning_status=plugin_const.ERROR,
-            operating_status=lb_const.OFFLINE):
+            provisioning_status=constants.F5_ERROR,
+            operating_status=constants.F5_OFFLINE):
         return self._cast(
             self.context,
             self._make_msg('update_l7policy_status',

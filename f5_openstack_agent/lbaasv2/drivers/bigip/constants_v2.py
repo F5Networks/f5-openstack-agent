@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from neutron.common import constants as q_const
+from neutron_lbaas.services.loadbalancer import constants as lb_const
+from neutron_lib import constants as plugin_const
 
 # Service resync interval
 RESYNC_INTERVAL = 300
@@ -59,3 +62,23 @@ DEVICE_HEALTH_SCORE_CPS_PERIOD = 5
 DEVICE_HEALTH_SCORE_CPS_MAX = 100
 
 DEVICE_CONNECTION_TIMEOUT = 5
+
+# Neutron-lbaas and Neutron constants
+F5_AGENT_TYPE_LOADBALANCERV2 = lb_const.AGENT_TYPE_LOADBALANCERV2
+F5_STATS_IN_BYTES = lb_const.STATS_IN_BYTES
+F5_STATS_OUT_BYTES = lb_const.STATS_OUT_BYTES
+F5_STATS_ACTIVE_CONNECTIONS = lb_const.STATS_ACTIVE_CONNECTIONS
+F5_STATS_TOTAL_CONNECTIONS = lb_const.STATS_TOTAL_CONNECTIONS
+F5_OFFLINE = lb_const.OFFLINE
+F5_ONLINE = lb_const.ONLINE
+F5_DISABLED = lb_const.DISABLED
+F5_NO_MONITOR = lb_const.NO_MONITOR
+
+F5_ACTIVE = plugin_const.ACTIVE
+F5_PENDING_CREATE = plugin_const.PENDING_CREATE
+F5_PENDING_UPDATE = plugin_const.PENDING_UPDATE
+F5_PENDING_DELETE = plugin_const.PENDING_DELETE
+F5_ERROR = plugin_const.ERROR
+
+
+F5_FLOODING_ENTRY = q_const.FLOODING_ENTRY

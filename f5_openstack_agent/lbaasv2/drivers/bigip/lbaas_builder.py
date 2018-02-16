@@ -18,16 +18,13 @@ from time import time
 
 from oslo_log import log as logging
 
-from neutron.plugins.common import constants as plugin_const
-from neutron_lbaas.services.loadbalancer import constants as lb_const
-
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import l7policy_service
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
     LbaasServiceObject
 from f5_openstack_agent.lbaasv2.drivers.bigip import listener_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
-
 from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
@@ -114,26 +111,26 @@ class LBaaSBuilder(object):
     def _set_status_as_active(svc_obj, force=False):
         # If forced, then set to ACTIVE else hold ERROR
         preserve_statuses = \
-            tuple([plugin_const.ERROR, plugin_const.PENDING_DELETE])
+            tuple([constants_v2.F5_ERROR, constants_v2.F5_PENDING_DELETE])
         ps = svc_obj['provisioning_status']
-        svc_obj['provisioning_status'] = plugin_const.ACTIVE \
+        svc_obj['provisioning_status'] = constants_v2.F5_ACTIVE \
             if ps not in preserve_statuses or force else ps
 
     @staticmethod
     def _set_status_as_error(svc_obj):
-        svc_obj['provisioning_status'] = plugin_const.ERROR
+        svc_obj['provisioning_status'] = constants_v2.F5_ERROR
 
     @staticmethod
     def _is_not_pending_delete(svc_obj):
-        return svc_obj['provisioning_status'] != plugin_const.PENDING_DELETE
+        return svc_obj['provisioning_status'] != constants_v2.F5_PENDING_DELETE
 
     @staticmethod
     def _is_pending_delete(svc_obj):
-        return svc_obj['provisioning_status'] == plugin_const.PENDING_DELETE
+        return svc_obj['provisioning_status'] == constants_v2.F5_PENDING_DELETE
 
     @staticmethod
     def _is_not_error(svc_obj):
-        return svc_obj['provisioning_status'] != plugin_const.ERROR
+        return svc_obj['provisioning_status'] != constants_v2.F5_ERROR
 
     def _assure_loadbalancer_created(self, service, all_subnet_hints):
         if 'loadbalancer' not in service:
@@ -198,12 +195,12 @@ class LBaaSBuilder(object):
 
                 if error:
                     loadbalancer['provisioning_status'] = \
-                        plugin_const.ERROR
-                    listener['provisioning_status'] = plugin_const.ERROR
+                        constants_v2.F5_ERROR
+                    listener['provisioning_status'] = constants_v2.F5_ERROR
                 else:
-                    listener['provisioning_status'] = plugin_const.ACTIVE
+                    listener['provisioning_status'] = constants_v2.F5_ACTIVE
                     if listener['admin_state_up']:
-                        listener['operating_status'] = lb_const.ONLINE
+                        listener['operating_status'] = constants_v2.F5_ONLINE
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
@@ -213,12 +210,13 @@ class LBaaSBuilder(object):
         loadbalancer = service.get("loadbalancer", dict())
         monitors = \
             [monitor for monitor in service.get("healthmonitors", list())
-             if monitor['provisioning_status'] != plugin_const.PENDING_DELETE]
+             if monitor['provisioning_status'] !=
+             constants_v2.F5_PENDING_DELETE]
 
         bigips = self.driver.get_config_bigips()
         error = None
         for pool in pools:
-            if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
+            if pool['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
                 svc['members'] = self._get_pool_members(service, pool['id'])
@@ -226,11 +224,11 @@ class LBaaSBuilder(object):
 
                 error = self.pool_builder.create_pool(svc, bigips)
                 if error:
-                    pool['provisioning_status'] = plugin_const.ERROR
-                    loadbalancer['provisioning_status'] = plugin_const.ERROR
+                    pool['provisioning_status'] = constants_v2.F5_ERROR
+                    loadbalancer['provisioning_status'] = constants_v2.F5_ERROR
                 else:
-                    pool['provisioning_status'] = plugin_const.ACTIVE
-                    pool['operating_status'] = lb_const.ONLINE
+                    pool['provisioning_status'] = constants_v2.F5_ACTIVE
+                    pool['operating_status'] = constants_v2.F5_ONLINE
 
     def _get_pool_members(self, service, pool_id):
         """Return a list of members associated with given pool."""
@@ -249,9 +247,10 @@ class LBaaSBuilder(object):
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
                    "healthmonitor": monitor}
-            if monitor['provisioning_status'] != plugin_const.PENDING_DELETE:
+            if monitor['provisioning_status'] != \
+                    constants_v2.F5_PENDING_DELETE:
                 if self.pool_builder.create_healthmonitor(svc, bigips):
-                    monitor['provisioning_status'] = plugin_const.ERROR
+                    monitor['provisioning_status'] = constants_v2.F5_ERROR
                     force_active_status = False
 
                 self._set_status_as_active(monitor, force=force_active_status)
@@ -264,9 +263,10 @@ class LBaaSBuilder(object):
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
                    "healthmonitor": monitor}
-            if monitor['provisioning_status'] == plugin_const.PENDING_DELETE:
+            if monitor['provisioning_status'] == \
+                    constants_v2.F5_PENDING_DELETE:
                 if self.pool_builder.delete_healthmonitor(svc, bigips):
-                    monitor['provisioning_status'] = plugin_const.ERROR
+                    monitor['provisioning_status'] = constants_v2.F5_ERROR
 
     def _assure_members(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
@@ -281,7 +281,7 @@ class LBaaSBuilder(object):
         for member in members:
 
             if 'port' not in member and \
-               member['provisioning_status'] != plugin_const.PENDING_DELETE:
+               member['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
                 LOG.warning("Member definition does not include Neutron port")
 
             pool_id = member.get('pool_id', None)
@@ -325,7 +325,7 @@ class LBaaSBuilder(object):
 
     def _assure_loadbalancer_deleted(self, service):
         if (service['loadbalancer']['provisioning_status'] !=
-                plugin_const.PENDING_DELETE):
+                constants_v2.F5_PENDING_DELETE):
             return
 
         loadbalancer = service["loadbalancer"]
@@ -360,11 +360,11 @@ class LBaaSBuilder(object):
             svc = {"loadbalancer": loadbalancer,
                    "pool": pool, "members": pool_members}
             # Is the pool being deleted?
-            if pool['provisioning_status'] == plugin_const.PENDING_DELETE:
+            if pool['provisioning_status'] == constants_v2.F5_PENDING_DELETE:
                 # Delete pool
                 error = self.pool_builder.delete_pool(svc, bigips)
                 if error:
-                    pool['provisioning_status'] = plugin_const.ERROR
+                    pool['provisioning_status'] = constants_v2.F5_ERROR
 
     def _assure_listeners_deleted(self, service):
         bigips = self.driver.get_config_bigips()
@@ -374,14 +374,14 @@ class LBaaSBuilder(object):
             for listener in listeners:
                 error = False
                 if listener['provisioning_status'] == \
-                        plugin_const.PENDING_DELETE:
+                        constants_v2.F5_PENDING_DELETE:
                     svc = {"loadbalancer": loadbalancer,
                            "listener": listener}
                     error = \
                         self.listener_builder.delete_listener(svc, bigips)
 
                     if error:
-                        listener['provisioning_status'] = plugin_const.ERROR
+                        listener['provisioning_status'] = constants_v2.F5_ERROR
 
         self.listener_builder.delete_orphaned_listeners(service, bigips)
 
@@ -400,7 +400,7 @@ class LBaaSBuilder(object):
         for bigip in bigips:
             subnet_hints = all_subnet_hints[bigip.device_name]
 
-            if status != plugin_const.PENDING_DELETE:
+            if status != constants_v2.F5_PENDING_DELETE:
                 if subnet_id in subnet_hints['check_for_delete_subnets']:
                     del subnet_hints['check_for_delete_subnets'][subnet_id]
                 if subnet_id not in subnet_hints['do_not_delete_subnets']:
@@ -468,7 +468,7 @@ class LBaaSBuilder(object):
                     listener['f5_policy'] = policy['f5_policy']
             else:
                 loadbalancer['provisioning_status'] = \
-                    plugin_const.ERROR
+                    constants_v2.F5_ERROR
 
     def _assure_l7policies_deleted(self, service):
         if 'l7policies' not in service:
@@ -562,7 +562,7 @@ class LBaaSBuilder(object):
 
         members = service["members"]
         for member in members:
-            if member['provisioning_status'] == plugin_const.ACTIVE:
+            if member['provisioning_status'] == constants_v2.F5_ACTIVE:
                 pool = self.get_pool_by_id(service, member["pool_id"])
                 svc = {"loadbalancer": loadbalancer,
                        "member": member,
@@ -588,15 +588,15 @@ class LBaaSBuilder(object):
         if available == 'available':
             enabled = status.get('status.enabledState', '')
             if enabled == 'enabled':
-                op_status = lb_const.ONLINE
+                op_status = constants_v2.F5_ONLINE
             elif enabled == 'disabled':
-                op_status = lb_const.DISABLED
+                op_status = constants_v2.F5_DISABLED
             else:
                 LOG.warning('Unexpected value %s for status.enabledState',
                             enabled)
         elif available == 'offline':
-            op_status = lb_const.OFFLINE
+            op_status = constants_v2.F5_OFFLINE
         elif available == 'unknown':
-            op_status = lb_const.NO_MONITOR
+            op_status = constants_v2.F5_NO_MONITOR
 
         return op_status

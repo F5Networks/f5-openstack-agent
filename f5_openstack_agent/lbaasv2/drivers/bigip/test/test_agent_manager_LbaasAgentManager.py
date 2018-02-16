@@ -20,7 +20,7 @@ import pytest
 from mock import Mock
 from mock import patch
 
-from neutron.plugins.common import constants as plugin_const
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as agent_manager
 import f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc as plugin_rpc
@@ -311,32 +311,32 @@ class TestLbaasAgentManager(TestLbaasAgentManagerBuilder):
         def reset_svc(svc):
             listener = svc['listeners'][0]
             loadbalancer = svc['loadbalancer']
-            listener['provisioning_status'] = plugin_const.ACTIVE
-            loadbalancer['provisioning_status'] = plugin_const.ACTIVE
+            listener['provisioning_status'] = constants_v2.F5_ACTIVE
+            loadbalancer['provisioning_status'] = constants_v2.F5_ACTIVE
 
         def negative_list_scenario(target, svc):
             reset_svc(svc)
-            svc['listeners'][0]['provisioning_status'] = plugin_const.ERROR
+            svc['listeners'][0]['provisioning_status'] = constants_v2.F5_ERROR
             assert target.has_provisioning_status_of_error(svc)
             assert svc['loadbalancer']['provisioning_status'] == \
-                plugin_const.ERROR
+                constants_v2.F5_ERROR
 
         def negative_dict_scenario(target, svc):
             reset_svc(svc)
-            svc['loadbalancer']['provisioning_status'] = plugin_const.ERROR
+            svc['loadbalancer']['provisioning_status'] = constants_v2.F5_ERROR
             assert target.has_provisioning_status_of_error(svc)
             assert svc['loadbalancer']['provisioning_status'] == \
-                plugin_const.ERROR
+                constants_v2.F5_ERROR
 
         def awkward_network_nest(target, svc):
             reset_svc(svc)
-            svc['loadbalancer']['provisioning_status'] = plugin_const.ERROR
+            svc['loadbalancer']['provisioning_status'] = constants_v2.F5_ERROR
             listener_id = svc['listeners'][0]['id']
             awkward = {listener_id: svc['listeners'][0]}
             svc['listeners'][0] = awkward
             assert target.has_provisioning_status_of_error(svc)
             assert svc['loadbalancer']['provisioning_status'] == \
-                plugin_const.ERROR
+                constants_v2.F5_ERROR
 
         negative_list_scenario(target_class, svc)
         negative_dict_scenario(target_class, svc)
