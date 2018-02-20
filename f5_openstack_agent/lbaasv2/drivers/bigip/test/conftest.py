@@ -19,7 +19,7 @@ import pytest
 import sys
 import uuid
 
-from neutron.plugins.common import constants as plugin_const
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 
 
 class TestingWithServiceConstructor(object):
@@ -125,7 +125,7 @@ class TestingWithServiceConstructor(object):
             dict(admin_state_up=True, description='', gre_vteps=[],
                  id=new_id, listeners=[], name='lb1', network_id=network_id,
                  operating_status='OFFLINE', provider=None, vip_port=vip_port,
-                 provisioning_status=plugin_const.PENDING_CREATE,
+                 provisioning_status=constants_v2.F5_PENDING_CREATE,
                  vip_address=vip_address, dns_name=None,
                  dns_assignment=[dns_assignment],
                  tenant_id=tenant_id, vip_id=vip_port['id'],
@@ -147,14 +147,14 @@ class TestingWithServiceConstructor(object):
         lb['listeners'].append(new_id)
         tenant_id = lb['tenant_id']
         lb_id = lb['id']
-        lb['provisioning_status'] = plugin_const.PENDING_UPDATE
+        lb['provisioning_status'] = constants_v2.F5_PENDING_UPDATE
         new_listener = \
             dict(admin_state_up=True, connection_limit=-1,
                  default_pool_id=None, default_tls_container_id=None,
                  description='', id=new_id, loadbalaner_id=lb_id,
                  name='l1', operating_status='OFFLINE', protocol='HTTP',
                  protocol_port=8080, sni_containers=[], tenant_id=tenant_id,
-                 provisioning_status=plugin_const.PENDING_CREATE)
+                 provisioning_status=constants_v2.F5_PENDING_CREATE)
         svc['listeners'].append(new_listener)
         return svc
 
@@ -195,9 +195,9 @@ class TestingWithServiceConstructor(object):
         li = svc['listeners'][0]
         tenant_id = li['tenant_id']
         li['default_pool_id'] = new_id
-        li['provisioning_status'] = plugin_const.PENDING_UPDATE
+        li['provisioning_status'] = constants_v2.F5_PENDING_UPDATE
         new_pool = {'id': new_id, 'listeners': [dict(id=li['id'])],
-                    'provisioning_status': plugin_const.PENDING_CREATE,
+                    'provisioning_status': constants_v2.F5_PENDING_CREATE,
                     'tenant_id': tenant_id}
         svc['pools'].append(new_pool)
         return svc

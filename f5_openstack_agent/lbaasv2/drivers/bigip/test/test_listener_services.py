@@ -18,7 +18,7 @@ import pytest
 
 from mock import Mock
 
-from neutron.plugins.common import constants as plugin_const
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from requests import HTTPError
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.listener_service \
@@ -64,9 +64,9 @@ class TestListenerServiceBuilderConstructor(ct.TestingWithServiceConstructor):
     @staticmethod
     def creation_mode_listener(svc, listener):
         svc['listener'] = listener
-        svc['listener']['provisioning_status'] = plugin_const.PENDING_CREATE
+        svc['listener']['provisioning_status'] = constants_v2.F5_PENDING_CREATE
         svc['loadbalancer']['provisioning_status'] = \
-            plugin_const.PENDING_UPDATE
+            constants_v2.F5_PENDING_UPDATE
 
 
 class TestListenerServiceBuilderBuilder(TestListenerServiceBuilderConstructor):

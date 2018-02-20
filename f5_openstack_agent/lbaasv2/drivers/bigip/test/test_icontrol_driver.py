@@ -21,8 +21,7 @@ from mock import Mock
 from mock import patch
 from requests import HTTPError
 
-import neutron.plugins.common.constants as plugin_const
-import neutron_lbaas.services.loadbalancer.constants as lb_const
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver as target_mod
 import f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper
@@ -260,19 +259,19 @@ class TestiControlDriverMocker(object):
     @classmethod
     @pytest.fixture
     def svc_obj_pending_update(cls):
-        svc_obj = cls.basic_svc_obj(plugin_const.PENDING_UPDATE)
+        svc_obj = cls.basic_svc_obj(constants_v2.F5_PENDING_UPDATE)
         return [svc_obj]
 
     @classmethod
     @pytest.fixture
     def svc_obj_pending_create(cls):
-        svc_obj = cls.basic_svc_obj(plugin_const.PENDING_CREATE)
+        svc_obj = cls.basic_svc_obj(constants_v2.F5_PENDING_CREATE)
         return [svc_obj]
 
     @classmethod
     @pytest.fixture
     def svc_obj_active(cls):
-        svc_obj = cls.basic_svc_obj(plugin_const.ACTIVE)
+        svc_obj = cls.basic_svc_obj(constants_v2.F5_ACTIVE)
         return [svc_obj]
 
     @staticmethod
@@ -345,7 +344,7 @@ class TestiControlDriverMocker(object):
             called_method = getattr(target.plugin_rpc, test_method)
             args_list = called_method.call_args_list
             assert called_method.call_count == 3
-            all(map(lambda x: lb_const.ONLINE in x, args_list))
+            all(map(lambda x: constants_v2.F5_ONLINE in x, args_list))
 
     @pytest.fixture
     def mock_resource_helper(self, request):

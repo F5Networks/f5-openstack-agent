@@ -27,10 +27,6 @@ from time import time
 
 from requests import HTTPError
 
-from neutron.plugins.common import constants as plugin_const
-from neutron_lbaas.services.loadbalancer import constants as lb_const
-from neutron_lib.exceptions import InvalidConfigurationOption
-
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -323,8 +319,8 @@ class iControlDriver(LBaaSBaseDriver):
     """Control service deployment."""
 
     positive_plugin_const_state = \
-        tuple([plugin_const.ACTIVE, plugin_const.PENDING_CREATE,
-               plugin_const.PENDING_UPDATE])
+        tuple([f5const.F5_ACTIVE, f5const.F5_PENDING_CREATE,
+               f5const.F5_PENDING_UPDATE])
 
     def __init__(self, conf, registerOpts=True):
         # The registerOpts parameter allows a test to
@@ -492,17 +488,17 @@ class iControlDriver(LBaaSBaseDriver):
     def _init_bigip_hostnames(self):
         # Validate and parse bigip credentials
         if not self.conf.icontrol_hostname:
-            raise InvalidConfigurationOption(
+            raise f5ex.F5InvalidConfigurationOption(
                 opt_name='icontrol_hostname',
                 opt_value='valid hostname or IP address'
             )
         if not self.conf.icontrol_username:
-            raise InvalidConfigurationOption(
+            raise f5ex.F5InvalidConfigurationOption(
                 opt_name='icontrol_username',
                 opt_value='valid username'
             )
         if not self.conf.icontrol_password:
-            raise InvalidConfigurationOption(
+            raise f5ex.F5InvalidConfigurationOption(
                 opt_name='icontrol_password',
                 opt_value='valid password'
             )
@@ -1584,13 +1580,13 @@ class iControlDriver(LBaaSBaseDriver):
             vs_stats = self.lbaas_builder.get_listener_stats(service, stats)
 
             # convert to bytes
-            lb_stats[lb_const.STATS_IN_BYTES] = \
+            lb_stats[f5const.F5_STATS_IN_BYTES] = \
                 vs_stats['clientside.bitsIn']/8
-            lb_stats[lb_const.STATS_OUT_BYTES] = \
+            lb_stats[f5const.F5_STATS_OUT_BYTES] = \
                 vs_stats['clientside.bitsOut']/8
-            lb_stats[lb_const.STATS_ACTIVE_CONNECTIONS] = \
+            lb_stats[f5const.F5_STATS_ACTIVE_CONNECTIONS] = \
                 vs_stats['clientside.curConns']
-            lb_stats[lb_const.STATS_TOTAL_CONNECTIONS] = \
+            lb_stats[f5const.F5_STATS_TOTAL_CONNECTIONS] = \
                 vs_stats['clientside.totConns']
 
             # update Neutron
@@ -1904,16 +1900,16 @@ class iControlDriver(LBaaSBaseDriver):
             return lb_pending
 
         lb_provisioning_status = loadbalancer.get("provisioning_status",
-                                                  plugin_const.ERROR)
+                                                  f5const.F5_ERROR)
         try:
             try:
                 self.tenant_manager.assure_tenant_created(service)
             except Exception as e:
                 LOG.error("Tenant folder creation exception: %s",
                           e.message)
-                if lb_provisioning_status != plugin_const.PENDING_DELETE:
+                if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                     loadbalancer['provisioning_status'] = \
-                        plugin_const.ERROR
+                        f5const.F5_ERROR
                 raise e
 
             LOG.debug("    _assure_tenant_created took %.5f secs" %
@@ -1937,9 +1933,9 @@ class iControlDriver(LBaaSBaseDriver):
                 except Exception as error:
                     LOG.error("Prep-network exception: icontrol_driver: %s",
                               error.message)
-                    if lb_provisioning_status != plugin_const.PENDING_DELETE:
+                    if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                         loadbalancer['provisioning_status'] = \
-                            plugin_const.ERROR
+                            f5const.F5_ERROR
                     if not delete_event:
                         raise error
                 finally:
@@ -1973,9 +1969,9 @@ class iControlDriver(LBaaSBaseDriver):
                     LOG.error("Post-network exception: icontrol_driver: %s",
                               error.message)
 
-                    if lb_provisioning_status != plugin_const.PENDING_DELETE:
+                    if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                         loadbalancer['provisioning_status'] = \
-                            plugin_const.ERROR
+                            f5const.F5_ERROR
                         raise error
 
                 if time() - start_time > .001:
@@ -1988,7 +1984,7 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.exception(err)
         finally:
             # only delete partition if loadbalancer is being deleted
-            if lb_provisioning_status == plugin_const.PENDING_DELETE:
+            if lb_provisioning_status == f5const.F5_PENDING_DELETE:
                 self.tenant_manager.assure_tenant_cleanup(service,
                                                           all_subnet_hints)
 
@@ -1996,10 +1992,10 @@ class iControlDriver(LBaaSBaseDriver):
                 self.update_service_status(service)
 
             lb_provisioning_status = loadbalancer.get("provisioning_status",
-                                                      plugin_const.ERROR)
+                                                      f5const.F5_ERROR)
             lb_pending = \
-                (lb_provisioning_status == plugin_const.PENDING_CREATE or
-                 lb_provisioning_status == plugin_const.PENDING_UPDATE)
+                (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+                 lb_provisioning_status == f5const.F5_PENDING_UPDATE)
 
         return lb_pending
 
@@ -2044,27 +2040,27 @@ class iControlDriver(LBaaSBaseDriver):
                 if provisioning_status in self.positive_plugin_const_state:
 
                     if timed_out and \
-                            provisioning_status != plugin_const.ACTIVE:
-                        member['provisioning_status'] = plugin_const.ERROR
-                        operating_status = lb_const.OFFLINE
+                            provisioning_status != f5const.F5_ACTIVE:
+                        member['provisioning_status'] = f5const.F5_ERROR
+                        operating_status = f5const.F5_OFFLINE
                     else:
-                        member['provisioning_status'] = plugin_const.ACTIVE
-                        operating_status = lb_const.ONLINE
+                        member['provisioning_status'] = f5const.F5_ACTIVE
+                        operating_status = f5const.F5_ONLINE
 
                     self.plugin_rpc.update_member_status(
                         member['id'],
                         member['provisioning_status'],
                         operating_status
                     )
-                elif provisioning_status == plugin_const.PENDING_DELETE:
+                elif provisioning_status == f5const.F5_PENDING_DELETE:
                     if not member.get('parent_pool_deleted', False):
                         self.plugin_rpc.member_destroyed(
                             member['id'])
-                elif provisioning_status == plugin_const.ERROR:
+                elif provisioning_status == f5const.F5_ERROR:
                     self.plugin_rpc.update_member_status(
                         member['id'],
-                        plugin_const.ERROR,
-                        lb_const.OFFLINE)
+                        f5const.F5_ERROR,
+                        f5const.F5_OFFLINE)
 
     def _update_health_monitor_status(self, health_monitors):
         """Update pool monitor status in OpenStack."""
@@ -2074,15 +2070,15 @@ class iControlDriver(LBaaSBaseDriver):
                 if provisioning_status in self.positive_plugin_const_state:
                     self.plugin_rpc.update_health_monitor_status(
                         health_monitor['id'],
-                        plugin_const.ACTIVE,
-                        lb_const.ONLINE
+                        f5const.F5_ACTIVE,
+                        f5const.F5_ONLINE
                     )
                     health_monitor['provisioning_status'] = \
-                        plugin_const.ACTIVE
-                elif provisioning_status == plugin_const.PENDING_DELETE:
+                        f5const.F5_ACTIVE
+                elif provisioning_status == f5const.F5_PENDING_DELETE:
                     self.plugin_rpc.health_monitor_destroyed(
                         health_monitor['id'])
-                elif provisioning_status == plugin_const.ERROR:
+                elif provisioning_status == f5const.F5_ERROR:
                     self.plugin_rpc.update_health_monitor_status(
                         health_monitor['id'])
 
@@ -2095,14 +2091,14 @@ class iControlDriver(LBaaSBaseDriver):
                 if provisioning_status in self.positive_plugin_const_state:
                     self.plugin_rpc.update_pool_status(
                         pool['id'],
-                        plugin_const.ACTIVE,
-                        lb_const.ONLINE
+                        f5const.F5_ACTIVE,
+                        f5const.F5_ONLINE
                     )
-                    pool['provisioning_status'] = plugin_const.ACTIVE
-                elif provisioning_status == plugin_const.PENDING_DELETE:
+                    pool['provisioning_status'] = f5const.F5_ACTIVE
+                elif provisioning_status == f5const.F5_PENDING_DELETE:
                     self.plugin_rpc.pool_destroyed(
                         pool['id'])
-                elif provisioning_status == plugin_const.ERROR:
+                elif provisioning_status == f5const.F5_ERROR:
                     self.plugin_rpc.update_pool_status(pool['id'])
 
     @log_helpers.log_method_call
@@ -2115,19 +2111,19 @@ class iControlDriver(LBaaSBaseDriver):
                 if provisioning_status in self.positive_plugin_const_state:
                     self.plugin_rpc.update_listener_status(
                         listener['id'],
-                        plugin_const.ACTIVE,
+                        f5const.F5_ACTIVE,
                         listener['operating_status']
                     )
                     listener['provisioning_status'] = \
-                        plugin_const.ACTIVE
-                elif provisioning_status == plugin_const.PENDING_DELETE:
+                        f5const.F5_ACTIVE
+                elif provisioning_status == f5const.F5_PENDING_DELETE:
                     self.plugin_rpc.listener_destroyed(
                         listener['id'])
-                elif provisioning_status == plugin_const.ERROR:
+                elif provisioning_status == f5const.F5_ERROR:
                     self.plugin_rpc.update_listener_status(
                         listener['id'],
                         provisioning_status,
-                        lb_const.OFFLINE)
+                        f5const.F5_OFFLINE)
 
     @log_helpers.log_method_call
     def _update_l7rule_status(self, l7rules):
@@ -2139,13 +2135,13 @@ class iControlDriver(LBaaSBaseDriver):
                     self.plugin_rpc.update_l7rule_status(
                         l7rule['id'],
                         l7rule['policy_id'],
-                        plugin_const.ACTIVE,
-                        lb_const.ONLINE
+                        f5const.F5_ACTIVE,
+                        f5const.F5_ONLINE
                     )
-                elif provisioning_status == plugin_const.PENDING_DELETE:
+                elif provisioning_status == f5const.F5_PENDING_DELETE:
                     self.plugin_rpc.l7rule_destroyed(
                         l7rule['id'])
-                elif provisioning_status == plugin_const.ERROR:
+                elif provisioning_status == f5const.F5_ERROR:
                     self.plugin_rpc.update_l7rule_status(
                         l7rule['id'], l7rule['policy_id'])
 
@@ -2159,14 +2155,14 @@ class iControlDriver(LBaaSBaseDriver):
                 if provisioning_status in self.positive_plugin_const_state:
                     self.plugin_rpc.update_l7policy_status(
                         l7policy['id'],
-                        plugin_const.ACTIVE,
-                        lb_const.ONLINE
+                        f5const.F5_ACTIVE,
+                        f5const.F5_ONLINE
                     )
-                elif provisioning_status == plugin_const.PENDING_DELETE:
+                elif provisioning_status == f5const.F5_PENDING_DELETE:
                     LOG.debug("calling l7policy_destroyed")
                     self.plugin_rpc.l7policy_destroyed(
                         l7policy['id'])
-                elif provisioning_status == plugin_const.ERROR:
+                elif provisioning_status == f5const.F5_ERROR:
                     self.plugin_rpc.update_l7policy_status(l7policy['id'])
 
     @log_helpers.log_method_call
@@ -2174,36 +2170,36 @@ class iControlDriver(LBaaSBaseDriver):
         """Update loadbalancer status in OpenStack."""
         loadbalancer = service.get('loadbalancer', {})
         provisioning_status = loadbalancer.get('provisioning_status',
-                                               plugin_const.ERROR)
+                                               f5const.F5_ERROR)
 
         if provisioning_status in self.positive_plugin_const_state:
             if timed_out:
-                operating_status = (lb_const.OFFLINE)
-                if provisioning_status == plugin_const.PENDING_CREATE:
+                operating_status = (f5const.F5_OFFLINE)
+                if provisioning_status == f5const.F5_PENDING_CREATE:
                     loadbalancer['provisioning_status'] = \
-                        plugin_const.ERROR
+                        f5const.F5_ERROR
                 else:
                     loadbalancer['provisioning_status'] = \
-                        plugin_const.ACTIVE
+                        f5const.F5_ACTIVE
             else:
-                operating_status = (lb_const.ONLINE)
+                operating_status = (f5const.F5_ONLINE)
                 loadbalancer['provisioning_status'] = \
-                    plugin_const.ACTIVE
+                    f5const.F5_ACTIVE
 
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 loadbalancer['provisioning_status'],
                 operating_status)
 
-        elif provisioning_status == plugin_const.PENDING_DELETE:
+        elif provisioning_status == f5const.F5_PENDING_DELETE:
             self.plugin_rpc.loadbalancer_destroyed(
                 loadbalancer['id'])
-        elif provisioning_status == plugin_const.ERROR:
+        elif provisioning_status == f5const.F5_ERROR:
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 provisioning_status,
-                lb_const.OFFLINE)
-        elif provisioning_status == plugin_const.ACTIVE:
+                f5const.F5_OFFLINE)
+        elif provisioning_status == f5const.F5_ACTIVE:
             LOG.debug('Loadbalancer provisioning status is active')
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
@@ -2225,7 +2221,7 @@ class iControlDriver(LBaaSBaseDriver):
 
             # udpate Neutron
             for member in service['members']:
-                if member['provisioning_status'] == plugin_const.ACTIVE:
+                if member['provisioning_status'] == f5const.F5_ACTIVE:
                     operating_status = member.get('operating_status', None)
                     self.plugin_rpc.update_member_status(
                         member['id'],

@@ -16,6 +16,7 @@
 import errno
 import inspect
 import logging
+from neutron_lib import exceptions as q_exception
 import os
 import re
 import sys
@@ -495,4 +496,12 @@ class F5MissingDependencies(F5AgentException):
 
 
 class RouteDomainCacheMiss(F5AgentException):
+    pass
+
+
+class F5NeutronException(q_exception.NeutronException):
+    pass
+
+
+class F5InvalidConfigurationOption(q_exception.InvalidConfigurationOption):
     pass
