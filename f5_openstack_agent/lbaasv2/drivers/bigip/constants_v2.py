@@ -13,9 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from neutron.common import constants as q_const
 from neutron_lbaas.services.loadbalancer import constants as lb_const
-from neutron_lib import constants as plugin_const
+try:
+    from neutron_lib import constants as plugin_const
+except Exception:
+    from neutron.common import constants as plugin_const
 
 # Service resync interval
 RESYNC_INTERVAL = 300
@@ -81,4 +83,4 @@ F5_PENDING_DELETE = plugin_const.PENDING_DELETE
 F5_ERROR = plugin_const.ERROR
 
 
-F5_FLOODING_ENTRY = q_const.FLOODING_ENTRY
+F5_FLOODING_ENTRY = plugin_const.FLOODING_ENTRY
