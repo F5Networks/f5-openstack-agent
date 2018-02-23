@@ -2,23 +2,12 @@
 
 # app
 git+https://github.com/openstack/neutron@newton-eol
-git+https://github.com/openstack/oslo.log.git@newton-eol
 git+https://github.com/openstack/neutron-lbaas.git@newton-eol
-git+https://github.com/F5Networks/f5-openstack-lbaasv2-driver.git@stable/newton
 
 pytest-cov==2.5.1
 python-coveralls==2.9.1
 
-# COMMUNITY CONSTRAINED SECTION
-# Community constrained packages, packages specified here MUST not specify a
-# version.  The versions of these packages are specified at the constraints
-# URL.  If you add a version here it will be ignored, and therefore be
-# misleading to readers of this file.
-#
-# NOTE: As of 26-OCT-2017, upper-constraints is still at stable/newton, not newton-eol. This
-# is likely to change.
--c https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/newton
 
-mock==IGNORED      # See section comment
-coverage==IGNORED  # See section comment
-pytest==IGNORED    # See section comment
+mock==2.0.0
+ coverage==4.2
+ pytest==3.0.1
