@@ -1,0 +1,15 @@
+-e .
+
+git+https://github.com/openstack/neutron@newton-eol
+git+https://github.com/openstack/neutron-lbaas.git@newton-eol
+
+mock==2.0.0
+ coverage==4.2 
+pytest==3.0.1
+
+  # Test utilities
+ pytest-cov>=2.4.0,<3
+ python-coveralls==2.8.0
+
+#using testenv symbols to run functional single bigip tests
+ git+https://gitlab.pdbld.f5net.com/tools/pytest-symbols.git@5fe78c9f
