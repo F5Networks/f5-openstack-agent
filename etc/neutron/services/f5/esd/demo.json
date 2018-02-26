@@ -5,7 +5,7 @@
     "lbaas_cssl_profile": "clientssl",
     "lbaas_sssl_profile": "serverssl",
     "lbaas_irule": ["_sys_https_redirect"],
-    "lbaas_policy": ["demo_policy"],
+    "lbaas_policy": [],
     "lbaas_persist": "hash",
     "lbaas_fallback_persist": "source_addr"
   },
