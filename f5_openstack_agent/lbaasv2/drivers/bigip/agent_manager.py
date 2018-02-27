@@ -29,7 +29,7 @@ from oslo_utils import importutils
 
 from neutron.agent import rpc as agent_rpc
 from neutron.common import topics
-from neutron import context as ncontext
+from neutron_lib import context as ncontext
 from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
