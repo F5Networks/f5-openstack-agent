@@ -89,12 +89,12 @@ class NetworkServiceBuilder(object):
 
             # profiles may already exist
             # create vxlan_multipoint_profile`
-            self.network_helper.create_vxlan_multipoint_profile(
+            self.driver.tunnel_handler.create_vxlan_multipoint_profile(
                 bigip,
                 'vxlan_ovs',
                 partition='Common')
             # create l2gre_multipoint_profile
-            self.network_helper.create_l2gre_multipoint_profile(
+            self.driver.tunnel_handler.create_l2gre_multipoint_profile(
                 bigip,
                 'gre_ovs',
                 partition='Common')

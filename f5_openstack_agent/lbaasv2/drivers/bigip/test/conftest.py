@@ -209,6 +209,53 @@ class TestingWithServiceConstructor(object):
 
     @classmethod
     @pytest.fixture
+    def service_with_member(cls, new_id, service_with_listener):
+        # update as needed for more intelligence...
+        svc = service_with_pool
+        pool_id = svc['pools'][0]['id']
+        network_id = svc['loadbalancer']['network_id']
+        subnet_id = svc['loadbalancer']['vip_subnet_id']
+        li = svc['listeners'][0]
+        tenant_id = li['tenant_id']
+        li['default_member_id'] = new_id
+        gre_vteps = []
+        port = {
+            "admin_state_up": True, "allowed_address_pairs": [],
+            "binding:host_id": "host-153.int.lineratesystems.com",
+            "binding:profile": {},
+            "binding:vif_details": {
+                "ovs_hybrid_plug": True, "port_filter": True},
+            "binding:vif_type": "ovs", "binding:vnic_type": "normal",
+            "created_at": "2016-12-29T22:56:50", "description": "",
+            "device_id": "25412738-3d52-4eea-aa61-90d1fea3aff0",
+            "device_owner": "compute:None", "dns_name": "client",
+            "extra_dhcp_opts": [], "fixed_ips": [
+              {"ip_address": "10.2.1.2", "subnet_id": subnet_id},
+              {"ip_address": "2001:f5:cafe:f5::2", "subnet_id": subnet_id}],
+            "id": self.new_id(),
+            "mac_address": "fa:16:3e:1a:a3:fa", "name": "client-mgmt-port",
+            "network_id": network_id,
+            "security_groups": ["62b00abc-c160-4ef0-a4ae-5e63086478b0"],
+            "status": "ACTIVE", "tenant_id": tenant_id,
+            "updated_at": "2016-12-29T22:58:23"}
+        new_member = {
+            "address": "10.2.1.2", "admin_state_up": True,
+            "gre_vteps": gre_vteps, "id": new_id, "name": "",
+            "network_id": network_id, "operating_status": "OFFLINE",
+            "pool_id": pool_id, "port": port, "protocol_port": 8080,
+            "provisioning_status": "PENDING_CREATE", "subnet_id": subnet_id,
+            "tenant_id": tenant_id,
+            "vxlan_vteps": ["201.0.154.1", "201.0.155.5"], "weight": 1}
+        svc['members'].append(new_member)
+        return svc
+
+    @classmethod
+    def new_service_with_member(cls):
+        return cls.service_with_member(cls.new_id(),
+                                       cls.new_service_with_pool())
+
+    @classmethod
+    @pytest.fixture
     def service_with_health_monitor(cls, new_id, service_with_pool):
         pool_id = service_with_pool['pools'][0]['id']
         tenant_id = service_with_pool['loadbalancer']['tenant_id']
