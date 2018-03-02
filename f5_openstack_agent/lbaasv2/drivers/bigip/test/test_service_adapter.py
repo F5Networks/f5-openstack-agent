@@ -323,7 +323,7 @@ class TestServiceAdapter(object):
             vlans=[], policies=[], rules=[],
             fallbackPersistence='', persist=[])
         assert expected == target._map_virtual(
-                loadbalancer, listener, pool=pool)
+            loadbalancer, listener, pool=pool)
 
     def test_add_vlan_and_snat_no_snat(self, basic_service):
         adapter = ServiceModelAdapter(mock.MagicMock())

@@ -193,5 +193,5 @@ TargetMod: {}
         except AttributeError as error:
             if 'service_with' in str(error):
                 raise AttributeError("Does your builder '{}' inheriting "
-                                     "correctly for this fixture?".format(
-                                        cls.builder))
+                                     "correctly for this fixture?"
+                                     .format(cls.builder))

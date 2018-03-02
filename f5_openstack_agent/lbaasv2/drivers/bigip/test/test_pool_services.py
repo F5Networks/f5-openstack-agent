@@ -601,8 +601,8 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
         target.service_adapter.get_member.return_value = \
             dict(name='member_name', partition='partition')
         p_obj = Mock()
-        target.pool_helper.load.side_effect = MockHTTPError(
-                MockHTTPErrorResponse400())
+        target.pool_helper.load.side_effect = \
+            MockHTTPError(MockHTTPErrorResponse400())
         p_obj.members_s.members.exists.return_value = False
         bigips = [Mock()]
 
@@ -621,8 +621,8 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
         target.service_adapter.get_member.return_value = \
             dict(name='member_name', partition='partition')
         p_obj = Mock()
-        target.pool_helper.load.side_effect = MockHTTPError(
-                MockHTTPErrorResponse400())
+        target.pool_helper.load.side_effect = \
+            MockHTTPError(MockHTTPErrorResponse400())
         p_obj.members_s.members.exists.return_value = False
         target._delete_member_node = Mock()
         bigips = [Mock()]
