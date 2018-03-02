@@ -325,8 +325,8 @@ def service():
                 'status': 'ACTIVE',
                 'subnets': ['4dc7caad-f9a9-4050-914e-b60eb6cf8ef7'],
                 'tenant_id': '980e3f914f3e40359c3c2d9470fb2e8a',
-                'vlan_transparent': None,
-                     }},
+                'vlan_transparent': None}
+        },
         u'loadbalancer': {
             u'admin_state_up': True,
             u'description': u'',

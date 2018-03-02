@@ -481,7 +481,7 @@ class MockBuilderBase(object):
                     to_call(target, **kwargs)
                 other_target = getattr(target, builder_key)
                 matched += builder.mock_other_builders_method(
-                        other_target, method, exclude=exclude, **kwargs)
+                    other_target, method, exclude=exclude, **kwargs)
         if not matched and first_level:
             raise NotImplementedError(
                 "'{}' does not have an other_builder with method '{}'".format(
