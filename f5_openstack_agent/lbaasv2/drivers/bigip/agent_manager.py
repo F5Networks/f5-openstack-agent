@@ -30,7 +30,10 @@ from oslo_utils import importutils
 from neutron.agent import rpc as agent_rpc
 from neutron.common import topics
 from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
-from neutron_lib import context as ncontext
+try:
+    from neutron_lib import context as ncontext
+except ImportException:
+    from neutron import context as ncontext
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
