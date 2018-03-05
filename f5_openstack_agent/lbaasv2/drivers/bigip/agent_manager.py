@@ -32,7 +32,7 @@ from neutron.common import topics
 from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
 try:
     from neutron_lib import context as ncontext
-except ImportException:
+except ImportError:
     from neutron import context as ncontext
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
