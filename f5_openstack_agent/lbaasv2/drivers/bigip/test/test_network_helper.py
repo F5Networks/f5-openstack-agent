@@ -15,13 +15,15 @@
 #
 
 import pytest
+import mock
 
 from mock import Mock
-from mock import patch
 from requests import HTTPError
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as const
-import f5_openstack_agent.lbaasv2.drivers.bigip.network_helper
+import f5_openstack_agent.lbaasv2.drivers.bigip.network_helper as \
+    target_mod
+
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import BigIPResourceHelper
 
@@ -44,11 +46,11 @@ class TestNetworkHelperMockBuilder(mock_builder_base_class.MockBuilderBase):
         instance.
         """
         with mock.patch(
-                'f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager.'
-                'LbaasAgentManager.__init__') as my_init:
+                'f5_openstack_agent.lbaasv2.drivers.bigip.network_helper.'
+                'NetworkHelper.__init__') as my_init:
             my_init.return_value = None
             conf = mock.Mock()
-            new_target = agent_manager.LbaasAgentManager(conf)
+            new_target = target_mod.NetworkHelper(conf)
             new_target.conf = conf
         return new_target
 
@@ -60,23 +62,11 @@ class TestNetworkHelperMockBuilder(mock_builder_base_class.MockBuilderBase):
         non-mocks.  Please see conftest.MockBuilder for details.
         """
         mocked_target.conf = Mock()
+        return mocked_target
 
 
 class TestNetworkHelperBuilder(object):
     payload = dict(name='name', partition='partition')
-
-    @staticmethod
-    @pytest.fixture
-    @patch('f5_openstack_agent.lbaasv2.drivers.bigip.network_helper.'
-           'NetworkHelper.__init__')
-    def fully_mocked_target(init):
-        init.return_value = None
-        return f5_openstack_agent.lbaasv2.drivers.bigip.network_helper.\
-            NetworkHelper()
-
-    def conf_less_target():
-        return f5_openstack_agent.lbaasv2.drivers.bigip.network_helper. \
-            NetworkHelper()
 
     @staticmethod
     @pytest.fixture
@@ -98,25 +88,16 @@ class TestNetworkHelperBuilder(object):
     def target():
         config = Mock()
         return \
-            f5_openstack_agent.lbaasv2.drivers.bigip.network_helper. \
-            NetworkHelper(config)
+            target_mod.NetworkHelper(config)
 
     @staticmethod
     @pytest.fixture
     def conf_less_target():
-        return f5_openstack_agent.lbaasv2.drivers.bigip.network_helper. \
-            NetworkHelper()
+        return target_mod.NetworkHelper()
 
     def cleanup(self):
         if hasattr(self, 'freeze_logger'):
-            f5_openstack_agent.lbaasv2.drivers.bigip.network_helper.LOG = \
-                self.freeze_logger
-
-    @staticmethod
-    @pytest.fixture
-    def m_bigip():
-        bigip = Mock()
-        return bigip
+            target_mod.LOG = self.freeze_logger
 
     @pytest.fixture
     def mock_get_route_domain_name(self, target):
@@ -131,11 +112,10 @@ class TestNetworkHelperBuilder(object):
     @pytest.fixture
     def mock_logger(self, request):
         request.addfinalizer(self.cleanup)
-        self.freeze_logger = \
-            f5_openstack_agent.lbaasv2.drivers.bigip.network_helper.LOG
+        self.freeze_logger = target_mod.LOG
         logger = Mock()
         self.logger = logger
-        f5_openstack_agent.lbaasv2.drivers.bigip.network_helper.LOG = logger
+        target_mod.LOG = logger
         return logger
 
     @pytest.fixture
@@ -147,6 +127,8 @@ class TestNetworkHelperBuilder(object):
 
 class TestNetworkHelper(class_tester_base_class.ClassTesterBase,
                         TestNetworkHelperBuilder):
+    builder = TestNetworkHelperMockBuilder
+
     def test__init__(self, target, conf_less_target):
         assert hasattr(target, 'conf')
         assert not hasattr(conf_less_target, 'conf')
@@ -424,8 +406,11 @@ class TestNetworkHelper(class_tester_base_class.ClassTesterBase,
         reset_tests(*test_args)
         positive_case(*test_args)
 
-    def test_get_virtual_service_insertion(self, fully_mocked_target,
+    def test_get_virtual_service_insertion(self, standalone_builder,
+                                           fully_mocked_target,
                                            mock_logger):
+        builder = standalone_builder
+
         def setup_target(target):
             target.split_addr_port = Mock()
 
@@ -464,6 +449,7 @@ class TestNetworkHelper(class_tester_base_class.ClassTesterBase,
             return bigip
 
         def valid_virtual_address(target):
+            print standalone_builder
             setup_target(target)
             bigip = make_bigip()
             # local, test variables...
@@ -482,6 +468,7 @@ class TestNetworkHelper(class_tester_base_class.ClassTesterBase,
                 bigip, partition='Common') == expected
 
         def invalid_virtual_address(target):
+            print standalone_builder
             setup_target(target)
             bigip = make_bigip()
             http_error = HTTPError('foo')
