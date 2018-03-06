@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-import pytest
 import mock
+import pytest
 
 from mock import Mock
 from requests import HTTPError
@@ -449,7 +449,6 @@ class TestNetworkHelper(class_tester_base_class.ClassTesterBase,
             return bigip
 
         def valid_virtual_address(target):
-            print standalone_builder
             setup_target(target)
             bigip = make_bigip()
             # local, test variables...
@@ -468,7 +467,6 @@ class TestNetworkHelper(class_tester_base_class.ClassTesterBase,
                 bigip, partition='Common') == expected
 
         def invalid_virtual_address(target):
-            print standalone_builder
             setup_target(target)
             bigip = make_bigip()
             http_error = HTTPError('foo')

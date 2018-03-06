@@ -209,7 +209,7 @@ class TestingWithServiceConstructor(object):
 
     @classmethod
     @pytest.fixture
-    def service_with_member(cls, new_id, service_with_listener):
+    def service_with_member(cls, new_id, service_with_pool):
         # update as needed for more intelligence...
         svc = service_with_pool
         pool_id = svc['pools'][0]['id']
@@ -232,7 +232,7 @@ class TestingWithServiceConstructor(object):
             "extra_dhcp_opts": [], "fixed_ips": [
               {"ip_address": "10.2.1.2", "subnet_id": subnet_id},
               {"ip_address": "2001:f5:cafe:f5::2", "subnet_id": subnet_id}],
-            "id": self.new_id(),
+            "id": cls.new_id(),
             "mac_address": "fa:16:3e:1a:a3:fa", "name": "client-mgmt-port",
             "network_id": network_id,
             "security_groups": ["62b00abc-c160-4ef0-a4ae-5e63086478b0"],
