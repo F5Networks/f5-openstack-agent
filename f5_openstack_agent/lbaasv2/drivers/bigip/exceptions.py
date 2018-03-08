@@ -16,9 +16,11 @@
 import errno
 import inspect
 import logging
-from neutron_lib import exceptions as q_exception
 import os
+import oslo_i18n
+from oslo_utils import excutils
 import re
+import six
 import sys
 import syslog
 import traceback
@@ -499,9 +501,34 @@ class RouteDomainCacheMiss(F5AgentException):
     pass
 
 
-class F5NeutronException(q_exception.NeutronException):
-    pass
+class F5NeutronException(F5AgentException):
+    translators = oslo_i18n.TranslatorFactory(domain="exceptions")
+    message = translators.primary("An unknown exception occurred.")
+
+    def __init__(self, **kwargs):
+        try:
+            super(F5NeutronException, self).__init__(self.message % kwargs)
+            self.msg = self.message % kwargs
+        except F5AgentException:
+            with excutils.save_and_reraise_exception() as ctxt:
+                if not self.use_fatal_exceptions():
+                    ctxt.reraise = False
+                    # at least get the core message out if something happened
+                    super(F5NeutronException, self).__init__(self.message)
+
+    if six.PY2:
+        def __unicode__(self):
+            return unicode(self.msg)
+
+    def __str__(self):
+        return self.msg
+
+    def use_fatal_exceptions(self):
+        return False
 
 
-class F5InvalidConfigurationOption(q_exception.InvalidConfigurationOption):
-    pass
+class F5InvalidConfigurationOption(F5AgentException):
+    translators = oslo_i18n.TranslatorFactory(domain="exceptions")
+    message = translators.primary(
+        "An invalid value was provided for %(opt_name)s: "
+        "%(opt_value)s.")

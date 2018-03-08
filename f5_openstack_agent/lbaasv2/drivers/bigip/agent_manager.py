@@ -28,7 +28,6 @@ from oslo_service import periodic_task
 from oslo_utils import importutils
 
 from neutron.agent import rpc as agent_rpc
-from neutron.common import topics
 from neutron.plugins.ml2.drivers.l2pop import rpc as l2pop_rpc
 try:
     from neutron_lib import context as ncontext
@@ -390,10 +389,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if not self.conf.f5_global_routed_mode:
 
             # notifications when tunnel endpoints get added
-            self.tunnel_rpc = agent_rpc.PluginApi(topics.PLUGIN)
+            self.tunnel_rpc = agent_rpc.PluginApi(constants_v2.PLUGIN)
 
             # define which controler notifications the agent comsumes
-            consumers = [[constants_v2.TUNNEL, topics.UPDATE]]
+            consumers = [[constants_v2.TUNNEL, constants_v2.UPDATE]]
 
             # if we are dynamically changing tunnel peers,
             # register to recieve and send notificatoins via RPC
@@ -405,7 +404,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 # notification of SDN topology updates from the
                 # controller by adding to the general consumer list
                 consumers.append(
-                    [topics.L2POPULATION, topics.UPDATE, self.agent_host]
+                    [constants_v2.L2POPULATION,
+                     constants_v2.UPDATE,
+                     self.agent_host]
                 )
 
             # kick off the whole RPC process by creating
@@ -413,7 +414,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.endpoints = [self]
             self.connection = agent_rpc.create_consumers(
                 self.endpoints,
-                topics.AGENT,
+                constants_v2.AGENT,
                 consumers
             )
 
@@ -706,11 +707,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         def handle_error(error_status, obj):
             provisioning_status = obj.get('provisioning_status')
-            if provisioning_status == constants_v2.F5_ERROR:
+            if provisioning_status == constants_v2.ERROR:
                 obj_id = obj.get('id', 'unknown')
                 LOG.warning("Service object has object of type(id) {}({})"
                             " that is in '{}' status.".format(
-                                item, obj_id, constants_v2.F5_ERROR))
+                                item, obj_id, constants_v2.ERROR))
                 error_status = True
             return error_status
 

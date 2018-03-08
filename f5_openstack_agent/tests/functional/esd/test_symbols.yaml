@@ -1,4 +1,0 @@
-bigip_floating_ips:
-  - 10.190.7.161
-bigip_username: admin
-bigip_password: admin

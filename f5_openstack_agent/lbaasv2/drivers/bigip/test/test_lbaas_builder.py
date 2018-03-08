@@ -23,10 +23,9 @@ from mock import Mock
 from mock import patch
 from requests import HTTPError
 
-import neutron.plugins.common.constants
-
 import f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
 
@@ -989,7 +988,7 @@ class TestLBaaSBuilderConstructor(object):
 
 
 class TestLbaasBuilder(TestLBaaSBuilderConstructor):
-    neutron_plugin_constants = neutron.plugins.common.constants
+    f5_constants = constants_v2
 
     @pytest.fixture
     def create_self(self, request):
@@ -1019,7 +1018,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         self.l7service = mock_l7service
 
     def teardown(self):
-        neutron.plugins.common.constants = self.neutron_plugin_constants
         f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder.LOG = LOG
 
     def test_l7_policy_rule_create(
@@ -1074,11 +1072,11 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         preserved = ['PENDING_DELETE', 'ERROR']
 
         def new_svc_obj(status):
-            state = getattr(neutron.plugins.common.constants, status)
+            state = getattr(constants_v2, status)
             return dict(provisioning_status=state, id=1)
 
         def is_state(svc_obj, state):
-            state = getattr(neutron.plugins.common.constants, state)
+            state = getattr(constants_v2, state)
             return svc_obj['provisioning_status'] == state
 
         def preserve_status(target):
@@ -1131,9 +1129,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_UPDATE
+            constants_v2.F5_PENDING_UPDATE
         loadbalancer['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_UPDATE
+            constants_v2.F5_PENDING_UPDATE
         target._assure_listeners_created(service)
 
         expected_svc = dict(loadbalancer=service['loadbalancer'],
@@ -1157,9 +1155,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_CREATE
+            constants_v2.F5_PENDING_CREATE
         loadbalancer['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_UPDATE
+            constants_v2.F5_PENDING_UPDATE
         target._assure_listeners_created(service)
 
         expected_svc = dict(loadbalancer=loadbalancer, pools=service['pools'],
@@ -1182,9 +1180,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_CREATE
+            constants_v2.F5_PENDING_CREATE
         loadbalancer['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_UPDATE
+            constants_v2.F5_PENDING_UPDATE
         target._assure_listeners_created(service)
 
         expected_svc = dict(loadbalancer=loadbalancer, pools=service['pools'],
@@ -1208,9 +1206,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.ERROR
+            constants_v2.F5_ERROR
         loadbalancer['provisioning_status'] = \
-            neutron.plugins.common.constants.ACTIVE
+            constants_v2.F5_ACTIVE
         target._assure_listeners_created(service)
 
         expected_svc = dict(loadbalancer=loadbalancer, pools=service['pools'],
@@ -1234,9 +1232,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_DELETE
+            constants_v2.F5_PENDING_DELETE
         loadbalancer['provisioning_status'] = \
-            neutron.plugins.common.constants.ACTIVE
+            constants_v2.F5_ACTIVE
         target._assure_listeners_deleted(service)
 
         expected_svc = dict(loadbalancer=loadbalancer,
@@ -1259,9 +1257,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.PENDING_DELETE
+            constants_v2.F5_PENDING_DELETE
         loadbalancer['provisioning_status'] = \
-            neutron.plugins.common.constants.ACTIVE
+            constants_v2.F5_ACTIVE
         target._assure_listeners_deleted(service)
 
         expected_svc = dict(loadbalancer=loadbalancer,
@@ -1282,9 +1280,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target.listener_builder = Mock()
 
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.ACTIVE
+            constants_v2.F5_ACTIVE
         loadbalancer['provisioning_status'] = \
-            neutron.plugins.common.constants.ACTIVE
+            constants_v2.F5_ACTIVE
         target._assure_listeners_deleted(service)
 
         assert not target.listener_builder.delete_listener.called
@@ -1292,9 +1290,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         assert loadbalancer['provisioning_status'] == "ACTIVE"
 
         listener['provisioning_status'] = \
-            neutron.plugins.common.constants.ERROR
+            constants_v2.F5_ERROR
         loadbalancer['provisioning_status'] = \
-            neutron.plugins.common.constants.ACTIVE
+            constants_v2.F5_ACTIVE
         target._assure_listeners_deleted(service)
 
         assert not target.listener_builder.delete_listener.called
