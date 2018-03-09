@@ -220,6 +220,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
+        self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(hours=5,minutes=50)
         self.needs_resync = False
         self.plugin_rpc = None
         self.pending_services = {}
@@ -438,6 +439,43 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.needs_resync = True
             if self.sync_state():
                 self.needs_resync = True
+
+    # ccloud: check 6 hour timeout to clean orphaned snat pools
+    @periodic_task.periodic_task
+    def periodic_clean_orphans(self, context):
+        now = datetime.datetime.now()
+        LOG.debug("%s: periodic_clean_orphans called." % now)
+
+        # call every 6 hours
+        if (now - self.last_clean_orphans).seconds > 60 * 60 * 6:
+            self.last_clean_orphans = now
+            self.clean_orphaned_snat_objects()
+
+    # ccloud: clean orphaned snat pools
+    @log_helpers.log_method_call
+    def clean_orphaned_snat_objects(self):
+        cleaned = False
+        LOG.debug("sapcc: cleaning orphaned snat objects")
+
+        try:
+            snat_pools = self.lbdriver.get_all_snat_pools()
+            if snat_pools:
+                self.purge_orphaned_snat_pools(snat_pools)
+
+        except Exception as e:
+            LOG.error("sapcc: Unable to purge snat_pools: %s" % e.message)
+            cleaned = True
+
+        return cleaned
+
+    # ccloud: try purging all snat pools
+    @log_helpers.log_method_call
+    def purge_orphaned_snat_pools(self, snat_pools):
+        for pool in snat_pools:
+            try:
+                pool.delete()
+            except Exception as e:
+                LOG.debug("Failed purging snat pool: %s" % e.message)
 
     @periodic_task.periodic_task(spacing=30)
     def update_operating_status(self, context):
