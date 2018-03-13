@@ -60,9 +60,6 @@ class NetworkServiceBuilder(object):
         # is fully connected
         self.l2_service.post_init()
 
-    def tunnel_sync(self, tunnel_ips):
-        self.l2_service.tunnel_sync(tunnel_ips)
-
     def set_tunnel_rpc(self, tunnel_rpc):
         # Provide FDB Connector with ML2 RPC access """
         self.l2_service.set_tunnel_rpc(tunnel_rpc)

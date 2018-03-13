@@ -335,7 +335,7 @@ class TunnelBuilder(object):
     def __tm_multipoint(bigip, tunnel_type, name, partition, action):
         def execute(actions, action):
             return actions[action]['method'](**actions[action]['payload'])
-        default_profiles = {'gre': {'name': None,
+        default_profiles = {'gre': {'name': name,
                                     'partition': const.DEFAULT_PARTITION,
                                     'defaultsFrom': 'gre',
                                     'floodingType': 'multipoint',
@@ -344,7 +344,7 @@ class TunnelBuilder(object):
                                     'tm_endpoint':
                                     bigip.tm.net.tunnels.gres.gre
                                     },
-                            'vxlan': {'name': None,
+                            'vxlan': {'name': name,
                                       'partition': const.DEFAULT_PARTITION,
                                       'defaultsFrom': 'vxlan',
                                       'floodingType': 'multipoint',
@@ -353,7 +353,7 @@ class TunnelBuilder(object):
                                       bigip.tm.net.tunnels.vxlans.vxlan}}
         create_tunnel = default_profiles[tunnel_type]
         tunnel = dict(name=name, partition=partition)
-        tm_multipoint = tunnel.pop('tm_endpoint')
+        tm_multipoint = create_tunnel.pop('tm_endpoint')
         actions = {'create': dict(
                        payload=create_tunnel, method=tm_multipoint.create),
                    'delete': dict(
