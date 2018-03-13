@@ -922,9 +922,6 @@ class NetworkServiceBuilder(object):
     def update_bigip_fdb(self, bigip, fdb):
         self.l2_service.update_bigip_fdb(bigip, fdb)
 
-    def set_context(self, context):
-        self.l2_service.set_context(context)
-
     def vlan_exists(self, bigip, network, folder='Common'):
         return self.vlan_manager.exists(bigip, name=network, partition=folder)
 

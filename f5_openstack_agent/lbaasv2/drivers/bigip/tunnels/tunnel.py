@@ -717,6 +717,7 @@ class TunnelHandler(cache.CacheBase):
         self.__multipoint_profiles = []
         self.__pending_exists = []
         self.__profiles = []
+        super(TunnelHandler, self).__init__()
 
     @staticmethod
     def _get_bigips_by_hostname(bigips):

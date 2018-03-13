@@ -305,8 +305,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Setup RPC for communications to and from controller
         self._setup_rpc()
 
-        # Set driver context for RPC.
-        lbdriver.set_context(self.context)
         # Allow the driver to make callbacks to the LBaaS driver plugin
         lbdriver.set_plugin_rpc(self.plugin_rpc)
         # Allow the driver to force and agent state report to the controller
