@@ -211,8 +211,6 @@ class Tunnel(cache.CacheBase):
         elif isinstance(fdbs, list):
             pass
         elif isinstance(fdbs, fdb_mod.Fdb):
-            import pdb
-            pdb.set_trace()
             if not self.exists:
                 self.__fdbs.append(fdb)
             add_fdb(fdb)
@@ -228,24 +226,28 @@ class Tunnel(cache.CacheBase):
         """
         def remove_fdb(fdb):
             self.logger.debug("{}: removing {}".format(self.tunnel_name, fdb))
-            TunnelBuilder.remove_fdb_from_tunnel(bigip, self, fdb)
-            fdb_mod.FdbBuilder.remove_arp(bigip, fdb)
+            TunnelBuilder.remove_record_from_arp(bigip, self, fdb)
+            fdb_mod.FdbBuilder.remove_fdb_from_arp(bigip, self, fdb)
             self.__fdbs = filter(lambda x: x.mac_address != fdb.mac_address,
                                  self.__fdbs)
 
         if isinstance(fdbs, list) and fdbs and \
                 isinstance(fdbs[0], fdb_mod.Fdb):
             for fdb in fdbs:
-                remove_fdb(fdb)
+                remove_fdb(fdbs)
         elif isinstance(fdbs, list):
             for fdb in self.__fdbs:
                 remove_fdb(fdb)
-        elif isinstance(fdbs, fdb_mod.Fb):
-            remove_fdb(fdb)
+        elif isinstance(fdbs, fdb_mod.Fdb):
+            remove_fdb(fdbs)
 
     @property
     def fdbs(self):
         return self.__fdbs
+
+    @property
+    def profile(self):
+        return "{}_ovs".format(self.tunnel_type)
 
     @property
     def key(self):
@@ -293,6 +295,8 @@ class TunnelBuilder(object):
     @staticmethod
     def __tm_tunnel(bigip, tunnel, action):
         # performs all actions on tm_tunnel by action
+        def execute(actions, action):
+            return actions[action]['method'](**actions[action]['payload'])
         tm_tunnel = bigip.tm.net.tunnels.tunnel
         description = json.dumps(
             dict(partition=tunnel.partition, network_id=tunnel.network_id,
@@ -307,11 +311,15 @@ class TunnelBuilder(object):
         actions = {'create': dict(payload=create_payload,
                                   method=tm_tunnel.create),
                    'delete': dict(payload=load_payload,
-                                  method=tm_tunnel.delete),
+                                  method=tm_tunnel.load),
                    'exists': dict(payload=load_payload,
                                   method=tm_tunnel.exists)}
-        execute = actions[action]
-        return execute['method'](**execute['payload'])
+        result = execute(actions, action)
+        second_actions = {'delete': dict(payload={},
+                                         method=result.delete)}
+        if action in second_actions:
+            result = execute(second_actions, action)
+        return result
 
     @staticmethod
     def __tm_multipoints(bigip, action, tunnel_type='vxlan'):
@@ -325,7 +333,8 @@ class TunnelBuilder(object):
 
     @staticmethod
     def __tm_multipoint(bigip, tunnel_type, name, partition, action):
-        # performs all actions on tm_multipoint by action
+        def execute(actions, action):
+            return actions[action]['method'](**actions[action]['payload'])
         default_profiles = {'gre': {'name': None,
                                     'partition': const.DEFAULT_PARTITION,
                                     'defaultsFrom': 'gre',
@@ -348,11 +357,13 @@ class TunnelBuilder(object):
         actions = {'create': dict(
                        payload=create_tunnel, method=tm_multipoint.create),
                    'delete': dict(
-                       payload=tunnel, method=tm_multipoint.delete),
+                       payload=tunnel, method=tm_multipoint.load),
                    'exists': dict(
                        payload=tunnel, method=tm_multipoint.exists)}
-        execute = actions[action]
-        return execute['method'](**execute['payload'])
+        result = execute(actions, action)
+        second_actions = {'delete': {'payload': {}, 'method': result.delete}}
+        if action in second_actions:
+            result = execute(second_actions, action)
 
     @staticmethod
     def __tm_tunnels(bigip, action, partition=None):
@@ -626,6 +637,13 @@ class TunnelBuilder(object):
                 cls.create_tunnel
 
     @classmethod
+    @wrappers.http_error(
+        debug={404: "Attempted delete on non-existent record"})
+    def remove_record_from_arp(cls, bigip, tunnel, fdb):
+        record = fdb.record
+        cls.__tm_fdb_tunnel(bigip, tunnel, 'delete_record', record=record)
+
+    @classmethod
     # @_check_if_fdbs
     # @wrappers.weakref_handle
     def modify_fdb_in_tunnel(cls, bigip, tunnel, fdb):
@@ -699,6 +717,7 @@ class TunnelHandler(cache.CacheBase):
         self.__multipoint_profiles = []
         self.__pending_exists = []
         self.__profiles = []
+        super(TunnelHandler, self).__init__()
 
     @staticmethod
     def _get_bigips_by_hostname(bigips):
@@ -907,11 +926,11 @@ class TunnelHandler(cache.CacheBase):
             None
         """
         tunnel = self.__network_cache_handler.remove_tunnel(
-            bigip.hostname, name=name, partiiton=partition)  # fix me
+            bigip.hostname, name=name, partition=partition)
         if not tunnel:
             for itunnel in self.__pending_exists:
-                if tunnel.tunnel_name == name and \
-                        tunnel.partition == partition:
+                if itunnel.tunnel_name == name and \
+                        itunnel.partition == partition:
                     tunnel = itunnel
                     break
             else:

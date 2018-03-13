@@ -1021,11 +1021,6 @@ class iControlDriver(LBaaSBaseDriver):
             return highest_metric
         return 0
 
-    def set_context(self, context):
-        # Context to keep for database access
-        if self.network_builder:
-            self.network_builder.set_context(context)
-
     def set_plugin_rpc(self, plugin_rpc):
         # Provide Plugin RPC access
         self.plugin_rpc = plugin_rpc

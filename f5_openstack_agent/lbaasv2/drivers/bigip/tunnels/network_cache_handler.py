@@ -98,6 +98,9 @@ class NetworkCacheHandler(cache.CacheBase):
                         partition == tunnel.partition:
                     retval = self.__existing_tunnels.pop(cnt)
                     break
+        else:
+            raise ValueError("Cannot operate without name & partition or "
+                             "tunnel")
         return retval
 
     @handle_weakref
