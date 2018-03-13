@@ -595,8 +595,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     def tunnel_sync(self):
         """Call into driver to advertise device tunnel endpoints."""
-        LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")
-        return self.lbdriver.tunnel_sync()
+        LOG.debug("manager:tunnel_sync: calling tunnel_handler.tunnel_sync")
+        bigips = self.lbdriver.get_all_bigips()
+        self.tunnel_handler.tunnel_sync(bigips)
 
     @log_helpers.log_method_call
     def sync_state(self):
