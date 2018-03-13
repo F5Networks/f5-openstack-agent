@@ -640,9 +640,10 @@ class TestiControlDriver(TestiControlDriverMocker,
               Exception)
         assert self.logger.exception.call_count
 
-    def test_sync(self, mocked_target_with_connection,
+    def test_sync(self, standalone_builder, mocked_target_with_connection,
                   service_with_loadbalancer, mock_logger, mock_is_operational,
                   mock_log_utils):
+        builder = standalone_builder
 
         def setup_target(target, svc):
             target.service_queue = list()
@@ -673,11 +674,14 @@ class TestiControlDriver(TestiControlDriverMocker,
             target.plugin_rpc.get_service_by_loadbalancer_id.\
                 assert_not_called()
             target._common_service_handler.assert_not_called()
+
         without_plugin_rpc(mocked_target_with_connection,
                            service_with_loadbalancer)
         with_plugin_rpc(
-            self.mocked_target_with_connection(self.fully_mocked_target()),
+            self.mocked_target_with_connection(
+                builder.new_fully_mocked_target()),
             service_with_loadbalancer)
         without_lb(
-            self.mocked_target_with_connection(self.fully_mocked_target()),
+            self.mocked_target_with_connection(
+                builder.new_fully_mocked_target()),
             service_with_loadbalancer)

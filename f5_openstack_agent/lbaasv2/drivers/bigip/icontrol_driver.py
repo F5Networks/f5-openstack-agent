@@ -1598,36 +1598,6 @@ class iControlDriver(LBaaSBaseDriver):
         finally:
             return lb_stats
 
-    def fdb_add(self, fdb):
-        # Add (L2toL3) forwarding database entries
-        self.remove_ips_from_fdb_update(fdb)
-        for bigip in self.get_all_bigips():
-            self.network_builder.add_bigip_fdb(bigip, fdb)
-
-    def fdb_remove(self, fdb):
-        # Remove (L2toL3) forwarding database entries
-        self.remove_ips_from_fdb_update(fdb)
-        for bigip in self.get_all_bigips():
-            self.network_builder.remove_bigip_fdb(bigip, fdb)
-
-    def fdb_update(self, fdb):
-        # Update (L2toL3) forwarding database entries
-        self.remove_ips_from_fdb_update(fdb)
-        for bigip in self.get_all_bigips():
-            self.network_builder.update_bigip_fdb(bigip, fdb)
-
-    # remove ips from fdb update so we do not try to
-    # add static arps for them because we do not have
-    # enough information to determine the route domain
-    def remove_ips_from_fdb_update(self, fdb):
-        for network_id in fdb:
-            network = fdb[network_id]
-            mac_ips_by_vtep = network['ports']
-            for vtep in mac_ips_by_vtep:
-                mac_ips = mac_ips_by_vtep[vtep]
-                for mac_ip in mac_ips:
-                    mac_ip[1] = None
-
     def tunnel_update(self, **kwargs):
         # Tunnel Update from Neutron Core RPC
         pass

@@ -186,7 +186,7 @@ class TestLbaasAgentManager(TestLbaasAgentManagerBuilder):
     def test_validate_service(self, fully_mocked_target, mock_logger):
         def setup_target(target):
             target.plugin_rpc = Mock()
-            target.lbdriver = Mock()
+            target._LbaasAgentManager__lbdriver = Mock()
             target.has_provisioning_status_of_error = Mock(return_value=True)
             target.lbdriver.service_exists.return_value = True
             target.lbdriver.service_rename_required.return_value = False

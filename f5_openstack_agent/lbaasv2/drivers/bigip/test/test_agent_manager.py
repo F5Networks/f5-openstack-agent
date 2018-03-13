@@ -16,15 +16,20 @@
 
 import mock
 import pytest
+import weakref
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import agent_manager
+from f5_openstack_agent.lbaasv2.drivers.bigip.tunnels import tunnel as \
+    tunnel_mod
+
+import class_tester_base_class
 import conftest
+import mock_builder_base_class
 import test_icontrol_driver
 import test_plugin_rpc
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import agent_manager
-
-import class_tester_base_class
-import mock_builder_base_class
+from ..tunnels.test import test_network_cache_handler
+from ..tunnels.test import test_tunnel
 
 
 @pytest.fixture
@@ -72,9 +77,13 @@ class TestLbaasAgentManagerMockBuilder(mock_builder_base_class.MockBuilderBase,
                 # this then uses the pytest.fixture fixture from MockBuilder
     """
     # non-instantiated
+    lbdriver = test_icontrol_driver.TestiControlDriverMockBuilder
     _other_builders = dict(
-        lbdriver=test_icontrol_driver.TestiControlDriverMockBuilder,
-        plugin_rpc=test_plugin_rpc.TestPluginRpcMockBuilder)
+        _LbaasAgentManager__lbdriver=lbdriver,
+        plugin_rpc=test_plugin_rpc.TestPluginRpcMockBuilder,
+        network_cache_handler=test_network_cache_handler.
+        TestNetworkCacheHandlerMockBuilder,
+        tunnel_handler=test_tunnel.TestTunnelHandlerMockBuilder)
 
     @staticmethod
     def mocked_target(*args):
@@ -104,20 +113,18 @@ class TestLbaasAgentManagerMockBuilder(mock_builder_base_class.MockBuilderBase,
         non-mocks.  Please see conftest.MockBuilder for details.
         """
         # Mock() objects here should be filled in with the appropriate mocks...
+        super(TestLbaasAgentManagerMockBuilder, self).fully_mocked_target(
+            mocked_target)
         mocked_target.context = 'context'
         mocked_target.serializer = None
         mocked_target.cache = mock.Mock()
         mocked_target.last_resync = mock.Mock()
         mocked_target.needs_resync = False
-        mocked_target.plugin_rpc = \
-            self.other_builders['plugin_rpc'].new_fully_mocked_target()
-        mocked_target.tunnel_rpc = mock.Mock()
-        mocked_target.l2_pop_rpc = mock.Mock()
+        mocked_target._LbaasAgentManager__tunnel_rpc = mock.Mock()
+        mocked_target._LbaasAgentManager__l2_pop_rpc = mock.Mock()
         mocked_target.state_rpc = mock.Mock()
         mocked_target.pending_services = {}
         mocked_target.service_resync_interval = 5
-        mocked_target.lbdriver = \
-            self.other_builders['lbdriver'].new_fully_mocked_target()
         mocked_target.agent_host = 'conf.host:agent_hash'
         agent_configurations = (
             {'environment_prefix': 'environment_prefix',
@@ -152,7 +159,8 @@ class TestLbaasAgentManagerMockBuilder(mock_builder_base_class.MockBuilderBase,
             'get_all_deployed_health_monitors', 'get_all_deployed_pools']
         for method in listing:
             self.mock_other_builders_method(
-                target, method, targets_attr='lbdriver', expected_args=[],
+                target, method, targets_attr='_LbaasAgentManager__lbdriver',
+                expected_args=[],
                 **kwargs)
 
     def mock_all_purges(self, target=None):
@@ -365,7 +373,8 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
                 call_cnt=1, expected_args=get_clusterwide_agent_expected,
                 return_value=plugin_rpc_get_clusterwide_agent_retval)
             builder.mock_other_builders_method(
-                target, 'backup_configuration', targets_attr='lbdriver',
+                target, 'backup_configuration',
+                targets_attr='_LbaasAgentManager__lbdriver',
                 expected_args=None)
             builder.mock_all_get_all_deployed(target, return_value=[1])
             builder.mock_all_purges(target)
@@ -382,7 +391,8 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
                 call_cnt=1, expected_args=get_clusterwide_agent_expected,
                 return_value=plugin_rpc_get_clusterwide_agent_retval)
             builder.mock_other_builders_method(
-                target, 'backup_configuration', targets_attr='lbdriver',
+                target, 'backup_configuration',
+                targets_attr='_LbaasAgentManager__lbdriver',
                 expected_args=None)
             builder.mock_all_get_all_deployed(target, return_value=[1])
             builder.mock_all_purges(target)
@@ -436,11 +446,13 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
                 targets_attr='plugin_rpc', expected=tuple([lb_id]),
                 return_value=lb_statuses)
             builder.mock_other_builders_method(
-                target, 'purge_orphaned_loadbalancer', targets_attr='lbdriver',
+                target, 'purge_orphaned_loadbalancer',
+                targets_attr='_LbaasAgentManager__lbdriver',
                 expected_args=purge_args)
             builder.mock_other_builders_method(
                 target, 'get_all_deployed_loadbalancers',
-                targets_attr='lbdriver', expected_args=get_all_args)
+                targets_attr='_LbaasAgentManager__lbdriver',
+                expected_args=get_all_args)
             target.purge_orphaned_loadbalancers(lbs)
             builder.check_mocks(target)
 
@@ -466,7 +478,8 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
                 target, 'validate_listeners_state', targets_attr='plugin_rpc',
                 expected_args=tuple([lst_id]), return_value=lst_statuses)
             builder.mock_other_builders_method(
-                target, 'purge_orphaned_listener', targets_attr='lbdriver',
+                target, 'purge_orphaned_listener',
+                targets_attr='_LbaasAgentManager__lbdriver',
                 expected_args=purge_args)
             target.purge_orphaned_listeners(lsts)
             builder.check_mocks(target)
@@ -496,10 +509,12 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
             deployed_pols = {pol_id: deployed_pol}
             # mocks...
             builder.mock_other_builders_method(
-                target, 'get_all_deployed_listeners', targets_attr='lbdriver',
+                target, 'get_all_deployed_listeners',
+                targets_attr='_LbaasAgentManager__lbdriver',
                 expected_args=tuple([pol_id]), return_value=deployed_lis)
             builder.mock_other_builders_method(
-                target, 'purge_orphaned_l7_policy', targets_attr='lbdriver')
+                target, 'purge_orphaned_l7_policy',
+                targets_attr='_LbaasAgentManager__lbdriver')
             # test...
             target.purge_orphaned_l7_policys(deployed_pols)
             # validation...
@@ -527,7 +542,8 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
                 target, 'validate_pools_state', targets_attr='plugin_rpc',
                 expected_args=tuple([p_id]), return_value=p_statuses)
             builder.mock_other_builders_method(
-                target, 'purge_orphaned_pool', targets_attr='lbdriver',
+                target, 'purge_orphaned_pool',
+                targets_attr='_LbaasAgentManager__lbdriver',
                 expected_args=purge_args)
             target.purge_orphaned_pools(ps)
             builder.check_mocks(target)
@@ -555,11 +571,12 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
             hms = {hm_id: deployed_monitors}
             deployed_pool = {p_id: deployed_pool}
             builder.mock_other_builders_method(
-                target, 'get_all_deployed_pools', targets_attr='lbdriver',
+                target, 'get_all_deployed_pools',
+                targets_attr='_LbaasAgentManager__lbdriver',
                 return_value=deployed_pool)
             builder.mock_other_builders_method(
                 target, 'purge_orphaned_health_monitor',
-                targets_attr='lbdriver')
+                targets_attr='_LbaasAgentManager__lbdriver')
             target.purge_orphaned_health_monitors(hms)
             builder.check_mocks(target)
 
@@ -577,7 +594,8 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
             fake_bigip = mock.Mock()
             fake_bigip.status = 'active'
             fake_bigip.tm.sys.folders.folder.exist.return_value = True
-            prefix = target.lbdriver.service_adapter.prefix
+            prefix = \
+                target._LbaasAgentManager__lbdriver.service_adapter.prefix
             fake_bigip.tm.sys.folders.get_collection.return_value = [
                 prefix + svc['loadbalancer']['tenant_id']]
             # need to continue down the route of mocking _call() and
@@ -594,3 +612,125 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
                 side_effect=_calls_side_effect)
 
         down_to_plugin_rpc_functional(target, standalone_builder, svc)
+
+    def test_bb_network_cache(self, service_with_loadbalancer,
+                              standalone_builder, fully_mocked_target):
+        """Performs a BB test against network_cache functionality
+
+        This is a feature black-box test that ends at the SDK.
+
+        This test will perform the following:
+            * Dope a "BIG-IP" mock with a tunnel
+            * Check that the network_cache equates to expected based upon
+                doped BIG-IP's tunnel values
+        """
+        svc = service_with_loadbalancer
+        target = fully_mocked_target
+
+        network_id = svc['loadbalancer']['network_id']
+        segment_id = '58'
+        svc['networks'][network_id]['provider:segmentation_id'] = segment_id
+        fake_tunnel_name = 'tunnel-vxlan-{}'.format(segment_id)
+        fake_tunnel = mock.Mock()
+        fake_tunnel.tunnel_name = fake_tunnel_name
+        fake_tunnel.segment_id = segment_id
+        fake_tunnel.network_id = network_id
+        fake_tunnel.bigip_host = 'host'
+        fake_tunnel.partition = "partition"
+        fake_tunnel.remote_address = "192.168.1.1"
+        target.tunnel_handler._TunnelHandler__pending_exists \
+            = [fake_tunnel]
+        bigip = mock.Mock()
+        bigip.hostname = 'host'
+        bigip.status = 'active'
+        bigip.tm.net.tunnels.tunnel.exists.return_value = True
+        target._LbaasAgentManager__lbdriver._iControlDriver__bigips = \
+            dict(host=bigip)
+        # assign expected values and test...
+        expected_network_cache = {
+            network_id: {'58': [weakref.proxy(fake_tunnel)]}}
+        target.update_network_cache()
+        assert target.tunnel_handler._TunnelHandler__network_cache_handler.\
+            _NetworkCacheHandler__network_cache == \
+            expected_network_cache
+        assert target.tunnel_handler.tunnel_rpc.tunnel_sync.call_count
+
+    def test_bb_l2_population(self, service_with_loadbalancer,
+                              standalone_builder, fully_mocked_target):
+        """Performs a L2 Population test against valid fdb_entry
+
+        This is a feature black-box test that ends at the SDK.
+
+        This test will perform the following:
+            * Dope a "BIG-IP" mock with a tunnel
+            * Dope the network_cache with a tunnel
+            * Test the FdbBuilder via AgentManager with the orchestration of
+                a fdb_entry
+        """
+
+        args = [fully_mocked_target, service_with_loadbalancer,
+                standalone_builder]
+
+        self.modify_service_with_vxlan(args[1])
+
+        def fake_bigip(target, svc):
+            partition = 'Project_{tenant_id}'.format(**svc['loadbalancer'])
+            fake_bigip = mock.Mock()
+            target._LbaasAgentManager__lbdriver._iControlDriver__bigips = \
+                {'host': fake_bigip}
+            fake_bigip.status = 'active'
+            fake_bigip.hostname = 'host'
+            tm_arp = mock.Mock()
+            arp = mock.Mock()
+            tm_tunnel = mock.Mock()
+            tunnel = mock.Mock()
+            records = [{'name': 'foozoo',
+                        'endpoint': '201.0.155.3'},
+                       {'name': 'doofoo',
+                        'endpoint': '201.0.155.6'}]
+            tunnel.records = records
+            tm_tunnel.load.return_value = tunnel
+            tm_tunnel.exists = True
+            tm_arp.load.return_value = arp
+            tm_arp.exists.reurn_value = True
+            fake_bigip.status = 'active'
+            fake_bigip.tm.net.fdb.tunnels.tunnel = tm_tunnel
+            fake_bigip.tm.net.fdb.tunnels.arp = tm_arp
+            # generate the fake network cache...
+            network_id = svc['networks'].keys()[0]
+            network = svc['networks'][network_id]
+            segment_id = network['provider:segmentation_id']
+            tunnel_type = network['provider:network_type']
+            tunnel_obj = tunnel_mod.Tunnel(
+                network_id, tunnel_type, segment_id, 'host', partition,
+                '192.168.1.2', '201.0.155.1')
+            tunnel_obj.exists = True
+            # begin doping target...
+            target.tunnel_handler._TunnelHandler__network_cache_handler.\
+                network_cache = tunnel_obj
+            # short-hand things...
+            [fake_bigip.tunnel, fake_bigip.tm_arp, fake_bigip.tm_tunnel,
+             fake_bigip.arp, fake_bigip.tm_tunnel] = \
+                [tunnel_obj, tm_arp, tm_tunnel, arp, tunnel]
+            fake_bigip.partition = partition
+            return fake_bigip
+
+        def test_add(target, svc, builder):
+            bigip = fake_bigip(target, svc)
+            network_id = svc['loadbalancer']['network_id']
+            fake_mac = '92:37:a2:b2:12:38'
+            vtep_ip = '201.0.155.5'
+            arp_address = '10.2.1.2'
+            fdb_entry = {
+                network_id: {
+                    'network_type': 'vxlan',
+                    'ports': [{arp_address: [[fake_mac, vtep_ip]]}],
+                    'segment_id': 23}}
+            context = mock.Mock()
+            target.add_fdb_entries(context, fdb_entry)
+            assert bigip.tm.net.fdb.tunnels.tunnel.load.call_count
+            assert bigip.tm.net.fdb.tunnels.tunnel.load.return_value.create.\
+                call_count
+            assert target.tunnel_handler.l2pop_rpc.add_fdb_entries.call_count
+
+        test_add(*args)
