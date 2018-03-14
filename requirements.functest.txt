@@ -14,6 +14,3 @@ enum34===1.1.2
 oslo.i18n===3.5.0
 oslo.messaging===4.6.1
 decorator===4.0.9
-
-#using testenv symbols to run functional single bigip tests
-git+https://gitlab.pdbld.f5net.com/tools/pytest-symbols.git@5fe78c9f
