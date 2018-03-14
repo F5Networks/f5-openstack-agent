@@ -39,7 +39,7 @@ def _get_tunnel_name(network):
     return 'tunnel-' + str(tunnel_type) + '-' + str(tunnel_id)
 
 
-def _get_tunnel_fake_mac(network, local_ip):
+def get_tunnel_fake_mac(network, local_ip):
     # create a fake mac for l2 records for tunnels
     network_id = str(network['provider:segmentation_id']).rjust(4, '0')
     mac_prefix = '02:' + network_id[:2] + ':' + network_id[2:4] + ':'
@@ -505,7 +505,7 @@ class L2ServiceBuilder(object):
         tunnel_name = _get_tunnel_name(network)
 
         try:
-            self.driver.tunnel_handler.remove_tunnel(
+            self.driver.tunnel_handler.remove_multipoint_tunnel(
                 bigip,
                 tunnel_name,
                 partition=network_folder)
@@ -520,7 +520,7 @@ class L2ServiceBuilder(object):
         tunnel_name = _get_tunnel_name(network)
 
         try:
-            self.driver.tunnel_handler.remove_tunnel(
+            self.driver.tunnel_handler.remove_multipoint_tunnel(
                 bigip,
                 tunnel_name,
                 partition=network_folder)

@@ -122,7 +122,7 @@ class CacheBase(object):
                 self.__workers_waiting += 1
                 self.__workers_locks.wait()
                 self.__workers_waiting -= 1
-            self._lock_acquired = threading.current_thread()
+            self.__lock_acquired = threading.current_thread()
 
     def release_lock(self):
         """Releases an afore-created lock
@@ -140,7 +140,7 @@ class CacheBase(object):
         with self.__mechanism:
             my_thread = threading.current_thread()
             # lock sanity checking...
-            if self._lock_acquired is None:
+            if self.__lock_acquired is None:
                 raise RuntimeError("We can't release a non-acquired lock!")
             elif not self.__lock_acquired:
                 self.logger.error("Shying away from unlocking an "
@@ -150,6 +150,6 @@ class CacheBase(object):
                     "We can't release another's lock "
                     "(lock({}), thread({}))".format(
                         self.__lock_acquired, my_thread))
-            self._lock_acquired = None
+            self.__lock_acquired = None
             if self.__workers_waiting > 0:
                 self.__workers_locks.notify()

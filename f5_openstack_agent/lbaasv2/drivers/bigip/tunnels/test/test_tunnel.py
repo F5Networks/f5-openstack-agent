@@ -182,7 +182,7 @@ class TestTunnelMocker(object):
         fake_mac = 'aa:bb:cc:dd:ee:ff'
         bigip.local_ip = '192.168.10.1'
         tm_fdb_tunnel = bigip.tm.net.fdb.tunnels.tunnel
-        tm_tunnel = bigip.tm.net.tunnels.tunnel
+        tm_tunnel = bigip.tm.net.tunnels.tunnels.tunnel
         tm_arp = bigip.tm.net.arps.arp
         fdb_tunnel.records = [{'name': fake_mac, 'endpoint': bigip.local_ip}]
         tm_fdb_tunnel.load.return_value = fdb_tunnel
@@ -272,7 +272,7 @@ class TestTunnel(ClassTesterBase, TestTunnelMocker):
         record = mock.Mock()
         record.endpoint = '10.22.22.6'
         record.name = mac
-        fdb_tunnel.records_s.get_collection.return_value = [record]
+        fdb_tunnel.records = [record]
         target = fully_mocked_target
         multipoint_tunnel = bigip.multipoint_tunnel
         multipoint_tunnel.name = 'vxlan_multipoint'
@@ -283,7 +283,6 @@ class TestTunnel(ClassTesterBase, TestTunnelMocker):
         assert bigip.tm.net.tunnels.tunnels.get_collection.call_count
         assert bigip.tm.net.fdb.tunnels.tunnel.load.call_count
         assert bigip.tm.net.arps.get_collection.call_count
-        assert fdb_tunnel.records_s.get_collection.call_count
         assert target._TunnelHandler__profiles
         assert \
             target._TunnelHandler__network_cache_handler.\

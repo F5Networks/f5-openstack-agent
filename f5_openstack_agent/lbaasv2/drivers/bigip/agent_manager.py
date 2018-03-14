@@ -305,6 +305,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Setup RPC for communications to and from controller
         self._setup_rpc()
 
+        # Passes tunnel_handler to driver...
+        if not self.conf.f5_global_routed_mode:
+            lbdriver.set_tunnel_handler(self.tunnel_handler)
         # Allow the driver to make callbacks to the LBaaS driver plugin
         lbdriver.set_plugin_rpc(self.plugin_rpc)
         # Allow the driver to force and agent state report to the controller
@@ -417,11 +420,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 constants_v2.AGENT,
                 consumers
             )
-            self.tunnel_handler = \
+            self.__tunnel_handler = \
                 tunnel.TunnelHandler(self.__tunnel_rpc, self.__l2_pop_rpc,
                                      self.context)
             bigips = self.lbdriver.get_all_bigips()
-            self.tunnel_handler.agent_init(bigips)
+            self.__tunnel_handler.agent_init(bigips)
 
     def _report_state(self, force_resync=False):
         try:
@@ -474,6 +477,15 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         except Exception as e:
             LOG.exception(("Failed to report state: " + str(e.message)))
+
+    @property
+    def tunnel_handler(self):
+        """An decoring get method that returns a weakref.proxy(tunnel_handler)
+
+        This is necessary to keep from having multiple cross-referenced
+        objects pointing to a cache that might not otherwise get gc'ed.
+        """
+        return weakref.proxy(self.__tunnel_handler)
 
     @property
     def lbdriver(self):
@@ -591,13 +603,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         NetworkCacheHandler to update its cache.
         """
         bigips = self.lbdriver.get_all_bigips()
-        self.tunnel_handler.tunnel_sync(bigips)
+        self.__tunnel_handler.tunnel_sync(bigips)
 
     def tunnel_sync(self):
         """Call into driver to advertise device tunnel endpoints."""
         LOG.debug("manager:tunnel_sync: calling tunnel_handler.tunnel_sync")
         bigips = self.lbdriver.get_all_bigips()
-        self.tunnel_handler.tunnel_sync(bigips)
+        self.__tunnel_handler.tunnel_sync(bigips)
 
     @log_helpers.log_method_call
     def sync_state(self):
