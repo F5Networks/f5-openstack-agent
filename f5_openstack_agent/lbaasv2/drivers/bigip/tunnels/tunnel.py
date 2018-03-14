@@ -441,7 +441,7 @@ class TunnelBuilder(object):
         network_id = params.get('network_id', None)
         tunnel_type = params.get(
             'tunnel_type', params.get(
-                'netowrk_type', None))
+                'network_type', None))
         segment_id = params.get('segment_id', '')
         bigip_host = bigip.hostname if bigip else ''
         partition = params.get('partition', None)
