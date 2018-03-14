@@ -588,7 +588,7 @@ class iControlDriver(LBaaSBaseDriver):
                               % (hostname, bigip.status, bigip.status_message))
                     self._set_agent_status(False)
         except Exception as exc:
-            LOG.error('Invalid agent configuration: %s' % exc.message)
+            LOG.exception('Invalid agent configuration: %s' % exc.message)
             raise
         self._set_agent_status(force_resync=True)
 
@@ -752,9 +752,6 @@ class iControlDriver(LBaaSBaseDriver):
 
             # Turn off tunnel syncing between BIG-IP
             # as our VTEPs properly use only local SelfIPs
-            if self.system_helper.get_tunnel_sync(bigip) == 'enable':
-                self.system_helper.set_tunnel_sync(bigip, enabled=False)
-
             LOG.debug('connected to iControl %s @ %s ver %s.%s'
                       % (self.conf.icontrol_username, hostname,
                          major_version, minor_version))
@@ -1596,22 +1593,6 @@ class iControlDriver(LBaaSBaseDriver):
     def tunnel_update(self, **kwargs):
         # Tunnel Update from Neutron Core RPC
         pass
-
-    def tunnel_sync(self):
-        # Only sync when supported types are present
-        if not [i for i in self.agent_configurations['tunnel_types']
-                if i in ['gre', 'vxlan']]:
-            return False
-
-        tunnel_ips = []
-        for bigip in self.get_all_bigips():
-            if bigip.local_ip:
-                tunnel_ips.append(bigip.local_ip)
-
-        self.network_builder.tunnel_sync(tunnel_ips)
-
-        # Tunnel sync sent.
-        return False
 
     @serialized('sync')
     @is_operational
