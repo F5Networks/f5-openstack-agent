@@ -353,7 +353,9 @@ class TunnelBuilder(object):
                                       bigip.tm.net.tunnels.vxlans.vxlan}}
         create_tunnel = default_profiles[tunnel_type]
         tunnel = dict(name=name, partition=partition)
-        tm_multipoint = tunnel.pop('tm_endpoint')
+        import pdb
+        pdb.set_trace()
+        tm_multipoint = create_tunnel.pop('tm_endpoint')
         actions = {'create': dict(
                        payload=create_tunnel, method=tm_multipoint.create),
                    'delete': dict(
