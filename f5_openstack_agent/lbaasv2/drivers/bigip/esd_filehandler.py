@@ -199,10 +199,9 @@ class EsdTagProcessor(EsdJSONValidation):
             msg = 'Tag {0} is not valid.'.format(tag)
             raise f5_ex.esdJSONFileInvalidException(msg)
 
-    # this dictionary contains all the tags
-    # that are listed in the esd confluence page:
-    # https://docs.f5net.com/display/F5OPENSTACKPROJ/Enhanced+Service+Definition
-    # we are implementing the tags that can be applied only to listeners
+    # This dictionary contains all the tags
+    # that are listed in the esd confluence page.
+    # We are implementing the tags that can be applied only to listeners.
 
     valid_esd_tags = {
         'lbaas_ctcp': {
