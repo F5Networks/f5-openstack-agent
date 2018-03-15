@@ -70,14 +70,16 @@ def http_error(*args, **exc_specs):
             try:
                 return method(instance, *wargs, **wkwargs)
             except HTTPError as error:
-                for level in dir(LOG):
-                    if level.startswith('_') or 'Enabled' in level:
+                for level in exc_specs:
+                    if level not in dir(LOG):
                         continue
                     messages = exc_specs.get(level, '')
                     if not messages:
                         continue
                     status_code = error.response.status_code
-                    message = messages.get(status_code, '')
+                    message = messages.get(
+                        status_code, messages.get(
+                            str(status_code), ''))
                     if not message:
                         raise  # we've gotten to our status error's specifics
                     msg_type = getattr(LOG, level)
@@ -85,7 +87,10 @@ def http_error(*args, **exc_specs):
                         message = "{} (args: {})".format(message, args)
                     if wkwargs:
                         message = "{} (kwargs: {})".format(message, wkwargs)
-                    message = "From {}: {}".format(method, message)
+                    message = str(
+                        "From [{m.co_filename}:{m.co_name}:"
+                        "{m.co_firstlineno}] {}").format(
+                            message, m=method.func_code)
                     msg_type(message)
                     sys.exc_clear()
                     break

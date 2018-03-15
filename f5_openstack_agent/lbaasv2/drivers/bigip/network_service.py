@@ -738,11 +738,11 @@ class NetworkServiceBuilder(object):
                     subnet_hints['check_for_delete_subnets'].pop(
                         in_use_subnetid, None)
             except f5_ex.F5NeutronException as exc:
-                LOG.error("assure_delete_nets_shared: exception: %s"
-                          % str(exc.msg))
+                LOG.exception("assure_delete_nets_shared: exception: %s"
+                              % str(exc.msg))
             except Exception as exc:
-                LOG.error("assure_delete_nets_shared: exception: %s"
-                          % str(exc.message))
+                LOG.exception("assure_delete_nets_shared: exception: %s"
+                              % str(exc.message))
 
         return deleted_names
 

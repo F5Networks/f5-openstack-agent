@@ -43,6 +43,10 @@ class Fdb(object):
 
     Object is deemed as "incomplete" and dismissable if it evaluates as False.
     """
+    _false_mac_re = re.compile('^[0:]+$')
+    _mac_match_re = re.compile('^[a-zA-Z0-9:]+$')
+    _network_id_re = re.compile('^[a-zA-Z0-9\-]+$')
+    _route_domain_re = re.compile('%(\d+)$')
 
     @wrapper.add_logger
     def __init__(self, ip_address, vtep_mac, vtep_ip, network_id,
@@ -51,6 +55,10 @@ class Fdb(object):
         self.network_type = network_type
         self.segment_id = segment_id
         self.mac_address = vtep_mac
+        route_domain_match = self._route_domain_re.search(ip_address)
+        if route_domain_match:
+            ip_address = self._route_domain_re.sub('', ip_address)
+            self.route_domain = route_domain_match.group(1)
         self._set_ip_address(ip_address, force=force)
         self.vtep_ip = vtep_ip
         self.__partitions = []
@@ -74,14 +82,20 @@ class Fdb(object):
         except socket.error:
             return False
 
-    @staticmethod
-    def __is_nonzero_mac(mac):
+    @classmethod
+    def __is_nonzero_mac(cls, mac):
         # Returns True if mac is not 00:00:00:00:00:00
-        return False if re.search('^[0:]+$', mac) else True
+        return False if cls._false_mac_re.search(mac) else True
 
     def __nonzero__(self):
         """Evaluates the VTEP to see if it is valid"""
         return self.__is_nonzero_mac(self.mac_address)
+
+    def _set_route_domain(self, route_domain):
+        self._route_domain = int(route_domain)
+
+    def _get_route_domain(self):
+        return getattr(self, '_route_domain', 0)
 
     @wrapper.only_one
     @wrapper.ip_address
@@ -106,7 +120,7 @@ class Fdb(object):
     @wrapper.only_one
     def _set_mac_address(self, mac_addr):
         """Validates and sets given mac_address"""
-        match = re.search('^[a-zA-Z0-9:]+$', mac_addr)
+        match = self._mac_match_re.search(mac_addr)
         if not match:
             raise TypeError("Invalid MAC Address: ({})".format(mac_addr))
         self.__mac_address = mac_addr
@@ -130,7 +144,7 @@ class Fdb(object):
     @wrapper.only_one
     def _set_network_id(self, network_id):
         """Validates and sets network's ID"""
-        if not re.search('^[a-zA-Z0-9\-]+$', network_id):
+        if not self._network_id_re.search(network_id):
             raise TypeError("Not a valid network_id ({})".format(network_id))
         self.__network_id = network_id
 
@@ -194,6 +208,7 @@ class Fdb(object):
     vtep_ip = property(_get_vtep_ip, _set_vtep_ip)
     network_id = property(_get_network_id, _set_network_id)
     network_type = property(_get_network_type, _set_network_type)
+    route_domain = property(_get_route_domain, _set_route_domain)
 
 
 class FdbBuilder(object):
@@ -212,7 +227,7 @@ class FdbBuilder(object):
         tm_arp = bigip.tm.net.arps.arp
         partition = tunnel.partition
         mac_address = fdb.mac_address
-        ip_address = fdb.ip_address.replace('%0', '')
+        ip_address = fdb.ip_address
         load_payload = dict(name=mac_address, partition=partition)
         create_payload = dict(ipAddress=ip_address, macAddress=mac_address,
                               partition=partition)
@@ -382,13 +397,18 @@ class FdbBuilder(object):
 
         def create_fdb_by_vtep(tunnel, network, ip_address, mac,
                                vtep_address, force=False):
-            fdb = Fdb('', mac, vtep_address, network['id'],
+            fdb = Fdb(ip_address, mac, vtep_address, network['id'],
                       tunnel.tunnel_type, tunnel.segment_id, force=force)
             return fdb
 
         fdbs = list()
-        network = loadbalancer['network']
-        for vtep_address in loadbalancer[vtep_key]:
+        if loadbalancer:
+            network = loadbalancer['network']
+        else:
+            network = members[0]['network']
+        loadbalancer_vteps = loadbalancer.get(vtep_key, []) if loadbalancer \
+            else []
+        for vtep_address in loadbalancer_vteps:
             fake_mac = l2_service.get_tunnel_fake_mac(network, vtep_address)
             fdbs.append(
                 create_fdb_by_vtep(tunnel, network, '', fake_mac,
