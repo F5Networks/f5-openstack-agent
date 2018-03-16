@@ -328,13 +328,14 @@ class TunnelBuilder(object):
             "executing {} on tm_tunnel({t.bigip_host}, {t.partition}, "
             "{t.tunnel_name})".format(laction, b=bigip, t=tunnel))
         result = execute(actions, action)
+        if action in ['create', 'exists', 'load']:
+            return result
         second_actions = {'delete': dict(payload={},
                                          method=result.delete)}
-        if action in second_actions:
-            tunnel.logger.debug(
-                "executing {} on tm_tunnel({t.bigip_host}, {t.partition}, "
-                "{t.tunnel_name})".format(action, b=bigip, t=tunnel))
-            result = execute(second_actions, action)
+        tunnel.logger.debug(
+            "executing {} on tm_tunnel({t.bigip_host}, {t.partition}, "
+            "{t.tunnel_name})".format(action, b=bigip, t=tunnel))
+        result = execute(second_actions, action)
         return result
 
     @staticmethod
