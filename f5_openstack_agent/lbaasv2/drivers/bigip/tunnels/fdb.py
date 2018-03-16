@@ -24,10 +24,14 @@ import socket
 
 from requests import HTTPError
 
+from oslo_log import log as logging
+
 import f5_openstack_agent.lbaasv2.drivers.bigip.l2_service as l2_service
 import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.decorators \
     as wrapper
 # import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.tunnel as tunnel_mod
+
+LOG = logging.getLogger(__name__)
 
 
 class Fdb(object):
@@ -414,9 +418,24 @@ class FdbBuilder(object):
                 create_fdb_by_vtep(tunnel, network, '', fake_mac,
                                    vtep_address, force=True))
         for member in members:
-            mac = member['port']['mac_address']
-            addr = member['address']
-            for vtep_address in member[vtep_key]:
+            mac = member.get('port', {}).get('mac_address', None)
+            addr = member.get('address', None)
+            vteps = member.get(vtep_key, [])
+            my_id = member.get('id', 'ID not supplied')
+            member_str = "member({}), [mac: {}, ip: {}]".format(
+                my_id, mac, addr)
+            if not mac or not addr:
+                message = str(
+                    "Was unable to generate Fdb for new  {}".format(
+                        member_str))
+                if vteps:
+                    message += " [{}]".format(vteps)
+                    LOG.error(message)
+                else:
+                    LOG.debug(message)
+                continue
+            LOG.debug("Creating Fdb's for {} [{}]".format(member_str, vteps))
+            for vtep_address in vteps:
                 fdbs.append(
                     create_fdb_by_vtep(
                         tunnel, network, addr, mac, vtep_address))
