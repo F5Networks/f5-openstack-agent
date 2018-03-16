@@ -381,6 +381,7 @@ class FdbBuilder(object):
         tunnel_handler.notify_vtep_existence(hosts)
 
     @classmethod
+    @wrapper.weakref_handle
     def handle_fdbs_by_loadbalancer_and_members(
             cls, bigip, tunnel, loadbalancer, members, remove=False):
         """Creates a list of fdb's from a loadbalancer/members values pair
