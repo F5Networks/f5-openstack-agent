@@ -967,6 +967,7 @@ class TunnelHandler(cache.CacheBase):
             if error.response.status_code == 409:
                 self.logger.debug("Attempted to create a new tunnel ({}) "
                                   "where one already existed".format(model))
+            return
         self.__add_pending_exists(tunnel)
 
     @cache.lock
@@ -1137,13 +1138,17 @@ class TunnelHandler(cache.CacheBase):
 
         Args:
             bigips - [f5.bigip.ManagementRoot] instances
-            loadbalancer - service request's loadbalancer
+            loadbalancer - service request's loadbalancer | None
             members - service request's members associated with that
-                loadbalancer
+                loadbalancer | []
         Returns:
             None
         """
-        by_host_names = self._get_tunnels_by_network(loadbalancer['network'])
+        if loadbalancer:
+            network = loadbalancer.get('network', None)
+        else:
+            network = members[0]['network']
+        by_host_names = self._get_tunnels_by_network(network)
         hosts = self._get_bigips_by_hostname(bigips)
         for host_name in by_host_names:
             bigip = hosts[host_name]

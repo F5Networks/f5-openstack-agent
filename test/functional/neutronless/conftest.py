@@ -427,7 +427,12 @@ def fake_plugin_rpc(services):
 
 
 @pytest.fixture
-def icontrol_driver(icd_config, fake_plugin_rpc):
+def fake_tunnel_handler():
+    return TunnelHandler(1, 2, 3)
+
+
+@pytest.fixture
+def icontrol_driver_base(icd_config):
     class ConfFake(object):
         def __init__(self, params):
             self.__dict__ = params
@@ -440,8 +445,14 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
 
     icd = iControlDriver(ConfFake(icd_config),
                          registerOpts=False)
-    icd.tunnel_handler = TunnelHandler(1, 2, 3)
+    return icd
 
+
+@pytest.fixture
+def icontrol_driver(icontrol_driver_base, fake_plugin_rpc,
+                    fake_tunnel_handler):
+    icd = icontrol_driver_base
+    icd.tunnel_handler = fake_tunnel_handler
     icd.plugin_rpc = fake_plugin_rpc
     icd.connect()
     return icd
