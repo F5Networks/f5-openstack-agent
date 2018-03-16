@@ -24,6 +24,7 @@ BIG-IP's tunnels.
 #
 
 import json
+import re
 
 from collections import namedtuple
 from requests import HTTPError
@@ -64,6 +65,7 @@ class Tunnel(cache.CacheBase):
     might occur while involving the BIG-IP.  This greatly expands the
     scalability of a tunnel, L2-Population Event-driven environment.
     """
+    __tunnel_type_re = re.compile('_\w+')
 
     @wrappers.add_logger
     def __init__(self, network_id, tunnel_type, segment_id, bigip_host,
@@ -111,6 +113,10 @@ class Tunnel(cache.CacheBase):
 
     @wrappers.not_none
     def _set_tunnel_type(self, tunnel_type):
+        # sets profile if it's a profile sent and regardless, sets tunnel_type
+        if self.__tunnel_type_re.search(tunnel_type):
+            self.__profile = tunnel_type
+            tunnel_type = self.__tunnel_type_re.sub('', tunnel_type)
         self.__tunnel_type = str(tunnel_type)
 
     def _get_tunnel_type(self):
@@ -200,6 +206,7 @@ class Tunnel(cache.CacheBase):
             fdb_method(bigip, self, fdb)
             if new:
                 self.__fdbs.append(fdb)
+            fdb.log_create(bigip, self.partition)
 
         if isinstance(fdbs, list) and fdbs and \
                 isinstance(fdbs[0], fdb_mod.Fdb):
@@ -230,11 +237,12 @@ class Tunnel(cache.CacheBase):
             fdb_mod.FdbBuilder.remove_fdb_from_arp(bigip, self, fdb)
             self.__fdbs = filter(lambda x: x.mac_address != fdb.mac_address,
                                  self.__fdbs)
+            fdb.log_remove(bigip, self.partition)
 
         if isinstance(fdbs, list) and fdbs and \
                 isinstance(fdbs[0], fdb_mod.Fdb):
             for fdb in fdbs:
-                remove_fdb(fdbs)
+                remove_fdb(fdb)
         elif isinstance(fdbs, list):
             for fdb in self.__fdbs:
                 remove_fdb(fdb)
@@ -247,7 +255,8 @@ class Tunnel(cache.CacheBase):
 
     @property
     def profile(self):
-        return "{}_ovs".format(self.tunnel_type)
+        return getattr(self, '_Tunnel__profile',
+                       "{}_ovs".format(self.tunnel_type))
 
     @property
     def key(self):
@@ -297,7 +306,7 @@ class TunnelBuilder(object):
         # performs all actions on tm_tunnel by action
         def execute(actions, action):
             return actions[action]['method'](**actions[action]['payload'])
-        tm_tunnel = bigip.tm.net.tunnels.tunnel
+        tm_tunnel = bigip.tm.net.tunnels.tunnels.tunnel
         description = json.dumps(
             dict(partition=tunnel.partition, network_id=tunnel.network_id,
                  remote_address=tunnel.remote_address))
@@ -314,10 +323,17 @@ class TunnelBuilder(object):
                                   method=tm_tunnel.load),
                    'exists': dict(payload=load_payload,
                                   method=tm_tunnel.exists)}
+        laction = 'load' if action is 'delete' else action
+        tunnel.logger.debug(
+            "executing {} on tm_tunnel({t.bigip_host}, {t.partition}, "
+            "{t.tunnel_name})".format(laction, b=bigip, t=tunnel))
         result = execute(actions, action)
         second_actions = {'delete': dict(payload={},
                                          method=result.delete)}
         if action in second_actions:
+            tunnel.logger.debug(
+                "executing {} on tm_tunnel({t.bigip_host}, {t.partition}, "
+                "{t.tunnel_name})".format(action, b=bigip, t=tunnel))
             result = execute(second_actions, action)
         return result
 
@@ -372,17 +388,16 @@ class TunnelBuilder(object):
         actions = {'get_collection': dict(payload=filter_params,
                                           method=tm_tunnels.get_collection)}
         exe = actions[action]
+        LOG.debug("Executing {}({}) on bigip.tm.net.tunnels on "
+                  "{b.hostname}".format(action, partition, b=bigip))
         return exe['method'](*exe['payload'])
 
-    @staticmethod
-    def __tm_fdb_tunnel(bigip, tunnel, action, records=None, record={}):
+    @classmethod
+    def __tm_fdb_tunnel(cls, bigip, tunnel, action, record={}):
         # performs all actions on tm_fdb_tunnel by action
         def execute(actions, action):
             exe = actions[action]
             return exe['method'](**exe['payload'])
-
-        def tm_record(obj, attr):
-            return getattr(obj, attr)
 
         tm_tunnel = bigip.tm.net.fdb.tunnels.tunnel
         tunnel_name = tunnel.tunnel_name
@@ -390,16 +405,6 @@ class TunnelBuilder(object):
         load_payload = dict(name=tunnel_name, partition=partition)
         tunnel_exists = dict(payload=load_payload, method=tm_tunnel.exists)
         load_tunnel = dict(payload=load_payload, method=tm_tunnel.load)
-        modify_payload = dict(records=records)
-        modify_tunnel = dict(payload=modify_payload, method=tm_tunnel.modify)
-        get_record_payload = dict(name=record.get('name', ''))
-        get_record = dict(payload=get_record_payload, method='')
-        create_record_payload = record
-        create_record = dict(payload=create_record_payload, method='')
-        delete_record = dict(payload=get_record_payload, method='')
-        modify_record = dict(payload=create_record_payload, method='')
-        record_exists = dict(payload=get_record_payload, method='')
-        get_collection = {'payload': {}, 'method': None}
         first_actions = dict(
             modify=load_tunnel,
             load=load_tunnel,
@@ -410,30 +415,57 @@ class TunnelBuilder(object):
             delete_record=load_tunnel,
             records_get_collection=load_tunnel,
             record_exists=load_tunnel)
-        second_action = dict(
-            get_record=get_record,
-            modify=modify_tunnel,
-            modify_record=modify_record,
-            create_record=create_record,
-            delete_record=delete_record,
-            records_get_collection=get_collection,
-            record_exists=record_exists)
+        tunnel.logger.debug("Executing bigip.tm.net.fdb.tunnels.tunnel.load "
+                            "for {} on {b.hostname}".format(action, b=bigip))
         firsts_result = execute(first_actions, action)
-        if action not in second_action:
-            return firsts_result
         if 'record' in action:
-            if 'records' in action:
-                second_action[action]['method'] = \
-                    firsts_result.records_s.get_collection
-                second_action[action]['payload'] = {}
-            else:
-                attr = action.replace('_', '')
-                attr = attr.replace('record', '')
-                if attr == 'getcollection':
-                    attr = 'get_collection'
-                records = tm_record(firsts_result, attr)
-                second_action[action]['method'] = records
-        return execute(second_action, action)
+            return cls.__tm_records(firsts_result, tunnel, action, record={})
+        else:
+            return firsts_result
+
+    @staticmethod
+    def __tm_records(tm_fdb_tunnel, tunnel, action, record={}):
+        if 'get_collection' in action:
+            # We've got it!  Send it back...
+            return getattr(tm_fdb_tunnel, 'records', [])
+        try:
+            level = tm_fdb_tunnel.records_s.records
+            load = dict(method=level.load,
+                        payload=record)
+            create = dict(method=level.create,
+                          payload=record)
+            exists = dict(method=level.exists, payload=record)
+            actions = dict(delete_record=load, create_record=create,
+                           get_record=load, record_exists=exists,
+                           modify_record=load)
+            delete = dict()
+            modify = record
+            tunnel.logger.debug(
+                "Performing first for {} on fdb_tunnel.records_s.records for "
+                "{}".format(action, record))
+            result = actions[action]['method'](**actions[action]['payload'])
+            second = {
+                'delete_record': dict(payload=delete, method=result.delete),
+                'modify_record': dict(payload=modify, method=result.modify)}
+            if action in second:
+                tunnel.logger.debug(
+                    "Performing {} on fdb_tunnel.records_s.records for "
+                    "{}".format(action, record))
+                result = second[action]['method'](**second[action]['payload'])
+            return result
+        except AttributeError:
+            responses = dict(delete_record=None, record_exists=False,
+                             record_get_collection=[])
+            if 'delete_record' == action:
+                LOG.warning("Could not delete non-existent "
+                            "record {}".format(record))
+            if action in responses:
+                return responses[action]
+            elif 'load_record' == action:
+                raise EnvironmentError("Could not find record "
+                                       "{}".format(record))
+            elif action in ['create_record', 'modify_record']:
+                tm_fdb_tunnel.modify(records=[record])
 
     @staticmethod
     def __create_tunnel_from_dict(params, bigip):
@@ -441,12 +473,16 @@ class TunnelBuilder(object):
         network_id = params.get('network_id', None)
         tunnel_type = params.get(
             'tunnel_type', params.get(
-                'network_type', None))
-        segment_id = params.get('segment_id', '')
+                'network_type', params.get(
+                    'profile', None)))
+        segment_id = params.get(
+            'segment_id', params.get(
+                'key', ''))
         bigip_host = bigip.hostname if bigip else ''
         partition = params.get('partition', None)
         local_address = params.get('localAddress', None)
-        remote_address = params.get('remoteAddress', None)
+        # what follows comes from the replaced code...
+        remote_address = params.get('remoteAddress', '0.0.0.0')
         tunnel = Tunnel(network_id, tunnel_type, segment_id, bigip_host,
                         partition, local_address, remote_address)
         return tunnel
@@ -551,8 +587,6 @@ class TunnelBuilder(object):
 
     @classmethod
     @wrappers.weakref_handle
-    @wrappers.http_error(
-        debug={409: "Attempted creation on alread-existent tunnel"})
     def create_tunnel(cls, bigip, params=None, tunnel=None):
         """Creates a tunnel object and attempts to push creation to BIG-IP
 
@@ -626,7 +660,7 @@ class TunnelBuilder(object):
             Non
         """
         try:
-            record = dict(name=fdb.mac_address, endpoint=fdb.ip_address)
+            record = fdb.record
             cls.__tm_fdb_tunnel(bigip, tunnel, 'create_record', record=record)
         except HTTPError as error:
             if error.response.status_code == 404:
@@ -640,8 +674,15 @@ class TunnelBuilder(object):
     @wrappers.http_error(
         debug={404: "Attempted delete on non-existent record"})
     def remove_record_from_arp(cls, bigip, tunnel, fdb):
-        record = fdb.record
-        cls.__tm_fdb_tunnel(bigip, tunnel, 'delete_record', record=record)
+        def remove(fdb):
+            record = fdb.record
+            cls.__tm_fdb_tunnel(bigip, tunnel, 'delete_record', record=record)
+
+        if isinstance(fdb, list):
+            for my_fdb in fdb:
+                remove(my_fdb)
+        else:
+            remove(fdb)
 
     @classmethod
     # @_check_if_fdbs
@@ -782,7 +823,9 @@ class TunnelHandler(cache.CacheBase):
 
     @cache.lock
     def __add_pending_exists(self, tunnel):
-        self.__pending_exists(tunnel)
+        self.logger.debug("Caching Tunnel({t.bigip_host}, {t.partition}, "
+                          "{t.tunnel_name})".format(t=tunnel))
+        self.__pending_exists.append(tunnel)
 
     @cache.lock
     def __create_profile(self, bigip, tunnel_type, name, partition):
@@ -849,6 +892,8 @@ class TunnelHandler(cache.CacheBase):
         Returns:
             tunnel - the resulting, created object
         """
+        self.logger.debug("Creating profile (gre, {}, {}, "
+                          "{b.hostname}".format(name, partition, b=bigip))
         self.__create_profile(bigip, 'gre', name, partition)
 
     def delete_l2gre_multipoint_profile(self, bigip, name, partition):
@@ -864,6 +909,8 @@ class TunnelHandler(cache.CacheBase):
         Returns:
             tunnel - the resulting, deleted object
         """
+        self.logger.debug("Deleting profile (gre, {}, {}, "
+                          "{b.hostname}".format(name, partition, b=bigip))
         self.__delete_profile(bigip, 'gre', name, partition)
 
     def create_vxlan_multipoint_profile(self, bigip, name, partition):
@@ -879,6 +926,8 @@ class TunnelHandler(cache.CacheBase):
         Returns:
             tunnel - the resulting, created object
         """
+        self.logger.debug("Creating profile (vxlan, {}, {}, "
+                          "{b.hostname}".format(name, partition, b=bigip))
         self.__create_profile(bigip, 'vxlan', name, partition)
 
     def delete_vxlan_multipoint_profile(self, bigip, name, partition):
@@ -894,6 +943,8 @@ class TunnelHandler(cache.CacheBase):
         Returns:
             None
         """
+        self.logger.debug("Deleting profile (vxlan, {}, {}, "
+                          "{b.hostname}".format(name, partition, b=bigip))
         self.__delete_profile(bigip, 'vxlan', name, partition)
 
     def create_multipoint_tunnel(self, bigip, model):
@@ -908,7 +959,14 @@ class TunnelHandler(cache.CacheBase):
         Returns:
             None
         """
-        tunnel = TunnelBuilder.create_tunnel(bigip, params=model)
+        self.logger.debug("Creating tunnel ({b.hostname}, {partition}, "
+                          "{name})".format(b=bigip, **model))
+        try:
+            tunnel = TunnelBuilder.create_tunnel(bigip, params=model)
+        except HTTPError as error:
+            if error.response.status_code == 409:
+                self.logger.debug("Attempted to create a new tunnel ({}) "
+                                  "where one already existed".format(model))
         self.__add_pending_exists(tunnel)
 
     @cache.lock
@@ -925,6 +983,9 @@ class TunnelHandler(cache.CacheBase):
         Returns:
             None
         """
+        self.logger.debug(
+            "Deleting Tunnel({b.hostname}, {}, {})".format(
+                partition, name, b=bigip))
         tunnel = self.__network_cache_handler.remove_tunnel(
             bigip.hostname, name=name, partition=partition)
         if not tunnel:
@@ -1047,3 +1108,52 @@ class TunnelHandler(cache.CacheBase):
                             'segment_id': fdb.segment_id}}
                     notify(self.context, entry)
                     fdbs_by_mac[fdb.mac_address] = fdb
+
+    @cache.lock
+    def _get_tunnels_by_network(self, network):
+        network_id = network['id']
+        segment_id = network['provider:segmentation_id']
+        hosts = self.__network_cache_handler.get_tunnels_by_designation(
+            network_id, segment_id)
+        for tunnel in self.__pending_exists:
+            if int(tunnel.segment_id) == int(segment_id) and \
+                    tunnel.network_id == network_id:
+                host = tunnel.bigip_host
+                if host in hosts:
+                    hosts[host].append(tunnel)
+                else:
+                    hosts[host] = [tunnel]
+        return hosts
+
+    def handle_fdbs_from_loadbalancer_and_members(self, bigips, loadbalancer,
+                                                  members, remove=False):
+        """Handles corner-case of service request with new LB and members
+
+        This method will handle the caching of new FDB entries for a new
+        loadbalancer and associated members if/when there are new members.
+
+        As such, it will discover the relelvant tunnel by loadbalancer's
+        network and associate the new network type's vteps.
+
+        Args:
+            bigips - [f5.bigip.ManagementRoot] instances
+            loadbalancer - service request's loadbalancer
+            members - service request's members associated with that
+                loadbalancer
+        Returns:
+            None
+        """
+        by_host_names = self._get_tunnels_by_network(loadbalancer['network'])
+        hosts = self._get_bigips_by_hostname(bigips)
+        for host_name in by_host_names:
+            bigip = hosts[host_name]
+            for tunnel in by_host_names[host_name]:
+                fdb_mod.FdbBuilder.handle_fdbs_by_loadbalancer_and_members(
+                    bigip, tunnel, loadbalancer, members, remove=remove)
+
+    def get_bigip_net_short_name(self, network_name):
+        """Returns tunnel-/<type>-<key>/ for the short name"""
+        self.logger.debug("Getting tunnel key for {}".format(network_name))
+        short_name = network_name.replace('tunnel-', '')
+        short_name = network_name.replace('tunnel-', '')
+        return short_name

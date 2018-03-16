@@ -20,6 +20,7 @@ manipulations.
 #
 
 import socket
+import sys
 import weakref
 
 from requests import HTTPError
@@ -86,6 +87,7 @@ def http_error(*args, **exc_specs):
                         message = "{} (kwargs: {})".format(message, wkwargs)
                     message = "From {}: {}".format(method, message)
                     msg_type(message)
+                    sys.exc_clear()
                     break
                 else:
                     raise
@@ -110,19 +112,24 @@ def not_none(method):
 
 def ip_address(method):
     """A decorator function that adds the is_ip_address_wrapper"""
-    def is_ip_address_wrapper(inst, value):
+    def is_ip_address_wrapper(inst, value, force=False):
         """Checks the method under wrap's value to validate IP Address
 
         This wrapper will check validity of the IP Address in the value given
         to the method under wrap.  If it is not a valid IP Address, then a
         TypeError is raised.
+
+        Optional:
+            Caller may provide a force kwarg.  If true, then this decorator
+            will ignore what tyep of object is passed.
         """
-        try:
-            socket.inet_aton(value)
-            return method(inst, value)
-        except socket.error:
-            raise TypeError(
-                "method {} is expecting an IP address!".format(method))
+        if not force:
+            try:
+                socket.inet_aton(value)
+            except socket.error:
+                raise TypeError(
+                    "method {} is expecting an IP address!".format(method))
+        return method(inst, value)
     return is_ip_address_wrapper
 
 

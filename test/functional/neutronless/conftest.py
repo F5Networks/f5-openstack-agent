@@ -45,6 +45,8 @@ import traceback
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
+from f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.tunnel import \
+    TunnelHandler
 
 from .bigip_interaction import BigIpInteraction
 from .testlib.bigip_client import BigIpClient
@@ -153,6 +155,7 @@ class TestConfig(object):
 
         icd = iControlDriver(ConfFake(self.OSLO_CONF),
                              registerOpts=False)
+        icd.tunnel_handler = TunnelHandler(1, 2, 3)
 
         icd.plugin_rpc = self.fake_plugin_rpc()
         icd.connect()
@@ -437,6 +440,7 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
 
     icd = iControlDriver(ConfFake(icd_config),
                          registerOpts=False)
+    icd.tunnel_handler = TunnelHandler(1, 2, 3)
 
     icd.plugin_rpc = fake_plugin_rpc
     icd.connect()

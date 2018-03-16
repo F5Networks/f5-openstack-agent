@@ -82,8 +82,9 @@ class TestLbaasAgentManagerMockBuilder(mock_builder_base_class.MockBuilderBase,
         _LbaasAgentManager__lbdriver=lbdriver,
         plugin_rpc=test_plugin_rpc.TestPluginRpcMockBuilder,
         network_cache_handler=test_network_cache_handler.
-        TestNetworkCacheHandlerMockBuilder,
-        tunnel_handler=test_tunnel.TestTunnelHandlerMockBuilder)
+        TestNetworkCacheHandlerMockBuilder)
+    _other_builders['_LbaasAgentManager__tunnel_handler'] = \
+        test_tunnel.TestTunnelHandlerMockBuilder
 
     @staticmethod
     def mocked_target(*args):
@@ -684,6 +685,7 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
             arp = mock.Mock()
             tm_tunnel = mock.Mock()
             tunnel = mock.Mock()
+            tm_records = mock.Mock()
             records = [{'name': 'foozoo',
                         'endpoint': '201.0.155.3'},
                        {'name': 'doofoo',
@@ -695,7 +697,15 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
             tm_arp.exists.reurn_value = True
             fake_bigip.status = 'active'
             fake_bigip.tm.net.fdb.tunnels.tunnel = tm_tunnel
-            fake_bigip.tm.net.fdb.tunnels.arp = tm_arp
+            fake_bigip.tm.net.arps.arp = tm_arp
+            tunnel.records_s.records = tm_records
+            record = mock.Mock()
+            record.name = records[0]['name']
+            record.endpoint = records[0]['endpoint']
+            tm_records.load.return_value = record
+            tm_records.create.return_value = record
+            fake_bigip.tm_records = tm_records
+            fake_bigip.tm_fdb_tunnel = tm_tunnel
             # generate the fake network cache...
             network_id = svc['networks'].keys()[0]
             network = svc['networks'][network_id]
@@ -728,9 +738,8 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
                     'segment_id': 23}}
             context = mock.Mock()
             target.add_fdb_entries(context, fdb_entry)
-            assert bigip.tm.net.fdb.tunnels.tunnel.load.call_count
-            assert bigip.tm.net.fdb.tunnels.tunnel.load.return_value.create.\
-                call_count
+            assert bigip.tm_fdb_tunnel.load.call_count
+            assert bigip.tm_records.create.call_count
             assert target.tunnel_handler.l2pop_rpc.add_fdb_entries.call_count
 
         test_add(*args)

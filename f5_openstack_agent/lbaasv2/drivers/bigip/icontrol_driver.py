@@ -1018,6 +1018,10 @@ class iControlDriver(LBaaSBaseDriver):
             return highest_metric
         return 0
 
+    def set_tunnel_handler(self, tunnel_handler):
+        """Provides Tunnel Handling support to the driver"""
+        self.tunnel_handler = tunnel_handler
+
     def set_plugin_rpc(self, plugin_rpc):
         # Provide Plugin RPC access
         self.plugin_rpc = plugin_rpc
@@ -1912,9 +1916,8 @@ class iControlDriver(LBaaSBaseDriver):
                     self.network_builder.post_service_networking(
                         service, all_subnet_hints)
                 except Exception as error:
-                    LOG.error("Post-network exception: icontrol_driver: %s",
-                              error.message)
-
+                    LOG.exception("Post-network exception: "
+                                  "icontrol_driver: {}".format(error))
                     if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                         loadbalancer['provisioning_status'] = \
                             f5const.F5_ERROR

@@ -47,6 +47,7 @@ class TestFdbMockBuilder(MockBuilderBase):
 
     def fully_mocked_target(self, mocked_target):
         """Creates and returns a fully mocked Fdb object"""
+        mocked_target.logger = mock.Mock()
         mocked_target._Fdb__ip_address = '192.168.1.6'
         mocked_target._Fdb__segment_id = 33
         mocked_target._Fdb__mac_address = 'ma:ca:dd:re:ss:es'
