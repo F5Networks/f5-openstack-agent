@@ -41,7 +41,7 @@ def weakref_handle(method):
                       "attempt to continue with the remaining tunnels to "
                       "be updated".format(method, args, kwargs))
             gc.collect()
-            remaining = gc.garbage()
+            remaining = gc.garbage
             if remaining:
                 LOG.debug("garbage({})".format(remaining))
             return None
