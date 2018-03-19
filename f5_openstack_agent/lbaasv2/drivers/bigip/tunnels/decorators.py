@@ -19,6 +19,7 @@ manipulations.
 # limitations under the License.
 #
 
+import gc
 import socket
 import sys
 import weakref
@@ -39,6 +40,10 @@ def weakref_handle(method):
                       "being deleted from the cache.  The agent will now "
                       "attempt to continue with the remaining tunnels to "
                       "be updated".format(method, args, kwargs))
+            gc.collect()
+            remaining = gc.garbage()
+            if remaining:
+                LOG.debug("garbage({})".format(remaining))
             return None
     return wrapper
 

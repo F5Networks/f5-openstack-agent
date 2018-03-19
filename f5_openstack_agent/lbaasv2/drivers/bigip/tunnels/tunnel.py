@@ -302,6 +302,7 @@ class TunnelBuilder(object):
             "{} is not meant to be instantiated".format(self.__class__))
 
     @staticmethod
+    @wrappers.weakref_handle
     def __tm_tunnel(bigip, tunnel, action):
         # performs all actions on tm_tunnel by action
         def execute(actions, action):
@@ -394,6 +395,7 @@ class TunnelBuilder(object):
         return exe['method'](*exe['payload'])
 
     @classmethod
+    @wrappers.weakref_handle
     def __tm_fdb_tunnel(cls, bigip, tunnel, action, record={}):
         # performs all actions on tm_fdb_tunnel by action
         def execute(actions, action):
@@ -425,6 +427,7 @@ class TunnelBuilder(object):
             return firsts_result
 
     @staticmethod
+    @wrappers.weakref_handle
     def __tm_records(tm_fdb_tunnel, tunnel, action, record={}):
         if 'get_collection' in action:
             # We've got it!  Send it back...
@@ -512,6 +515,7 @@ class TunnelBuilder(object):
                 return method(cls, bigip, tunnel, fdb)
 
     @classmethod
+    @wrappers.weakref_handle
     def get_records_from_tunnel(cls, bigip, tunnel):
         records = cls.__tm_fdb_tunnel(bigip, tunnel, 'records_get_collection')
         return records
@@ -672,6 +676,7 @@ class TunnelBuilder(object):
                 cls.create_tunnel
 
     @classmethod
+    @wrappers.weakref_handle
     @wrappers.http_error(
         debug={404: "Attempted delete on non-existent record"})
     def remove_record_from_arp(cls, bigip, tunnel, fdb):
@@ -686,8 +691,7 @@ class TunnelBuilder(object):
             remove(fdb)
 
     @classmethod
-    # @_check_if_fdbs
-    # @wrappers.weakref_handle
+    @wrappers.weakref_handle
     def modify_fdb_in_tunnel(cls, bigip, tunnel, fdb):
         """Modifies a tunnel, fdb record that previously exists
 
@@ -765,6 +769,7 @@ class TunnelHandler(cache.CacheBase):
     def _get_bigips_by_hostname(bigips):
         return {x.hostname: x for x in bigips}
 
+    @wrappers.weakref_handle
     @cache.lock
     def tunnel_sync(self, bigips):
         """Checks the list of tunnels that are in pending exist status
@@ -790,6 +795,7 @@ class TunnelHandler(cache.CacheBase):
             self.notify_tunnel_existence(tunnel)
         self.__pending_exists = new_pending_exists
 
+    @wrappers.weakref_handle
     def check_fdbs(self, bigips, fdbs):
         """Checks the given fdbs against the network cache and returns hosts
 
@@ -948,6 +954,7 @@ class TunnelHandler(cache.CacheBase):
                           "{b.hostname}".format(name, partition, b=bigip))
         self.__delete_profile(bigip, 'vxlan', name, partition)
 
+    @wrappers.weakref_handle
     def create_multipoint_tunnel(self, bigip, model):
         """Creates a multipoint tunnel on the BIG-IP
 
@@ -1071,6 +1078,7 @@ class TunnelHandler(cache.CacheBase):
                         fdb_mod.FdbBuilder.create_fdbs_from_bigip_records(
                             bigip, records, tunnel), init=True)
 
+    @wrappers.weakref_handle
     def notify_tunnel_existence(self, tunnel):
         """Performs a notification on the tunnel_rpc that a tunnel is online
 
@@ -1085,6 +1093,7 @@ class TunnelHandler(cache.CacheBase):
         self.tunnel_rpc.tunnel_sync(self.context, tunnel.local_address,
                                     tunnel.tunnel_type)
 
+    @wrappers.weakref_handle
     def notify_vtep_existence(self, hosts, removed=False):
         """Notifies l2population rpc connection of vtep(s) being handled
 
@@ -1127,6 +1136,7 @@ class TunnelHandler(cache.CacheBase):
                     hosts[host] = [tunnel]
         return hosts
 
+    @wrappers.weakref_handle
     def handle_fdbs_from_loadbalancer_and_members(self, bigips, loadbalancer,
                                                   members, remove=False):
         """Handles corner-case of service request with new LB and members
