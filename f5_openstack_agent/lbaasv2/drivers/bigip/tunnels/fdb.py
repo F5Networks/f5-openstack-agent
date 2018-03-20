@@ -315,7 +315,8 @@ class FdbBuilder(object):
 
     @classmethod
     def _consolidate_entries(cls, fdb_entries, network_id=None,
-                             tunnel_type=None, segment_id=None):
+                             tunnel_type=None, segment_id=None,
+                             ip_address=None):
         """Performs consolidation of fdb_entries' raw dict form to Fdb's
 
         This staticmethod will consolidate the list of fdb_entries into a list
@@ -326,30 +327,47 @@ class FdbBuilder(object):
             fdb_entries - {network_id, segment_id, ports: {ip: [[mac, ip]]},
                            network_type}
         """
+        LOG.debug("Received fdb entries: {}".format(fdb_entries))
+
+        keys = fdb_entries.keys() if isinstance(fdb_entries, dict) else []
+
         def generate_fdb(fdb_entry):
-            ip_address = fdb_entry.keys()[0]
             fdbs = list()
-            for vtep_entry in fdb_entry[ip_address]:
-                vtep_mac, vtep_ip = vtep_entry
-                fdbs.append(
-                    Fdb(ip_address, vtep_mac, vtep_ip, network_id,
-                        tunnel_type, segment_id))
+            vtep_mac, vtep_ip = fdb_entry
+            fdbs.append(
+                Fdb(ip_address, vtep_mac, vtep_ip, network_id,
+                    tunnel_type, segment_id))
             return fdbs
 
         if isinstance(fdb_entries, list):
             fdbs = list()
             for fdb_entry in fdb_entries:
+                LOG.debug("Calling generate_fdb({})".format(fdb_entry))
                 fdbs.extend(generate_fdb(fdb_entry))
-        elif isinstance(fdb_entries, dict):
+        elif keys and 'segment_id' in fdb_entries[keys[0]]:
             fdbs = []
-            for network_id in fdb_entries:
+            for network_id in keys:
                 fdb_entry = fdb_entries[network_id]
                 added_payload = dict(
                     network_id=network_id,
-                    segment_id=fdb_entry.get('segment_id'),
-                    tunnel_type=fdb_entry.get('network_type'))
+                    segment_id=fdb_entry.pop('segment_id'),
+                    tunnel_type=fdb_entry.pop('network_type'))
+                fdb_ports = fdb_entry.pop('ports')
+                LOG.debug("calling _consolidate_entries"
+                          "({}, {})".format(fdb_ports, added_payload))
                 fdbs.extend(cls._consolidate_entries(
-                    fdb_entry.get('ports'), **added_payload))
+                    fdb_ports, **added_payload))
+        elif isinstance(fdb_entries, dict):
+            fdbs = list()
+            for ip_address in keys:
+                added_payload = dict(
+                    ip_address=ip_address, network_id=network_id,
+                    segment_id=segment_id, tunnel_type=tunnel_type)
+                fdb_address = fdb_entries.get(ip_address)
+                LOG.debug("calling _consolidate_entries"
+                          "({}, {})".format(fdb_address, added_payload))
+                fdbs.extend(cls._consolidate_entries(
+                    fdb_entries.get(ip_address), **added_payload))
         return fdbs
 
     @classmethod
