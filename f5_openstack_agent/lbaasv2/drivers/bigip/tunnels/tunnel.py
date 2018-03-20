@@ -1006,7 +1006,14 @@ class TunnelHandler(cache.CacheBase):
             else:
                 raise cache.CacheError("Could not find tunnel({}, {}) "
                                        "to delete".format(name, partition))
-        TunnelBuilder.delete_tunnel(bigip, tunnel)
+        try:
+            TunnelBuilder.delete_tunnel(bigip, tunnel)
+        except HTTPError as error:
+            tunnel.logger.error(
+                "Attempted self destruction, but ran into a REST error: "
+                "{}".format(error))
+            # re-apply tunnel
+            self.__network_cache_handler.network_cache = tunnel
 
     @cache.lock
     def purge_multipoint_profiles(self, bigips):
