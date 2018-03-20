@@ -734,7 +734,7 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
             fdb_entry = {
                 network_id: {
                     'network_type': 'vxlan',
-                    'ports': [{arp_address: [[fake_mac, vtep_ip]]}],
+                    'ports': {arp_address: [[fake_mac, vtep_ip]]},
                     'segment_id': 23}}
             context = mock.Mock()
             target.add_fdb_entries(context, fdb_entry)
