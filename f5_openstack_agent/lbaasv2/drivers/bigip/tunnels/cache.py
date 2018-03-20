@@ -21,6 +21,7 @@ additional, shared functionalities between classes.
 import gc
 import os
 import threading
+import time
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as f5_ex
 
@@ -33,19 +34,27 @@ class CacheError(f5_ex.F5AgentException):
 
 def lock(method):
     def lock_wrapper(cache, *args, **kwargs):
+        """Places a lock on the instance of the object"""
         cache.acquire_lock()
         try:
+            attempted_lock_acquire_time = time.time()
             cache.logger.debug(
                 "Locked {} for {}".format(
                     cache.__class__.__name__, method.__name__))
+            method_start_time = time.time()
             ret_val = method(cache, *args, **kwargs)
         except RuntimeError:
             cache.logger.exception("A lock-mechanism error has occurred!")
         finally:
-            cache.logger.debug(
-                "Unlocking {} by {}".format(
-                    cache.__class__.__name__, method.__name__))
+            method_end_time = time.time()
             cache.release_lock()
+            lock_end_time = time.time()
+            cache.logger.debug(
+                "Unlocked {} by {} method tool {} seconds lock {} "
+                "seconds".format(
+                    cache.__class__.__name__, method.__name__,
+                    method_start_time - method_end_time,
+                    attempted_lock_acquire_time - lock_end_time))
         return ret_val
     return lock_wrapper
 
