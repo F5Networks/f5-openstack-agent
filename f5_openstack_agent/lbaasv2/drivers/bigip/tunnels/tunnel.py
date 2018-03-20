@@ -171,7 +171,6 @@ class Tunnel(cache.CacheBase):
         return self.__remote_address
 
     @is_valid_fdbs_arg
-    @cache.lock
     def add_fdbs(self, bigip, fdbs, force_refresh=False, init=False):
         """Handles all scenairos of adding one or more FDB's to a Tunnel
 
@@ -194,6 +193,14 @@ class Tunnel(cache.CacheBase):
         """
         known_macs = set(map(lambda x: x.mac_address, self.__fdbs))
 
+        @cache.lock
+        def append_fdb(self, fdb):
+            self.__fdbs.append(fdb)
+
+        @cache.lock
+        def extend_fdbs(self, fdbs):
+            self.__fdbs.extend(fdbs)
+
         def add_fdb(fdb):
             self.logger.debug("{}: adding {}".format(self.tunnel_name, fdb))
             tunnel_method = TunnelBuilder.add_fdb_to_tunnel
@@ -205,13 +212,13 @@ class Tunnel(cache.CacheBase):
             tunnel_method(bigip, self, fdb)
             fdb_method(bigip, self, fdb)
             if new:
-                self.__fdbs.append(fdb)
+                append_fdb(self, fdb)
             fdb.log_create(bigip, self.partition)
 
         if isinstance(fdbs, list) and fdbs and \
                 isinstance(fdbs[0], fdb_mod.Fdb):
             if not self.exists:
-                self.__fdbs.extend(fdbs)
+                extend_fdbs(self, fdbs)
                 return
             for fdb in fdbs:
                 add_fdb(fdb)
@@ -219,7 +226,7 @@ class Tunnel(cache.CacheBase):
             pass
         elif isinstance(fdbs, fdb_mod.Fdb):
             if not self.exists:
-                self.__fdbs.append(fdb)
+                append_fdb(self, fdb)
             add_fdb(fdb)
 
     @is_valid_fdbs_arg
@@ -978,7 +985,27 @@ class TunnelHandler(cache.CacheBase):
             return
         self.__add_pending_exists(tunnel)
 
-    @cache.lock
+    def _decache_tunnel(self, hostname, name, partition):
+        # performs a de-caching of the tunnel found with specs
+        @cache.lock
+        def decache_from_self(self, hostname, name, partition):
+            for count, tunnel in enumerate(self.__pending_exists):
+                if tunnel.bigip_host == hostname and \
+                        tunnel.tunnel_name == name and \
+                        tunnel.partition == partition:
+                    self.__pending_exists.pop(count)
+                    break
+            else:
+                raise cache.CacheError("Could not find tunnel({}, {}) "
+                                       "to delete".format(name, partition))
+            return tunnel
+
+        tunnel = self.__network_cache_handler.remove_tunnel(
+            hostname, name=name, partition=partition)
+        if not tunnel:
+            tunnel = decache_from_self(self, hostname, name, partition)
+        return tunnel
+
     def remove_multipoint_tunnel(self, bigip, name, partition):
         """Deletes a multipoint tunnel off of the BIG-IP
 
@@ -992,28 +1019,14 @@ class TunnelHandler(cache.CacheBase):
         Returns:
             None
         """
+        hostname = bigip.hostname
         self.logger.debug(
             "Deleting Tunnel({b.hostname}, {}, {})".format(
                 partition, name, b=bigip))
         tunnel = self.__network_cache_handler.remove_tunnel(
-            bigip.hostname, name=name, partition=partition)
-        if not tunnel:
-            for itunnel in self.__pending_exists:
-                if itunnel.tunnel_name == name and \
-                        itunnel.partition == partition:
-                    tunnel = itunnel
-                    break
-            else:
-                raise cache.CacheError("Could not find tunnel({}, {}) "
-                                       "to delete".format(name, partition))
-        try:
-            TunnelBuilder.delete_tunnel(bigip, tunnel)
-        except HTTPError as error:
-            tunnel.logger.error(
-                "Attempted self destruction, but ran into a REST error: "
-                "{}".format(error))
-            # re-apply tunnel
-            self.__network_cache_handler.network_cache = tunnel
+            hostname, name=name, partition=partition)
+        tunnel = self._decache_tunnel(hostname, name, partition)
+        TunnelBuilder.delete_tunnel(bigip, tunnel)
 
     @cache.lock
     def purge_multipoint_profiles(self, bigips):
@@ -1127,20 +1140,24 @@ class TunnelHandler(cache.CacheBase):
                     notify(self.context, entry)
                     fdbs_by_mac[fdb.mac_address] = fdb
 
-    @cache.lock
     def _get_tunnels_by_network(self, network):
+        # extracts tunnel by network provided and returns
+        @cache.lock
+        def search_self_for_network(self, network_id, segment_id, hosts):
+            for tunnel in self.__pending_exists:
+                if int(tunnel.segment_id) == int(segment_id) and \
+                        tunnel.network_id == network_id:
+                    host = tunnel.bigip_host
+                    if host in hosts:
+                        hosts[host].append(tunnel)
+                    else:
+                        hosts[host] = [tunnel]
+
         network_id = network['id']
         segment_id = network['provider:segmentation_id']
         hosts = self.__network_cache_handler.get_tunnels_by_designation(
             network_id, segment_id)
-        for tunnel in self.__pending_exists:
-            if int(tunnel.segment_id) == int(segment_id) and \
-                    tunnel.network_id == network_id:
-                host = tunnel.bigip_host
-                if host in hosts:
-                    hosts[host].append(tunnel)
-                else:
-                    hosts[host] = [tunnel]
+        search_self_for_network(self, network_id, segment_id, hosts)
         return hosts
 
     @wrappers.weakref_handle
@@ -1180,3 +1197,6 @@ class TunnelHandler(cache.CacheBase):
         short_name = network_name.replace('tunnel-', '')
         short_name = network_name.replace('tunnel-', '')
         return short_name
+
+    def clean_network_cache(self):
+        self.__network_cache_handler.clean_network_cache()
