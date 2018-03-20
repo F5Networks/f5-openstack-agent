@@ -310,6 +310,7 @@ class TestTunnel(ClassTesterBase, TestTunnelMocker):
         self.tunnel_builder.set_network_id(tunnel_obj, 'network_id')
         self.fdb_builder.set_network_id(fdb_obj, 'network_id')
         standalone_builder.add_pending_exists(target, tunnel_obj)
+        bigip.hostname = 'host'
         target.remove_multipoint_tunnel(bigip, tunnel_obj.tunnel_name,
                                         partition)
         tm_tunnel = bigip.tm_tunnel

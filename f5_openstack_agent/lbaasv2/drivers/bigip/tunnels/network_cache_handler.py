@@ -143,7 +143,12 @@ class NetworkCacheHandler(cache.CacheBase):
                                     fdb=None):
         segment = str(segment)
         tunnels = self.__network_cache[network_id][segment]
-        for tunnel in tunnels:
+        removal = list()
+        for cnt, tunnel in enumerate(tunnels):
+            try:
+                tunnel.tunnel_name
+            except ReferenceError:
+                removal.append(cnt)
             if fdb and tunnel.local_address == fdb.vtep_ip:
                 return
             host = tunnel.bigip_host
@@ -156,6 +161,37 @@ class NetworkCacheHandler(cache.CacheBase):
                 level = hosts.get(host, [])
                 level.append(tunnel)
                 hosts[host] = level
+        if removal:
+            if len(removal) == len(tunnel):
+                del self.__network_cache[network_id][segment]
+                if not self.__network_cache[network_id]:
+                    del self.__network_cache[network_id]
+            else:
+                for cnt in removal:
+                    tunnels.pop(cnt)
         return hosts
+
+    def clean_network_cache(self):
+        """Performs a thorough sweep against the cache cleaning it of weakrefs
+
+        This method will sweep through all entries in the dict portion of the
+        cache cleaning up weakrefs.
+        """
+        for net in self.__network_cache:
+            network_lvl = self.__network_cache[net]
+            for seg in network_lvl:
+                segment = network_lvl[seg]
+                removals = list()
+                for cnt, entry in enumerate(segment):
+                    try:
+                        segment.tunnel_name
+                    except ReferenceError:
+                        removals.append(cnt)
+                for cnt in removals:
+                    segment.pop(cnt)
+                if not segment:
+                    del network_lvl[seg]
+            if not network_lvl:
+                del self.__network_cache[net]
 
     network_cache = property(_get_network_cache, _add_to_network_cache)

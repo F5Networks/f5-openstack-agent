@@ -397,6 +397,7 @@ class FdbBuilder(object):
         hosts = cls._check_entries(tunnel_handler, bigips, fdbs)
         cls._update_bigips(bigips, hosts, remove)
         tunnel_handler.notify_vtep_existence(hosts)
+        tunnel_handler.clean_network_cache()
 
     @classmethod
     @wrapper.weakref_handle
