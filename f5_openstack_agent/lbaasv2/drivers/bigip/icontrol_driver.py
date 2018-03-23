@@ -375,6 +375,8 @@ class iControlDriver(LBaaSBaseDriver):
             resource_helper.ResourceType.virtual)
         self.pool_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
+        self.va_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual_address)
 
         if self.conf.trace_service_requests:
             path = '/var/log/neutron/service/'
@@ -898,6 +900,33 @@ class iControlDriver(LBaaSBaseDriver):
         LOG.debug("Deleting health monitor")
         return self._common_service_handler(service)
 
+    # sapcc: get all snat pools
+    @serialized('get_all_snat_pools')
+    @is_connected
+    def get_all_snat_pools(self, partition=None):
+        LOG.debug('getting all snat pools on BIG-IPs')
+
+        snat_pools = []
+        if self.network_builder:
+            for bigip in self.get_all_bigips():
+                snat_pools += self.network_builder.bigip_snat_manager.get_snats(bigip, partition)
+
+        return snat_pools
+
+    # sapcc: get all virtual_addresses
+    @serialized('get_all_virtual_addresses')
+    @is_connected
+    def get_all_virtual_addresses(self):
+        LOG.debug('getting all virtual addresses on BIG-IPs')
+
+        virtual_address_s = []
+        if self.network_builder:
+            for bigip in self.get_all_bigips():
+                virtual_address_s += self.va_manager.get_resources(bigip)
+
+        return virtual_address_s
+
+
     @is_connected
     def get_stats(self, service):
         lb_stats = {}
@@ -945,7 +974,7 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.system.purge_orphaned_folders_contents(existing_tenants)
 
         for bigip in self.get_all_bigips():
-            bigip.system.purge_orphaned_folders(existing_tenants)
+            bigip.system.purge_orphaned_folders(existing_tenants)\
 
     def fdb_add(self, fdb):
         # Add (L2toL3) forwarding database entries
