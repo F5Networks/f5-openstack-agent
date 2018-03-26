@@ -141,7 +141,7 @@ class TestVLANCreate(object):
             name='test_vlan', partition='Project_123456789', tag=1000)
 
         v.interfaces_s.interfaces.create.assert_called_with(
-            name='1.3', tagged=True, tagMode="service")
+            name='1.3', tagged=True)
 
     def test_create_vlan_with_tagged_int_11_5(self, bigip, network_helper):
         """Test vlan create when model contains tagged interface (TMOS 11.5)
@@ -150,7 +150,7 @@ class TestVLANCreate(object):
         expected args.
 
         2) Assert that create vlan interface called once with
-        expected args including tagMode.
+        expected args not including tagMode.
         3) The first call to create vlan interface results in exception
         that is caught.
         4) The subsequent call to create vlan interface does not have
@@ -182,9 +182,9 @@ class TestVLANCreate(object):
         # is called only twice.
         assert(call_count == 2)
 
-        # Check that tagMode was used in first call
+        # Check that tagMode was not used in first call
         args, kwargs = call_list[0]
-        assert("tagMode" in kwargs)
+        assert("tagMode" not in kwargs)
 
         # Check that tagMode was not used in second call.
         args, kwargs = call_list[1]

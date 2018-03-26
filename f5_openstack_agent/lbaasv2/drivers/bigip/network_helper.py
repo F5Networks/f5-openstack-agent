@@ -395,7 +395,6 @@ class NetworkHelper(object):
                 payload = {'name': interface}
                 if tag:
                     payload['tagged'] = True
-                    payload['tagMode'] = "service"
                 else:
                     payload['untagged'] = True
 
@@ -405,7 +404,6 @@ class NetworkHelper(object):
                 except TagModeDisallowedForTMOSVersion as e:
                     # Providing the tag-mode is not supported
                     LOG.warn(e.message)
-                    payload.pop('tagMode')
                     i.create(**payload)
 
             if not partition == const.DEFAULT_PARTITION:
