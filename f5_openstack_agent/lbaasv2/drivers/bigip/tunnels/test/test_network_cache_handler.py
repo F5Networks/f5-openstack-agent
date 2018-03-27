@@ -5,7 +5,7 @@ module in production.  As such, it has the MockBuilder and the ClassTester
 classes needed to do so while using the agent's unit test schema.
 """
 
-# Copyright 2018 F5 Networks Inc.
+# Copyright (c) 2018, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
