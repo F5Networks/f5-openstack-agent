@@ -462,8 +462,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 snat_pools.remove(snat_obj)
 
         for orphaned_snat in snat_pools:
-            orphaned_snat.delete()
             LOG.debug("sapcc: purging orphaned snat pool %s" % orphaned_snat.name)
+            orphaned_snat.delete()
 
     # ccloud: try purging all snat pools
     def find_in_collection(self, name, collection):
