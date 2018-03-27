@@ -4,7 +4,7 @@ This library houses the appropriate classes to orchestrate updating fdb vtep
 entries.  This library utilizes other, neighboring libraries to accomplish its
 task and relies heavily on tunnel logic.
 """
-# Copyright 2018 F5 Networks Inc.
+# Copyright (c) 2018, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

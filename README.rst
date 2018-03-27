@@ -1,7 +1,7 @@
 .. raw:: html
 
    <!--
-   Copyright 2015-2017 F5 Networks Inc.
+   Copyright (c) 2015-2018, F5 Networks, Inc.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -168,7 +168,7 @@ They do require access to a BIG-IP device or BIG-IP Virtual Edition (VE) instanc
 Copyright
 ---------
 
-Copyright 2015-2017 F5 Networks Inc.
+Copyright (c) 2015-2018, F5 Networks, Inc.
 
 Support
 -------

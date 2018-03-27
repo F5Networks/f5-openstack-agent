@@ -7,7 +7,7 @@ objects.
 Thus, this test module handles all items surrounding the direct testing of
 FdbBuilder.
 """
-# Copyright 2018 F5 Networks Inc.
+# Copyright (c) 2018, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

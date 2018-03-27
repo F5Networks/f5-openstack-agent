@@ -4,7 +4,7 @@ This is a decorator library, and as such, all method within this library are
 decorator methods that either add wrappers or handle specific cases for method
 manipulations.
 """
-# Copyright 2018 F5 Networks Inc.
+# Copyright (c) 2018, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

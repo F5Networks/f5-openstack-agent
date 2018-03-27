@@ -1,6 +1,6 @@
 """Agent manager to handle plugin to agent RPC and periodic tasks."""
 # coding=utf-8
-# Copyright 2016 F5 Networks Inc.
+# Copyright (c) 2016-2018, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

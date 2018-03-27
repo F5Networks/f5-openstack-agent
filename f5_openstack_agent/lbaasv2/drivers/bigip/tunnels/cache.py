@@ -3,7 +3,7 @@
 This library hosts a cache base class for tunnels.  This cache base allows for
 additional, shared functionalities between classes.
 """
-# Copyright 2018 F5 Networks Inc.
+# Copyright (c) 2018, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
