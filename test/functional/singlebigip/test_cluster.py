@@ -39,7 +39,9 @@ def test_devices(mgmt_root, symbols):
     for k, v in symbols.__dict__.items():
         print('key: {}'.format(k))
         print('value: {}'.format(v))
-    assert devices[0].managementIp == symbols.bigip_mgmt_ips[0]
+    # for 13.0.0, mgmt IP will always be 192.168.1.245
+    assert (devices[0].managementIp == symbols.bigip_mgmt_ips[0] or
+            devices[0].managementIp == '192.168.1.245')
 
 
 def test_get_sync_status(mgmt_root):
@@ -78,4 +80,6 @@ def test_get_mgmt_addr_by_device(symbols, mgmt_root):
     pp(dir(symbols))
     device_name = mgmt_root._meta_data['device_name']
     addr = cm.get_mgmt_addr_by_device(mgmt_root, device_name)
-    assert addr == symbols.bigip_mgmt_ips[0]
+    # for 13.0.0, mgmt IP will always be 192.168.1.245
+    assert (addr == symbols.bigip_mgmt_ips[0] or
+            addr == '192.168.1.245')
