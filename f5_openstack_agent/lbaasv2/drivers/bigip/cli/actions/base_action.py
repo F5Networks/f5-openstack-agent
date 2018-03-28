@@ -35,10 +35,12 @@ class BaseAction(object):
 
 
     def __init__(self,namespace):
+        # append appends config paths to defaults... not what we intend
+        if len(namespace.config) > 2:
+            self.config_files = namespace.config[2:]
+        else:
+            self.config_files = namespace.config
 
-        self.lb_id = namespace.lb_id
-        self.project_id = namespace.project_id
-        self.config_files = namespace.config
         self.conf = cfg.CONF
 
         config_files = []
