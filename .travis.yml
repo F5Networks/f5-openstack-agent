@@ -6,7 +6,15 @@ env:
     - PKG_RELEASE=$(python ${DIST_REPO}/scripts/get-version-release.py --release)
     - PKG_RELEASE_EL7=${DIST_REPO}/rpms/build/f5-openstack-agent-${PKG_VERSION}-${PKG_RELEASE}.el7.noarch.rpm
     - PKG_RELEASE_1404=${DIST_REPO}/deb_dist/python-f5-openstack-agent_${PKG_VERSION}-${PKG_RELEASE}_1404_all.deb
-    - RELEASE_TAG=v$(echo $PKG_VERSION | cut -d . -f 1,2)
+    - |
+      if [[ "$TRAVIS_BRANCH" == *"-stable" ]]; then
+        export CTLR_VERSION=v$(echo $TRAVIS_BRANCH | sed s/-stable//g)
+      elif [[ "$TRAVIS_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]* ]]; then
+        va=( ${TRAVIS_BRANCH//./ } ) # replace decimals and split into array
+        export CTLR_VERSION="${va[0]}.${va[1]}"
+      else
+        export CTLR_VERSION=$TRAVIS_BRANCH
+      fi
 services:
 - docker
 language: python
@@ -69,25 +77,14 @@ deploy:
       tags: true
       python: 2.7
     skip_cleanup: true
-  # deploy docs to s3
-  # if this is not a tagged release, the docs go to /products/openstack/agent/$TRAVIS_BRANCH
   - provider: script
     skip_cleanup: true
     on:
+      all_branches: true
       repo: F5Networks/f5-openstack-agent
-      branch: master
-      condition: $TRAVIS_TAG = ""
+      condition: $TRAVIS_BRANCH == *"-stable" || "$TRAVIS_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]*
     script:
-    - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $TRAVIS_BRANCH
-  # For tagged releases, the docs publish at /products/openstack/lbaasv2-driver/<branch-name>/vX.Y
-  # This section is commented out on the master branch because we don't need to publish tagged releases to /master
-  #- provider: script
-  #  skip_cleanup: true
-  #  on:
-  #    tags: true
-  #    repo: F5Networks/f5-openstack-agent
-  #  script:
-  #  - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent/$TRAVIS_BRANCH $RELEASE_TAG
+      - ./build-tools/deploy-docs.sh publish-product-docs-to-prod openstack/agent v$CTLR_VERSION
 
 notifications:
   slack:

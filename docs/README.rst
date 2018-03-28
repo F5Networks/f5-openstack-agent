@@ -3,7 +3,7 @@ F5 Agent for OpenStack Neutron
 
 .. sidebar:: **OpenStack version:**
 
-   |openstack|
+   The |agent-long| supports OpenStack releases from Mitaka forward.
 
 |Build Status|
 
