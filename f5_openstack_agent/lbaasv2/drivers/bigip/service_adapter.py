@@ -451,8 +451,11 @@ class ServiceModelAdapter(object):
                 vip['destination'] = ip_address + ":" + str(port)
         else:
             LOG.error("No VIP address or port specified")
-
-        vip["mask"] = '255.255.255.255'
+        
+        if ':' in ip_address:
+            vip["mask"] = 'FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF'
+        else:
+            vip["mask"] = '255.255.255.255'
 
         if "admin_state_up" in listener:
             if listener["admin_state_up"]:
