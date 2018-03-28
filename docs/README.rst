@@ -100,18 +100,6 @@ Install the |agent| release package from GitHub.
 
    pip install |f5_agent_pip_url|
 
-
-.. tip::
-
-   Use ``@<branch-name>`` to install from HEAD on a specific branch.
-
-   For example:
-
-   .. parsed-literal::
-
-      pip install |f5_agent_pip_url_branch|
-
-
 .. index::
    triple: f5-openstack-agent; install; rpm
 

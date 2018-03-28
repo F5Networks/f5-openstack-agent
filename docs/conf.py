@@ -348,7 +348,6 @@ texinfo_show_urls = 'footnote'
 
 rst_epilog = '''
 .. |f5_agent_pip_url| replace:: git+https://github.com/F5Networks/f5-openstack-agent@v%(version)s
-.. |f5_agent_pip_url_branch| replace:: git+https://github.com/F5Networks/f5-openstack-agent
 .. |f5_agent_deb_url| replace:: https://github.com/F5Networks/f5-openstack-agent/releases/download/v%(version)s/python-f5-openstack-agent_%(version)s-1_1404_all.deb
 .. |f5_agent_rpm_url| replace:: https://github.com/F5Networks/f5-openstack-agent/releases/download/v%(version)s/f5-openstack-agent-%(version)s-1.el7.noarch.rpm
 .. |f5_agent_deb_package| replace:: python-f5-openstack-agent_%(version)s-1_1404_all.deb
