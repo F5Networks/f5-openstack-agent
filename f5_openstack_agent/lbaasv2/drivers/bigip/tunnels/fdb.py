@@ -29,6 +29,8 @@ from oslo_log import log as logging
 import f5_openstack_agent.lbaasv2.drivers.bigip.l2_service as l2_service
 import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.decorators \
     as wrapper
+import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels. \
+    tm_actions as tm_actions
 # import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.tunnel as tunnel_mod
 
 LOG = logging.getLogger(__name__)
@@ -228,47 +230,13 @@ class FdbBuilder(object):
 
     @staticmethod
     def __tm_arp(bigip, tunnel, fdb, action):
-        tm_arp = bigip.tm.net.arps.arp
-        partition = tunnel.partition
-        mac_address = fdb.mac_address
-        ip_address = fdb.ip_address
-        load_payload = dict(name=mac_address, partition=partition)
-        create_payload = dict(ipAddress=ip_address, macAddress=mac_address,
-                              partition=partition)
-        actions = {'load': dict(payload=load_payload, method=tm_arp.load),
-                   'create': dict(payload=create_payload,
-                                  method=tm_arp.create),
-                   'modify': dict(payload=load_payload, method=tm_arp.load),
-                   'delete': dict(payload=load_payload, method=tm_arp.load)}
-        laction = actions[action]
-        fdb.logger.debug(
-            "Performing {} on bigip.tm.net.arps.arp for ({t.partition}, "
-            "{f.mac_address}, {f.ip_address}) on {b.hostname}".format(
-                action, f=fdb, t=tunnel, b=bigip))
-        arp = laction['method'](**laction['payload'])
-        if action in ['delete', 'modify']:
-            if action == 'delete':
-                arp.delete()
-                return None
-            elif action == 'modify':
-                # should be extremely rare...
-                arp.modify(**actions['create']['payload'])
-        return arp
+        act = tm_actions.TmArp(bigip, action, fdb, tunnel.partition)
+        return act()
 
     @classmethod
-    def __tm_arps(cls, bigip, action='get_collection', tunnel=None, fdb=None):
-        tm_arps = bigip.tm.net.arps
-        if fdb and action in ['load', 'modify', 'create']:
-            return cls.__tm_arp(bigip, tunnel, fdb, action)
-        elif fdb and action == 'get_collection':
-            partition = fdb.partition
-        elif tunnel and action == 'get_collection':
-            partition = tunnel.partition
-        else:
-            raise ValueError("Improper combination ({}, {} and {})".format(
-                tunnel, fdb, action))
-        params = {'params': dict(filter="partition eq {}".format(partition))}
-        return tm_arps.get_collection(requests_params=params)
+    def __tm_arps(cls, bigip, action='get_collection', tunnel=None):
+        act = tm_actions.TmArps(bigip, action, tunnel)
+        return act()
 
     @staticmethod
     def _check_entries(tunnel_handler, bigips, fdbs):
@@ -371,6 +339,7 @@ class FdbBuilder(object):
         return fdbs
 
     @classmethod
+    @wrapper.timed
     def handle_fdbs(cls, fdb_entry, tunnel_handler, bigips,
                     remove=False):
         """Performs operations to update fdb_entries on the BIG-IP's given
@@ -397,10 +366,8 @@ class FdbBuilder(object):
         hosts = cls._check_entries(tunnel_handler, bigips, fdbs)
         cls._update_bigips(bigips, hosts, remove)
         tunnel_handler.notify_vtep_existence(hosts)
-        tunnel_handler.clean_network_cache()
 
     @classmethod
-    @wrapper.weakref_handle
     def handle_fdbs_by_loadbalancer_and_members(
             cls, bigip, tunnel, loadbalancer, members, remove=False):
         """Creates a list of fdb's from a loadbalancer/members values pair
@@ -430,10 +397,11 @@ class FdbBuilder(object):
             network = loadbalancer['network']
         else:
             network = members[0]['network']
-        loadbalancer_vteps = loadbalancer.get(vtep_key, []) if loadbalancer \
-            else []
+        loadbalancer_vteps = loadbalancer.get(vtep_key, []) \
+            if loadbalancer else []
         for vtep_address in loadbalancer_vteps:
-            fake_mac = l2_service.get_tunnel_fake_mac(network, vtep_address)
+            fake_mac = l2_service.get_tunnel_fake_mac(
+                network, vtep_address)
             fdbs.append(
                 create_fdb_by_vtep(tunnel, network, '', fake_mac,
                                    vtep_address, force=True))
@@ -454,13 +422,17 @@ class FdbBuilder(object):
                 else:
                     LOG.debug(message)
                 continue
-            LOG.debug("Creating Fdb's for {} [{}]".format(member_str, vteps))
+            LOG.debug(
+                "Creating Fdb's for {} [{}]".format(member_str, vteps))
             for vtep_address in vteps:
                 fdbs.append(
                     create_fdb_by_vtep(
                         tunnel, network, addr, mac, vtep_address))
         tunnel_method = tunnel.remove_fdbs if remove else tunnel.add_fdbs
-        tunnel_method(bigip, fdbs)
+        try:
+            tunnel_method(bigip, fdbs)
+        except Exception as error:
+            LOG.warning(str(error))
 
     @classmethod
     def create_fdbs_from_bigip_records(cls, bigip, records, tunnel):

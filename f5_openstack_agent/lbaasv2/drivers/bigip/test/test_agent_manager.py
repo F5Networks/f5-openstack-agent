@@ -16,7 +16,6 @@
 
 import mock
 import pytest
-import weakref
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import agent_manager
 from f5_openstack_agent.lbaasv2.drivers.bigip.tunnels import tunnel as \
@@ -614,48 +613,6 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
 
         down_to_plugin_rpc_functional(target, standalone_builder, svc)
 
-    def test_bb_network_cache(self, service_with_loadbalancer,
-                              standalone_builder, fully_mocked_target):
-        """Performs a BB test against network_cache functionality
-
-        This is a feature black-box test that ends at the SDK.
-
-        This test will perform the following:
-            * Dope a "BIG-IP" mock with a tunnel
-            * Check that the network_cache equates to expected based upon
-                doped BIG-IP's tunnel values
-        """
-        svc = service_with_loadbalancer
-        target = fully_mocked_target
-
-        network_id = svc['loadbalancer']['network_id']
-        segment_id = '58'
-        svc['networks'][network_id]['provider:segmentation_id'] = segment_id
-        fake_tunnel_name = 'tunnel-vxlan-{}'.format(segment_id)
-        fake_tunnel = mock.Mock()
-        fake_tunnel.tunnel_name = fake_tunnel_name
-        fake_tunnel.segment_id = segment_id
-        fake_tunnel.network_id = network_id
-        fake_tunnel.bigip_host = 'host'
-        fake_tunnel.partition = "partition"
-        fake_tunnel.remote_address = "192.168.1.1"
-        target.tunnel_handler._TunnelHandler__pending_exists \
-            = [fake_tunnel]
-        bigip = mock.Mock()
-        bigip.hostname = 'host'
-        bigip.status = 'active'
-        bigip.tm.net.tunnels.tunnel.exists.return_value = True
-        target._LbaasAgentManager__lbdriver._iControlDriver__bigips = \
-            dict(host=bigip)
-        # assign expected values and test...
-        expected_network_cache = {
-            network_id: {'58': [weakref.proxy(fake_tunnel)]}}
-        target.update_network_cache()
-        assert target.tunnel_handler._TunnelHandler__network_cache_handler.\
-            _NetworkCacheHandler__network_cache == \
-            expected_network_cache
-        assert target.tunnel_handler.tunnel_rpc.tunnel_sync.call_count
-
     def test_bb_l2_population(self, service_with_loadbalancer,
                               standalone_builder, fully_mocked_target):
         """Performs a L2 Population test against valid fdb_entry
@@ -727,6 +684,8 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
 
         def test_add(target, svc, builder):
             bigip = fake_bigip(target, svc)
+            target._LbaasAgentManager__tunnel_handler.\
+                _TunnelHandler__pending_exists = []
             network_id = svc['loadbalancer']['network_id']
             fake_mac = '92:37:a2:b2:12:38'
             vtep_ip = '201.0.155.5'
@@ -737,6 +696,8 @@ class TestLbaasAgentManager(LBaasAgentManagerMocker,
                     'ports': {arp_address: [[fake_mac, vtep_ip]]},
                     'segment_id': 23}}
             context = mock.Mock()
+            target._LbaasAgentManager__lbdriver.tunnel_handler = \
+                target.tunnel_handler
             target.add_fdb_entries(context, fdb_entry)
             assert bigip.tm_fdb_tunnel.load.call_count
             assert bigip.tm_records.create.call_count

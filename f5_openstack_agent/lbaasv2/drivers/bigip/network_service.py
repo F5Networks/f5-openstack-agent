@@ -84,17 +84,25 @@ class NetworkServiceBuilder(object):
         if vtep_selfip_name and \
                 not vtep_selfip_name.lower() == 'none':
 
-            # profiles may already exist
-            # create vxlan_multipoint_profile`
-            self.driver.tunnel_handler.create_vxlan_multipoint_profile(
-                bigip,
-                'vxlan_ovs',
-                partition='Common')
-            # create l2gre_multipoint_profile
-            self.driver.tunnel_handler.create_l2gre_multipoint_profile(
-                bigip,
-                'gre_ovs',
-                partition='Common')
+            try:
+                # profiles may already exist
+                # create vxlan_multipoint_profile`
+                self.driver.tunnel_handler.create_vxlan_multipoint_profile(
+                    bigip,
+                    'vxlan_ovs',
+                    partition='Common')
+            except Exception as error:
+                LOG.debug(
+                    "Could not create vxlan profile due to {}".format(error))
+            try:
+                # create l2gre_multipoint_profile
+                self.driver.tunnel_handler.create_l2gre_multipoint_profile(
+                    bigip,
+                    'gre_ovs',
+                    partition='Common')
+            except Exception as error:
+                LOG.debug(
+                    "Could not create gre profile due to {}".format(error))
 
             # find the IP address for the selfip for each box
             local_ip = self.bigip_selfip_manager.get_selfip_addr(
