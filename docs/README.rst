@@ -3,7 +3,7 @@ F5 Agent for OpenStack Neutron
 
 .. sidebar:: **OpenStack version:**
 
-   |openstack|
+   The |agent-long| supports OpenStack releases from Mitaka forward.
 
 |Build Status|
 
@@ -99,18 +99,6 @@ Install the |agent| release package from GitHub.
 .. parsed-literal::
 
    pip install |f5_agent_pip_url|
-
-
-.. tip::
-
-   Use ``@<branch-name>`` to install from HEAD on a specific branch.
-
-   For example:
-
-   .. parsed-literal::
-
-      pip install |f5_agent_pip_url_branch|
-
 
 .. index::
    triple: f5-openstack-agent; install; rpm
