@@ -32,38 +32,6 @@ from ...test.mock_builder_base_class import MockBuilderBase
 target_mod = 'f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.fdb.FdbBuilder'
 
 
-class TestFdbMockBuilder(MockBuilderBase):
-    """This is the MockBuilder for the Fdb object
-
-    This follows the standard mock factory framework for unit testing in the
-    agent.
-    """
-    @mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.fdb.'
-                'Fdb.__init__')
-    def mocked_target(self, init):
-        """Creates and returns a mocked Fdb object"""
-        init.return_value = None
-        return fdb.Fdb()
-
-    def fully_mocked_target(self, mocked_target):
-        """Creates and returns a fully mocked Fdb object"""
-        mocked_target.logger = mock.Mock()
-        mocked_target._Fdb__ip_address = '192.168.1.6'
-        mocked_target._Fdb__segment_id = 33
-        mocked_target._Fdb__mac_address = 'ma:ca:dd:re:ss:es'
-        mocked_target._Fdb__vtep_ip = '10.22.22.6'
-        mocked_target._Fdb__network_type = 'vxlan'
-        return mocked_target
-
-    def set_network_id(self, target, network_id):
-        """Wrapper to set the target's network_id bypassing prod"""
-        target._Fdb__network_id = network_id
-
-    def set_network_type(self, target, m_type):
-        """Wrapper to set the target's network_type bypassing prod"""
-        target._Fdb__network_type = m_type
-
-
 class TestFdbBuilderMockBuilder(MockBuilderBase):
     """This is the MockBuilder for the FdbBuilder object
 

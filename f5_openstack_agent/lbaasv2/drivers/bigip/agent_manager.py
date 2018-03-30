@@ -17,9 +17,7 @@
 
 import datetime
 import sys
-import traceback
 import uuid
-import weakref
 
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -36,10 +34,7 @@ try:
 except ImportError:
     from neutron import context as ncontext
 
-import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as constants_v2
-import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.fdb as fdb
-import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.tunnel as tunnel
-
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 
@@ -249,8 +244,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.last_resync = datetime.datetime.now()
         self.needs_resync = False
         self.plugin_rpc = None
-        self.__tunnel_rpc = None
-        self.__l2_pop_rpc = None
+        self.tunnel_rpc = None
+        self.l2_pop_rpc = None
         self.state_rpc = None
         self.pending_services = {}
 
@@ -260,7 +255,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         # Load the driver.
         self._load_driver(conf)
-        lbdriver = self.lbdriver
 
         # Set the agent ID
         if self.conf.agent_id:
@@ -271,7 +265,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             agent_hash = str(
                 uuid.uuid5(uuid.NAMESPACE_DNS,
                            self.conf.environment_prefix +
-                           '.' + lbdriver.hostnames[0])
+                           '.' + self.lbdriver.hostnames[0])
                 )
             self.agent_host = conf.host + ":" + agent_hash
             LOG.debug('setting agent host to %s' % self.agent_host)
@@ -305,13 +299,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Setup RPC for communications to and from controller
         self._setup_rpc()
 
-        # Passes tunnel_handler to driver...
-        if not self.conf.f5_global_routed_mode:
-            lbdriver.set_tunnel_handler(self.tunnel_handler)
+        # Set driver context for RPC.
+        self.lbdriver.set_context(self.context)
         # Allow the driver to make callbacks to the LBaaS driver plugin
-        lbdriver.set_plugin_rpc(self.plugin_rpc)
+        self.lbdriver.set_plugin_rpc(self.plugin_rpc)
+        # Allow the driver to update tunnel endpoints
+        self.lbdriver.set_tunnel_rpc(self.tunnel_rpc)
+        # Allow the driver to update forwarding records in the SDN
+        self.lbdriver.set_l2pop_rpc(self.l2_pop_rpc)
         # Allow the driver to force and agent state report to the controller
-        lbdriver.set_agent_report_state(self._report_state)
+        self.lbdriver.set_agent_report_state(self._report_state)
 
         # Set the flag to resync tunnels/services
         self.needs_resync = True
@@ -328,12 +325,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             heartbeat.start(interval=report_interval)
 
     def _load_driver(self, conf):
-        self.__lbdriver = None
+        self.lbdriver = None
 
         LOG.debug('loading LBaaS driver %s' %
                   conf.f5_bigip_lbaas_device_driver)
         try:
-            self.__lbdriver = importutils.import_object(
+            self.lbdriver = importutils.import_object(
                 conf.f5_bigip_lbaas_device_driver,
                 self.conf)
             return
@@ -392,7 +389,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if not self.conf.f5_global_routed_mode:
 
             # notifications when tunnel endpoints get added
-            self.__tunnel_rpc = agent_rpc.PluginApi(constants_v2.PLUGIN)
+            self.tunnel_rpc = agent_rpc.PluginApi(constants_v2.PLUGIN)
 
             # define which controler notifications the agent comsumes
             consumers = [[constants_v2.TUNNEL, constants_v2.UPDATE]]
@@ -402,7 +399,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if self.conf.l2_population:
                 # communications of notifications from the
                 # driver to neutron for SDN topology changes
-                self.__l2_pop_rpc = l2pop_rpc.L2populationAgentNotifyAPI()
+                self.l2_pop_rpc = l2pop_rpc.L2populationAgentNotifyAPI()
 
                 # notification of SDN topology updates from the
                 # controller by adding to the general consumer list
@@ -420,11 +417,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 constants_v2.AGENT,
                 consumers
             )
-            self.__tunnel_handler = \
-                tunnel.TunnelHandler(self.__tunnel_rpc, self.__l2_pop_rpc,
-                                     self.context)
-            bigips = self.lbdriver.get_all_bigips()
-            self.__tunnel_handler.agent_init(bigips)
 
     def _report_state(self, force_resync=False):
         try:
@@ -477,30 +469,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         except Exception as e:
             LOG.exception(("Failed to report state: " + str(e.message)))
-
-    @property
-    def tunnel_handler(self):
-        """An decoring get method that returns a weakref.proxy(tunnel_handler)
-
-        This is necessary to keep from having multiple cross-referenced
-        objects pointing to a cache that might not otherwise get gc'ed.
-        """
-        return weakref.proxy(self.__tunnel_handler)
-
-    @property
-    def lbdriver(self):
-        """An decoring get method that returns a weakref.proxy(lbdriver)"""
-        return weakref.proxy(self.__lbdriver)
-
-    @property
-    def l2_pop_rpc(self):
-        """A decorating get method that returns a weakref.proxy(l2_pop_rpc)"""
-        return weakref.proxy(self.__l2_pop_rpc)
-
-    @property
-    def tunnel_rpc(self):
-        """A decorating get method that returns a weakref.proxy(tunnel_rpc)"""
-        return weakref.proxy(self.__tunnel_rpc)
 
     # callback from oslo messaging letting us know we are properly
     # connected to the message bus so we can register for inbound
@@ -594,22 +562,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # clean any objects orphaned on devices and persist configs
             if self.clean_orphaned_objects_and_save_device_config():
                 self.needs_resync = True
-        self.update_network_cache()
-
-    def update_network_cache(self):
-        """Executes an update against the NetworkCacheHandler
-
-        Grabs the list of bigips from the iControlDriver and sends it to the
-        NetworkCacheHandler to update its cache.
-        """
-        bigips = self.lbdriver.get_all_bigips()
-        self.__tunnel_handler.tunnel_sync(bigips)
 
     def tunnel_sync(self):
         """Call into driver to advertise device tunnel endpoints."""
-        LOG.debug("manager:tunnel_sync: calling tunnel_handler.tunnel_sync")
-        bigips = self.lbdriver.get_all_bigips()
-        self.__tunnel_handler.tunnel_sync(bigips)
+        LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")
+        return self.lbdriver.tunnel_sync()
 
     @log_helpers.log_method_call
     def sync_state(self):
@@ -1039,7 +996,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("f5_ex.NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def update_loadbalancer(self, context, old_loadbalancer,
@@ -1056,7 +1012,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def delete_loadbalancer(self, context, loadbalancer, service):
@@ -1071,7 +1026,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def update_loadbalancer_stats(self, context, loadbalancer, service):
@@ -1083,7 +1037,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def create_listener(self, context, listener, service):
@@ -1098,7 +1051,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def update_listener(self, context, old_listener, listener, service):
@@ -1113,7 +1065,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def delete_listener(self, context, listener, service):
@@ -1128,7 +1079,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("delete_listener: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("delete_listener: Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def create_pool(self, context, pool, service):
@@ -1142,7 +1092,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def update_pool(self, context, old_pool, pool, service):
@@ -1157,7 +1106,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def delete_pool(self, context, pool, service):
@@ -1171,7 +1119,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("delete_pool: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("delete_pool: Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def create_member(self, context, member, service):
@@ -1186,7 +1133,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("create_member: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("create_member: Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
@@ -1201,7 +1147,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("update_member: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("update_member: Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def delete_member(self, context, member, service):
@@ -1215,7 +1160,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("delete_member: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("delete_member: Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def create_health_monitor(self, context, health_monitor, service):
@@ -1232,7 +1176,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         except Exception as exc:
             LOG.error("create_pool_health_monitor: Exception: %s"
                       % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def update_health_monitor(self, context, old_health_monitor,
@@ -1250,7 +1193,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("update_health_monitor: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("update_health_monitor: Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def delete_health_monitor(self, context, health_monitor, service):
@@ -1265,7 +1207,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("delete_health_monitor: NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.error("delete_health_monitor: Exception: %s" % exc.message)
-        self.update_network_cache()
 
     @log_helpers.log_method_call
     def agent_updated(self, context, payload):
@@ -1298,13 +1239,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             LOG.debug('received add_fdb_entries: %s host: %s'
                       % (fdb_entries, host))
-            bigips = self.__lbdriver.get_all_bigips()
-            fdb.FdbBuilder.handle_fdbs(fdb_entries, self.tunnel_handler,
-                                       bigips)
+            self.lbdriver.fdb_add(fdb_entries)
         except f5_ex.F5NeutronException as exc:
             LOG.error("fdb_add: NeutronException: %s" % exc.msg)
         except Exception as exc:
-            traceback.print_exc()
             LOG.error("fdb_add: Exception: %s" % exc.message)
 
     @log_helpers.log_method_call
@@ -1313,7 +1251,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             LOG.debug('received remove_fdb_entries: %s host: %s'
                       % (fdb_entries, host))
-            fdb.FdbBuilder.handle_fdbs(fdb_entries, remove=True)
+            self.lbdriver.fdb_remove(fdb_entries)
         except f5_ex.F5NeutronException as exc:
             LOG.error("remove_fdb_entries: NeutronException: %s" % exc.msg)
         except Exception as exc:

@@ -26,8 +26,6 @@ import weakref
 from oslo_log import log as logging
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.cache as cache
-import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.decorators as \
-    decorators
 # import f5_openstack_agent.lbaasv2.drivers.bigip.network_helper
 
 LOG = logging.getLogger(__name__)
@@ -52,7 +50,6 @@ class NetworkCacheHandler(cache.CacheBase):
     use-case is to simply call one of the methods it offers for the
     updating of such information or, as such, orchestration.
     """
-    @decorators.add_logger
     def __init__(self):
         self.__existing_tunnels = []
         self.__network_cache = {}
@@ -101,9 +98,6 @@ class NetworkCacheHandler(cache.CacheBase):
                         partition == tunnel.partition:
                     retval = self.__existing_tunnels.pop(cnt)
                     break
-        else:
-            raise ValueError("Cannot operate without name & partition or "
-                             "tunnel")
         return retval
 
     @handle_weakref
@@ -125,73 +119,17 @@ class NetworkCacheHandler(cache.CacheBase):
             segment = fdb.segment_id
             network = fdb.network_id
             try:
-                self._get_tunnels_by_designation(
-                    network, segment, hosts=hosts, fdb=fdb)
+                tunnels = self.__network_cache[network][segment]
             except KeyError:
                 continue
-        return hosts
-
-    @cache.lock
-    def get_tunnels_by_designation(self, network_id, segment):
-        try:
-            hosts = self._get_tunnels_by_designation(network_id, segment)
-        except KeyError:
-            return dict()
-        return hosts
-
-    def _get_tunnels_by_designation(self, network_id, segment, hosts=dict(),
-                                    fdb=None):
-        segment = str(segment)
-        tunnels = self.__network_cache[network_id][segment]
-        removal = list()
-        for cnt, tunnel in enumerate(tunnels):
-            try:
-                tunnel.tunnel_name
-            except ReferenceError:
-                removal.append(cnt)
-            if fdb and tunnel.local_address == fdb.vtep_ip:
-                return
-            host = tunnel.bigip_host
-            if fdb:
+            for tunnel in tunnels:
+                if tunnel.local_address == fdb.vtep_ip:
+                    continue
+                host = tunnel.bigip_host
                 level = hosts.get(host, [[], []])
                 level[0].append(tunnel)
                 level[1].append(fdb)
                 hosts[host] = level
-            else:
-                level = hosts.get(host, [])
-                level.append(tunnel)
-                hosts[host] = level
-        if removal:
-            if len(removal) == len(tunnel):
-                del self.__network_cache[network_id][segment]
-                if not self.__network_cache[network_id]:
-                    del self.__network_cache[network_id]
-            else:
-                for cnt in removal:
-                    tunnels.pop(cnt)
         return hosts
-
-    def clean_network_cache(self):
-        """Performs a thorough sweep against the cache cleaning it of weakrefs
-
-        This method will sweep through all entries in the dict portion of the
-        cache cleaning up weakrefs.
-        """
-        for net in self.__network_cache:
-            network_lvl = self.__network_cache[net]
-            for seg in network_lvl:
-                segment = network_lvl[seg]
-                removals = list()
-                for cnt, entry in enumerate(segment):
-                    try:
-                        segment.tunnel_name
-                    except ReferenceError:
-                        removals.append(cnt)
-                for cnt in removals:
-                    segment.pop(cnt)
-                if not segment:
-                    del network_lvl[seg]
-            if not network_lvl:
-                del self.__network_cache[net]
 
     network_cache = property(_get_network_cache, _add_to_network_cache)

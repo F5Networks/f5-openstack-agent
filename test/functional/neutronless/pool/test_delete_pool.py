@@ -13,6 +13,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
+    iControlDriver
 import json
 import logging
 import os
@@ -52,6 +54,27 @@ def fake_plugin_rpc(services):
     rpcObj = FakeRPCPlugin(services)
 
     return rpcObj
+
+
+@pytest.fixture
+def icontrol_driver(icd_config, fake_plugin_rpc):
+    class ConfFake(object):
+        def __init__(self, params):
+            self.__dict__ = params
+            for k, v in self.__dict__.items():
+                if isinstance(v, unicode):
+                    self.__dict__[k] = v.encode('utf-8')
+
+        def __repr__(self):
+            return repr(self.__dict__)
+
+    icd = iControlDriver(ConfFake(icd_config),
+                         registerOpts=False)
+
+    icd.plugin_rpc = fake_plugin_rpc
+    icd.connect()
+
+    return icd
 
 
 def test_single_pool(track_bigip_cfg, bigip, services, icd_config,

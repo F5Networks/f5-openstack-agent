@@ -22,7 +22,11 @@ from mock import Mock
 from mock import patch
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
+    _get_tunnel_name
+from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
     L2ServiceBuilder
+from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
+    NetworkHelper
 
 
 @pytest.fixture
@@ -284,3 +288,162 @@ class Test_L2ServiceBuilder(object):
         del network['router:external']
         assert not target.is_common_network(network), \
             "No 'reouter:external' network 'negative' test"
+
+    def test_create_fdb_records(self, l2_service, service):
+        loadbalancer = service['loadbalancer']
+        network_id = loadbalancer['network_id']
+        loadbalancer['network'] = service['networks'][network_id]
+        members = list()
+        for member in service['members']:
+            network_id = member['network_id']
+            member['network'] = service['networks'][network_id]
+            members.append(member)
+
+        tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
+
+        # two networks, two sets of records
+        assert len(tunnel_records) == 1
+
+        # vxlan records has lb and two members
+        tunnel_name = _get_tunnel_name(members[0]['network'])
+        assert tunnel_name == 'tunnel-vxlan-5218'
+        vxlan_records = tunnel_records[tunnel_name]['records']
+        assert len(vxlan_records) == (len(loadbalancer.get('vxlan_vteps')) + 2)
+
+    def test_empty_fdb_records(self, l2_service):
+        loadbalancer = None
+        members = list()
+        tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
+
+        # no records should be created
+        assert len(tunnel_records) == 0
+
+    def test_no_member_records(self, l2_service, service):
+        loadbalancer = service['loadbalancer']
+        network_id = loadbalancer['network_id']
+        loadbalancer['network'] = service['networks'][network_id]
+
+        members = list()
+        tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
+
+        # one network, one set of records
+        assert len(tunnel_records) == 1
+
+        tunnel_name = _get_tunnel_name(loadbalancer['network'])
+        assert tunnel_name == 'tunnel-vxlan-5218'
+        vxlan_records = tunnel_records[tunnel_name]['records']
+        assert len(vxlan_records) == len(loadbalancer.get('vxlan_vteps'))
+
+    def test_no_loadbalancer_records(self, l2_service, service):
+        loadbalancer = None
+        members = list()
+        for member in service['members']:
+            network_id = member['network_id']
+            member['network'] = service['networks'][network_id]
+            members.append(member)
+
+        tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
+
+        # two networks, two sets of records
+        assert len(tunnel_records) == 1
+
+        # vxlan records has both members
+        tunnel_name = _get_tunnel_name(members[0]['network'])
+        assert tunnel_name == 'tunnel-vxlan-5218'
+        vxlan_records = tunnel_records[tunnel_name]['records']
+        assert len(vxlan_records) == 2
+
+    def test_add_fdb_entries(self, l2_service, service, bigips):
+        loadbalancer = service['loadbalancer']
+        network_id = loadbalancer['network_id']
+        loadbalancer['network'] = service['networks'][network_id]
+        members = list()
+        for member in service['members']:
+            network_id = member['network_id']
+            member['network'] = service['networks'][network_id]
+            members.append(member)
+
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'network_helper.NetworkHelper') as mock_helper:
+
+            l2_service.network_helper = mock_helper
+            l2_service.add_fdb_entries(bigips, loadbalancer, members)
+            assert l2_service.network_helper.add_fdb_entries.called
+
+    def test_delete_fdb_entries(self, l2_service, service, bigips):
+        loadbalancer = service['loadbalancer']
+        network_id = loadbalancer['network_id']
+        loadbalancer['network'] = service['networks'][network_id]
+        members = list()
+        for member in service['members']:
+            network_id = member['network_id']
+            member['network'] = service['networks'][network_id]
+            members.append(member)
+
+        with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
+                        'network_helper.NetworkHelper') as mock_helper:
+            l2_service.network_helper = mock_helper
+            l2_service.delete_fdb_entries(bigips, loadbalancer, members)
+            assert l2_service.network_helper.delete_fdb_entries.called
+
+    def test_network_helper_add_fdb_entries(self, l2_service, service, bigips):
+        # add first member fdb entry
+        loadbalancer = None
+        members = list()
+        member = service['members'][0]
+        network_id = member['network_id']
+        member['network'] = service['networks'][network_id]
+        members.append(member)
+
+        tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
+
+        network_helper = NetworkHelper()
+        fdb_entry = mock.MagicMock()
+        fdb_entry.modify = mock.MagicMock()
+        bigip = bigips[0]
+        bigip.tm.net.fdb.tunnels.tunnel.load = mock.MagicMock(
+            return_value=fdb_entry)
+        network_helper.add_fdb_entries(bigip, fdb_entries=tunnel_records)
+
+        # expect to modify with first member's VTEP and MAC addr
+        fdb_entry.modify.assert_called_with(
+            records=[{'endpoint': '192.168.130.59',
+                      'name': 'fa:16:3e:0d:fa:c8'}])
+
+        # add second member fdb entry
+        members = list()
+        member = service['members'][1]
+        network_id = member['network_id']
+        member['network'] = service['networks'][network_id]
+        members.append(member)
+
+        tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
+        network_helper.add_fdb_entries(bigip, fdb_entries=tunnel_records)
+
+        # expect to modify with second member's VTEP and MAC addr
+        fdb_entry.modify.assert_called_with(
+            records=[{'endpoint': '192.168.130.60',
+                      'name': 'fa:16:3e:0d:fa:c6'}])
+
+    def test_network_helper_delete_fdb_entries(
+            self, l2_service, service, bigips):
+        # delete member fdb entry
+        loadbalancer = None
+        members = list()
+        member = service['members'][1]
+        network_id = member['network_id']
+        member['network'] = service['networks'][network_id]
+        members.append(member)
+
+        tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
+
+        network_helper = NetworkHelper()
+        fdb_entry = mock.MagicMock()
+        fdb_entry.modify = mock.MagicMock()
+        bigip = bigips[0]
+        bigip.tm.net.fdb.tunnels.tunnel.load = mock.MagicMock(
+            return_value=fdb_entry)
+        network_helper.delete_fdb_entries(bigip, fdb_entries=tunnel_records)
+
+        # expect to modify with no records (i.e, removing entry)
+        fdb_entry.modify.assert_called_with(records=None)

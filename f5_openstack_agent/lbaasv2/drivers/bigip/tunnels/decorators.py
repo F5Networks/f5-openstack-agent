@@ -19,9 +19,7 @@ manipulations.
 # limitations under the License.
 #
 
-import gc
 import socket
-import sys
 import weakref
 
 from requests import HTTPError
@@ -40,10 +38,6 @@ def weakref_handle(method):
                       "being deleted from the cache.  The agent will now "
                       "attempt to continue with the remaining tunnels to "
                       "be updated".format(method, args, kwargs))
-            gc.collect()
-            remaining = gc.garbage
-            if remaining:
-                LOG.debug("garbage({})".format(remaining))
             return None
     return wrapper
 
@@ -75,16 +69,14 @@ def http_error(*args, **exc_specs):
             try:
                 return method(instance, *wargs, **wkwargs)
             except HTTPError as error:
-                for level in exc_specs:
-                    if level not in dir(LOG):
+                for level in dir(LOG):
+                    if level.startswith('_') or 'Enabled' in level:
                         continue
                     messages = exc_specs.get(level, '')
                     if not messages:
                         continue
                     status_code = error.response.status_code
-                    message = messages.get(
-                        status_code, messages.get(
-                            str(status_code), ''))
+                    message = messages.get(status_code, '')
                     if not message:
                         raise  # we've gotten to our status error's specifics
                     msg_type = getattr(LOG, level)
@@ -92,12 +84,8 @@ def http_error(*args, **exc_specs):
                         message = "{} (args: {})".format(message, args)
                     if wkwargs:
                         message = "{} (kwargs: {})".format(message, wkwargs)
-                    message = str(
-                        "From [{m.co_filename}:{m.co_name}:"
-                        "{m.co_firstlineno}] {}").format(
-                            message, m=method.func_code)
+                    message = "From {}: {}".format(method, message)
                     msg_type(message)
-                    sys.exc_clear()
                     break
                 else:
                     raise
@@ -122,24 +110,19 @@ def not_none(method):
 
 def ip_address(method):
     """A decorator function that adds the is_ip_address_wrapper"""
-    def is_ip_address_wrapper(inst, value, force=False):
+    def is_ip_address_wrapper(inst, value):
         """Checks the method under wrap's value to validate IP Address
 
         This wrapper will check validity of the IP Address in the value given
         to the method under wrap.  If it is not a valid IP Address, then a
         TypeError is raised.
-
-        Optional:
-            Caller may provide a force kwarg.  If true, then this decorator
-            will ignore what tyep of object is passed.
         """
-        if not force:
-            try:
-                socket.inet_aton(value)
-            except socket.error:
-                raise TypeError(
-                    "method {} is expecting an IP address!".format(method))
-        return method(inst, value)
+        try:
+            socket.inet_aton(value)
+            return method(inst, value)
+        except socket.error:
+            raise TypeError(
+                "method {} is expecting an IP address!".format(method))
     return is_ip_address_wrapper
 
 
