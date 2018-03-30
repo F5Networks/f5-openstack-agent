@@ -827,7 +827,10 @@ class TunnelHandler(cache.CacheBase):
             first_pass_arps = iter(arps)
             for arp in first_pass_arps:
                 if partition and arp.partition == partition:
-                    arp.delete()
+                    try:
+                        arp.delete()
+                    except HTTPError:
+                        pass  # Do not care... destroy
                     arps.remove(arp)
             for fdb_tunnel in search:
                 if (partition and partition != fdb_tunnel.partition) or \
@@ -836,10 +839,16 @@ class TunnelHandler(cache.CacheBase):
                 records = getattr(fdb_tunnel, 'records_s', None)
                 if not isinstance(records, type(None)):
                     for record in records.get_collection():
-                        record.delete()
+                        try:
+                            record.delete()
+                        except HTTPError:
+                            pass  # Do not care... destroy
                 tm_tunnel = bigip.tm.net.tunnels.tunnels.tunnel.load(
                     name=fdb_tunnel.name, partition=fdb_tunnel.partition)
-                tm_tunnel.delete()
+                try:
+                    tm_tunnel.delete()
+                except HTTPError:
+                    pass  # Do not care... destroy
                 fdb_tunnels.remove(fdb_tunnel)
             remain_stmt = "({t.partition} {t.name}) on {} remains after purge"
             remaining = [remain_stmt.format(host, t=tunnel)
