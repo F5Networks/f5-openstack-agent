@@ -106,6 +106,7 @@ class BigipTenantManager(object):
         partition = self.service_adapter.get_folder_name(tenant_id)
         domain_names = self.network_helper.get_route_domain_names(bigip,
                                                                   partition)
+        self.driver.tunnel_handler.purge_tunnels([bigip], partition=partition)
         for domain_name in domain_names:
             try:
                 self.network_helper.delete_route_domain(bigip,

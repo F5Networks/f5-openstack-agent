@@ -14,15 +14,19 @@
 #   limitations under the License.
 
 from copy import deepcopy
+import json
+import logging
+import mock
+import os
+import pytest
+import requests
+
+import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.tunnel as tunnel_mod
+
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import \
     iControlDriver
 from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
     EsdTagProcessor
-import json
-import logging
-import os
-import pytest
-import requests
 
 from ..testlib.bigip_client import BigIpClient
 from ..testlib.fake_rpc import FakeRPCPlugin
@@ -49,6 +53,7 @@ def get_fake_plugin_rpc(services):
 
     return rpcObj
 
+
 def get_icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip):
     class ConfFake(object):
         def __init__(self, params):
@@ -68,6 +73,8 @@ def get_icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip):
     esd.process_esd(icd.get_all_bigips())
     icd.lbaas_builder.init_esd(esd)
     icd.service_adapter.init_esd(esd)
+    icd.tunnel_handler = tunnel_mod.TunnelHandler(
+        mock.Mock(), mock.Mock(), 'context')
 
     return icd
 
@@ -117,9 +124,11 @@ def esd_json():
 def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
                    esd_json):
     env_prefix = icd_config['environment_prefix']
-    services = get_services('../../testdata/service_requests/l7_esd_pools.json')
+    services = get_services(
+        '../../testdata/service_requests/l7_esd_pools.json')
     fake_plugin_rpc = get_fake_plugin_rpc(services)
-    icontrol_driver = get_icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip)
+    icontrol_driver = get_icontrol_driver(
+        icd_config, fake_plugin_rpc, esd, bigip)
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)
 
@@ -210,13 +219,13 @@ def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
     assert not bigip.folder_exists(folder)
 
 
-
-def test_multiple_esd_add_remove(track_bigip_cfg, bigip, icd_config, demo_policy,
-                                 esd, esd_json):
+def test_multiple_esd_add_remove(track_bigip_cfg, bigip, icd_config,
+                                 demo_policy, esd, esd_json):
     services = get_services('../../testdata/service_requests/'
                             'l7_multiple_esd_add_remove.json')
     fake_plugin_rpc = get_fake_plugin_rpc(services)
-    icontrol_driver = get_icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip)
+    icontrol_driver = get_icontrol_driver(
+        icd_config, fake_plugin_rpc, esd, bigip)
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
     validator = ResourceValidator(bigip, env_prefix)
@@ -238,12 +247,14 @@ def test_multiple_esd_add_remove(track_bigip_cfg, bigip, icd_config, demo_policy
     validator.assert_virtual_valid(listener, folder)
 
     # apply ESD1
-    # lbaas-l7policy-create --name esd_demo_1 --listener listener1 --action REJECT
+    # lbaas-l7policy-create --name esd_demo_1 --listener listener1
+    # --action REJECT
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
 
     # apply ESD2
-    # lbaas-l7policy-create --name esd_demo_2 --listener listener1 --action REJECT
+    # lbaas-l7policy-create --name esd_demo_2 --listener listener1
+    # --action REJECT
     service = service_iter.next()
     icontrol_driver._common_service_handler(service)
 

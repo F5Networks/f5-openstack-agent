@@ -186,7 +186,6 @@ class TestTunnelMocker(object):
         tm_arp = bigip.tm.net.arps.arp
         fdb_tunnel.records = [{'name': fake_mac, 'endpoint': bigip.local_ip}]
         tm_fdb_tunnel.load.return_value = fdb_tunnel
-        tm_fdb_tunnel.create.return_value = fdb_tunnel
         tm_tunnel.load.return_value = tunnel
         tm_tunnel.create.return_value = tunnel
         tm_arp.load.return_value = arp
@@ -262,8 +261,8 @@ class TestTunnel(ClassTesterBase, TestTunnelMocker):
         tunnel.key = '33'
         remote_address = '192.168.1.1'
         tunnel.description = \
-            str('{"partition": "partition", "network_id": "network-id", '
-                '"remote_address": "%s"}') % remote_address
+            str('{partition: partition, network_id: network-id, '
+                'remote_address: %s}') % remote_address
         fdb_tunnel = bigip.fdb_tunnel
         mac = 'ma:ca:dd:re:ss:es'
         arp = bigip.arp
@@ -297,8 +296,6 @@ class TestTunnel(ClassTesterBase, TestTunnelMocker):
             1. Dope a 'bigip' mock object with a vxlan tunnel
             2. Dope the TunnelHandler with the same tunnel
             3. Remove the tunnel from the TunnelHandler
-        As part of this, this tests the scenario where the tunnel does not yet
-        exist.
         """
         target = fully_mocked_target
         bigip = mock_bigip_with_vxlan_arp
@@ -309,13 +306,19 @@ class TestTunnel(ClassTesterBase, TestTunnelMocker):
         self.tunnel_builder.add_fdb(tunnel_obj, fdb_obj)
         self.tunnel_builder.set_network_id(tunnel_obj, 'network_id')
         self.fdb_builder.set_network_id(fdb_obj, 'network_id')
-        standalone_builder.add_pending_exists(target, tunnel_obj)
+        nch = target._TunnelHandler__network_cache_handler
+        cache = nch._NetworkCacheHandler__network_cache
+        cache[tunnel_obj.network_id] = \
+            {tunnel_obj.segment_id: set([tunnel_obj])}
         bigip.hostname = 'host'
+        fdb_tunnel = bigip.fdb_tunnel
+        record = mock.Mock()
+        fdb_tunnel.records_s.get_collection.return_value = [record]
         target.remove_multipoint_tunnel(bigip, tunnel_obj.tunnel_name,
                                         partition)
+        assert fdb_tunnel.records_s.get_collection.call_count
+        assert record.delete.call_count
         tm_tunnel = bigip.tm_tunnel
         tunnel = bigip.tunnel
-        arp = bigip.arp
         assert tm_tunnel.load.call_count
         assert tunnel.delete.call_count
-        assert arp.delete.call_count

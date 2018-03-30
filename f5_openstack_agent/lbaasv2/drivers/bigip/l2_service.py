@@ -343,7 +343,7 @@ class L2ServiceBuilder(object):
                     bigip, payload['name'], payload['partition'],
                     payload['route_domain_id'])
         except Exception as err:
-            LOG.exception("%s", err.message)
+            LOG.error("%s", err.message)
             raise f5_ex.VXLANCreationException(
                 "Failed to create vxlan tunnel: %s" % tunnel_name
             )
@@ -377,7 +377,7 @@ class L2ServiceBuilder(object):
                     bigip, payload['name'], payload['partition'],
                     payload['route_domain_id'])
         except Exception as err:
-            LOG.exception("%s", err.message)
+            LOG.error("%s", err.message)
             raise f5_ex.VXLANCreationException(
                 "Failed to create gre tunnel: %s" % tunnel_name
             )
@@ -509,9 +509,8 @@ class L2ServiceBuilder(object):
                 bigip,
                 tunnel_name,
                 partition=network_folder)
-        except Exception as err:
+        except Exception:
             # Just log the exception, we want to continue cleanup
-            LOG.exception(err)
             LOG.error(
                 "Failed to delete vxlan tunnel: %s" % tunnel_name)
 
@@ -525,9 +524,8 @@ class L2ServiceBuilder(object):
                 tunnel_name,
                 partition=network_folder)
 
-        except Exception as err:
+        except Exception:
             # Just log the exception, we want to continue cleanup
-            LOG.exception(err)
             LOG.error(
                 "Failed to delete gre tunnel: %s" % tunnel_name)
 

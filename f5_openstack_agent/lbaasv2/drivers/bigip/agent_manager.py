@@ -37,7 +37,6 @@ except ImportError:
     from neutron import context as ncontext
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as constants_v2
-import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.fdb as fdb
 import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.tunnel as tunnel
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
@@ -1298,9 +1297,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             LOG.debug('received add_fdb_entries: %s host: %s'
                       % (fdb_entries, host))
-            bigips = self.__lbdriver.get_all_bigips()
-            fdb.FdbBuilder.handle_fdbs(fdb_entries, self.tunnel_handler,
-                                       bigips)
+            self.__lbdriver.handle_fdbs(fdb_entries)
         except f5_ex.F5NeutronException as exc:
             LOG.error("fdb_add: NeutronException: %s" % exc.msg)
         except Exception as exc:
@@ -1313,7 +1310,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             LOG.debug('received remove_fdb_entries: %s host: %s'
                       % (fdb_entries, host))
-            fdb.FdbBuilder.handle_fdbs(fdb_entries, remove=True)
+            self.__lbdriver.handle_fdbs(fdb_entries, remove=True)
         except f5_ex.F5NeutronException as exc:
             LOG.error("remove_fdb_entries: NeutronException: %s" % exc.msg)
         except Exception as exc:

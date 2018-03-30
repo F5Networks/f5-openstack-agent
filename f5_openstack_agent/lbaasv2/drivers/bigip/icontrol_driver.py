@@ -32,6 +32,8 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import importutils
 
+import f5_openstack_agent.lbaasv2.drivers.bigip.tunnels.fdb as fdb
+
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
@@ -1382,14 +1384,14 @@ class iControlDriver(LBaaSBaseDriver):
                                   % (l7_policy_id, bigip.hostname))
                     else:
                         error = err
-                except Exception as exc:
+                except Exception as err:
                     error = err
                 if error:
                     kwargs = dict(
                         tenant_id=tenant_id, l7_policy_id=l7_policy_id,
                         hostname=bigip.hostname, listener_id=listener_id)
                     LOG.exception('Exception: purge_orphaned_l7_policy({}) '
-                                  '"{}"'.format(kwargs, exc))
+                                  '"{}"'.format(kwargs, error))
 
     @serialized('purge_orphaned_loadbalancer')
     @is_operational
@@ -1458,6 +1460,16 @@ class iControlDriver(LBaaSBaseDriver):
     def create_loadbalancer(self, loadbalancer, service):
         """Create virtual server."""
         return self._common_service_handler(service)
+
+    @serialized('handle_fdbs')
+    @is_operational
+    def handle_fdbs(self, fdb_entries, remove=False):
+        bigips = self.get_all_bigips()
+        try:
+            fdb.FdbBuilder.handle_fdbs(fdb_entries, self.tunnel_handler,
+                                       bigips, remove)
+        except Exception as error:
+            LOG.exception(str(error))
 
     @serialized('update_loadbalancer')
     @is_operational
@@ -1881,8 +1893,9 @@ class iControlDriver(LBaaSBaseDriver):
                         do_service_update = False
                         raise error
                 except Exception as error:
-                    LOG.error("Prep-network exception: icontrol_driver: %s",
-                              error.message)
+                    LOG.exception(
+                        "Prep-network exception: icontrol_driver: {}".format(
+                            error.message))
                     if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                         loadbalancer['provisioning_status'] = \
                             f5const.F5_ERROR

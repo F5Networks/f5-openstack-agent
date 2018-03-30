@@ -22,6 +22,7 @@ manipulations.
 import gc
 import socket
 import sys
+import time
 import weakref
 
 from requests import HTTPError
@@ -29,6 +30,20 @@ from requests import HTTPError
 import oslo_log.log as logging
 
 LOG = logging.getLogger(__name__)
+
+
+def timed(method):
+    """Adds a decorator that provides timing data for a decorated function"""
+    def timer(*args, **kwargs):
+        start = time.time()
+        inst = args[0]
+        logger = getattr(inst, 'logger', LOG)
+        logger.debug("Executing {m.__name__} at {}".format(start, m=method))
+        retval = method(*args, **kwargs)
+        logger.debug("Executing {m.__name__} at {}".format(
+            time.time() - start, m=method))
+        return retval
+    return timer
 
 
 def weakref_handle(method):
