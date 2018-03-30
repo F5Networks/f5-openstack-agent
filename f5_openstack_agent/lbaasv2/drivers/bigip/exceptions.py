@@ -150,10 +150,6 @@ class IAppDeleteException(F5AgentException):
     pass
 
 
-class TunnelCreationException(F5AgentException):
-    pass
-
-
 class L2GRETunnelCreationException(F5AgentException):
     pass
 

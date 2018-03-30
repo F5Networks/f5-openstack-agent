@@ -87,6 +87,22 @@ class SystemHelper(object):
     def get_platform(self, bigip):
         return ''
 
+    def get_tunnel_sync(self, bigip):
+        db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
+        if hasattr(db, 'value'):
+            return db.value
+
+        return ''
+
+    def set_tunnel_sync(self, bigip, enabled=False):
+
+        if enabled:
+            val = 'enable'
+        else:
+            val = 'disable'
+        db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
+        db.modify(value=val)
+
     def get_provision_extramb(self, bigip):
         db = bigip.tm.sys.dbs.db.load(name='provision.extramb')
         if hasattr(db, 'value'):
