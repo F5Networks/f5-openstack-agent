@@ -142,8 +142,6 @@ class MockBuilderBase(object):
     def __init__(self, _your_name=None, _already_instantiated={}):
         """Instantiates a MockBuilderBase class"""
         # instantiate other_builders...
-        if not self._other_builders:
-            return
         self._construct_others(
             _my_name=_your_name, _already_instantiated=_already_instantiated)
 
@@ -180,7 +178,7 @@ class MockBuilderBase(object):
                 self.other_builders[attr] = instantiated
             else:
                 for other in others:
-                    if instantiated.__class__ == others[other].__class__:
+                    if isinstance(instantiated, others[other]):
                         others[other] = instantiated
         if _my_name:
             # second part of recurse blow-up proofing...
@@ -193,10 +191,7 @@ class MockBuilderBase(object):
             if hasattr(my_builder, 'am_duplicate'):
                 my_builder = my_builder.am_duplicate
             self.other_builders[attr] = my_builder
-            try:
-                _already_instantiated[attr] = my_builder
-            except TypeError:
-                _already_instantiated[attr] = my_builder
+            _already_instantiated[attr] = my_builder
 
     # builder constructor methods (may need to eventually create constructor
     # classes...
@@ -254,17 +249,8 @@ class MockBuilderBase(object):
         without the raise and by setting the target as a mocked instance of
         the target object in production.
         """
-        if not self._other_builders and \
-                not isinstance(self._other_builders, type(None)):
-            raise NotImplementedError("This is an ABCM example")
-        elif self._other_builders:
-            for other in self._other_builders:
-                other_builder = self._other_builders[other]()
-                others_mock_target = other_builder.new_fully_mocked_target()
-                # handler for non-instantiatable targets
-                # others_mock_target = other_builder.mocked_target()
-                setattr(mocked_target, other, others_mock_target)
-        return mocked_target
+        raise NotImplementedError("This is an ABCM example")
+        return mock.Mock()
 
     def new_fully_mocked_target(self):
         new_mocked_target = self.mocked_target()
@@ -370,21 +356,21 @@ class MockBuilderBase(object):
 
         Then returns this list.
         """
-        def drill_down(builder, traversed=dict()):
-            if builder.__class__ in traversed:
-                return dict(), dict()
-            mocks = dict()
-            traversed[builder.__class__] = builder
+        def drill_down(builder, traversed=set()):
+            if builder in traversed:
+                return set(), set()
+            mocks = set()
+            traversed.add(builder)
             other_builders = getattr(builder, 'other_builders', dict())
             for attr in other_builders:
                 if attr.startswith('_mock_'):
-                    mocks.update(getattr(builder, attr))
+                    mocks.union(getattr(builder, attr))
                 elif attr in builder.other_builders:
                     other = builder.other_builders[attr]
                     more_mocks, more_traversed = \
                         drill_down(other, traversed)
-                    mocks.update(more_mocks)
-                    traversed.update(more_traversed)
+                    mocks.union(more_mocks)
+                    traversed.union(more_traversed)
             return mocks, traversed
 
         mocks, traversed = drill_down(self)
@@ -501,7 +487,3 @@ class MockBuilderBase(object):
                 "'{}' does not have an other_builder with method '{}'".format(
                     target, method))
         return matched
-
-    def teardown(self):
-        """This is a catch-net method in case child does not use it"""
-        pass

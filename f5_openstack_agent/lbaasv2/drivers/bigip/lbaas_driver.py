@@ -157,6 +157,14 @@ class LBaaSBaseDriver(object):
         """Neutron Core Tunnel Update."""
         raise NotImplementedError()
 
+    def tunnel_sync(self):
+        """Neutron Core Tunnel Sync Messages."""
+        raise NotImplementedError()
+
+    def fdb_add(self, fdb_entries):
+        """L2 Population FDB Add."""
+        raise NotImplementedError()
+
     def fdb_remove(self, fdb_entries):
         """L2 Population FDB Remove."""
         raise NotImplementedError()

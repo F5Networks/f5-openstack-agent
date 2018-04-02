@@ -60,6 +60,9 @@ class NetworkServiceBuilder(object):
         # is fully connected
         self.l2_service.post_init()
 
+    def tunnel_sync(self, tunnel_ips):
+        self.l2_service.tunnel_sync(tunnel_ips)
+
     def set_tunnel_rpc(self, tunnel_rpc):
         # Provide FDB Connector with ML2 RPC access """
         self.l2_service.set_tunnel_rpc(tunnel_rpc)
@@ -86,12 +89,12 @@ class NetworkServiceBuilder(object):
 
             # profiles may already exist
             # create vxlan_multipoint_profile`
-            self.driver.tunnel_handler.create_vxlan_multipoint_profile(
+            self.network_helper.create_vxlan_multipoint_profile(
                 bigip,
                 'vxlan_ovs',
                 partition='Common')
             # create l2gre_multipoint_profile
-            self.driver.tunnel_handler.create_l2gre_multipoint_profile(
+            self.network_helper.create_l2gre_multipoint_profile(
                 bigip,
                 'gre_ovs',
                 partition='Common')
@@ -536,15 +539,27 @@ class NetworkServiceBuilder(object):
         partition_id = self.service_adapter.get_folder_name(tenant_id)
         LOG.debug("network_name %s", network_name.split('/'))
         network_name = network_name.split("/")[-1]
-        if 'vlan' in network_name:
+        if 'tunnel-gre-' in network_name:
+            tunnel_key = self.network_helper.get_tunnel_key(
+                bigip,
+                network_name,
+                partition=partition_id
+            )
+            return 'gre-%s' % tunnel_key
+        elif 'tunnel-vxlan-' in network_name:
+            LOG.debug("Getting tunnel key for VXLAN: %s", network_name)
+            tunnel_key = self.network_helper.get_tunnel_key(
+                bigip,
+                network_name,
+                partition=partition_id
+            )
+            return 'vxlan-%s' % tunnel_key
+        else:
             LOG.debug("Getting tunnel key for VLAN: %s", network_name)
             vlan_id = self.network_helper.get_vlan_id(bigip,
                                                       name=network_name,
                                                       partition=partition_id)
             return 'vlan-%s' % vlan_id
-        else:
-            return self.driver.tunnel_handler.get_bigip_net_short_name(
-                network_name)
 
     @staticmethod
     def get_neutron_net_short_name(network):
@@ -705,15 +720,13 @@ class NetworkServiceBuilder(object):
             loadbalancer['network_id']
             )
 
-        fdb_handle_method = \
-            self.driver.tunnel_handler.\
-            handle_fdbs_from_loadbalancer_and_members
         if delete_loadbalancer or delete_members:
-            fdb_handle_method(bigips, delete_loadbalancer, delete_members,
-                              remove=True)
+            self.l2_service.delete_fdb_entries(
+                bigips, delete_loadbalancer, delete_members)
 
         if update_loadbalancer or update_members:
-            fdb_handle_method(bigips, update_loadbalancer, update_members)
+            self.l2_service.add_fdb_entries(
+                bigips, update_loadbalancer, update_members)
 
         LOG.debug("update_bigip_l2 complete")
 
@@ -738,11 +751,11 @@ class NetworkServiceBuilder(object):
                     subnet_hints['check_for_delete_subnets'].pop(
                         in_use_subnetid, None)
             except f5_ex.F5NeutronException as exc:
-                LOG.exception("assure_delete_nets_shared: exception: %s"
-                              % str(exc.msg))
+                LOG.error("assure_delete_nets_shared: exception: %s"
+                          % str(exc.msg))
             except Exception as exc:
-                LOG.exception("assure_delete_nets_shared: exception: %s"
-                              % str(exc.message))
+                LOG.error("assure_delete_nets_shared: exception: %s"
+                          % str(exc.message))
 
         return deleted_names
 
@@ -908,6 +921,9 @@ class NetworkServiceBuilder(object):
 
     def update_bigip_fdb(self, bigip, fdb):
         self.l2_service.update_bigip_fdb(bigip, fdb)
+
+    def set_context(self, context):
+        self.l2_service.set_context(context)
 
     def vlan_exists(self, bigip, network, folder='Common'):
         return self.vlan_manager.exists(bigip, name=network, partition=folder)
