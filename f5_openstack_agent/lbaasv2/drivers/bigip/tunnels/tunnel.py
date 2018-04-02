@@ -721,10 +721,10 @@ class TunnelHandler(cache.CacheBase):
         """
         def inc_and_remove(current, to_remove):
             current.exists = False
-            if current.inc_exists_check < 3:
-                current.inc_exists_check += 1
-            else:
-                to_remove.append(current)
+            # if current.inc_exists_check < 1:
+            #    current.inc_exists_check += 1
+            # else:
+            to_remove.append(current)
 
         cached_tunnels = iter(self.__network_cache_handler)
         definitive_tunnels = list()
