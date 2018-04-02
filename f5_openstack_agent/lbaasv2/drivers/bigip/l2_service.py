@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-import constants_v2
 import random
 from time import time
 
@@ -22,6 +21,8 @@ from oslo_log import log as logging
 from oslo_utils import importutils
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+from f5_openstack_agent.lbaasv2.drivers.bigip.fdb_connector_ml2 \
+    import FDBConnectorML2
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
@@ -39,7 +40,7 @@ def _get_tunnel_name(network):
     return 'tunnel-' + str(tunnel_type) + '-' + str(tunnel_id)
 
 
-def get_tunnel_fake_mac(network, local_ip):
+def _get_tunnel_fake_mac(network, local_ip):
     # create a fake mac for l2 records for tunnels
     network_id = str(network['provider:segmentation_id']).rjust(4, '0')
     mac_prefix = '02:' + network_id[:2] + ':' + network_id[2:4] + ':'
@@ -74,11 +75,15 @@ class L2ServiceBuilder(object):
         self.driver = driver
         self.f5_global_routed_mode = f5_global_routed_mode
         self.vlan_binding = None
+        self.fdb_connector = None
         self.interface_mapping = {}
         self.tagging_mapping = {}
         self.system_helper = SystemHelper()
         self.network_helper = NetworkHelper()
         self.service_adapter = ServiceModelAdapter(self.conf)
+
+        if not f5_global_routed_mode:
+            self.fdb_connector = FDBConnectorML2(self.conf)
 
         if self.conf.vlan_binding_driver:
             try:
@@ -111,10 +116,23 @@ class L2ServiceBuilder(object):
                 'Getting BIG-IP device interface for VLAN Binding')
             self.vlan_binding.register_bigip_interfaces()
 
+    def tunnel_sync(self, tunnel_ips):
+        if self.fdb_connector:
+            self.fdb_connector.advertise_tunnel_ips(tunnel_ips)
+
+    def set_tunnel_rpc(self, tunnel_rpc):
+        # Provide FDB Connector with ML2 RPC access
+        if self.fdb_connector:
+            self.fdb_connector.set_tunnel_rpc(tunnel_rpc)
+
     def set_l2pop_rpc(self, l2pop_rpc):
         # Provide FDB Connector with ML2 RPC access
         if self.fdb_connector:
             self.fdb_connector.set_l2pop_rpc(l2pop_rpc)
+
+    def set_context(self, context):
+        if self.fdb_connector:
+            self.fdb_connector.set_context(context)
 
     def is_common_network(self, network):
         """Returns True if this belongs in the /Common folder
@@ -333,20 +351,18 @@ class L2ServiceBuilder(object):
                    'profile': 'vxlan_ovs',
                    'key': network['provider:segmentation_id'],
                    'localAddress': bigip.local_ip,
-                   'network_id': network['id'],
+                   'description': network['id'],
                    'route_domain_id': network['route_domain_id']}
         try:
-            self.driver.tunnel_handler.create_multipoint_tunnel(
-                bigip, payload)
-            if payload['partition'] != constants_v2.DEFAULT_PARTITION:
-                self.network_helper.add_vlan_to_domain_by_id(
-                    bigip, payload['name'], payload['partition'],
-                    payload['route_domain_id'])
+            self.network_helper.create_multipoint_tunnel(bigip, payload)
         except Exception as err:
             LOG.exception("%s", err.message)
             raise f5_ex.VXLANCreationException(
                 "Failed to create vxlan tunnel: %s" % tunnel_name
             )
+
+        if self.fdb_connector:
+            self.fdb_connector.notify_vtep_added(network, bigip.local_ip)
 
         return tunnel_name
 
@@ -367,20 +383,18 @@ class L2ServiceBuilder(object):
                    'profile': 'gre_ovs',
                    'key': network['provider:segmentation_id'],
                    'localAddress': bigip.local_ip,
-                   'network_id': network['id'],
+                   'description': network['id'],
                    'route_domain_id': network['route_domain_id']}
         try:
-            self.driver.tunnel_handler.create_multipoint_tunnel(
-                bigip, payload)
-            if payload['partition'] != constants_v2.DEFAULT_PARTITION:
-                self.network_helper.add_vlan_to_domain_by_id(
-                    bigip, payload['name'], payload['partition'],
-                    payload['route_domain_id'])
+            self.network_helper.create_multipoint_tunnel(bigip, payload)
         except Exception as err:
             LOG.exception("%s", err.message)
             raise f5_ex.VXLANCreationException(
                 "Failed to create gre tunnel: %s" % tunnel_name
             )
+
+        if self.fdb_connector:
+            self.fdb_connector.notify_vtep_added(network, bigip.local_ip)
 
         return tunnel_name
 
@@ -505,7 +519,12 @@ class L2ServiceBuilder(object):
         tunnel_name = _get_tunnel_name(network)
 
         try:
-            self.driver.tunnel_handler.remove_multipoint_tunnel(
+            self.network_helper.delete_all_fdb_entries(
+                bigip,
+                tunnel_name,
+                partition=network_folder)
+
+            self.network_helper.delete_tunnel(
                 bigip,
                 tunnel_name,
                 partition=network_folder)
@@ -515,12 +534,20 @@ class L2ServiceBuilder(object):
             LOG.error(
                 "Failed to delete vxlan tunnel: %s" % tunnel_name)
 
+        if self.fdb_connector:
+            self.fdb_connector.notify_vtep_removed(network, bigip.local_ip)
+
     def _delete_device_gre(self, bigip, network, network_folder):
         # Delete gre tunnel on specific bigip
         tunnel_name = _get_tunnel_name(network)
 
         try:
-            self.driver.tunnel_handler.remove_multipoint_tunnel(
+            self.network_helper.delete_all_fdb_entries(
+                bigip,
+                tunnel_name,
+                partition=network_folder)
+
+            self.network_helper.delete_tunnel(
                 bigip,
                 tunnel_name,
                 partition=network_folder)
@@ -530,6 +557,9 @@ class L2ServiceBuilder(object):
             LOG.exception(err)
             LOG.error(
                 "Failed to delete gre tunnel: %s" % tunnel_name)
+
+        if self.fdb_connector:
+            self.fdb_connector.notify_vtep_removed(network, bigip.local_ip)
 
     def _delete_vcmp_device_network(self, bigip, vlan_name):
         '''Disassociated VLAN with vCMP Guest, then delete it from vCMP Host
@@ -544,6 +574,119 @@ class L2ServiceBuilder(object):
         if not vcmp_host:
             return
         self.vcmp_manager.disassoc_vlan_with_vcmp_guest(bigip, vlan_name)
+
+    def add_bigip_fdb(self, bigip, fdb):
+        # Add entries from the fdb relevant to the bigip
+        for fdb_operation in \
+            [{'network_type': 'vxlan',
+              'get_tunnel_folder': self.network_helper.get_tunnel_folder,
+              'fdb_method': self.network_helper.add_fdb_entries},
+
+             {'network_type': 'gre',
+              'get_tunnel_folder': self.network_helper.get_tunnel_folder,
+              'fdb_method': self.network_helper.add_fdb_entries}]:
+            self._operate_bigip_fdb(bigip, fdb, fdb_operation)
+
+    def _operate_bigip_fdb(self, bigip, fdb, fdb_operation):
+        """Add L2 records for MAC addresses behind tunnel endpoints.
+
+            Description of fdb structure:
+            {'<network_id>':
+                'segment_id': <int>
+                'ports': [ '<vtep>': ['<mac_address>': '<ip_address>'] ]
+             '<network_id>':
+                'segment_id':
+                'ports': [ '<vtep>': ['<mac_address>': '<ip_address>'] ] }
+
+            Sample real fdb structure:
+            {u'45bbbce1-191b-4f7b-84c5-54c6c8243bd2':
+                {u'segment_id': 1008,
+                 u'ports':
+                     {u'10.30.30.2': [[u'00:00:00:00:00:00', u'0.0.0.0'],
+                                      [u'fa:16:3e:3d:7b:7f', u'10.10.1.4']]},
+                 u'network_type': u'vxlan'}}
+        """
+        network_type = fdb_operation['network_type']
+        get_tunnel_folder = fdb_operation['get_tunnel_folder']
+        fdb_method = fdb_operation['fdb_method']
+
+        for network in fdb:
+            net_fdb = fdb[network]
+            if net_fdb['network_type'] == network_type:
+                net = {'name': network,
+                       'provider:network_type': net_fdb['network_type'],
+                       'provider:segmentation_id': net_fdb['segment_id']}
+                tunnel_name = _get_tunnel_name(net)
+                folder = get_tunnel_folder(bigip, tunnel_name=tunnel_name)
+                net_info = {'network': network,
+                            'folder': folder,
+                            'tunnel_name': tunnel_name,
+                            'net_fdb': net_fdb}
+                fdbs = self._get_bigip_network_fdbs(bigip, net_info)
+                if len(fdbs) > 0:
+                    fdb_method(fdb_entries=fdbs)
+
+    def _get_bigip_network_fdbs(self, bigip, net_info):
+        # Get network fdb entries to add to a bigip
+        if not net_info['folder']:
+            return {}
+        net_fdb = net_info['net_fdb']
+        fdbs = {}
+        for vtep in net_fdb['ports']:
+            # bigip does not need to set fdb entries for local addresses
+            if vtep == bigip.local_ip:
+                continue
+
+            # most net_info applies to the vtep
+            vtep_info = dict(net_info)
+            # but the network fdb is too broad so delete it
+            del vtep_info['net_fdb']
+            # use a slice of the fdb for the vtep instead
+            vtep_info['vtep'] = vtep
+            vtep_info['fdb_entries'] = net_fdb['ports'][vtep]
+
+            self._merge_vtep_fdbs(vtep_info, fdbs)
+        return fdbs
+
+    def _merge_vtep_fdbs(self, vtep_info, fdbs):
+        # Add L2 records for a specific network+vtep
+        folder = vtep_info['folder']
+        tunnel_name = vtep_info['tunnel_name']
+        for entry in vtep_info['fdb_entries']:
+            mac_address = entry[0]
+            if mac_address == '00:00:00:00:00:00':
+                continue
+            ip_address = entry[1]
+
+            # create/get tunnel data
+            if tunnel_name not in fdbs:
+                fdbs[tunnel_name] = {}
+            tunnel_fdbs = fdbs[tunnel_name]
+            # update tunnel folder
+            tunnel_fdbs['folder'] = folder
+
+            # maybe create records for tunnel
+            if 'records' not in tunnel_fdbs:
+                tunnel_fdbs['records'] = {}
+
+            # add entry to records map keyed by mac address
+            tunnel_fdbs['records'][mac_address] = \
+                {'endpoint': vtep_info['vtep'], 'ip_address': ip_address}
+
+    def update_bigip_fdb(self, bigip, fdb):
+        # Update l2 records
+        self.add_bigip_fdb(bigip, fdb)
+
+    def remove_bigip_fdb(self, bigip, fdb):
+        # Add L2 records for MAC addresses behind tunnel endpoints
+        for fdb_operation in \
+            [{'network_type': 'vxlan',
+              'get_tunnel_folder': self.network_helper.get_tunnel_folder,
+              'fdb_method': self.network_helper.delete_fdb_entries},
+             {'network_type': 'gre',
+              'get_tunnel_folder': self.network_helper.get_tunnel_folder,
+              'fdb_method': self.network_helper.delete_fdb_entries}]:
+            self._operate_bigip_fdb(bigip, fdb, fdb_operation)
 
     # Utilities
     def get_network_name(self, bigip, network):
@@ -575,3 +718,76 @@ class L2ServiceBuilder(object):
             return 'Common'
         else:
             return self.service_adapter.get_folder_name(network['tenant_id'])
+
+    def add_fdb_entries(self, bigips, loadbalancer, members):
+        """Update fdb entries for loadbalancer and member VTEPs.
+
+        :param bigips: one or more BIG-IPs to update.
+        :param loadbalancer: Loadbalancer with VTEPs to update. Can be None.
+        :param members: List of members. Can be emtpy ([]).
+        """
+        tunnel_records = self.create_fdb_records(loadbalancer, members)
+        if tunnel_records:
+            for bigip in bigips:
+                self.network_helper.add_fdb_entries(bigip,
+                                                    fdb_entries=tunnel_records)
+
+    def delete_fdb_entries(self, bigips, loadbalancer, members):
+        """Remove fdb entries for loadbalancer and member VTEPs.
+
+        :param bigips: one or more BIG-IPs to update.
+        :param loadbalancer: Loadbalancer with VTEPs to remove. Can be None.
+        :param members: List of members. Can be emtpy ([]).
+        """
+        tunnel_records = self.create_fdb_records(loadbalancer, members)
+        if tunnel_records:
+            for bigip in bigips:
+                self.network_helper.delete_fdb_entries(
+                    bigip,
+                    fdb_entries=tunnel_records)
+
+    def create_fdb_records(self, loadbalancer, members):
+        fdbs = dict()
+
+        if loadbalancer:
+            network = loadbalancer['network']
+            tunnel_name = _get_tunnel_name(network)
+            fdbs[tunnel_name] = dict()
+            fdbs[tunnel_name]['folder'] = self._get_network_folder(network)
+            records = dict()
+            fdbs[tunnel_name]['records'] = records
+            self.append_loadbalancer_fdb_records(
+                network, loadbalancer, records)
+
+        for member in members:
+            network = member['network']
+            tunnel_name = _get_tunnel_name(network)
+            if tunnel_name not in fdbs:
+                fdbs[tunnel_name] = dict()
+                fdbs[tunnel_name]['folder'] = self._get_network_folder(network)
+                fdbs[tunnel_name]['records'] = dict()
+
+            records = fdbs[tunnel_name]['records']
+            if 'port' in member and 'mac_address' in member['port']:
+                mac_addr = member['port']['mac_address']
+                self.append_member_fdb_records(network,
+                                               member,
+                                               records,
+                                               mac_addr,
+                                               ip_address=member['address'])
+
+        return fdbs
+
+    def append_loadbalancer_fdb_records(self, network, loadbalancer, records):
+        vteps = _get_vteps(network, loadbalancer)
+        for vtep in vteps:
+            # create an arbitrary MAC address for VTEP
+            mac_addr = _get_tunnel_fake_mac(network, vtep)
+            records[mac_addr] = {'endpoint': vtep, 'ip_address': ''}
+
+    def append_member_fdb_records(self, network, member, records,
+                                  mac_addr, ip_address=''):
+        vteps = _get_vteps(network, member)
+        for vtep in vteps:
+            records[mac_addr] = {'endpoint': vtep,
+                                 'ip_address': ip_address}

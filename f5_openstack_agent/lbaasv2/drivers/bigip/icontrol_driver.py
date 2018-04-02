@@ -588,7 +588,7 @@ class iControlDriver(LBaaSBaseDriver):
                               % (hostname, bigip.status, bigip.status_message))
                     self._set_agent_status(False)
         except Exception as exc:
-            LOG.exception('Invalid agent configuration: %s' % exc.message)
+            LOG.error('Invalid agent configuration: %s' % exc.message)
             raise
         self._set_agent_status(force_resync=True)
 
@@ -752,6 +752,9 @@ class iControlDriver(LBaaSBaseDriver):
 
             # Turn off tunnel syncing between BIG-IP
             # as our VTEPs properly use only local SelfIPs
+            if self.system_helper.get_tunnel_sync(bigip) == 'enable':
+                self.system_helper.set_tunnel_sync(bigip, enabled=False)
+
             LOG.debug('connected to iControl %s @ %s ver %s.%s'
                       % (self.conf.icontrol_username, hostname,
                          major_version, minor_version))
@@ -1018,9 +1021,10 @@ class iControlDriver(LBaaSBaseDriver):
             return highest_metric
         return 0
 
-    def set_tunnel_handler(self, tunnel_handler):
-        """Provides Tunnel Handling support to the driver"""
-        self.tunnel_handler = tunnel_handler
+    def set_context(self, context):
+        # Context to keep for database access
+        if self.network_builder:
+            self.network_builder.set_context(context)
 
     def set_plugin_rpc(self, plugin_rpc):
         # Provide Plugin RPC access
@@ -1594,9 +1598,55 @@ class iControlDriver(LBaaSBaseDriver):
         finally:
             return lb_stats
 
+    def fdb_add(self, fdb):
+        # Add (L2toL3) forwarding database entries
+        self.remove_ips_from_fdb_update(fdb)
+        for bigip in self.get_all_bigips():
+            self.network_builder.add_bigip_fdb(bigip, fdb)
+
+    def fdb_remove(self, fdb):
+        # Remove (L2toL3) forwarding database entries
+        self.remove_ips_from_fdb_update(fdb)
+        for bigip in self.get_all_bigips():
+            self.network_builder.remove_bigip_fdb(bigip, fdb)
+
+    def fdb_update(self, fdb):
+        # Update (L2toL3) forwarding database entries
+        self.remove_ips_from_fdb_update(fdb)
+        for bigip in self.get_all_bigips():
+            self.network_builder.update_bigip_fdb(bigip, fdb)
+
+    # remove ips from fdb update so we do not try to
+    # add static arps for them because we do not have
+    # enough information to determine the route domain
+    def remove_ips_from_fdb_update(self, fdb):
+        for network_id in fdb:
+            network = fdb[network_id]
+            mac_ips_by_vtep = network['ports']
+            for vtep in mac_ips_by_vtep:
+                mac_ips = mac_ips_by_vtep[vtep]
+                for mac_ip in mac_ips:
+                    mac_ip[1] = None
+
     def tunnel_update(self, **kwargs):
         # Tunnel Update from Neutron Core RPC
         pass
+
+    def tunnel_sync(self):
+        # Only sync when supported types are present
+        if not [i for i in self.agent_configurations['tunnel_types']
+                if i in ['gre', 'vxlan']]:
+            return False
+
+        tunnel_ips = []
+        for bigip in self.get_all_bigips():
+            if bigip.local_ip:
+                tunnel_ips.append(bigip.local_ip)
+
+        self.network_builder.tunnel_sync(tunnel_ips)
+
+        # Tunnel sync sent.
+        return False
 
     @serialized('sync')
     @is_operational
@@ -1916,8 +1966,9 @@ class iControlDriver(LBaaSBaseDriver):
                     self.network_builder.post_service_networking(
                         service, all_subnet_hints)
                 except Exception as error:
-                    LOG.exception("Post-network exception: "
-                                  "icontrol_driver: {}".format(error))
+                    LOG.error("Post-network exception: icontrol_driver: %s",
+                              error.message)
+
                     if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                         loadbalancer['provisioning_status'] = \
                             f5const.F5_ERROR
