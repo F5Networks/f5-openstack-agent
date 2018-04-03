@@ -208,12 +208,15 @@ class Tunnel(cache.CacheBase):
         known_macs = set(map(lambda x: x.mac_address, self.__fdbs))
 
         def append_fdb(self, fdb):
+            """Adds an Fdb object to the list of fdbs on the Tunnel"""
             self.__fdbs.append(fdb)
 
         def extend_fdbs(self, fdbs):
+            """Extends the list of Fdbs to the current Tunnel's Fdbs"""
             self.__fdbs.extend(fdbs)
 
         def add_fdb(fdb):
+            """Adds an Fdb to the deployment"""
             self.logger.debug("{}: adding {}".format(self.tunnel_name, fdb))
             tunnel_method = TunnelBuilder.add_fdb_to_tunnel
             fdb_method = fdb_mod.FdbBuilder.add_fdb_to_arp
@@ -275,10 +278,12 @@ class Tunnel(cache.CacheBase):
 
     @property
     def fdbs(self):
+        """Returns current list of Fdbs's"""
         return self.__fdbs
 
     @property
     def profile(self):
+        """Returns the tunnel's profile"""
         return getattr(self, '_Tunnel__profile',
                        "{}_ovs".format(self.tunnel_type))
 
@@ -407,6 +412,7 @@ class TunnelBuilder(object):
 
     @classmethod
     def get_records_from_tunnel(cls, bigip, tunnel):
+        """Gets a list of FDB records from the given tunnel of of BIG-IP"""
         fdb_tunnel = cls.__tm_fdb_tunnel(bigip, tunnel, 'load')
         records = getattr(fdb_tunnel, 'records', [])
         return records
@@ -501,6 +507,7 @@ class TunnelBuilder(object):
 
     @classmethod
     def create_tunnel_obj(cls, bigip, params):
+        """Generates a Tunnel objet and returns"""
         tunnel = cls.__create_tunnel_from_dict(params, bigip)
         return tunnel
 
@@ -634,6 +641,7 @@ class TunnelBuilder(object):
     @wrappers.http_error(
         debug={404: "Attempted delete on non-existent record"})
     def remove_record_from_arp(cls, bigip, tunnel, fdb):
+        """Removes the given Fdb's info from the ARP table"""
         def remove(fdb):
             cls.__tm_records(bigip, 'delete', tunnel, fdb)
 

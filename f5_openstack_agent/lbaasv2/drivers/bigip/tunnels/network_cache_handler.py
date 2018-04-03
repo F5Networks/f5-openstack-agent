@@ -202,6 +202,11 @@ class NetworkCacheHandler(cache.CacheBase):
         return hosts
 
     def get_tunnels_by_designation(self, network_id, segment):
+        """Retrieves a {bigip_host:[Tunnel]} for network_id and segment given
+
+        This will return the described dict structure for a given network and
+        segment as constructed by objects in the cache.
+        """
         try:
             hosts = self._get_tunnels_by_designation(network_id, segment)
         except KeyError:

@@ -187,6 +187,7 @@ class TmTunnelsProfile(TmNetActionBase):
             self.tm = self.tm.tunnels.gres.gre
 
     def create_payload(self):
+        """Returns a create operation's payload"""
         ttype = self.tunnel_type
         base = dict(name=self.name, partition=self.partition,
                     floodingType='multipoint', defaultsFrom=ttype)
@@ -199,6 +200,7 @@ class TmTunnelsProfile(TmNetActionBase):
         return base
 
     def load_payload(self):
+        """Returns a load operation's payload"""
         return dict(name=self.name, partition=self.partition)
 
     def execute(self):
@@ -273,6 +275,7 @@ class TmTunnel(TmNetActionBase):
         return create_payload
 
     def load(self):
+        """Performs a load operations and returns result"""
         payload = self.load_payload()
         return self.tm.load(**payload)
 
@@ -361,15 +364,18 @@ class TmRecord(TmNetActionBase):
         self.tm = fdb_tunnel_load()
 
     def no_opt(self):
+        """A no-opt that logs a debugger message when called"""
         self.logger.debug(
             "Attempted '{} on non-existent records for Tunnel({})".format(
                 self.action, self.tunnel.tunnel_name))
         return False
 
     def load_payload(self, fdb):
+        """Creates and returns a load operation's payload"""
         return dict(name=fdb.mac_address)
 
     def create_payload(self, fdb):
+        """Creates and returns a create operation's payload"""
         return fdb.record
 
     def _get_tm_record(self):

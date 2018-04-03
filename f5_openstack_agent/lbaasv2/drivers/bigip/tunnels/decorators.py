@@ -47,6 +47,7 @@ def timed(method):
 
 
 def weakref_handle(method):
+    """Handles a ReferenceError automatically and returns"""
     def wrapper(*args, **kwargs):
         try:
             return method(*args, **kwargs)
