@@ -68,7 +68,6 @@ class Fdb(object):
         self._set_ip_address(ip_address, force=force)
         self.vtep_ip = vtep_ip
         self.__partitions = []
-        self.__hosts = []
 
     def __str__(self):
         """Returns string representation of object"""
@@ -172,19 +171,16 @@ class Fdb(object):
 
     @property
     def record(self):
+        """Returns the record representation of the Fdb"""
         return dict(endpoint=self.vtep_ip, name=self.mac_address)
 
     @property
     def fdb_entry(self):
+        """Returns the entry representation of the Fdb"""
         ports = [{self.ip_address: [[self.mac_address, self.vtep_ip]]}]
         return dict(
             ports=ports, segmentation_id=self.segment_id,
             network_id=self.network_id, network_type=self.network_type)
-
-    @property
-    def hosts(self):
-        """Returns the list of BIG-IP hostnames linked to this FDB VTEP"""
-        return self.__hosts
 
     @property
     def partitions(self):
@@ -197,12 +193,14 @@ class Fdb(object):
         return self.hosts and self.partitions
 
     def log_create(self, bigip, partition):
+        """Creates a new logger entry for debug stating the FDB was created"""
         self.logger.debug(
             "Successfully Created Fdb({b.hostname}, {} {s.ip_address}("
             "{s.mac_address}, {s.vtep_ip})".format(
                 partition, b=bigip, s=self))
 
     def log_remove(self, bigip, partition):
+        """Creates a new logger entry for debug stating FDB was deleted"""
         self.logger.debug(
             "Successfully Removed Fdb({b.hostname}, {} {s.ip_address}("
             "{s.mac_address}, {s.vtep_ip})".format(
