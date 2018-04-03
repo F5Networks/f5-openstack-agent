@@ -398,17 +398,17 @@ class Test_L2ServiceBuilder(object):
         tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
 
         network_helper = NetworkHelper()
-        fdb_entry = mock.MagicMock()
-        fdb_entry.modify = mock.MagicMock()
+        tunnel = mock.MagicMock()
+        tunnel.records_s.records.exists = mock.MagicMock(return_value=False)
+
         bigip = bigips[0]
         bigip.tm.net.fdb.tunnels.tunnel.load = mock.MagicMock(
-            return_value=fdb_entry)
+            return_value=tunnel)
         network_helper.add_fdb_entries(bigip, fdb_entries=tunnel_records)
 
         # expect to modify with first member's VTEP and MAC addr
-        fdb_entry.modify.assert_called_with(
-            records=[{'endpoint': '192.168.130.59',
-                      'name': 'fa:16:3e:0d:fa:c8'}])
+        tunnel.records_s.records.create.assert_called_with(
+            name='fa:16:3e:0d:fa:c8', endpoint='192.168.130.59')
 
         # add second member fdb entry
         members = list()
@@ -421,9 +421,8 @@ class Test_L2ServiceBuilder(object):
         network_helper.add_fdb_entries(bigip, fdb_entries=tunnel_records)
 
         # expect to modify with second member's VTEP and MAC addr
-        fdb_entry.modify.assert_called_with(
-            records=[{'endpoint': '192.168.130.60',
-                      'name': 'fa:16:3e:0d:fa:c6'}])
+        tunnel.records_s.records.create.assert_called_with(
+            name='fa:16:3e:0d:fa:c6', endpoint='192.168.130.60')
 
     def test_network_helper_delete_fdb_entries(
             self, l2_service, service, bigips):
@@ -438,12 +437,18 @@ class Test_L2ServiceBuilder(object):
         tunnel_records = l2_service.create_fdb_records(loadbalancer, members)
 
         network_helper = NetworkHelper()
-        fdb_entry = mock.MagicMock()
-        fdb_entry.modify = mock.MagicMock()
+        tunnel = mock.MagicMock()
+        tunnel.exists = mock.MagicMock(return_value=True)
+
+        tunnel_record = mock.MagicMock()
+        tunnel.records_s.records.load = mock.MagicMock(
+            return_value=tunnel_record)
+        tunnel.records_s.records.exist = mock.MagicMock(return_value=True)
+
         bigip = bigips[0]
         bigip.tm.net.fdb.tunnels.tunnel.load = mock.MagicMock(
-            return_value=fdb_entry)
+            return_value=tunnel)
         network_helper.delete_fdb_entries(bigip, fdb_entries=tunnel_records)
 
-        # expect to modify with no records (i.e, removing entry)
-        fdb_entry.modify.assert_called_with(records=None)
+        # expect to delete
+        tunnel_record.delete.assert_called()
