@@ -293,6 +293,10 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'trace_service_requests',
         default=False,
         help='Log service object.'
+    ),
+    cfg.BoolOpt(
+        'debug', default=False,
+        help='Enable debug option'
     )
 ]
 
@@ -665,7 +669,8 @@ class iControlDriver(LBaaSBaseDriver):
             bigip = ManagementRoot(hostname,
                                    self.conf.icontrol_username,
                                    self.conf.icontrol_password,
-                                   timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
+                                   timeout=f5const.DEVICE_CONNECTION_TIMEOUT,
+                                   debug=self.conf.debug)
             bigip.status = 'connected'
             bigip.status_message = 'connected to BIG-IP'
             self.__bigips[hostname] = bigip
