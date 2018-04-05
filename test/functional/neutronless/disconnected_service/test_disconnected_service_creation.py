@@ -29,6 +29,7 @@ from mock import call
 import os
 from os.path import dirname as osd
 import pytest
+import re
 import requests
 import time
 
@@ -76,87 +77,158 @@ NOSEGID_CREATELB = NEUTRON_SERVICES["create_disconnected_loadbalancer"]
 SEGID_CREATELISTENER = NEUTRON_SERVICES["create_connected_listener"]
 NOSEGID_CREATELISTENER = NEUTRON_SERVICES["create_disconnected_listener"]
 
-# BigIP device states observed via f5sdk.
-AGENT_INIT_URIS = \
-    set([u'https://localhost/mgmt/tm/net/tunnels/vxlan/'
-         '~Common~vxlan_ovs?ver='+tmos_version,
 
-         u'https://localhost/mgmt/tm/net/tunnels/gre/'
-         '~Common~gre_ovs?ver='+tmos_version])
+# BigIP device states observed via f5sdk.
+class UrlNames():
+    """A convenient label library that provides common URL names"""
+    # Neutron-based names used...
+    tenant_id = u'128a63ef33bc4cf891d684fad58e7f2d'
+    loadbalancer_id = u'50c5d54a-5a9e-4a80-9e74-8400a461a077'
+    listener_id = u'105a227a-cdbf-4ce3-844c-9ebedec849e9'
+    vip_port = u'ce69e293-56e7-43b8-b51c-01b91d66af20'
+    # Translation names, shortcuts and handles...
+    prefix = u'TEST_'
+    partition = u'{}{}'.format(prefix, tenant_id)
+    virtual_address = u'{}{}'.format(prefix, loadbalancer_id)
+    virtual = u'{}{}'.format(prefix, listener_id)
+    common = u'Common'
+    base = u'https://localhost/mgmt/tm'
+    snat_trans_spec = u'snat-traffic-group-local-only'
+    selfip = u'local-{}'.format(icontrol_fqdn)
+    tunnel_name = u'tunnel-vxlan-46'
+
+
+class UrlSnips():
+    """URL generator for the common URL's being used to compare events with
+
+    Each URL should have its original in-place, but commented out for quick
+    reference.  If this test suite fails somewhere due to an equality issue
+    for a set, then reference this object and its participles that are missing
+    and/or are there inappropriately.
+
+    This object is meant to make things more easily readable; thus, you can
+    use the 'url2name' dictionary if you'd like.  Keep in mind that URL's
+    coming from the SDK will have:
+        /?ver=xx.xx.xx/
+    At the end of each URL.  This should be stripped by the stripping method
+    in this library before comparisons!  If they are not, then this library is
+    useless.
+
+    I am expensive, but I am readable.  I am complicated, yet not complex.
+    You can read my pieces and understand their meaning and where they come
+    from.  And lastly, I'm written to be troubleshooted easily in a complex
+    world...
+        ~sidsn
+    """
+    version_strip = re.compile('\?ver=[\d\.]+')  # we know what bigip version
+    tunnels = u'{u.base}/net/tunnels'.format(u=UrlNames)
+    vxlan_profile = u'{}/vxlan/~Common~vxlan_ovs'.format(tunnels)
+    gre_profile = u'{}/gre/~Common~gre_ovs'.format(tunnels)
+    # u'https://localhost/mgmt/tm/sys/folder/'
+    # u'~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    folder = u'{u.base}/sys/folder/~{u.partition}'.format(u=UrlNames)
+    # u'https://localhost/mgmt/tm/net/route-domain/'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    route_domain = \
+        u'{u.base}/net/route-domain/~{u.partition}~{u.partition}'.format(
+            u=UrlNames)
+    # u'https://localhost/mgmt/tm/ltm/snat-translation/'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    # '~snat-traffic-group-local-only'
+    # '-ce69e293-56e7-43b8-b51c-01b91d66af20_0'
+    snat_translation_address = \
+        unicode('{u.base}/ltm/snat-translation/~{u.partition}~'
+                '{u.snat_trans_spec}-{u.vip_port}_0').format(u=UrlNames)
+    # u'https://localhost/mgmt/tm/ltm/snat-translation/'
+    # u'~Common~snat-traffic-group-local-only-'
+    # u'ce69e293-56e7-43b8-b51c-01b91d66af20_0'
+    common_snat_translation_address = \
+        unicode('{u.base}/ltm/snat-translation/~{u.common}~'
+                '{u.snat_trans_spec}-{u.vip_port}_0').format(u=UrlNames)
+    # u'https://localhost/mgmt/tm/ltm/snatpool/'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    snatpool = \
+        u'{u.base}/ltm/snatpool/~{u.partition}~{u.partition}'.format(
+            u=UrlNames)
+    # 'https://localhost/mgmt/tm/net/self/~Common~local-{}'
+    # '-ce69e293-56e7-43b8-b51c-01b91d66af20'
+    common_selfip = \
+        unicode('{u.base}/net/self/~{u.common}~{u.selfip}-'
+                '{u.vip_port}').format(u=UrlNames)
+    # u'https://localhost/mgmt/tm/net/self/'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    # '~local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'
+    tenant_selfip = \
+        u'{u.base}/net/self/~{u.partition}~{u.selfip}-{u.vip_port}'.format(
+            u=UrlNames)
+    # u'https://localhost/mgmt/tm/ltm/virtual-address/'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    # '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077'])
+    virtual_address = \
+        unicode('{u.base}/ltm/virtual-address/~{u.partition}~'
+                '{u.virtual_address}').format(u=UrlNames)
+    # u'https://localhost/mgmt/tm/net/fdb/tunnel/'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d~tunnel-vxlan-46',
+    fdb_tunnel = \
+        u'{u.base}/net/fdb/tunnel/~{u.partition}~{u.tunnel_name}'.format(
+            u=UrlNames)
+    # u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    # '~tunnel-vxlan-46',
+    partition_tunnel = \
+        u'{}/tunnel/~{u.partition}~{u.tunnel_name}'.format(
+            tunnels, u=UrlNames)
+    # u'https://localhost/mgmt/tm/ltm/virtual/'
+    # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    # '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9'
+    virtual = \
+        u'{u.base}/ltm/virtual/~{u.partition}~{u.virtual}'.format(u=UrlNames)
+    # u'https://localhost/mgmt/tm/auth/partition/'
+    # u'~TEST_128a63ef33bc4cf891d684fad58e7f2d'
+    partition = \
+        u'{u.base}/auth/partition/{u.partition}'.format(u=UrlNames)
+    url2name = {
+        route_domain: 'route_domain', virtual_address: 'virtual_address',
+        snat_translation_address: 'snat_translation_address',
+        snatpool: 'snatpool', common_selfip: 'common_selfip',
+        tenant_selfip: 'tenant_selfip', fdb_tunnel: 'fdb_tunnel',
+        partition_tunnel: 'partition_tunnel', virtual: 'virtual',
+        partition: 'partition'}
+
+    @classmethod
+    def strip_version(cls, items):
+        """This is the /?ver=xx.xx.xx/ stripper method aforementioned"""
+        return set([cls.version_strip.sub('', item) for item in items])
+
+
+AGENT_INIT_URIS = \
+    set([UrlSnips.vxlan_profile, UrlSnips.gre_profile])
 
 SEG_INDEPENDENT_LB_URIS =\
-    set([u'https://localhost/mgmt/tm/sys/folder/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
-
-         u'https://localhost/mgmt/tm/net/route-domain/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version])
+    set([UrlSnips.folder, UrlSnips.route_domain, UrlSnips.partition])
 
 SEG_INDEPENDENT_LB_URIS_GRM =\
-    set([u'https://localhost/mgmt/tm/sys/folder/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version])
+    set([UrlSnips.folder, UrlSnips.partition])
 
 SEG_DEPENDENT_LB_URIS =\
-    set([u'https://localhost/mgmt/tm/ltm/snat-translation/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~snat-traffic-group-local-only'
-         '-ce69e293-56e7-43b8-b51c-01b91d66af20_0?ver={}'.format(tmos_version),
-
-         u'https://localhost/mgmt/tm/ltm/snatpool/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver={}'.format(tmos_version),
-
-         u'https://localhost/mgmt/tm/net/fdb/tunnel/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d~tunnel-vxlan-46?ver=11.5.0',
-
-         u'https://localhost/mgmt/tm/net/self/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20?ver={}'.format(
-            icontrol_fqdn, tmos_version),
-
-         u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~tunnel-vxlan-46?ver={}'.format(tmos_version),
-
-         u'https://localhost/mgmt/tm/ltm/virtual-address/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?ver={}'.format(
-                tmos_version)
-         ])
+    set([UrlSnips.snat_translation_address, UrlSnips.snatpool,
+         UrlSnips.fdb_tunnel, UrlSnips.tenant_selfip,
+         UrlSnips.partition_tunnel, UrlSnips.virtual_address])
 
 SEG_INDEPENDENT_LB_URIS_COMMON_NET =\
-    set([u'https://localhost/mgmt/tm/ltm/snat-translation/'
-         '~Common'
-         '~snat-traffic-group-local-only'
-         '-ce69e293-56e7-43b8-b51c-01b91d66af20_0?ver='+tmos_version,
-
-         u'https://localhost/mgmt/tm/ltm/snatpool/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d?ver='+tmos_version,
-
-         unicode(
-            'https://localhost/mgmt/tm/net/self/~Common~local-{}'
-            '-ce69e293-56e7-43b8-b51c-01b91d66af20?ver={}').format(
-            icontrol_fqdn, tmos_version),
-
-         u'https://localhost/mgmt/tm/ltm/virtual-address/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?ver='+tmos_version])
+    set([UrlSnips.common_snat_translation_address, UrlSnips.snatpool,
+         UrlSnips.common_selfip, UrlSnips.virtual_address])
 
 SEG_LISTENER_URIS = \
-    set([u'https://localhost/mgmt/tm/ltm/virtual/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9?ver='+tmos_version])
+    set([UrlSnips.virtual])
 
 NOSEG_LB_URIS =\
-    set([u'https://localhost/mgmt/tm/ltm/virtual-address/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077?ver='+tmos_version])
+    set([UrlSnips.virtual_address])
 
 NOSEG_LISTENER_URIS =\
-    set([u'https://localhost/mgmt/tm/ltm/virtual/'
-         '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-         '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9?ver='+tmos_version])
+    set([UrlSnips.virtual])
 
 ERROR_MSG_MISCONFIG = 'Misconfiguration: Segmentation ID is missing'
 ERROR_MSG_VXLAN_TUN = 'Failed to create vxlan tunnel:'
@@ -216,12 +288,12 @@ def setup_l2adjacent_test(request, bigip, makelogdir):
     request.addfinalizer(kill_icontrol)
 
     try:
-        remove_elements(bigip,
-                        SEG_INDEPENDENT_LB_URIS |
-                        SEG_DEPENDENT_LB_URIS |
-                        SEG_LISTENER_URIS |
-                        AGENT_INIT_URIS,
-                        vlan=True)
+        remove_elements(bigip)
+        # SEG_INDEPENDENT_LB_URIS |
+        # SEG_DEPENDENT_LB_URIS |
+        # SEG_LISTENER_URIS |
+        # AGENT_INIT_URIS,
+        # vlan=True)
     finally:
         LOG.info('removing pre-existing config')
 
@@ -236,8 +308,9 @@ def handle_init_registry(bigip, icd_configuration,
     LOG.debug(bigip.raw)
     start_registry = register_device(bigip)
     if icd_configuration['f5_global_routed_mode'] is False:
-        assert set(start_registry.keys()) - set(init_registry.keys()) == \
-            AGENT_INIT_URIS
+        my_set = UrlSnips.strip_version(set(start_registry.keys()) -
+                                        set(init_registry.keys()))
+        assert my_set == AGENT_INIT_URIS
     return icontroldriver, start_registry
 
 
@@ -250,8 +323,8 @@ def test_featureoff_withsegid_lb(track_bigip_cfg, setup_l2adjacent_test,
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS | SEG_DEPENDENT_LB_URIS
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
@@ -276,8 +349,8 @@ def test_withsegid_lb(track_bigip_cfg, setup_l2adjacent_test, bigip):
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS | SEG_DEPENDENT_LB_URIS
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
@@ -303,8 +376,8 @@ def test_featureoff_withsegid_listener(track_bigip_cfg, setup_l2adjacent_test,
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == (SEG_INDEPENDENT_LB_URIS |
                            SEG_DEPENDENT_LB_URIS |
                            SEG_LISTENER_URIS)
@@ -334,8 +407,8 @@ def test_featureoff_nosegid_lb(track_bigip_cfg, setup_l2adjacent_test, bigip):
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_MISCONFIG in open(logfilename).read()
@@ -354,8 +427,8 @@ def test_featureoff_nosegid_listener(track_bigip_cfg, setup_l2adjacent_test,
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_MISCONFIG in open(logfilename).read()
@@ -373,8 +446,8 @@ def test_withsegid_listener(track_bigip_cfg, setup_l2adjacent_test, bigip):
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == (SEG_INDEPENDENT_LB_URIS |
                            SEG_DEPENDENT_LB_URIS |
                            SEG_LISTENER_URIS)
@@ -404,8 +477,8 @@ def test_nosegid_lb(track_bigip_cfg, setup_l2adjacent_test, bigip):
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
@@ -424,8 +497,8 @@ def test_nosegid_listener(track_bigip_cfg, setup_l2adjacent_test, bigip):
     logfilename = setup_l2adjacent_test.baseFilename
     assert ERROR_MSG_VXLAN_TUN not in open(logfilename).read()
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == (SEG_INDEPENDENT_LB_URIS)
 
     rpc = icontroldriver.plugin_rpc
@@ -465,7 +538,8 @@ def test_nosegid_listener_timeout(track_bigip_cfg, setup_l2adjacent_test,
     while time.time() < (timeout + (2*poll_interval)):
         time.sleep(poll_interval)
         create_registry = register_device(bigip)
-        create_uris = set(create_registry.keys()) - set(start_registry.keys())
+        create_uris = UrlSnips.strip_version(set(create_registry.keys()) -
+                                             set(start_registry.keys()))
         assert create_uris == (SEG_INDEPENDENT_LB_URIS | NOSEG_LISTENER_URIS |
                                NOSEG_LB_URIS)
     logfilename = setup_l2adjacent_test.baseFilename
@@ -535,7 +609,8 @@ def test_nosegid_to_segid(track_bigip_cfg, setup_l2adjacent_test, bigip):
     # Before gtimeout
     time.sleep(gtimeout)
     create_registry = register_device(bigip)
-    create_uris = set(create_registry.keys()) - set(start_registry.keys())
+    create_uris = UrlSnips.strip_version(set(create_registry.keys()) -
+                                         set(start_registry.keys()))
 
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
@@ -588,8 +663,8 @@ def test_featureoff_grm_lb(track_bigip_cfg, setup_l2adjacent_test, bigip):
     after_create_registry = register_device(bigip)
     empty_set = set()
 
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS_GRM | NOSEG_LB_URIS
 
     logfilename = setup_l2adjacent_test.baseFilename
@@ -633,8 +708,8 @@ def test_featureoff_grm_listener(track_bigip_cfg, setup_l2adjacent_test,
     after_create_registry = register_device(bigip)
     # empty_set = set()
 
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == (SEG_INDEPENDENT_LB_URIS_GRM | NOSEG_LB_URIS |
                            NOSEG_LISTENER_URIS)
 
@@ -652,8 +727,8 @@ def test_featureoff_nosegid_common_lb_net(track_bigip_cfg,
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS_COMMON_NET | \
         SEG_INDEPENDENT_LB_URIS | \
         NOSEG_LB_URIS
@@ -675,8 +750,8 @@ def test_featureoff_nosegid_create_listener_common_lb_net(
             icontroldriver._common_service_handler,
             service)
     after_create_registry = register_device(bigip)
-    create_uris = (set(after_create_registry.keys()) -
-                   set(start_registry.keys()))
+    create_uris = UrlSnips.strip_version(set(after_create_registry.keys()) -
+                                         set(start_registry.keys()))
     assert create_uris == SEG_INDEPENDENT_LB_URIS_COMMON_NET | \
         SEG_INDEPENDENT_LB_URIS | \
         NOSEG_LB_URIS | NOSEG_LISTENER_URIS

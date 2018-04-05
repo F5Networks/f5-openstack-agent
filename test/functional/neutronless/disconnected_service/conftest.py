@@ -19,9 +19,9 @@ import os
 import pytest
 import time
 
-from f5.utils.testutils.registrytools import order_by_weights
-from f5.utils.testutils.registrytools import register_device
-from icontrol.exceptions import iControlUnexpectedHTTPError
+# from f5.utils.testutils.registrytools import order_by_weights
+# from f5.utils.testutils.registrytools import register_device
+# from icontrol.exceptions import iControlUnexpectedHTTPError
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver import\
     iControlDriver
@@ -66,45 +66,58 @@ def _get_nolevel_handler(logname):
     return fh
 
 
-def remove_elements(bigip, uris, vlan=False):
-    for t in bigip.tm.net.fdb.tunnels.get_collection():
-        if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
-            t.update(records=[])
-    registry = register_device(bigip)
-    ordered = order_by_weights(uris, AGENT_LB_DEL_ORDER)
-    for selfLink in ordered:
-        try:
-            if selfLink in registry:
-                registry[selfLink].delete()
-        except iControlUnexpectedHTTPError as exc:
-            sc = exc.response.status_code
-            if sc == 404:
-                logging.debug(sc)
-            elif sc == 400 and 'fdb/tunnel' in selfLink and vlan:
-                # If testing VLAN (with vCMP) the fdb tunnel cannot be deleted
-                # directly. It goes away when the net tunnel is deleted
-                continue
-            elif sc == 400\
-              and 'mgmt/tm/net/tunnels/tunnel/' in selfLink\
-              and 'tunnel-vxlan' in selfLink:
-                for t in bigip.tm.net.fdb.tunnels.get_collection():
-                    if t.name != 'http-tunnel' and t.name != 'socks-tunnel':
-                        t.update(records=[])
-                registry[selfLink].delete()
-            else:
-                raise
+def remove_elements(bigip):
+    """Do this in a way that we do not need to rely on others' code...
+
+    We wish to remove all objects off of the bigip.
+    """
+    ignore_names = [u'/', u'Common', u'Drafts', u'http-tunnel',
+                    u'socks-tunnel', u'selfip.internal', u'selfip.external',
+                    u'selfip.tunnel', u'selfip.ha', u'vxlan', u'vxlan-gpe',
+                    u'vxlan-ovsdb', u'gre', u'nvgre', u'0', u'']
+
+    def remove_all_fdbs():
+        for t in bigip.tm.net.fdb.tunnels.get_collection():
+            if t.name not in ignore_names:
+                t.modify(records=[])
+
+    def remove_all_of_type(bigip_obj_type):
+        items = bigip_obj_type.get_collection()
+        for item in items:
+            my_name = item.name.replace('/', '')
+            if my_name not in ignore_names:
+                item.delete()
+
+    before_tunnels = [
+        bigip.tm.ltm.virtuals,
+        bigip.tm.ltm.virtual_address_s,
+        bigip.tm.ltm.snatpools,
+        bigip.tm.net.selfips,
+        bigip.tm.net.arps]
+    after_tunnels = [
+        bigip.tm.net.tunnels.tunnels,
+        bigip.tm.net.tunnels.vxlans,
+        bigip.tm.net.tunnels.gres,
+        bigip.tm.net.route_domains,
+        bigip.tm.sys.folders]
+    for obj_type in before_tunnels:
+        remove_all_of_type(obj_type)
+    remove_all_fdbs()
+    for obj_type in after_tunnels:
+        remove_all_of_type(obj_type)
 
 
 def setup_neutronless_test(request, bigip, makelogdir, vlan=False):
-    pretest_snapshot = frozenset(register_device(bigip))
+    # pretest_snapshot = frozenset(register_device(bigip))
 
     logname = os.path.join(makelogdir, request.function.__name__)
     loghandler = _get_nolevel_handler(logname)
+    remove_elements(bigip)
 
     def remove_test_created_elements():
-        posttest_registry = register_device(bigip)
-        created = frozenset(posttest_registry) - pretest_snapshot
-        remove_elements(bigip, created, vlan)
+        # posttest_registry = register_device(bigip)
+        # created = frozenset(posttest_registry) - pretest_snapshot
+        remove_elements(bigip)
         rootlogger = logging.getLogger()
         rootlogger.removeHandler(loghandler)
 
