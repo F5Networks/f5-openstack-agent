@@ -409,7 +409,6 @@ class NetworkHelper(object):
                 payload = {'name': interface}
                 if tag:
                     payload['tagged'] = True
-                    payload['tagMode'] = "service"
                 else:
                     payload['untagged'] = True
 

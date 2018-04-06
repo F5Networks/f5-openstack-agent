@@ -140,6 +140,7 @@ class SystemHelper(object):
             ltm_types = [
                 ResourceType.virtual,
                 ResourceType.virtual_address,
+                ResourceType.l7policy,
                 ResourceType.pool,
                 ResourceType.http_monitor,
                 ResourceType.https_monitor,
@@ -149,6 +150,7 @@ class SystemHelper(object):
                 ResourceType.snat,
                 ResourceType.snatpool,
                 ResourceType.snat_translation,
+                ResourceType.universal_persistence,
                 ResourceType.rule
             ]
             for ltm_type in ltm_types:
