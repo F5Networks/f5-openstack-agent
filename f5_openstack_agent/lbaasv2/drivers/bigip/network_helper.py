@@ -751,9 +751,10 @@ class NetworkHelper(object):
                                           "MAC addess %s" % (arp_ip_address,
                                                              mac_address))
                                 arp = bigip.tm.net.arps.arp
-                                arp.create(ip_address=arp_ip_address,
-                                           mac_address=mac_address,
-                                           partition=partition)
+                                arp.create(ipAddress=arp_ip_address,
+                                           macAddress=mac_address,
+                                           partition=partition,
+                                           name=mac_address)
                             except Exception as e:
                                 LOG.error('add_fdb_entry',
                                           'could not create static arp: %s'
@@ -806,11 +807,16 @@ class NetworkHelper(object):
             folder = fdb_entries[tunnel_name]['folder']
             tunnel_records = fdb_entries[tunnel_name]['records']
             for mac in tunnel_records:
+                record = tunnel_records[mac]
+                ip_address = record['ip_address']
+                if ip_address == '0.0.0.0':
+                    ip_address = ''
                 self.add_fdb_entry(
                     bigip,
                     tunnel_name,
                     mac_address=mac,
-                    vtep_ip_address=tunnel_records[mac]['endpoint'],
+                    vtep_ip_address=record['endpoint'],
+                    arp_ip_address=ip_address,
                     partition=folder)
 
     @log_helpers.log_method_call
