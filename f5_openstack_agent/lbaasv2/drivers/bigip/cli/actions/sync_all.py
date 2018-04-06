@@ -11,6 +11,7 @@ LOG = logging.getLogger(__name__)
 class SyncAll(base_action.BaseAction):
 
     def __init__(self, namespace):
+        self.project_id = namespace.project_id
         super(SyncAll, self).__init__(namespace)
 
     def execute(self):

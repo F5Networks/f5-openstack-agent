@@ -9,16 +9,12 @@ LOG = logging.getLogger(__name__)
 class Holzhammer(base_action.BaseAction):
 
     def __init__(self, namespace):
-        self.sure = namespace.sure
+        self.sync = namespace.sync
         self.project_id = namespace.project_id
         self.sh = system_helper.SystemHelper()
         super(Holzhammer, self).__init__(namespace)
 
     def execute(self):
-        if self.sure is None:
-            print("Please be sure by appending --i-am-sure-what-i-am-doing")
-            exit(1)
-
         if self.project_id is None:
             print("Please specify an Project id with --project-id")
             exit(1)
@@ -30,12 +26,11 @@ class Holzhammer(base_action.BaseAction):
             except Exception as err:
                 print(err.message)
 
-        # Crude hack, but it works :D
-
-        # I wanted to reuse the code of SyncAll but don't want to initalize a new SyncAll class instance,
-        # which would connect to F5 and reinitalize objects etc...
-        # Instead, I just cast this Holzhammer instance to the SyncAll Class and re-execute meself :)
-        Syncer = self
-        self.__class__ = SyncAll
-        Syncer.execute()
-
+        if self.sync:
+            # Crude hack, but it works :D
+            # I wanted to reuse the code of SyncAll but don't want to initalize a new SyncAll class instance,
+            # which would connect to F5 and reinitalize objects etc...
+            # Instead, I just cast this Holzhammer instance to the SyncAll Class and re-execute meself :)
+            Syncer = self
+            self.__class__ = SyncAll
+            Syncer.execute()

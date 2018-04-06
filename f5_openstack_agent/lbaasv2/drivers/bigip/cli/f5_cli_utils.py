@@ -17,7 +17,13 @@ ACTION_MODULE = 'f5_openstack_agent.lbaasv2.drivers.bigip.cli.actions.'
 class Execute(argparse._SubParsersAction):
     def __init__(self, option_strings, **kwargs):
         super(Execute, self).__init__(option_strings, **kwargs)
-        self.actions = {"sync":"sync.Sync","sync-all":"sync_all.SyncAll","delete":"delete.Delete","holzhammer":"holzhammer.Holzhammer"}
+        self.actions = {
+            "sync":"sync.Sync",
+            "sync-all":"sync_all.SyncAll",
+            "delete":"delete.Delete",
+            "holzhammer":"holzhammer.Holzhammer",
+            "druckhammer":"druckhammer.Druckhammer"
+        }
 
     def __call__(self, parser, namespace, values, option_string=None):
         super(Execute, self).__call__(parser, namespace, values, option_string)
@@ -57,8 +63,17 @@ def main():
     parser_holzhammer = subparsers.add_parser('holzhammer', help='purge and resync project')
     parser_holzhammer.add_argument('--i-am-sure-what-i-am-doing', action='store_true', dest='sure',
                                    help='declaration of liability')
+    parser_holzhammer.add_argument('--no-sync', action='store_false', dest='sync',
+                                   help='disable resync of project')
     parser_holzhammer.add_argument('--project-id',dest='project_id',
                                    help='project id',action='store')
+
+    parser_druckhammer = subparsers.add_parser('druckhammer', help='purge all bigip '
+                                                                   'partitions/vlans/selfip/routes/routedomains')
+    parser_druckhammer.add_argument('--i-am-sure-what-i-am-doing', action='store_true', dest='sure',
+                                   help='declaration of liability')
+    parser_druckhammer.add_argument('--sync', action='store_true', dest='sync',
+                                   help='resync all LB from agent/neutron')
 
     parser.parse_args()
 

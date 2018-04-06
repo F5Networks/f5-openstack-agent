@@ -11,6 +11,7 @@ LOG = logging.getLogger(__name__)
 class Sync(base_action.BaseAction):
 
     def __init__(self, namespace):
+        self.lb_id = namespace.lb_id
         super(Sync, self).__init__(namespace)
 
     def execute(self):
