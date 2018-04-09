@@ -2,8 +2,28 @@
 
 .. _Release Notes:
 
-Release Notes
-=============
+Release Notes for F5 Openstack Agent
+====================================
+
+next-release
+------------
+
+
+v9.6.0 (Mitaka, Newton, Ocata, Pike)
+------------------------------------
+NOTE: This version of F5 Openstack Agent will support Mitaka, Newton, Ocata and Pike Openstack releases.
+
+Added Functionality
+```````````````````
+* Enhanced Agent logging:
+  - Set default logging to False.
+  - Enable f5-sdk debug logging when Agent logging is True.
+
+Bug Fixes
+`````````
+* :issues:`1242` - Agent not properly handling invalid network exceptions.
+* :issues:`1244` - agent logging getting propagated over to /var/log/messages or /var/log/syslog.
+* :issues:`1291` - Tagmode incorrectly set when creating VLANs.
 
 v10.2.0
 -------

@@ -42,6 +42,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
+    'sphinx.ext.extlinks',
     'cloud_sptheme.ext.table_styling',
     'sphinxjp.themes.basicstrap',
 ]
@@ -345,6 +346,9 @@ texinfo_show_urls = 'footnote'
 #    'osdocs': (
 #    'http://clouddocs.f5.com/cloud/openstack/latest/', None),
 #    }
+# External links
+extlinks = {'issues': ('https://github.com/F5Networks/f5-openstack-agent/issues/%s',
+                      'issue ')}
 
 rst_epilog = '''
 .. |f5_agent_pip_url| replace:: git+https://github.com/F5Networks/f5-openstack-agent@v%(version)s
