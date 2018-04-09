@@ -6,15 +6,7 @@ env:
     - PKG_RELEASE=$(python ${DIST_REPO}/scripts/get-version-release.py --release)
     - PKG_RELEASE_EL7=${DIST_REPO}/rpms/build/f5-openstack-agent-${PKG_VERSION}-${PKG_RELEASE}.el7.noarch.rpm
     - PKG_RELEASE_1404=${DIST_REPO}/deb_dist/python-f5-openstack-agent_${PKG_VERSION}-${PKG_RELEASE}_1404_all.deb
-    - |
-      if [[ "$TRAVIS_BRANCH" == *"-stable" ]]; then
-        export CTLR_VERSION=v$(echo $TRAVIS_BRANCH | sed s/-stable//g)
-      elif [[ "$TRAVIS_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]* ]]; then
-        va=( ${TRAVIS_BRANCH//./ } ) # replace decimals and split into array
-        export CTLR_VERSION="${va[0]}.${va[1]}"
-      else
-        export CTLR_VERSION=$TRAVIS_BRANCH
-      fi
+
 services:
 - docker
 language: python
@@ -49,6 +41,16 @@ script:
     - sudo chown -R travis:travis ${DIST_REPO}/deb_dist/*.deb
     - f5-openstack-agent-dist/scripts/test_install.sh "redhat" "7" ${PKG_RELEASE_EL7}
     - f5-openstack-agent-dist/scripts/test_install.sh "ubuntu" "14.04" ${PKG_RELEASE_1404}
+    - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh
+    - |
+      if [[ "$TRAVIS_BRANCH" == *"-stable" ]]; then
+        export CTLR_VERSION=v$(echo $TRAVIS_BRANCH | sed s/-stable//g)
+      elif [[ "$TRAVIS_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]* ]]; then
+        va=( ${TRAVIS_BRANCH//./ } ) # replace decimals and split into array
+        export CTLR_VERSION="${va[0]}.${va[1]}"
+      else
+        export CTLR_VERSION=$TRAVIS_BRANCH
+      fi
 after_success:
   - md5sum ${PKG_RELEASE_EL7} > ${PKG_RELEASE_EL7}.md5 && md5sum --check ${PKG_RELEASE_EL7}.md5
   - md5sum ${PKG_RELEASE_1404} > ${PKG_RELEASE_1404}.md5 && md5sum --check ${PKG_RELEASE_1404}.md5
