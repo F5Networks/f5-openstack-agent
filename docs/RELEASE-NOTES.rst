@@ -5,10 +5,6 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
-next-release
-------------
-
-
 v9.6.0 (Mitaka, Newton, Ocata, Pike)
 ------------------------------------
 NOTE: This version of F5 Openstack Agent will support Mitaka, Newton, Ocata and Pike Openstack releases.
