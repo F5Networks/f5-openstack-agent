@@ -42,7 +42,6 @@ script:
     - sudo chown -R travis:travis ${DIST_REPO}/deb_dist/*.deb
     - f5-openstack-agent-dist/scripts/test_install.sh "redhat" "7" ${PKG_RELEASE_EL7}
     - f5-openstack-agent-dist/scripts/test_install.sh "ubuntu" "14.04" ${PKG_RELEASE_1404}
-    - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh
 
 after_success:
   - md5sum ${PKG_RELEASE_EL7} > ${PKG_RELEASE_EL7}.md5 && md5sum --check ${PKG_RELEASE_EL7}.md5
@@ -78,6 +77,7 @@ deploy:
       repo: F5Networks/f5-openstack-agent
     script:
       - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent/$TRAVIS_BRANCH $RELEASE_TAG
+      - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh
       
 notifications:
   slack:
