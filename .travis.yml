@@ -76,8 +76,8 @@ deploy:
       all_branches: true
       repo: F5Networks/f5-openstack-agent
     script:
-      - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent/$TRAVIS_BRANCH $RELEASE_TAG
       - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh
+      - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent/$TRAVIS_BRANCH $RELEASE_TAG
       
 notifications:
   slack:
