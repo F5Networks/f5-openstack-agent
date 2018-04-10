@@ -68,6 +68,14 @@ deploy:
     on:
       repo: F5Networks/f5-openstack-agent
       tags: true
+  - provider: script
+    skip_cleanup: true
+    on:
+      all_branches: true
+      repo: F5Networks/f5-openstack-agent
+      condition: $TRAVIS_BRANCH == *"-stable" || "$TRAVIS_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]*
+    script:
+      - ./build-tools/deploy-docs.sh publish-product-docs-to-prod openstack/agent v$CTLR_VERSION
   - provider: pypi
     user: $PYPI_USER
     password: $PYPI_PASSWORD
@@ -78,15 +86,6 @@ deploy:
       tags: true
       python: 2.7
     skip_cleanup: true
-  - provider: script
-    skip_cleanup: true
-    on:
-      all_branches: true
-      repo: F5Networks/f5-openstack-agent
-      condition: $TRAVIS_BRANCH == *"-stable" || "$TRAVIS_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]*
-    script:
-      #- ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh
-      - ./build-tools/deploy-docs.sh publish-product-docs-to-prod openstack/agent v$CTLR_VERSION
 notifications:
   slack:
     rooms:
