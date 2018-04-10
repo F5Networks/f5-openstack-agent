@@ -68,16 +68,16 @@ deploy:
     on:
       repo: F5Networks/f5-openstack-agent
       tags: true
-  #- provider: pypi
-  #  user: $PYPI_USER
-  #  password: $PYPI_PASSWORD
-  #  distributions: "sdist bdist"
-  #  server: https://upload.pypi.org/legacy/
-  #  on:
-  #    all_branches: true
-  #    tags: true
-  #    python: 2.7
-  #  skip_cleanup: true
+  - provider: pypi
+    user: $PYPI_USER
+    password: $PYPI_PASSWORD
+    distributions: "sdist bdist"
+    server: https://upload.pypi.org/legacy/
+    on:
+      all_branches: true
+      tags: true
+      python: 2.7
+    skip_cleanup: true
   - provider: script
     skip_cleanup: true
     on:
@@ -85,7 +85,7 @@ deploy:
       repo: F5Networks/f5-openstack-agent
       condition: $TRAVIS_BRANCH == *"-stable" || "$TRAVIS_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]*
     script:
-      - ./build-tools/deploy-docs.sh publish-product-docs-to-prod openstack/agent v$CTLR_VERSION
+      - ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent v$CTLR_VERSION
       
 notifications:
   slack:
