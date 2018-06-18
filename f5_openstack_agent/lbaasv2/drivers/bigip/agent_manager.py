@@ -810,7 +810,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 pools = self.lbdriver.get_all_deployed_pools()
                 if pools:
                     self.purge_orphaned_pools(pools)
-                    self.purge_orphaned_nodes(pools)
 
                 # Ask the BIG-IP for all deployed monitors not associated
                 # to a pool
