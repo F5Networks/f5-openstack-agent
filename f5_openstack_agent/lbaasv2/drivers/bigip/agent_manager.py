@@ -686,7 +686,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Found service definition for '{}', state is ACTIVE"
                           " move on.".format(lb_id))
         except f5_ex.InvalidNetworkType as exc:
-            LOG.warning(exc.msg)
+            LOG.warning(exc.message)
         except f5_ex.F5NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
@@ -810,7 +810,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 pools = self.lbdriver.get_all_deployed_pools()
                 if pools:
                     self.purge_orphaned_pools(pools)
-                    self.purge_orphaned_nodes(pools)
 
                 # Ask the BIG-IP for all deployed monitors not associated
                 # to a pool
