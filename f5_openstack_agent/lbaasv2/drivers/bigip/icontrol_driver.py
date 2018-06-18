@@ -2199,7 +2199,7 @@ class iControlDriver(LBaaSBaseDriver):
                     self.network_builder._annotate_service_route_domains(
                         service)
                 except f5ex.InvalidNetworkType as exc:
-                    LOG.warning(exc.msg)
+                    LOG.warning(exc.message)
                     return
 
             # get currrent member status

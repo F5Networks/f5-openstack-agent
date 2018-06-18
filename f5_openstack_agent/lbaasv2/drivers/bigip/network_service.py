@@ -179,7 +179,7 @@ class NetworkServiceBuilder(object):
                           "with route domain ID.")
                 self._annotate_service_route_domains(service)
             except f5_ex.InvalidNetworkType as exc:
-                LOG.warning(exc.msg)
+                LOG.warning(exc.message)
             except Exception as err:
                 LOG.exception(err)
                 raise f5_ex.RouteDomainCreationException(
