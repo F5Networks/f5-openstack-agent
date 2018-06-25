@@ -147,7 +147,9 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict()
             target.service_adapter.get_virtual.return_value = vs
             target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.exists = Mock(return_value=False)
             bigips = [Mock()]
+
             retval = target.create_listener(service_with_listener, bigips)
 
             assert not retval
@@ -159,6 +161,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict()
             target.service_adapter.get_virtual.return_value = vs
             target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.exists = Mock(return_value=False)
             bigips = [Mock(), Mock()]
             retval = target.create_listener(service_with_listener, bigips)
 
@@ -171,8 +174,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict()
             target.service_adapter.get_virtual.return_value = vs
             target.service_adapter.get_tls.return_value = tls
-            target.vs_helper.create.side_effect = MockHTTPError(
-                MockHTTPErrorResponse409())
+            target.vs_helper.exists = Mock(return_value=True)
             bigips = [Mock()]
             retval = target.create_listener(service_with_listener, bigips)
 
@@ -185,12 +187,11 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict()
             target.service_adapter.get_virtual.return_value = vs
             target.service_adapter.get_tls.return_value = tls
-            target.vs_helper.create.side_effect = MockHTTPError(
-                MockHTTPErrorResponse400())
+            target.vs_helper.exists = Mock(return_value=False)
             bigips = [Mock()]
             retval = target.create_listener(service_with_listener, bigips)
 
-            assert retval
+            assert not retval
             assert not target.vs_helper.update.called
 
         def create_basic_listener_exception(target, service_with_listener):
@@ -214,8 +215,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict()
             target.service_adapter.get_virtual.return_value = vs
             target.service_adapter.get_tls.return_value = tls
-            target.vs_helper.create.side_effect = MockHTTPError(
-                MockHTTPErrorResponse409())
+            target.vs_helper.exists = Mock(return_value=True)
             target.vs_helper.update.side_effect = MockError()
 
             bigips = [Mock()]
@@ -334,6 +334,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict()
             target.service_adapter.get_virtual.return_value = vs
             target.service_adapter.get_tls.return_value = tls
+            target.vs_helper.exists = Mock(return_value=False)
             bigips = [Mock(), Mock()]
             retval = target.create_listener(service_with_listener, bigips)
 
@@ -361,8 +362,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict()
             target.service_adapter.get_virtual.return_value = vs
             target.service_adapter.get_tls.return_value = tls
-            target.vs_helper.create.side_effect = [
-                MockHTTPError(MockHTTPErrorResponse409()), None]
+            target.vs_helper.exists = Mock(return_value=True)
             bigips = [Mock(), Mock()]
             retval = target.create_listener(service_with_listener, bigips)
 
@@ -375,9 +375,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             tls = dict()
             target.service_adapter.get_virtual.return_value = vs
             target.service_adapter.get_tls.return_value = tls
-            target.vs_helper.create.side_effect = [
-                MockHTTPError(MockHTTPErrorResponse409()),
-                MockHTTPError(MockHTTPErrorResponse409())]
+            target.vs_helper.exists = Mock(return_value=True)
             bigips = [Mock(), Mock()]
             retval = target.create_listener(service_with_listener, bigips)
 
