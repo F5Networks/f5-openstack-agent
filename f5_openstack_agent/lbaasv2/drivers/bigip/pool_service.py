@@ -58,11 +58,14 @@ class PoolServiceBuilder(object):
         :param bigips: Array of BigIP class instances to create pool.
         """
         pool = self.service_adapter.get_pool(service)
+
         error = None
 
         for bigip in bigips:
             try:
-                if self.pool_helper.exists(bigip, pool):
+                if self.pool_helper.exists(bigip,
+                                           name=pool['name'],
+                                           partition=pool['partition']):
                     LOG.debug("Pool already exists...updating")
                     self.pool_helper.update(bigip, pool)
                 else:
@@ -136,7 +139,9 @@ class PoolServiceBuilder(object):
 
         for bigip in bigips:
             try:
-                if hm_helper.exists(bigip, hm):
+                if hm_helper.exists(bigip,
+                                    name=hm['name'],
+                                    partition=hm['partition']):
                     LOG.debug("Health monitor already exists...updating")
                     hm_helper.update(bigip, hm)
                 else:

@@ -75,7 +75,9 @@ class ListenerServiceBuilder(object):
                 self._add_cookie_persist_rule(vip, persist, bigip)
 
             try:
-                if self.vs_helper.exists(bigip, vip):
+                if self.vs_helper.exists(bigip,
+                                         name=vip['name'],
+                                         partition=vip['partition']):
                     LOG.debug("Virtual server already exists...updating")
                     self.vs_helper.update(bigip, vip)
                 else:
