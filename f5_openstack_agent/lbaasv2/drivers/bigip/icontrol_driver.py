@@ -1247,10 +1247,10 @@ class iControlDriver(LBaaSBaseDriver):
                                 if self._is_orphan(bigip.device_name, vs_name):
                                     vs.delete()
                                     self._remove_from_orphan_cache(bigip.device_name, vs_name)
-                            pool_name = pool.name
-                            if self._is_orphan(bigip.device_name, pool_name):
-                                    pool.delete()
-                                    self._remove_from_orphan_cache(bigip.device_name, pool_name)
+                                pool_name = pool.name
+                                if self._is_orphan(bigip.device_name, pool_name):
+                                        pool.delete()
+                                        self._remove_from_orphan_cache(bigip.device_name, pool_name)
                             else:
                                 vs_name = vs.name
                                 if self._is_orphan(bigip.device_name, vs_name):
