@@ -193,7 +193,11 @@ class NetworkHelper(object):
         if domain_id:
             name += '_aux_' + str(domain_id)
 
-        return r.exists(name=name, partition=partition)
+        if r.exists(name=name, partition=partition):
+            return r.load(name=name, partition=partition)
+        else:
+            return None
+
 
     @log_helpers.log_method_call
     def get_route_domain(self, bigip, partition=const.DEFAULT_PARTITION, name=None):
@@ -245,14 +249,19 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def create_route_domain(self, bigip, partition=const.DEFAULT_PARTITION, name=None,
-                            strictness=False, is_aux=False):
+                            strictness=False, is_aux=False, rd_id=None):
 
         name = self._get_route_domain_name(name)
 
         rd = bigip.tm.net.route_domains.route_domain
         if not name:
             name = partition
-        id = self._get_next_domain_id(bigip)
+
+        # ccloud: use an given id to avoid inconsistencies across bigip pair members
+        if rd_id is None:
+            id = self._get_next_domain_id(bigip)
+        else:
+            id = rd_id
 
         if is_aux:
             name += '_aux_' + str(id)

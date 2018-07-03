@@ -73,22 +73,54 @@ class BigipTenantManager(object):
                         (tenant_id))
 
         # create tenant route domain
+
+        # ccloud: change of rd creartion to avoid different id's on the bigip pair members
         if self.conf.use_namespaces:
+            # Determine which bigip needs a rd and if the rd is already created somewhere else so that id should be used
+            route_domain_id = None
+            bigiprds = []
             for bigip in self.driver.get_all_bigips():
-                if not self.network_helper.route_domain_exists(bigip,
-                                                               const.DEFAULT_PARTITION,network_id):
-                    try:
-                        self.network_helper.create_route_domain(
-                            bigip,
-                            "Common",network_id,
-                            self.conf.f5_route_domain_strictness)
-                    except Exception as err:
-                        LOG.exception(err.message)
-                        raise f5ex.RouteDomainCreationException(
-                            "Failed to create route domain for "
-                            "tenant in %s" % (const.DEFAULT_PARTITION))
+                bigip_route_domain = self.network_helper.route_domain_exists(bigip, const.DEFAULT_PARTITION,network_id)
+                bigip_route_domain_id = bigip_route_domain.id if bigip_route_domain else None
+                # rd already created but not different between bigips (maybe not created on all of them)
+                if bigip_route_domain_id and route_domain_id is None:
+                    route_domain_id = bigip_route_domain_id
+                # rd already created on different bigips with DIFFERENT id --> ERROR
+                elif bigip_route_domain_id and route_domain_id and bigip_route_domain_id != bigip_route_domain_id:
+                    LOG.error("Route Domain Failure: RD for network %s is defined with ID %s on one and with %s on another Bigip"
+                              % (network_id, bigip_route_domain_id, route_domain_id))
+                    raise f5ex.RouteDomainCreationException("Route Domain Failure: RD for network %s is defined with ID %s on one and with %s on another Bigip"
+                                                            % (network_id, bigip_route_domain_id, route_domain_id))
+                # rd not created anywhere until now
+                elif bigip_route_domain_id is None:
+                    bigiprds.append(bigip)
+            # now we have the bigip's with the missing rd and an rd id in case it's created on one of the bigip's
+            # create rd in bigips where it's missing either with the given id or a new one to be determined
+            for bigip in bigiprds:
+                try:
+                    bigip_route_domain = self.network_helper.create_route_domain(
+                        bigip,
+                        partition=const.DEFAULT_PARTITION,
+                        name=network_id,
+                        strictness=self.conf.f5_route_domain_strictness,
+                        is_aux=False,
+                        rd_id=route_domain_id)
+                    # use newly created id for next bigip
+                    if route_domain_id is None:
+                        route_domain_id = bigip_route_domain.id
+                    # something went wrong
+                    elif bigip_route_domain.id != route_domain_id:
+                        LOG.error("Route Domain Failure: Attempt to create RD for network %s with ID %s on one and with %s on another Bigip"
+                                  % (network_id, bigip_route_domain_id, route_domain_id))
+                        raise f5ex.RouteDomainCreationException("Route Domain Failure: RD for network %s is defined with ID %s on one and with %s on another Bigip"
+                                                                % (network_id, bigip_route_domain_id, route_domain_id))
+                # error within rd creation procedure
+                except Exception as err:
+                    LOG.exception(err.message)
+                    raise f5ex.RouteDomainCreationException("Failed to create route domain for network %s in tenant in %s" % (network_id, const.DEFAULT_PARTITION))
 
-
+        LOG.debug("Allocated route domain for network %s for tenant %s"
+                  % (network_id, tenant_id))
 
     def assure_tenant_cleanup(self, service, all_subnet_hints):
         """Delete tenant partition."""
@@ -116,14 +148,13 @@ class BigipTenantManager(object):
                                                     "Common",
                                                     network_id)
         except Exception as err:
-            LOG.error("Failed to delete route domain %s. "
+            LOG.info("Failed to delete route domain %s. "
                       "%s. Manual intervention might be required."
                       % (network_id, err.message))
 
         try:
             self.system_helper.delete_folder(bigip, partition)
         except Exception as err:
-            LOG.error(
+            LOG.info(
                 "Folder deletion exception for tenant partition %s occurred. "
                 "Manual cleanup might be required." % (tenant_id))
-            LOG.exception("%s" % err.message)

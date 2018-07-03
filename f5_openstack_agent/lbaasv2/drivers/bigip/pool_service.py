@@ -130,6 +130,8 @@ class PoolServiceBuilder(object):
     def create_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
+        if '%' not in member['address'] or '%0' in member['address']:
+            LOG.error("ccloud: POOL-RDCHECK1 - trying to create member with address: %s", member['address'])
         for bigip in bigips:
             part = pool["partition"]
             p = self.pool_helper.load(bigip,
@@ -141,6 +143,8 @@ class PoolServiceBuilder(object):
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
+        if '%' not in member['address'] or '%0' in member['address']:
+            LOG.error("ccloud: POOL-RDCHECK2 - trying to create member with address: %s", member['address'])
         part = pool["partition"]
         for bigip in bigips:
             p = self.pool_helper.load(bigip,
@@ -171,6 +175,8 @@ class PoolServiceBuilder(object):
     def update_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
+        if '%' not in member['address'] or '%0' in member['address']:
+            LOG.error("ccloud: POOL-RDCHECK3 - trying to create member with address: %s", member['address'])
 
         part = pool["partition"]
         for bigip in bigips:

@@ -234,9 +234,9 @@ class NetworkServiceBuilder(object):
 
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
+        # ccloud: don't allow creation of members without route domain in case of NOT global routed mode setting
         tenant_id = service['loadbalancer']['tenant_id']
         self.update_rds_cache(tenant_id)
-
         if 'members' in service:
             for member in service['members']:
                 if 'address' in member:
@@ -253,14 +253,25 @@ class NetworkServiceBuilder(object):
                                 member['subnet_id']
                             ))
                         if member_network:
-                            self.assign_route_domain(
-                                tenant_id, member_network, member_subnet)
-                            rd_id = (
-                                '%' + str(member_network['route_domain_id'])
-                            )
-                            member['address'] += rd_id
+                            self.assign_route_domain(tenant_id, member_network, member_subnet)
+                            if 'route_domain_id' in member_network and member_network['route_domain_id']:
+                                rd_id = (
+                                    '%' + str(member_network['route_domain_id'])
+                                )
+                                if rd_id != '%0':
+                                    member['address'] += rd_id
+                                else:
+                                    raise f5_ex.RouteDomainQueryException('ccloud: NETWORK-RDCHECK1 Global routing disabled but route domain ID 0 was found. Discarding ...')
+                            else:
+                                raise f5_ex.RouteDomainQueryException('ccloud: NETWORK-RDCHECK2 Global routing disabled but route domain ID could not be found for pool member. Discarding ...')
+                        else:
+                            raise f5_ex.RouteDomainQueryException('ccloud: NETWORK-RDCHECK3 Global routing disabled but NO member network can be found for pool member. Discarding ...')
                     else:
-                        member['address'] += '%0'
+                        if not self.conf.f5_global_routed_mode:
+                            raise f5_ex.RouteDomainQueryException('ccloud: NETWORK-RDCHECK4  Global routing disabled but NO member network ID given for pool member. Discarding ...')
+                        else:
+                            member['address'] += '%0'
+                            LOG.info("ccloud: NETWORK-RDCHECK5 Using default Route Domain because of global routing %s" % member['address'])
 
         if 'vip_address' in service['loadbalancer']:
             loadbalancer = service['loadbalancer']
@@ -766,7 +777,8 @@ class NetworkServiceBuilder(object):
                 self.l2_service.add_bigip_fdbs(
                     bigip, net_folder, fdb_info, member)
             else:
-                LOG.warning('LBaaS member, %s, is not associated with Neutron '
+                #ccloud: reduced to info, external(non project) member IP's never get an port in neutron
+                LOG.info('LBaaS member, %s, is not associated with Neutron '
                             'port. No fdb entries will be created for this '
                             'member.' % member['address'])
 

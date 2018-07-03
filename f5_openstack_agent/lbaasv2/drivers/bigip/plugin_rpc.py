@@ -481,7 +481,7 @@ class LBaaSv2PluginRPC(object):
             )
         except messaging.MessageDeliveryFailure:
             LOG.error("agent->plugin RPC exception caught: ",
-                      "get_all_loadbalancers")
+                      "get_active_loadbalancers")
 
         return loadbalancers
 
@@ -505,7 +505,7 @@ class LBaaSv2PluginRPC(object):
             )
         except messaging.MessageDeliveryFailure:
             LOG.error("agent->plugin RPC exception caught: ",
-                      "get_all_loadbalancers")
+                      "get_pending_loadbalancers")
 
         return loadbalancers
 
@@ -533,3 +533,91 @@ class LBaaSv2PluginRPC(object):
 
         return loadbalancers
 
+    @log_helpers.log_method_call
+    def validate_loadbalancers_state(self, loadbalancers):
+        """Get the status of a list of loadbalancers IDs in Neutron"""
+        lb_status = {}
+        try:
+            lb_status = self._call(
+                self.context,
+                self._make_msg('validate_loadbalancers_state',
+                               loadbalancers=loadbalancers,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_loadbalancers_state")
+
+        return lb_status
+
+    @log_helpers.log_method_call
+    def validate_listeners_state(self, listeners):
+        """Get the status of a list of listener IDs in Neutron"""
+        listener_status = {}
+        try:
+            listener_status = self._call(
+                self.context,
+                self._make_msg('validate_listeners_state',
+                               listeners=listeners,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_pool_state")
+
+        return listener_status
+
+    @log_helpers.log_method_call
+    def validate_pools_state(self, pools):
+        """Get the status of a list of pools IDs in Neutron"""
+        pool_status = {}
+        try:
+            pool_status = self._call(
+                self.context,
+                self._make_msg('validate_pools_state',
+                               pools=pools,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_pool_state")
+
+        return pool_status
+
+    @log_helpers.log_method_call
+    def get_pools_members(self, pools):
+        """Get the members of a list of pools IDs in Neutron."""
+        pools_members = {}
+        try:
+            pools_members = self._call(
+                self.context,
+                self._make_msg('get_pools_members',
+                               pools=pools,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_pools_members")
+
+        return pools_members
+
+    @log_helpers.log_method_call
+    def validate_l7policys_state_by_listener(self, listeners):
+        """Get the status of a list of l7policys IDs in Neutron"""
+        l7policy_status = {}
+        try:
+            l7policy_status = self._call(
+                self.context,
+                self._make_msg('validate_l7policys_state_by_listener',
+                               listeners=listeners),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "validate_l7policys_state_by_listener")
+
+        return l7policy_status

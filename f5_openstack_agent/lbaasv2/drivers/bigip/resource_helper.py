@@ -151,7 +151,8 @@ class BigIPResourceHelper(object):
 
         return resource
 
-    def get_resources(self, bigip, partition=None):
+    def get_resources(self, bigip, partition=None,
+                      expand_subcollections=False):
         u"""Retrieve a collection BIG-IP of resources from a BIG-IP.
 
         Generates a list of resources objects on a BIG-IP system.
@@ -169,10 +170,15 @@ class BigIPResourceHelper(object):
             raise err
 
         if collection:
+            params = {'params': ''}
             if partition:
-                params = {
-                    'params': get_filter(bigip, 'partition', 'eq', partition)
-                }
+                params['params'] = get_filter(
+                    bigip, 'partition', 'eq', partition)
+                if expand_subcollections and \
+                        isinstance(params['params'], dict):
+                    params['params']['expandSubcollections'] = 'true'
+                elif expand_subcollections:
+                    params['params'] += '&expandSubCollections=true'
                 resources = collection.get_collection(requests_params=params)
             else:
                 resources = collection.get_collection()

@@ -17,6 +17,7 @@
 
 import datetime
 import uuid
+from random import randint
 
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -37,6 +38,7 @@ from neutron_lbaas.services.loadbalancer import constants as lb_const
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 
 LOG = logging.getLogger(__name__)
 
@@ -220,13 +222,26 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
-        self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(hours=5,minutes=50)
+        # try to avoid orphan cleaning right after start and schedule differently on agents
+        if self.conf.environment_group_number:
+            start = int(self.conf.environment_group_number)
+        else:
+            start = randint(1, 3)
+        # run orphan cleanup every 3 hours
+        self.orphans_clean_interval = 60
+        # schedule first run with 1 hour difference on every agent. Start first run after 5 minutes, 1h and 5 mins, ...
+        t = [60, 40, 20]
+        if start < 1:
+            start = 1
+        self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(minutes=t[start-1] + 5)
+
         self.needs_resync = False
         self.plugin_rpc = None
         self.pending_services = {}
 
         self.service_resync_interval = conf.service_resync_interval
-        LOG.debug('setting service resync intervl to %d seconds' %
+
+        LOG.debug('Setting service resync interval to %d seconds' %
                   self.service_resync_interval)
 
         # Set the agent ID
@@ -415,40 +430,58 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @periodic_task.periodic_task(spacing=10)
     def periodic_resync(self, context):
-        """Resync tunnels/service state."""
-        now = datetime.datetime.now()
-        LOG.debug("%s: periodic_resync called." % now)
+        try:
+            """Resync tunnels/service state."""
+            now = datetime.datetime.now()
+            LOG.debug("%s: periodic_resync called." % now)
 
-        # Only force resync if the agent thinks it is
-        # synchronized and the resync timer has exired
-        if (now - self.last_resync).seconds > self.service_resync_interval:
-            if not self.needs_resync:
-                self.needs_resync = True
-                LOG.debug(
-                    'Forcing resync of services on resync timer (%d seconds).'
-                    % self.service_resync_interval)
-                self.cache.services = {}
-                self.last_resync = now
-                self.lbdriver.flush_cache()
-            LOG.debug("periodic_sync: service_resync_interval expired: %s"
-                      % str(self.needs_resync))
-        # resync if we need to
-        if self.needs_resync:
-            self.needs_resync = False
-            if self.tunnel_sync():
-                self.needs_resync = True
-            if self.sync_state():
-                self.needs_resync = True
+            # Only force resync if the agent thinks it is
+            # synchronized and the resync timer has exired
+            if (now - self.last_resync).seconds > self.service_resync_interval:
+                LOG.info("ccloud - periodic_resync: Running sync tasks")
+                if not self.needs_resync:
+                    self.needs_resync = True
+                    LOG.debug(
+                        'Forcing resync of services on resync timer (%d seconds).'
+                        % self.service_resync_interval)
+                    self.cache.services = {}
+                    self.last_resync = now
+                    self.lbdriver.flush_cache()
+                LOG.debug("periodic_sync: service_resync_interval expired: %s"
+                          % str(self.needs_resync))
+            else:
+                LOG.info("ccloud - periodic_resync: Skipped because resync interval not expired. Waiting another {0} seconds".format((self.service_resync_interval - (now - self.last_resync ).seconds)))
+            # resync if we need to
+            if self.needs_resync:
+                LOG.info('periodic_resync: Forcing resync of services.')
+                self.needs_resync = False
+                if self.tunnel_sync():
+                    self.needs_resync = True
+                if self.sync_state():
+                    self.needs_resync = True
+                # clean any objects orphaned on devices and persist config
+                if (self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)) < now:
+                    LOG.info("ccloud - periodic_resync: Start cleaning orphan objects from F5 device")
+                    self.last_clean_orphans = self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)
+                    if self.clean_orphaned_and_save_device_config():
+                        self.needs_resync = True
+                    LOG.info("ccloud - periodic_resync: Finished cleaning orphan objects from F5 device. Remaining objects --> {0}".format(self.lbdriver.get_orphans_cache()))
+                else:
+                    LOG.info("ccloud - periodic_resync: Skipping cleaning orphan objects because cleanup interval not expired. Waiting another {0} seconds"
+                             .format((self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval) - now).seconds))
+                LOG.info("ccloud - periodic_resync: Resync took {0} seconds".format((datetime.datetime.now() - now).seconds))
+            else:
+                LOG.info("ccloud - periodic_resync: Resync not needed! Discarding ...")
 
-    # ccloud: check 6 hour timeout to clean orphaned snat pools
-    @periodic_task.periodic_task
-    def periodic_clean_orphans(self, context):
-        now = datetime.datetime.now()
+        except Exception as e:
+            LOG.exception(("ccloud - Exception in periodic resync happend: " + str(e.message)))
+            pass
 
-        # call every 6 hours
-        if (now - self.last_clean_orphans).seconds > 60 * 60 * 6:
-            self.last_clean_orphans = now
-            self.clean_orphaned_snat_objects()
+    def clean_orphaned_and_save_device_config(self):
+        # clean orphan snats, resync not needed because they are unknown to neutron
+        self.clean_orphaned_snat_objects()
+        # clean all other orphans and trigger resync if needed
+        return self.clean_orphaned_objects_and_save_device_config()
 
     # ccloud: clean orphaned snat pools
     @log_helpers.log_method_call
@@ -586,7 +619,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       % list(known_services))
 
         except Exception as e:
-            LOG.error("Unable to retrieve ready service: %s" % e.message)
+            LOG.warning("Unable to retrieve service. Service might be deleted in between: %s" % e.message)
             resync = True
 
         return resync
@@ -600,61 +633,58 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 lb_id
             )
             self.cache.put(service, self.agent_host)
-            if not self.lbdriver.service_exists(service) or self._service_has_provisioning_error(service):
-                LOG.info('active loadbalancer %s is not on BIG-IP or has Error state...syncing'
-                          % lb_id)
-
-                if self.lbdriver.service_rename_required(service):
-                    self.lbdriver.service_object_teardown(service)
-                    LOG.error('active loadbalancer %s is configured with '
-                              'non-unique names on BIG-IP...rename in '
-                              'progress.'
-                              % lb_id)
-                    LOG.error('removing the service objects that are '
-                              'incorrectly named')
-                else:
-                    LOG.debug('service rename not required')
-
+            if not self.lbdriver.service_exists(service) or \
+                    self.has_provisioning_status_of_error(service):
+                LOG.info("active loadbalancer '{}' is not on BIG-IP"
+                         " or has error state...syncing".format(lb_id))
                 self.lbdriver.sync(service)
             else:
-                LOG.debug("Found service definition for %s, state is ACTIVE, move on" % (lb_id))
+                LOG.debug("Found service definition for '{}', state is ACTIVE"
+                          " move on.".format(lb_id))
+        except f5_ex.InvalidNetworkType as exc:
+            LOG.warning(exc.msg)
         except q_exception.NeutronException as exc:
             LOG.error("NeutronException: %s" % exc.msg)
         except Exception as exc:
             LOG.exception("Service validation error: %s" % exc.message)
 
-    def _service_has_provisioning_error(self, service):
+    @staticmethod
+    def has_provisioning_status_of_error(service):
+        """Determine if a service is in an ERROR/DEGRADED status.
 
-        loadbalancer = service['loadbalancer']
+        This staticmethod will go through a service object and determine if it
+        has an ERROR status anywhere within the object.
+        """
+        expected_tree = dict(loadbalancer=dict, members=list, pools=list,
+                             listeners=list, healthmonitors=list,
+                             l7policies=list, l7policy_rules=list)
+        error_status = False  # assume we're in the clear unless otherwise...
+        loadbalancer = service.get('loadbalancer', dict())
 
-        if loadbalancer["provisioning_status"] == plugin_const.ERROR:
-            return True
+        def handle_error(error_status, obj):
+            provisioning_status = obj.get('provisioning_status')
+            if provisioning_status == plugin_const.ERROR:
+                obj_id = obj.get('id', 'unknown')
+                LOG.warning("Service object has object of type(id) {}({})"
+                            " that is in '{}' status.".format(
+                    item, obj_id, plugin_const.ERROR))
+                error_status = True
+            return error_status
 
-        for listener in service['listeners']:
-
-            if listener["provisioning_status"] == plugin_const.ERROR:
-                return True
-
-        for pool in service['pools']:
-            if pool["provisioning_status"] == plugin_const.ERROR:
-                return True
-
-        for healthmonitor in service['healthmonitors']:
-            if healthmonitor["provisioning_status"] == plugin_const.ERROR:
-                return True
-
-        for l7policies in service['l7policies']:
-            if l7policies["provisioning_status"] == plugin_const.ERROR:
-                return True
-
-        for l7_rules in service['l7policy_rules']:
-            if l7_rules["provisioning_status"] == plugin_const.ERROR:
-                return True
-
-
-        return False
-
-
+        for item in expected_tree:
+            obj = service.get(item, expected_tree[item]())
+            if expected_tree[item] == dict and isinstance(service[item], dict):
+                error_status = handle_error(error_status, obj)
+            elif expected_tree[item] == list and \
+                    isinstance(obj, list):
+                for item in obj:
+                    if len(item) == 1:
+                        # {'networks': [{'id': {<network_obj>}}]}
+                        item = item[item.keys()[0]]
+                    error_status = handle_error(error_status, item)
+        if error_status:
+            loadbalancer['provisioning_status'] = plugin_const.ERROR
+        return error_status
 
     @utils.instrument_execution_time
     def refresh_service(self, lb_id):
@@ -709,12 +739,222 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.cache.remove_by_loadbalancer_id(lb_id)
 
     @log_helpers.log_method_call
-    def remove_orphans(self, all_loadbalancers):
+    def clean_orphaned_objects_and_save_device_config(self):
+
+        cleaned = False
 
         try:
-            self.lbdriver.remove_orphans(all_loadbalancers)
-        except Exception as exc:
-            LOG.error("Exception: removing orphans: %s" % exc.message)
+            #
+            # Global cluster refresh tasks
+            #
+
+            # global_agent = self.plugin_rpc.get_clusterwide_agent(
+            #     self.conf.environment_prefix,
+            #     self.conf.environment_group_number
+            # )
+            #
+            # if 'host' not in global_agent:
+            #     LOG.debug('No global agent available to sync config')
+            #     return True
+
+            # ccloud: Set the agent to the cluster wide one as we have onley one per cluster at the moment
+
+            global_agent = {}
+            global_agent['host'] = self.agent_host
+
+            if global_agent['host'] == self.agent_host:
+                LOG.debug('this agent is the global config agent')
+                # We're the global agent perform global cluster tasks
+
+                # Ask BIG-IP for all deployed loadbalancers (virtual addresses)
+                lbs = self.lbdriver.get_all_deployed_loadbalancers(
+                    purge_orphaned_folders=True)
+                if lbs:
+                    self.purge_orphaned_loadbalancers(lbs)
+
+                # Ask the BIG-IP for all deployed listeners to make
+                # sure we are not orphaning listeners which have
+                # valid loadbalancers in a OK state
+                listeners = self.lbdriver.get_all_deployed_listeners()
+                if listeners:
+                    self.purge_orphaned_listeners(listeners)
+
+                policies = self.lbdriver.get_all_deployed_l7_policys()
+                if policies:
+                    self.purge_orphaned_l7_policys(policies)
+
+                # Ask the BIG-IP for all deployed pools not associated
+                # to a virtual server
+                pools = self.lbdriver.get_all_deployed_pools()
+                if pools:
+                    self.purge_orphaned_pools(pools)
+                    self.purge_orphaned_nodes(pools)
+
+                # Ask the BIG-IP for all deployed monitors not associated
+                # to a pool
+                monitors = self.lbdriver.get_all_deployed_health_monitors()
+                if monitors:
+                    self.purge_orphaned_health_monitors(monitors)
+
+            else:
+                LOG.debug('the global agent is %s' % (global_agent['host']))
+                cleaned = False
+
+            cleaned = True
+            # serialize config and save to disk
+            self.lbdriver.backup_configuration()
+        except Exception as e:
+            LOG.error("Unable to sync state: %s" % e.message)
+            cleaned = True
+
+        return cleaned
+
+    @log_helpers.log_method_call
+    def purge_orphaned_loadbalancers(self, lbs):
+        """Gets 'unknown' loadbalancers from Neutron and purges them
+
+        Provisioning status of 'unknown' on loadbalancers means that the object
+        does not exist in Neutron.  These should be deleted to consolidate
+        hanging objects.
+        """
+        lbs_status = self.plugin_rpc.validate_loadbalancers_state(
+            list(lbs.keys()))
+        LOG.debug('validate_loadbalancers_state returned: %s'
+                  % lbs_status)
+        lbs_removed = False
+        for lbid in lbs_status:
+            # If the statu is Unknown, it no longer exists
+            # in Neutron and thus should be removed from the BIG-IP
+            if lbs_status[lbid] in ['Unknown']:
+                LOG.debug('removing orphaned loadbalancer %s'
+                          % lbid)
+                # This will remove pools, virtual servers and
+                # virtual addresses
+                self.lbdriver.purge_orphaned_loadbalancer(
+                    tenant_id=lbs[lbid]['tenant_id'],
+                    loadbalancer_id=lbid,
+                    hostnames=lbs[lbid]['hostnames'])
+                lbs_removed = True
+        if lbs_removed:
+            # If we have removed load balancers, then scrub
+            # for tenant folders we can delete because they
+            # no longer contain loadbalancers.
+            self.lbdriver.get_all_deployed_loadbalancers(
+                purge_orphaned_folders=True)
+
+    @log_helpers.log_method_call
+    def purge_orphaned_listeners(self, listeners):
+        """Deletes the hanging listeners from the deleted loadbalancers"""
+        listener_status = self.plugin_rpc.validate_listeners_state(
+            list(listeners.keys()))
+        LOG.debug('validated_pools_state returned: %s'
+                  % listener_status)
+        for listenerid in listener_status:
+            # If the listener status is Unknown, it no longer exists
+            # in Neutron and thus should be removed from BIG-IP
+            if listener_status[listenerid] in ['Unknown']:
+                LOG.debug('removing orphaned listener %s'
+                          % listenerid)
+                self.lbdriver.purge_orphaned_listener(
+                    tenant_id=listeners[listenerid]['tenant_id'],
+                    listener_id=listenerid,
+                    hostnames=listeners[listenerid]['hostnames'])
+
+    @log_helpers.log_method_call
+    def purge_orphaned_l7_policys(self, policies):
+        """Deletes hanging l7_policies from the deleted listeners"""
+        policies_used = set()
+        listeners = self.lbdriver.get_all_deployed_listeners(
+            expand_subcollections=True)
+        for li_id in listeners:
+            policy = listeners[li_id]['l7_policy']
+            if policy:
+                policy = policy.split('/')[2]
+            policies_used.add(policy)
+        has_l7policies = \
+            self.plugin_rpc.validate_l7policys_state_by_listener(
+                listeners.keys())
+        # Ask Neutron for the status of all deployed l7_policys
+        for policy_key in policies:
+            policy = policies.get(policy_key)
+            purged = False
+            if policy_key not in policies_used:
+                LOG.debug("policy '{}' no longer referenced by a listener: "
+                          "({})".format(policy_key, policies_used))
+                self.lbdriver.purge_orphaned_l7_policy(
+                    tenant_id=policy['tenant_id'],
+                    l7_policy_id=policy_key,
+                    hostnames=policy['hostnames'])
+                purged = True
+            elif not has_l7policies.get(policy['id'], False):
+                # should always be present on Neutron DB!
+                LOG.debug("policy '{}' no longer present in Neutron's DB: "
+                          "({})".format(policy_key, has_l7policies))
+                self.lbdriver.purge_orphaned_l7_policy(
+                    tenant_id=policy['tenant_id'],
+                    l7_policy_id=policy_key,
+                    hostnames=policy['hostnames'],
+                    listener_id=li_id)
+                purged = True
+            if purged:
+                LOG.info("purging orphaned l7policy {} as it's no longer in "
+                         "Neutron".format(policy_key))
+
+    @log_helpers.log_method_call
+    def purge_orphaned_nodes(self, pools):
+        """Deletes hanging nodes from the deleted listeners"""
+        pools_members = self.plugin_rpc.get_pools_members(
+            list(pools.keys()))
+
+        tenant_members = dict()
+        for pool_id, pool in pools.iteritems():
+            tenant_id = pool['tenant_id']
+            members = pools_members.get(pool_id, list())
+
+            if tenant_id not in tenant_members:
+                tenant_members[tenant_id] = members
+            else:
+                tenant_members[tenant_id].extend(members)
+
+        self.lbdriver.purge_orphaned_nodes(tenant_members)
+
+    @log_helpers.log_method_call
+    def purge_orphaned_pools(self, pools):
+        """Deletes hanging pools from the deleted listeners"""
+        # Ask Neutron for the status of all deployed pools
+        pools_status = self.plugin_rpc.validate_pools_state(
+            list(pools.keys()))
+        LOG.debug('validated_pools_state returned: %s'
+                  % pools_status)
+        for poolid in pools_status:
+            # If the pool status is Unknown, it no longer exists
+            # in Neutron and thus should be removed from BIG-IP
+            if pools_status[poolid] in ['Unknown']:
+                LOG.debug('removing orphaned pool %s' % poolid)
+                self.lbdriver.purge_orphaned_pool(
+                    tenant_id=pools[poolid]['tenant_id'],
+                    pool_id=poolid,
+                    hostnames=pools[poolid]['hostnames'])
+
+    @log_helpers.log_method_call
+    def purge_orphaned_health_monitors(self, monitors):
+        """Deletes hanging Health Monitors from the deleted Pools"""
+        # ask Neutron for for the status of all deployed monitors...
+        monitors_used = set()
+        pools = self.lbdriver.get_all_deployed_pools()
+        LOG.debug("pools found: {}".format(pools))
+        for pool_id in pools:
+            monitorid = pools.get(pool_id).get('monitors', 'None')
+            monitors_used.add(monitorid)
+        LOG.debug('health monitors in use: {}'.format(monitors_used))
+        for monitorid in monitors:
+            if monitorid not in monitors_used:
+                LOG.debug("purging healthmonitor {} as it is not "
+                          "in ({})".format(monitorid, monitors_used))
+                self.lbdriver.purge_orphaned_health_monitor(
+                    tenant_id=monitors[monitorid]['tenant_id'],
+                    monitor_id=monitorid,
+                    hostnames=monitors[monitorid]['hostnames'])
 
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):

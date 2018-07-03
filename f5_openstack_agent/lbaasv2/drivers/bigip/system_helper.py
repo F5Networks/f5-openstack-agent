@@ -48,9 +48,11 @@ class SystemHelper(object):
 
     def get_folders(self, bigip):
         f_collection = []
-        folders = bigip.tm.sys.folders.get_collection()
+        # example: bigip.tm.sys.folders.get_collection(requests_params={'params': '$select=name'})
+        folders = bigip.tm.sys.folders.get_collection(requests_params={'params': '$select=name'})
         for folder in folders:
-            f_collection.append(folder.name)
+            if 'name' in folder:
+                f_collection.append(folder['name'])
 
         return f_collection
 
