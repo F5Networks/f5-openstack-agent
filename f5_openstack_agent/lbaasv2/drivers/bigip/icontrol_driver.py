@@ -799,6 +799,8 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('get_all_deployed_loadbalancers')
     @is_connected
     def get_all_deployed_loadbalancers(self, purge_orphaned_folders=False):
+        # wtn orphan
+        purge_orphaned_folders = False
         LOG.debug('getting all deployed loadbalancers on BIG-IPs')
         deployed_lb_dict = {}
         for bigip in self.get_all_bigips():
@@ -837,15 +839,13 @@ class iControlDriver(LBaaSBaseDriver):
                             # Orphaned folder!
                             if purge_orphaned_folders:
                                 try:
-                                    self.system_helper.purge_folder_contents(
-                                        bigip, folder)
-                                    self.system_helper.purge_folder(
-                                        bigip, folder)
-                                    LOG.error('orphaned folder %s on %s' %
-                                              (folder, bigip.hostname))
+                                    if self._is_orphan(bigip.device_name, folder):
+                                        self.system_helper.purge_folder_contents(bigip, folder)
+                                        self.system_helper.purge_folder(bigip, folder)
+                                        self._remove_from_orphan_cache(bigip.device_name, folder)
+                                        LOG.warning('ccloud: orphan folder purged %s on %s' % (folder, bigip.hostname))
                                 except Exception as exc:
-                                    LOG.error('Error purging folder %s: %s' %
-                                              (folder, str(exc)))
+                                    LOG.error('Error purging folder %s: %s' % (folder, str(exc)))
         return deployed_lb_dict
 
     @serialized('get_all_deployed_listeners')

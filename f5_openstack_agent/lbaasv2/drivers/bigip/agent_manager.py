@@ -460,7 +460,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 if self.sync_state():
                     self.needs_resync = True
                 # clean any objects orphaned on devices and persist config
-                if (self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)) < now:
+                # wtn orphan
+                if False: #(self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)) < now:
                     LOG.info("ccloud - periodic_resync: Start cleaning orphan objects from F5 device")
                     self.last_clean_orphans = self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)
                     if self.clean_orphaned_and_save_device_config():
