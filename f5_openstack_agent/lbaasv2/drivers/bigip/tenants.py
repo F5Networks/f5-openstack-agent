@@ -112,14 +112,13 @@ class BigipTenantManager(object):
                                                         partition,
                                                         domain_name)
             except Exception as err:
-                LOG.error("Failed to delete route domain %s. "
+                LOG.debug("Failed to delete route domain %s. "
                           "%s. Manual intervention might be required."
                           % (domain_name, err.message))
 
         try:
             self.system_helper.delete_folder(bigip, partition)
         except Exception as err:
-            LOG.error(
+            LOG.debug(
                 "Folder deletion exception for tenant partition %s occurred. "
                 "Manual cleanup might be required." % (tenant_id))
-            LOG.exception("%s" % err.message)
