@@ -460,8 +460,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 if self.sync_state():
                     self.needs_resync = True
                 # clean any objects orphaned on devices and persist config
-                # wtn orphan
-                if False: #(self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)) < now:
+                if (self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)) < now:
                     LOG.info("ccloud - periodic_resync: Start cleaning orphan objects from F5 device")
                     self.last_clean_orphans = self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)
                     if self.clean_orphaned_and_save_device_config():
@@ -481,8 +480,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def clean_orphaned_and_save_device_config(self):
         # clean orphan snats, resync not needed because they are unknown to neutron
         self.clean_orphaned_snat_objects()
+        # wtn orphan
+        return True
         # clean all other orphans and trigger resync if needed
-        return self.clean_orphaned_objects_and_save_device_config()
+        # return self.clean_orphaned_objects_and_save_device_config()
 
     # ccloud: clean orphaned snat pools
     @log_helpers.log_method_call
