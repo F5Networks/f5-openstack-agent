@@ -1099,7 +1099,7 @@ class iControlDriver(LBaaSBaseDriver):
                                         bigip, folder)
                                     self.system_helper.purge_folder(
                                         bigip, folder)
-                                    LOG.error('orphaned folder %s on %s' %
+                                    LOG.debug('orphaned folder %s on %s' %
                                               (folder, bigip.hostname))
                                 except Exception as exc:
                                     LOG.error('error purging folder %s: %s' %
