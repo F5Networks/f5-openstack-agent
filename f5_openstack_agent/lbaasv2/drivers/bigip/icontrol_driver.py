@@ -2135,6 +2135,12 @@ class iControlDriver(LBaaSBaseDriver):
     def get_node_count(self, bigip=None, global_statistics=None):
         return len(bigip.tm.ltm.nodes.get_collection())
 
+    def get_virtual_address_count(self, bigip=None, global_statistics=None):
+        return len(bigip.tm.ltm.virtual_address_s.get_collection())
+
+    def get_virtual_server_count(self, bigip=None, global_statistics=None):
+        return len(bigip.tm.ltm.virtuals.get_collection())
+
     def get_clientssl_profile_count(self, bigip=None, global_statistics=None):
         return ssl_profile.SSLProfileHelper.get_client_ssl_profile_count(bigip)
 
