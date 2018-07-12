@@ -235,19 +235,20 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             start = randint(1, 3)
 
         # get orphan cleanup interval and set to a value between 0 and 24 if nonsense given
-        orphan_interval = int(self.conf.ccloud_orphans_cleanup_interval)
-        if orphan_interval < 0:
-            orphan_interval = 0
-        elif orphan_interval > 24:
-            orphan_interval = 24
+        orphans_interval = int(self.conf.ccloud_orphans_cleanup_interval)
+        if orphans_interval < 0:
+            orphans_interval = 0
+        elif orphans_interval > 24:
+            orphans_interval = 24
 
         # define interval in minutes
-        self.orphans_clean_interval = 60 * orphan_interval
+        self.orphans_cleanup_interval = 60 * orphans_interval
         # schedule first run with 1 hour difference on every agent. Start first run after 5 minutes, 1h and 5 mins, ...
         t = [60, 40, 20]
         if start < 1:
             start = 1
         self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(minutes=t[start-1] + 5)
+        LOG.info('ccloud: Orphan cleanup interval = %s', self.orphans_cleanup_interval)
 
         self.needs_resync = False
         self.plugin_rpc = None
@@ -478,17 +479,17 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             else:
                 LOG.info("ccloud - periodic_resync: Resync not needed! Discarding ...")
 
-            if self.orphans_clean_interval > 0:
-                if (self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)) < now:
+            if self.orphans_cleanup_interval > 0:
+                if (self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval)) < now:
                     LOG.info("ccloud - orphans: Start cleaning orphan objects from F5 device")
-                    self.last_clean_orphans = self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval)
+                    self.last_clean_orphans = self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval)
                     self.needs_resync = self.clean_orphaned_objects_and_save_device_config()
                     LOG.info("ccloud - orphans: Finished cleaning orphan objects from F5 device. Remaining objects --> {0}".format(self.lbdriver.get_orphans_cache()))
                 else:
                     LOG.info("ccloud - periodic_resync: Skipping cleaning orphan objects because cleanup interval not expired. Waiting another {0} seconds"
-                             .format((self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_clean_interval) - now).seconds))
+                             .format((self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval) - now).seconds))
             else:
-                LOG.info("ccloud - orphans: No orphan cleaning enabled. Only SNAT pool orphan handling might be done")
+                LOG.info("ccloud - orphans: No orphan cleaning enabled. Only SNAT pool orphan handling will be done")
 
             LOG.info("ccloud - periodic_resync: Resync took {0} seconds".format((datetime.datetime.now() - now).seconds))
 

@@ -317,6 +317,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'trace_service_requests',
         default=False,
         help='Log service object.'
+    ),
+    cfg.BoolOpt(
+        'ccloud_orphan_cleanup_testrun',
+        default=True,
+        help='Simulate orphan cleaning without real deletion if set to True'
     )
 ]
 
@@ -382,6 +387,8 @@ class iControlDriver(LBaaSBaseDriver):
 
         self.orphan_cache = {}
         self.orphan_cache_last_reset = datetime.datetime.now()
+        self.orphan_cleanup_testrun = self.conf.ccloud_orphan_cleanup_testrun
+        LOG.info('ccloud: Orphan cleanup testrun = %s', self.orphan_cleanup_testrun)
 
         if self.conf.trace_service_requests:
             path = '/var/log/neutron/service/'
@@ -799,8 +806,6 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('get_all_deployed_loadbalancers')
     @is_connected
     def get_all_deployed_loadbalancers(self, purge_orphaned_folders=False):
-        # wtn orphan
-        purge_orphaned_folders = False
         LOG.debug('getting all deployed loadbalancers on BIG-IPs')
         deployed_lb_dict = {}
         for bigip in self.get_all_bigips():
@@ -895,16 +900,28 @@ class iControlDriver(LBaaSBaseDriver):
             return False
         else:
             key = device_name + '-' + id
+
         if key in self.orphan_cache:
             if self.orphan_cache[key] >= 2:
-                LOG.info('ccloud: Orphan object %s marked for deletion %d times. Object will be deleted NOW' % (key, self.orphan_cache[key]))
-                return True
+                if self.orphan_cleanup_testrun:
+                    LOG.info('ccloud: Orphan TESTRUN: object %s marked for deletion %d times. Object would have be deleted NOW' % (key, self.orphan_cache[key]))
+                    del self.orphan_cache[key]
+                    return False
+                else:
+                    LOG.info('ccloud: Orphan object %s marked for deletion %d times. Object will be deleted NOW' % (key, self.orphan_cache[key]))
+                    return True
             else:
                 self.orphan_cache[key] += 1
-                LOG.info('ccloud: Orphan object %s marked for deletion %d times' % (key, self.orphan_cache[key]))
+                if self.orphan_cleanup_testrun:
+                    LOG.info('ccloud: Orphan TESTRUN %s marked for deletion %d times' % (key, self.orphan_cache[key]))
+                else:
+                    LOG.info('ccloud: Orphan object %s marked for deletion %d times' % (key, self.orphan_cache[key]))
         else:
             self.orphan_cache[key] = 1
-            LOG.info('ccloud: Orphan object %s marked for deletion %d times' % (key, self.orphan_cache[key]))
+            if self.orphan_cleanup_testrun:
+                LOG.info('ccloud: Orphan TESTRUN object %s marked for deletion %d times' % (key, self.orphan_cache[key]))
+            else:
+                LOG.info('ccloud: Orphan object %s marked for deletion %d times' % (key, self.orphan_cache[key]))
         return False
 
     def _remove_from_orphan_cache(self, device_name, id):
