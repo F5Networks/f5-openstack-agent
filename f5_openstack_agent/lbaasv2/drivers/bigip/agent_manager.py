@@ -249,10 +249,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # define interval in minutes
         self.orphans_cleanup_interval = 60 * orphans_interval
         # schedule first run with 1 hour difference on every agent. Start first run after 5 minutes, 1h and 5 mins, ...
-        t = [60, 40, 20]
+        x = self.orphans_cleanup_interval / 3
+        t = [x*3, x*2, x]
         if start < 1:
             start = 1
-        self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(minutes=t[start-1] + 5)
+        self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(minutes=t[start-1] - 5)
         LOG.info('ccloud: Orphan cleanup testrun  = %s', self.conf.ccloud_orphans_cleanup_testrun)
         LOG.info('ccloud: Orphan cleanup interval = %s', self.orphans_cleanup_interval)
         LOG.info('ccloud: Orphan cleanup first run will start at %s UTC', self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval))
