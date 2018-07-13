@@ -116,12 +116,17 @@ OPTS = [
         help=(
             'Amount of time to wait for a pending service to become active')
     ),
-    cfg.IntOpt(
+    cfg.FloatOpt(
         'ccloud_orphans_cleanup_interval',
-        default=0,
+        default=0.0,
         help=(
             'Rescheduling interval for orphan cleanup in hours')
     ),
+    cfg.BoolOpt(
+        'ccloud_orphans_cleanup_testrun',
+        default=True,
+        help='Simulate orphan cleaning without real deletion if set to True'
+    )
 ]
 
 
@@ -235,11 +240,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             start = randint(1, 3)
 
         # get orphan cleanup interval and set to a value between 0 and 24 if nonsense given
-        orphans_interval = int(self.conf.ccloud_orphans_cleanup_interval)
-        if orphans_interval < 0:
-            orphans_interval = 0
-        elif orphans_interval > 24:
-            orphans_interval = 24
+        orphans_interval = float(self.conf.ccloud_orphans_cleanup_interval)
+        if orphans_interval < 0.0:
+            orphans_interval = 0.0
+        elif orphans_interval > 24.0:
+            orphans_interval = 24.0
 
         # define interval in minutes
         self.orphans_cleanup_interval = 60 * orphans_interval
@@ -248,7 +253,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if start < 1:
             start = 1
         self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(minutes=t[start-1] + 5)
+        LOG.info('ccloud: Orphan cleanup testrun  = %s', self.conf.ccloud_orphans_cleanup_testrun)
         LOG.info('ccloud: Orphan cleanup interval = %s', self.orphans_cleanup_interval)
+        LOG.info('ccloud: Orphan cleanup first run will start at %s UTC', self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval))
 
         self.needs_resync = False
         self.plugin_rpc = None

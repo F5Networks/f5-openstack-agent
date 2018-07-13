@@ -317,11 +317,6 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'trace_service_requests',
         default=False,
         help='Log service object.'
-    ),
-    cfg.BoolOpt(
-        'ccloud_orphan_cleanup_testrun',
-        default=True,
-        help='Simulate orphan cleaning without real deletion if set to True'
     )
 ]
 
@@ -387,8 +382,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         self.orphan_cache = {}
         self.orphan_cache_last_reset = datetime.datetime.now()
-        self.orphan_cleanup_testrun = self.conf.ccloud_orphan_cleanup_testrun
-        LOG.info('ccloud: Orphan cleanup testrun = %s', self.orphan_cleanup_testrun)
+        self.orphan_cleanup_testrun = self.conf.ccloud_orphans_cleanup_testrun
 
         if self.conf.trace_service_requests:
             path = '/var/log/neutron/service/'
