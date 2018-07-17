@@ -936,11 +936,11 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     @log_helpers.log_method_call
     def purge_orphaned_nodes(self, tenant_members):
-        node_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.node)
-        pool_helper = resource_helper.BigIPResourceHelper(resource_helper.ResourceType.pool)
         for bigip in self.get_all_bigips():
             for tenant_id, members in tenant_members.iteritems():
+                node_helper = resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.node)
+                pool_helper = resource_helper.BigIPResourceHelper(resource_helper.ResourceType.pool)
                 partition = self.service_adapter.prefix + tenant_id
                 nodes = node_helper.get_resources(bigip, partition=partition)
                 node_dict = {n.name: n for n in nodes}
@@ -970,12 +970,19 @@ class iControlDriver(LBaaSBaseDriver):
                             for omember in orphaned_members:
                                 if omember.address == node_name:
                                     omember.delete()
+                            node_helper = resource_helper.BigIPResourceHelper(
+                                resource_helper.ResourceType.node)
                             node_helper.delete(bigip, name=urllib.quote(node_name),
                                                partition=partition)
                             self._remove_from_orphan_cache(bigip.device_name, node_name)
                     except HTTPError as error:
                         if error.response.status_code == 400:
                             LOG.error(error.response)
+                    except Exception as err:
+                        LOG.debug('ccloud: orphaned nodes --> {}'.format(orphaned_nodes))
+                        LOG.debug('ccloud: orphaned members --> {}'.format(orphaned_members))
+                        LOG.exception(err)
+                        raise err
 
                 # for member in members:
                 #
@@ -1038,11 +1045,11 @@ class iControlDriver(LBaaSBaseDriver):
     @log_helpers.log_method_call
     def purge_orphaned_pool(self, tenant_id=None, pool_id=None,
                             hostnames=list()):
-        node_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.node)
         for bigip in self.get_all_bigips():
             if bigip.hostname in hostnames:
                 try:
+                    node_helper = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.node)
                     pool_name = self.service_adapter.prefix + pool_id
                     partition = self.service_adapter.prefix + tenant_id
                     pool = resource_helper.BigIPResourceHelper(
