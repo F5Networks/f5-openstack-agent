@@ -968,7 +968,7 @@ class iControlDriver(LBaaSBaseDriver):
 
                 for node_name in orphaned_nodes:
                     try:
-                        if self._is_orphan(bigip.device_name, node_name, True):
+                        if self._is_orphan(bigip.device_name, node_name):
                             # determine members to delete
                             del_members = []
                             for omember in orphaned_members:
