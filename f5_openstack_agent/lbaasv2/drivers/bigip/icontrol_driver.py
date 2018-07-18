@@ -936,11 +936,13 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     @log_helpers.log_method_call
     def purge_orphaned_nodes(self, tenant_members):
+
+        node_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.node)
+        pool_helper = resource_helper.BigIPResourceHelper(resource_helper.ResourceType.pool)
+
         for bigip in self.get_all_bigips():
             for tenant_id, members in tenant_members.iteritems():
-                node_helper = resource_helper.BigIPResourceHelper(
-                    resource_helper.ResourceType.node)
-                pool_helper = resource_helper.BigIPResourceHelper(resource_helper.ResourceType.pool)
                 partition = self.service_adapter.prefix + tenant_id
                 nodes = node_helper.get_resources(bigip, partition=partition)
                 node_dict = {n.name: n for n in nodes}
@@ -966,12 +968,17 @@ class iControlDriver(LBaaSBaseDriver):
 
                 for node_name in orphaned_nodes:
                     try:
-                        if self._is_orphan(bigip.device_name, node_name):
+                        if self._is_orphan(bigip.device_name, node_name, True):
+                            # determine members to delete
+                            del_members = []
                             for omember in orphaned_members:
                                 if omember.address == node_name:
-                                    omember.delete()
-                            node_helper = resource_helper.BigIPResourceHelper(
-                                resource_helper.ResourceType.node)
+                                    del_members.append(omember)
+                            # delete members and remove them from orphans list
+                            for del_member in del_members:
+                                orphaned_members.remove(del_member)
+                                del_member.delete()
+                            # delete node
                             node_helper.delete(bigip, name=urllib.quote(node_name),
                                                partition=partition)
                             self._remove_from_orphan_cache(bigip.device_name, node_name)
