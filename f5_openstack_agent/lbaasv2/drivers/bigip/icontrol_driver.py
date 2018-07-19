@@ -67,6 +67,9 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
 
+import re
+import time
+
 
 LOG = logging.getLogger(__name__)
 
@@ -898,7 +901,7 @@ class iControlDriver(LBaaSBaseDriver):
         if key in self.orphan_cache:
             if self.orphan_cache[key] >= 2:
                 if self.orphan_cleanup_testrun:
-                    LOG.info('ccloud: Orphan TESTRUN: object %s marked for deletion %d times. Object would have be deleted NOW' % (key, self.orphan_cache[key]))
+                    LOG.info('ccloud: Orphan TESTRUN: object %s marked for deletion %d times. Object would have been deleted NOW' % (key, self.orphan_cache[key]))
                     del self.orphan_cache[key]
                     return False
                 else:
@@ -936,75 +939,77 @@ class iControlDriver(LBaaSBaseDriver):
     @is_connected
     @log_helpers.log_method_call
     def purge_orphaned_nodes(self, tenant_members):
-
+        # This algotithm is not able to determine nodes and members with an rd which isn't right fot the tenant, but
+        # it detects at least nodes and members without rd in case of a non global routed scenario
         node_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.node)
         pool_helper = resource_helper.BigIPResourceHelper(resource_helper.ResourceType.pool)
-
         for bigip in self.get_all_bigips():
             for tenant_id, members in tenant_members.iteritems():
                 partition = self.service_adapter.prefix + tenant_id
                 nodes = node_helper.get_resources(bigip, partition=partition)
-                node_dict = {n.name: n for n in nodes}
-                # extract member addresses (they don't have rd info) into array
-                member_addresses = []
-                for m in members:
-                    member_addresses.append(m['address'])
-                # get all pool members from f5 to get rid of the ones not defined in openstack
                 pools = pool_helper.get_resources(bigip, partition=partition)
-                orphaned_members = []
+                allf5members = []
+                orphan_members = []
+                orphan_nodes = []
+                # All f5 members without rd or which are not part of os members are orphan
                 for pool in pools:
-                    xmembers = pool.members_s.get_collection()
-                    for xmember in xmembers:
-                        if xmember.address.split('%')[0] not in member_addresses:
-                            orphaned_members.append(xmember)
-                # all nodes are orphaned which aren't referenced as member
-                orphaned_nodes = []
-                for n in nodes:
-                    if (not self.conf.f5_global_routed_mode) and ('%' not in n.address):
-                        orphaned_nodes.append(n.name)
-                    elif not n.address.split('%')[0] in member_addresses:
-                        orphaned_nodes.append(n.name)
+                    f5members = pool.members_s.get_collection()
+                    # create cross pool membership list for verifying if node is used somewhere as member
+                    allf5members.extend(f5members)
+                    for f5member in f5members:
+                        orphan_members.append(f5member)
+                        for member in members:
+                            # check with or without rd
+                            if (not self.conf.f5_global_routed_mode):
+                                if re.match(r"({0})(%\d+)(:{1})".format(member['address'], member['protocol_port']), f5member.name):
+                                   orphan_members.remove(f5member)
+                                   break
+                            else:
+                                if re.match(r"({0})(:{1})".format(member['address'], member['protocol_port']), f5member.name):
+                                    orphan_members.remove(f5member)
+                                    break
+                # All f5 nodes without rd or which are not used inside any membership are orphan
+                for node in nodes:
+                    orphan_nodes.append(node.address)
+                    # Node with no route id is orphan
+                    if (not self.conf.f5_global_routed_mode) and ('%' not in node.address):
+                        continue
+                    for f5member in allf5members:
+                        if node.address == f5member.address:
+                            orphan_nodes.remove(node.address)
+                            break
 
-                for node_name in orphaned_nodes:
-                    try:
-                        if self._is_orphan(bigip.device_name, node_name):
-                            # determine members to delete
-                            del_members = []
-                            for omember in orphaned_members:
-                                if omember.address == node_name:
-                                    del_members.append(omember)
-                            # delete members and remove them from orphans list
-                            for del_member in del_members:
-                                orphaned_members.remove(del_member)
-                                del_member.delete()
-                            # delete node
-                            node_helper.delete(bigip, name=urllib.quote(node_name),
-                                               partition=partition)
-                            self._remove_from_orphan_cache(bigip.device_name, node_name)
-                    except HTTPError as error:
-                        if error.response.status_code == 400:
-                            LOG.error(error.response)
-                    except Exception as err:
-                        LOG.debug('ccloud: orphaned nodes --> {}'.format(orphaned_nodes))
-                        LOG.debug('ccloud: orphaned members --> {}'.format(orphaned_members))
-                        LOG.exception(err)
-                        raise err
+                # Log the determined orphans
+                orphan_member_names = []
+                for omember in orphan_members:
+                    orphan_member_names.append(omember.name)
+                LOG.debug('ccloud: Deleting orphan nodes   --> {0}'.format(orphan_nodes))
+                LOG.debug('ccloud: Deleting orphan members --> {0}'.format(orphan_member_names))
 
-                # for member in members:
-                #
-                #     rd = self.network_builder.find_subnet_route_domain(
-                #         tenant_id, member.get('subnet_id', None))
-                #     node_name = "{}%{}".format(member['address'], rd)
-                #     node_dict.pop(node_name, None)
-                #
-                # for node_name, node in node_dict.iteritems():
-                #     try:
-                #         node_helper.delete(bigip, name=urllib.quote(node_name),
-                #                            partition=partition)
-                #     except HTTPError as error:
-                #         if error.response.status_code == 400:
-                #             LOG.error(error.response)
+                # Delete orphan members
+                for member in orphan_members:
+                    member_name = member.name
+                    if self._is_orphan(bigip.device_name, member_name):
+                        try:
+                            member.delete()
+                            self._remove_from_orphan_cache(bigip.device_name, member_name)
+                            time.sleep(1)
+                        except HTTPError as error:
+                            LOG.warning("ccloud: Failed to delete orphan member %s: %s", (member_name, error.response))
+                        except Exception as err:
+                            LOG.error("ccloud: Error - Failed to delete orphan member %s: %s", (member_name, err.response))
+                # Delete orphan nodes
+                for node in orphan_nodes:
+                    if self._is_orphan(bigip.device_name, node):
+                        try:
+                            node_helper.delete(bigip, name=urllib.quote(node), partition=partition)
+                            self._remove_from_orphan_cache(bigip.device_name, node)
+                            time.sleep(1)
+                        except HTTPError as error:
+                            LOG.warning("ccloud: Failed to delete orphan node %s: %s", (node, error.response))
+                        except Exception as err:
+                            LOG.error("ccloud: Error - Failed to delete orphan member %s: %s", (node, err.response))
 
     @serialized('get_all_deployed_pools')
     @is_connected
