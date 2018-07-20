@@ -68,8 +68,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
     VirtualAddress
 
 import re
-import time
-
 
 LOG = logging.getLogger(__name__)
 
@@ -984,8 +982,10 @@ class iControlDriver(LBaaSBaseDriver):
                 orphan_member_names = []
                 for omember in orphan_members:
                     orphan_member_names.append(omember.name)
-                LOG.debug('ccloud: Deleting orphan nodes   --> {0}'.format(orphan_nodes))
-                LOG.debug('ccloud: Deleting orphan members --> {0}'.format(orphan_member_names))
+                if len(orphan_nodes) > 0:
+                    LOG.debug('ccloud: Deleting orphan nodes   --> {0}'.format(orphan_nodes))
+                if len(orphan_member_names) > 0:
+                    LOG.debug('ccloud: Deleting orphan members --> {0}'.format(orphan_member_names))
 
                 # Delete orphan members
                 for member in orphan_members:
@@ -994,7 +994,6 @@ class iControlDriver(LBaaSBaseDriver):
                         try:
                             member.delete()
                             self._remove_from_orphan_cache(bigip.device_name, member_name)
-                            time.sleep(1)
                         except HTTPError as error:
                             LOG.warning("ccloud: Failed to delete orphan member %s: %s", (member_name, error.response))
                         except Exception as err:
@@ -1005,11 +1004,11 @@ class iControlDriver(LBaaSBaseDriver):
                         try:
                             node_helper.delete(bigip, name=urllib.quote(node), partition=partition)
                             self._remove_from_orphan_cache(bigip.device_name, node)
-                            time.sleep(1)
                         except HTTPError as error:
                             LOG.warning("ccloud: Failed to delete orphan node %s: %s", (node, error.response))
                         except Exception as err:
                             LOG.error("ccloud: Error - Failed to delete orphan member %s: %s", (node, err.response))
+        return True
 
     @serialized('get_all_deployed_pools')
     @is_connected
