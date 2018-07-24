@@ -502,7 +502,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.info("ccloud - periodic_resync: Resync took {0} seconds".format((datetime.datetime.now() - now).seconds))
 
         except Exception as e:
-            LOG.exception(("ccloud - Exception in periodic resync happend: " + str(e.message)))
+            LOG.exception("ccloud - Exception in periodic resync happend: " + str(e.message))
             pass
 
     # ccloud: clean orphaned snat pools
@@ -518,7 +518,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         for orphaned_snat in snat_pools:
             LOG.debug("sapcc: purging orphaned snat pool %s" % orphaned_snat.name)
-            orphaned_snat.delete()
+            try:
+                orphaned_snat.delete()
+            except Exception as e:
+                LOG.warning("sapcc: attempt made to purge orphaned snat pool which might be in use: " + str(e.message))
 
     def find_in_collection(self, name, collection):
         for item in collection:
