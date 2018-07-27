@@ -491,7 +491,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 if (self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval)) < now:
                     LOG.info("ccloud - orphans: Start cleaning orphan objects from F5 device")
                     self.last_clean_orphans = self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval)
-                    self.needs_resync = self.clean_orphaned_objects_and_save_device_config()
+                    if self.clean_orphaned_objects_and_save_device_config():
+                        self.needs_resync = True
                     LOG.info("ccloud - orphans: Finished cleaning orphan objects from F5 device. {0} objects remaining --> {1}".format(len(self.lbdriver.get_orphans_cache()), self.lbdriver.get_orphans_cache()))
                 else:
                     LOG.info("ccloud - periodic_resync: Skipping cleaning orphan objects because cleanup interval not expired. Waiting another {0} seconds"
@@ -768,6 +769,34 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         cleaned = False
 
         try:
+
+            unbound_loadbalancers = self.plugin_rpc.get_loadbalancers_without_agent_binding()
+
+            if len(unbound_loadbalancers) > 0:
+                # create list with tenant and id for error logging
+                ubl = [[lb['tenant_id'], lb['id']] for lb in unbound_loadbalancers]
+                # verify if unbound lb's reside on this agent to give an idea for correction
+                # the host or unknown will be added to the unbounds
+                all_lbs = self.lbdriver.get_all_deployed_loadbalancers(purge_orphaned_folders=False)
+                for lbu in ubl:
+                    if lbu[1] in all_lbs:
+                        lbu.append("{0}".format(self.agent_host))
+
+                # Abort cleanup in case of non testrun, otherwise report errors and continue with testrun
+                if not self.conf.ccloud_orphans_cleanup_testrun:
+                    LOG.error("ccloud: {2} Loadbalancers without an agent binding found. Orphan cleanup process aborted!!! Agent name: {1}. "
+                              "Manual intervention needed to clarify state of unbound loadbalancers and where they should belong to. "
+                              "If an agent name is given as 3rd argument the agent has detected that it is hosting the LB but binding in neutron DB is missing. "
+                              "If no agent name is given, this agent doesn't host the LB, but maybe another one."
+                              "The following loadbalancers without binding were found [tenant.id, lb.id, <agent_name>]: {0}".format(ubl, self.agent_host, len(unbound_loadbalancers)))
+                    return False
+                else:
+                    LOG.error("ccloud: {2} Loadbalancers without an agent binding found.Orphan cleanup testrun will continue. Agent name: {1}. "
+                              "Manual intervention needed to clarify state of unbound loadbalancers and where they should belong to. "
+                              "If an agent name is given as 3rd argument the agent has detected that it is hosting the LB but binding in neutron DB is missing. "
+                              "If no agent name is given, this agent doesn't host the LB, but maybe another one."
+                              "The following loadbalancers without binding were found [tenant.id, lb.id, <agent_name>]: {0}".format(ubl, self.agent_host, len(unbound_loadbalancers)))
+
             #
             # Global cluster refresh tasks
             #
@@ -828,7 +857,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # serialize config and save to disk
             self.lbdriver.backup_configuration()
         except Exception as e:
-            LOG.error("Unable to sync state: %s" % e.message)
+            LOG.error("Unable to clean_orphaned_objects_and_save_device_config: %s" % e.message)
             cleaned = True
 
         return cleaned

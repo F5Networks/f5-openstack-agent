@@ -510,6 +510,29 @@ class LBaaSv2PluginRPC(object):
         return loadbalancers
 
     @log_helpers.log_method_call
+    @utils.instrument_execution_time
+    def get_loadbalancers_without_agent_binding(self, env=None, group=None):
+        """Retrieve a list of loadbalancers without an agent binding in Neutron."""
+        unbound_loadbalancers = []
+
+        if not env:
+            env = self.env
+
+        try:
+            unbound_loadbalancers = self._call(
+                self.context,
+                self._make_msg('get_loadbalancers_without_agent_binding',
+                               env=env,
+                               group=group),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_loadbalancers_without_agent_binding")
+
+        return unbound_loadbalancers
+
+    @log_helpers.log_method_call
     def get_loadbalancers_by_network(self, network_id, env=None,group=None,host=None):
         """Retrieve a list of loadbalancers for a network."""
         loadbalancers = []
