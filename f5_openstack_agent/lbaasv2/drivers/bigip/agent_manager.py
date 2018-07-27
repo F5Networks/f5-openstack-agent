@@ -778,20 +778,29 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 # verify if unbound lb's reside on this agent to give an idea for correction
                 # the host or unknown will be added to the unbounds
                 all_lbs = self.lbdriver.get_all_deployed_loadbalancers(purge_orphaned_folders=False)
+                hosted = 0
                 for lbu in ubl:
                     if lbu[1] in all_lbs:
+                        hosted += 1
                         lbu.append("{0}".format(self.agent_host))
+
+                if hosted > 0:
+                    LOG.error("ccloud: MissingAgentBinding: {0} Loadbalancers with a missing neutron agent binding are hosted on this agent. "
+                              "The binding to this agent {1} has to be repaired in neutron DB".format(hosted, self.agent_host))
+                else:
+                    LOG.warning("ccloud: MissingAgentBinding: NO Loadbalancers with a missing neutron agent binding are hosted on this agent {1}. "
+                                "These LBs might be deleted in neutron DB if no other agent is hosting them.".format(hosted, self.agent_host))
 
                 # Abort cleanup in case of non testrun, otherwise report errors and continue with testrun
                 if not self.conf.ccloud_orphans_cleanup_testrun:
-                    LOG.error("ccloud: {2} Loadbalancers without an agent binding found. Orphan cleanup process aborted!!! Agent name: {1}. "
+                    LOG.error("ccloud: MissingAgentBinding: {2} Loadbalancers without an agent binding found. Orphan cleanup process aborted!!! Agent name: {1}. "
                               "Manual intervention needed to clarify state of unbound loadbalancers and where they should belong to. "
                               "If an agent name is given as 3rd argument the agent has detected that it is hosting the LB but binding in neutron DB is missing. "
                               "If no agent name is given, this agent doesn't host the LB, but maybe another one."
                               "The following loadbalancers without binding were found [tenant.id, lb.id, <agent_name>]: {0}".format(ubl, self.agent_host, len(unbound_loadbalancers)))
                     return False
                 else:
-                    LOG.error("ccloud: {2} Loadbalancers without an agent binding found.Orphan cleanup testrun will continue. Agent name: {1}. "
+                    LOG.error("ccloud: MissingAgentBinding: {2} Loadbalancers without an agent binding found.Orphan cleanup testrun will continue. Agent name: {1}. "
                               "Manual intervention needed to clarify state of unbound loadbalancers and where they should belong to. "
                               "If an agent name is given as 3rd argument the agent has detected that it is hosting the LB but binding in neutron DB is missing. "
                               "If no agent name is given, this agent doesn't host the LB, but maybe another one."
