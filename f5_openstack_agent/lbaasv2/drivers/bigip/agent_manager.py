@@ -250,7 +250,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.orphans_cleanup_interval = 60 * orphans_interval
         # schedule first run with 1 hour difference on every agent. Start first run after 5 minutes, 1h and 5 mins, ...
         x = self.orphans_cleanup_interval / 3
-        t = [x*3, x*2, x]
+        t = [x*3, x*2, x, x*3, x*2, x, x*3, x*2, x, x*3, x*2, x]
         if start < 1:
             start = 1
         self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(minutes=t[start-1] - 5)
