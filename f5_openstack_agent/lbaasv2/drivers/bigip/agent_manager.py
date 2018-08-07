@@ -591,8 +591,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug("currently known loadbalancer ids before sync are: %s"
                       % list(known_services))
 
+            # ccloud: Get rid of 'Cached service not found in neutron database' message
+            # Clear cache entry if not found in neutron. In case of a temp issue
+            # lb will be added again with next sync
             for deleted_lb in owned_services - all_loadbalancer_ids:
-                LOG.error("Cached service not found in neutron database")
+                self.cache.remove_by_loadbalancer_id(deleted_lb)
+                LOG.info("ccloud: Cached service not found in neutron database. Clearing cache for LB_id %s" % deleted_lb)
                 # self.destroy_service(deleted_lb)
 
             # Validate each service we own, i.e. loadbalancers to which this

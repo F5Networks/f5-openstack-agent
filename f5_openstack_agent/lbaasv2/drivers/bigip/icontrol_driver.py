@@ -1682,7 +1682,7 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in self.get_config_bigips():
             # Does the tenant folder exist?
             if not self.system_helper.folder_exists(bigip, folder_name):
-                LOG.error("Folder %s does not exists on bigip: %s" %
+                LOG.warning("Folder %s does not exists on bigip: %s" %
                           (folder_name, bigip.hostname))
                 return False
 
@@ -1690,7 +1690,7 @@ class iControlDriver(LBaaSBaseDriver):
             virtual_address = VirtualAddress(self.service_adapter,
                                              loadbalancer)
             if not virtual_address.exists(bigip):
-                LOG.error("Virtual address %s(%s) does not "
+                LOG.warning("Virtual address %s(%s) does not "
                           "exists on bigip: %s" % (virtual_address.name,
                                                    virtual_address.address,
                                                    bigip.hostname))
@@ -1705,7 +1705,7 @@ class iControlDriver(LBaaSBaseDriver):
                 if not self.vs_manager.exists(bigip,
                                               name=virtual_server['name'],
                                               partition=folder_name):
-                    LOG.error("Virtual /%s/%s not found on bigip: %s" %
+                    LOG.warning("Virtual /%s/%s not found on bigip: %s" %
                               (virtual_server['name'], folder_name,
                                bigip.hostname))
                     return False
@@ -1719,7 +1719,7 @@ class iControlDriver(LBaaSBaseDriver):
                         bigip,
                         name=bigip_pool['name'],
                         partition=folder_name):
-                    LOG.error("Pool /%s/%s not found on bigip: %s" %
+                    LOG.warning("Pool /%s/%s not found on bigip: %s" %
                               (bigip_pool['name'], folder_name,
                                bigip.hostname))
                     return False
@@ -1731,7 +1731,7 @@ class iControlDriver(LBaaSBaseDriver):
                 monitor_ep = self._get_monitor_endpoint(bigip, svc)
                 if not monitor_ep.exists(name=monitor['name'],
                                          partition=folder_name):
-                    LOG.error("Monitor /%s/%s not found on bigip: %s" %
+                    LOG.warning("Monitor /%s/%s not found on bigip: %s" %
                               (monitor['name'], folder_name, bigip.hostname))
                     return False
 

@@ -350,7 +350,10 @@ class BigipSnatManager(object):
                     except HTTPError as err:
                         LOG.error("Update SNAT pool failed %s" % err.message)
             except HTTPError as err:
-                LOG.error("Failed to load SNAT pool %s" % err.message)
+                if err.response.status_code == 404:
+                    LOG.info("ccloud: Failed to load SNAT pool for deletion %s" % err.message)
+                else:
+                    LOG.error("Failed to load SNAT pool %s" % err.message)
 
             # Check if subnet in use by any tenants/snatpools. If in use,
             # add subnet to hints list of subnets in use.
