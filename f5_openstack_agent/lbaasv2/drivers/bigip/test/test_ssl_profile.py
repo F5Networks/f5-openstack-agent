@@ -51,6 +51,7 @@ class TestSSLProfileHelper(object):
             certKeyChain=[
                 {'name': 'testprofile',
                  'cert': '/Common/testprofile.crt',
+                 'chain': None,
                  'key': '/Common/testprofile.key'}
             ],
             sniDefault=False,
@@ -78,6 +79,7 @@ class TestSSLProfileHelper(object):
             certKeyChain=[
                 {'name': 'testprofile',
                  'cert': '/Common/testprofile.crt',
+                 'chain': None,
                  'key': '/Common/testprofile.key'}
             ],
             sniDefault=False,
@@ -99,6 +101,7 @@ class TestSSLProfileHelper(object):
             certKeyChain=[
                 {'name': 'testprofile',
                  'cert': '/Common/testprofile.crt',
+                 'chain': None,
                  'key': '/Common/testprofile.key'}
             ],
             sniDefault=False,
@@ -115,5 +118,67 @@ class TestSSLProfileHelper(object):
         with pytest.raises(SSLProfileError):
             SSLProfileHelper.create_client_ssl_profile(
                 bigip, 'testprofile', 'testcert', 'testkey',
+                intermediates=None,
                 parent_profile="parentprofile"
             )
+
+    def test_create_client_ssl_intermediates_none(self):
+        bigip = mock.MagicMock()
+        bigip.tm.ltm.profile.client_ssls.client_ssl = mock.MagicMock()
+        bigip.tm.ltm.profile.client_ssls.client_ssl.exists.return_value = False
+        SSLProfileHelper.create_client_ssl_profile(
+            bigip, 'testprofile', 'testcert', 'testkey', intermediates=None)
+        bigip.tm.ltm.profile.client_ssls.client_ssl.create.assert_called_with(
+            name='testprofile',
+            partition='Common',
+            certKeyChain=[
+                {'name': 'testprofile',
+                 'cert': '/Common/testprofile.crt',
+                 'chain': None,
+                 'key': '/Common/testprofile.key'}
+            ],
+            sniDefault=False,
+            defaultsFrom=None,
+        )
+
+    def test_create_client_ssl_intermediates(self):
+        bigip = mock.MagicMock()
+        bigip.tm.ltm.profile.client_ssls.client_ssl = mock.MagicMock()
+        bigip.tm.ltm.profile.client_ssls.client_ssl.exists.return_value = False
+        SSLProfileHelper.create_client_ssl_profile(
+            bigip, 'testprofile', 'testcert', 'testkey', intermediates='inter')
+        bigip.tm.ltm.profile.client_ssls.client_ssl.create.assert_called_with(
+            name='testprofile',
+            partition='Common',
+            certKeyChain=[
+                {'name': 'testprofile',
+                 'cert': '/Common/testprofile.crt',
+                 'chain': '/Common/testprofile_inter.crt',
+                 'key': '/Common/testprofile.key'}
+            ],
+            sniDefault=False,
+            defaultsFrom=None,
+        )
+
+    def test_create_client_ssl_intermediates_parent_profile(self):
+        bigip = mock.MagicMock()
+        bigip.tm.ltm.profile.client_ssls.client_ssl = mock.MagicMock()
+        bigip.tm.ltm.profile.client_ssls.client_ssl.exists.side_effect =\
+            self.exists_parent
+        SSLProfileHelper.create_client_ssl_profile(
+            bigip, 'testprofile', 'testcert', 'testkey',
+            parent_profile="testparentprofile",
+            intermediates='inter'
+        )
+        bigip.tm.ltm.profile.client_ssls.client_ssl.create.assert_called_with(
+            name='testprofile',
+            partition='Common',
+            certKeyChain=[
+                {'name': 'testprofile',
+                 'cert': '/Common/testprofile.crt',
+                 'chain': '/Common/testprofile_inter.crt',
+                 'key': '/Common/testprofile.key'}
+            ],
+            sniDefault=False,
+            defaultsFrom=None,
+        )
