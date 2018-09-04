@@ -169,6 +169,12 @@ class ListenerServiceBuilder(object):
             self, container_ref, bigip, vip, sni_default=False):
         cert = self.cert_manager.get_certificate(container_ref)
         key = self.cert_manager.get_private_key(container_ref)
+        intermediates = self.cert_manager.get_intermediates(container_ref)
+
+        chain = None
+        if intermediates:
+            chain = '\n'.join(list(intermediates))
+
         name = self.cert_manager.get_name(container_ref,
                                           self.service_adapter.prefix)
 
@@ -176,6 +182,7 @@ class ListenerServiceBuilder(object):
             # upload cert/key and create SSL profile
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
                 bigip, name, cert, key, sni_default=sni_default,
+                intermediates=chain,
                 parent_profile=self.parent_ssl_profile)
         except HTTPError as err:
             if err.response.status_code != 409:
@@ -183,6 +190,7 @@ class ListenerServiceBuilder(object):
                           err.message)
         finally:
             del cert
+            del chain
             del key
 
         # add ssl profile to virtual server

@@ -159,7 +159,7 @@ def check_other_dependencies(requires, dist_dir, agent_pkg):
     for pkg in list(miss):
         if pkg.name != "f5-sdk":
             yumCmd = ("yum install -y %s" % pkg.name)
-            print(curlCmd)
+            print(yumCmd)
             (output, status) = runCommand(yumCmd)
             if status:
                print("Error occurs in % installation" % pkg.name)
