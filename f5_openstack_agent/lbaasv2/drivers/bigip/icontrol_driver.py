@@ -1148,11 +1148,13 @@ class iControlDriver(LBaaSBaseDriver):
     def purge_orphaned_nodes(self, tenant_members):
         node_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.node)
+        node_dict = dict()
         for bigip in self.get_all_bigips():
             for tenant_id, members in tenant_members.iteritems():
                 partition = self.service_adapter.prefix + tenant_id
                 nodes = node_helper.get_resources(bigip, partition=partition)
-                node_dict = {n.name: n for n in nodes}
+                for n in nodes:
+                    node_dict[n.name] = n
 
                 for member in members:
                     rd = self.network_builder.find_subnet_route_domain(
