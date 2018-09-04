@@ -30,6 +30,10 @@ class F5AgentException(Exception):
     pass
 
 
+class UnreadableCert(F5AgentException):
+    pass
+
+
 class MinorVersionValidateFailed(F5AgentException):
     pass
 
