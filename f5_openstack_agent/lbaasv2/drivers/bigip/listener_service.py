@@ -168,8 +168,10 @@ class ListenerServiceBuilder(object):
     def _create_ssl_profile(
             self, container_ref, bigip, vip, sni_default=False):
         cert = self.cert_manager.get_certificate(container_ref)
-        key = self.cert_manager.get_private_key(container_ref)
         intermediates = self.cert_manager.get_intermediates(container_ref)
+        key = self.cert_manager.get_private_key(container_ref)
+        key_passphrase = self.cert_manager.get_private_key_passphrase(
+                             container_ref)
 
         chain = None
         if intermediates:
@@ -181,14 +183,15 @@ class ListenerServiceBuilder(object):
         try:
             # upload cert/key and create SSL profile
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
-                bigip, name, cert, key, sni_default=sni_default,
-                intermediates=chain,
+                bigip, name, cert, key, key_passphrase=key_passphrase,
+                sni_default=sni_default, intermediates=chain,
                 parent_profile=self.parent_ssl_profile)
         except HTTPError as err:
             if err.response.status_code != 409:
                 LOG.error("SSL profile creation error: %s" %
                           err.message)
         finally:
+            del key_passphrase
             del cert
             del chain
             del key
