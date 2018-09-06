@@ -28,8 +28,8 @@ class SSLProfileHelper(object):
 
     @staticmethod
     def create_client_ssl_profile(
-            bigip, name, cert, key, sni_default=False,
-            intermediates=None, parent_profile=None):
+            bigip, name, cert, key, key_passphrase=None,
+            sni_default=False, intermediates=None, parent_profile=None):
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
@@ -84,7 +84,9 @@ class SSLProfileHelper(object):
             chain = [{'name': name,
                       'cert': '/Common/' + certfilename,
                       'chain': chain_path,
-                      'key': '/Common/' + keyfilename}]
+                      'key': '/Common/' + keyfilename,
+                      'passphrase': key_passphrase}]
+
             ssl_client_profile.create(name=name,
                                       partition='Common',
                                       certKeyChain=chain,
