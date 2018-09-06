@@ -75,27 +75,19 @@ class ListenerServiceBuilder(object):
                 self._add_cookie_persist_rule(vip, persist, bigip)
 
             try:
-                self.vs_helper.create(bigip, vip)
-            except HTTPError as err:
-                if err.response.status_code == 409:
+                if self.vs_helper.exists(bigip,
+                                         name=vip['name'],
+                                         partition=vip['partition']):
                     LOG.debug("Virtual server already exists...updating")
-                    try:
-                        self.vs_helper.update(bigip, vip)
-                    except Exception as err:
-                        error = f5_ex.VirtualServerUpdateException(
-                            err.message)
-                        LOG.error("Virtual server update error: %s" %
-                                  error.message)
+                    self.vs_helper.update(bigip, vip)
                 else:
-                    error = f5_ex.VirtualServerCreationException(
-                        err.message)
-                    LOG.error("Virtual server creation error: %s" %
-                              error.message)
+                    LOG.debug("Virtual server does not exist...creating")
+                    self.vs_helper.create(bigip, vip)
 
             except Exception as err:
                 error = f5_ex.VirtualServerCreationException(
                     err.message)
-                LOG.error("Virtual server creation error: %s" %
+                LOG.error("Failed to create virtual server: %s" %
                           error.message)
 
             if not persist:
