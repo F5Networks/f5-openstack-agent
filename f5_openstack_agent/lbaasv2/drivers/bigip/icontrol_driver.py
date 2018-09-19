@@ -293,6 +293,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'trace_service_requests',
         default=False,
         help='Log service object.'
+    ),
+    cfg.StrOpt(
+        'f5_agent_lic',
+        default='TEST,TEST',
+        help='F5 agent license'
     )
 ]
 
@@ -578,6 +583,12 @@ class iControlDriver(LBaaSBaseDriver):
                         bigip.status = 'active'
                         bigip.status_message = 'BIG-IP ready for provisioning'
                         self._post_init()
+                        if bigip.status == 'active':
+                            LOG.debug('starting check license...')
+                            if not self.lic_check(bigip):
+                                bigip.status = 'error'
+                                bigip.status_message = 'No agent license for this device'
+                                self._set_agent_status(False)
                     else:
                         LOG.debug('setting status to error for %s' % hostname)
                         bigip.status = 'error'
@@ -638,6 +649,12 @@ class iControlDriver(LBaaSBaseDriver):
                                 'BIG-IP ready for provisioning'
                             self._post_init()
                             self._set_agent_status(True)
+                            if bigip.status == 'active':
+                                LOG.debug('starting check license')
+                                if not self.lic_check(bigip):
+                                    bigip.status = 'error'
+                                    bigip.status_message = 'No agent license for this device'
+                                    self._set_agent_status(False)
                         else:
                             LOG.debug('setting status to error for %s'
                                       % hostname)
@@ -2239,6 +2256,30 @@ class iControlDriver(LBaaSBaseDriver):
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
+
+    def lic_check(self, bigip):
+        try:
+            sn = self.system_helper.get_serial_number(bigip).upper().strip()
+            lic = hashlib.md5(sn).hexdigest()[:16]
+            agent_lic = self.conf.f5_agent_lic.split(',')
+            if lic in agent_lic:
+                return True
+            else:
+                return False
+                from binascii import a2b_hex
+                from Crypto.Cipher import DES
+                import time
+                t = time.time()
+                obj = DES.new('12345678')
+                agent_lic = self.conf.f5_agent_lic.split(',')
+                for lic in agent_lic:
+                    lic_time = int(obj.decrypt(a2b_hex(lic))) / 1000000
+                    if t < lic_time:
+                        return True
+                    else:
+                        return False
+        except IOError:
+            return False
 
     # these functions should return only active BIG-IP
     # not errored BIG-IPs.
