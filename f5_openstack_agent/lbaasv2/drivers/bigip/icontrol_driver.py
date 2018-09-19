@@ -1116,7 +1116,7 @@ class iControlDriver(LBaaSBaseDriver):
                                         bigip, folder)
                                     self.system_helper.purge_folder(
                                         bigip, folder)
-                                    LOG.debug('orphaned folder %s on %s' %
+                                    LOG.error('orphaned folder %s on %s' %
                                               (folder, bigip.hostname))
                                 except Exception as exc:
                                     LOG.error('error purging folder %s: %s' %
@@ -1792,7 +1792,7 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in self.get_config_bigips():
             # Does the tenant folder exist?
             if not self.system_helper.folder_exists(bigip, folder_name):
-                LOG.debug("Folder %s does not exist on bigip: %s" %
+                LOG.error("Folder %s does not exists on bigip: %s" %
                           (folder_name, bigip.hostname))
                 return False
 
@@ -1800,10 +1800,10 @@ class iControlDriver(LBaaSBaseDriver):
             virtual_address = VirtualAddress(self.service_adapter,
                                              loadbalancer)
             if not virtual_address.exists(bigip):
-                LOG.debug("Virtual address %s(%s) does not "
-                          "exist on bigip: %s" % (virtual_address.name,
-                                                  virtual_address.address,
-                                                  bigip.hostname))
+                LOG.error("Virtual address %s(%s) does not "
+                          "exists on bigip: %s" % (virtual_address.name,
+                                                   virtual_address.address,
+                                                   bigip.hostname))
                 return False
 
             # Ensure that each virtual service exists.
@@ -1815,7 +1815,7 @@ class iControlDriver(LBaaSBaseDriver):
                 if not self.vs_manager.exists(bigip,
                                               name=virtual_server['name'],
                                               partition=folder_name):
-                    LOG.debug("Virtual /%s/%s not found on bigip: %s" %
+                    LOG.error("Virtual /%s/%s not found on bigip: %s" %
                               (virtual_server['name'], folder_name,
                                bigip.hostname))
                     return False
@@ -1829,7 +1829,7 @@ class iControlDriver(LBaaSBaseDriver):
                         bigip,
                         name=bigip_pool['name'],
                         partition=folder_name):
-                    LOG.debug("Pool /%s/%s not found on bigip: %s" %
+                    LOG.error("Pool /%s/%s not found on bigip: %s" %
                               (folder_name, bigip_pool['name'],
                                bigip.hostname))
                     return False
@@ -1844,7 +1844,7 @@ class iControlDriver(LBaaSBaseDriver):
                     # First check that number of members deployed
                     # is equal to the number in the service.
                     if len(deployed_members) != len(pool['members']):
-                        LOG.debug("Pool %s members member count mismatch "
+                        LOG.error("Pool %s members member count mismatch "
                                   "match: deployed %d != service %d" %
                                   (bigip_pool['name'], len(deployed_members),
                                    len(pool['members'])))
@@ -1860,7 +1860,7 @@ class iControlDriver(LBaaSBaseDriver):
                                    "member": member,
                                    "pool": pool}
                             if not lb.pool_builder.member_exists(svc, bigip):
-                                LOG.debug("Pool member not found: %s" %
+                                LOG.error("Pool member not found: %s" %
                                           svc['member'])
                                 return False
 
@@ -1872,7 +1872,7 @@ class iControlDriver(LBaaSBaseDriver):
                 monitor_ep = self._get_monitor_endpoint(bigip, svc)
                 if not monitor_ep.exists(name=monitor['name'],
                                          partition=folder_name):
-                    LOG.debug("Monitor /%s/%s not found on bigip: %s" %
+                    LOG.error("Monitor /%s/%s not found on bigip: %s" %
                               (monitor['name'], folder_name, bigip.hostname))
                     return False
 
@@ -2216,7 +2216,7 @@ class iControlDriver(LBaaSBaseDriver):
                     self.network_builder._annotate_service_route_domains(
                         service)
                 except f5ex.InvalidNetworkType as exc:
-                    LOG.warning(exc.message)
+                    LOG.warning(exc.msg)
                     return
 
             # get currrent member status
@@ -2266,18 +2266,6 @@ class iControlDriver(LBaaSBaseDriver):
                 return True
             else:
                 return False
-                from binascii import a2b_hex
-                from Crypto.Cipher import DES
-                import time
-                t = time.time()
-                obj = DES.new('12345678')
-                agent_lic = self.conf.f5_agent_lic.split(',')
-                for lic in agent_lic:
-                    lic_time = int(obj.decrypt(a2b_hex(lic))) / 1000000
-                    if t < lic_time:
-                        return True
-                    else:
-                        return False
         except IOError:
             return False
 
