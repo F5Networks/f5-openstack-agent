@@ -26,7 +26,8 @@ import sys
 
 from collections import deque
 from collections import namedtuple
-from pip.req import parse_requirements as p_reqs
+# from pip.req import parse_requirements as p_reqs
+from pip._internal.req import parse_requirements as p_reqs
 
 default_setup_cfg = deque()
 default_stdeb_cfg = deque()
