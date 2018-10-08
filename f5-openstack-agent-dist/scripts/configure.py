@@ -110,10 +110,13 @@ the filesystem.
         exit_cleanly(errnum=errno.ENOSYS)
     stdeb_cfg = dist_dir + "/deb_dist/stdeb.cfg"
     setup_cfg = working + "/setup.cfg"
-    stp_reqs = working + "/setup_requirements.txt"
+    rpm_stp_reqs = working + "/rpm_setup_requirements.txt"
+    deb_stp_reqs = working + "/deb_setup_requirements.txt"
     scripts = dist_dir + "/scripts"
-    env = {'working': working, 'dist_dir': dist_dir, 'stdeb_cfg': stdeb_cfg,
-           'setup_requirements': stp_reqs, 'setup_cfg': setup_cfg,
+    env = {'working': working, 'dist_dir': dist_dir,
+           'rpm_setup_requirements': rpm_stp_reqs, 
+           'deb_setup_requirements': deb_stp_reqs, 
+           'setup_cfg': setup_cfg, 'stdeb_cfg': stdeb_cfg,
            'scripts': scripts, 'project': project_name}
     return env
 

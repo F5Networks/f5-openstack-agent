@@ -62,9 +62,9 @@ not suggested to use this function if you intend to get control back again.
 
 def _construct_cfgs_from_json(args):
     Args = namedtuple('Args', 'setup, reqs, fmt, start')
-    rpm = Args(args['setup_cfg'], args['setup_requirements'], '%s %s',
+    rpm = Args(args['setup_cfg'], args['rpm_setup_requirements'], '%s %s',
                'requires = ')
-    deb = Args(args['stdeb_cfg'], args['setup_requirements'], '%s (%s), ',
+    deb = Args(args['stdeb_cfg'], args['deb_setup_requirements'], '%s (%s), ',
                'Depends:\n    ')
     _construct_file(rpm.setup, rpm.reqs, rpm.fmt, rpm.start)
     _construct_file(deb.setup, deb.reqs, deb.fmt, deb.start)
@@ -145,6 +145,7 @@ def handle_equals(fh, fmt, name, specifier, pkg_type='rpm'):
                         lt_specifier, major, minor, int(patch) + 1)))
     fh.write('\n    ')
     fh.write(fmt % (name, specifier_fmt.format(">=", major, minor, patch)))
+    fh.write('\n    ')
 
 
 def _construct_file(setup_cfg, setup, fmt, start):
@@ -186,7 +187,14 @@ def _construct_file(setup_cfg, setup, fmt, start):
                     handle_equals(fh, fmt, name, specifier, pkg_type=pkg_type)
                     continue
                 else:
-                    fh.write(fmt % (name, str(specifier)))
+                    relation_oper = re.compile('([><=]{1,2})(.*)')
+                    match = relation_oper.search(specifier)
+                    if match:
+                        specifier = ' '.join(match.groups())
+                    else:
+                        print("Error: the format of dependencies can not be parsed")
+                        exit_cleanly(error_number=errno.ENOEXEC)
+                    fh.write(fmt % (name, specifier))
                 if count != len(parsed_reqs) - 1:
                     fh.write('\n    ')
             fh.write("\n")  # some packages require a new line
@@ -237,7 +245,8 @@ assures more consistent error handling within the script.
     descriptions = \
         {22: 'An improper input error has occurred.  Please see above stmt(s)',
          29: 'An operation failed.  Please see above stmt(s)',
-         5: 'An IO Error has occurred.  Pelase see above stmt(s)'}
+         5: 'An IO Error has occurred.  Please see above stmt(s)',
+         8: 'An format error has occurred. Please see above stmt(s)'}
     try:
         error_number = int(error_number)
     except TypeError:
@@ -287,7 +296,7 @@ This function extracts the script arguments within the arguments variable and
 interprets their meaning before returning such content.
     """
     expected = ['working_directory', 'operating_system', 'version']
-    possible = ['json'].extend(expected)
+    possible = ['json'] + expected
     try:
         opts, args = getopt.getopt(sys.argv[1:], '', map(lambda x: ('%s=' % x),
                                    possible))
