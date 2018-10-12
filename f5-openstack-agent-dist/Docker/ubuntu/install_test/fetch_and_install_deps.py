@@ -183,7 +183,16 @@ def check_other_dependencies(requires, dist_dir, agent_pkg):
         print("WARNING: there are missing dependencies!")
         while to_get:
             dep = to_get.popleft()
-            print("%s %s %s" % (dep.name, dep.oper, dep.version))
+            pkg = dep.name + "=" + dep.version
+            if "f5-sdk" not in pkg:
+                apt_get_cmd = "apt-get -y install " + pkg
+                print(apt_get_cmd)
+                (output, status) = runCommand(apt_get_cmd)
+                if status:
+                    print("ERROR: can not install missing dependencies %s "
+                          "by apt-get" % pkg)
+                    sys.exit(1)
+                print("Install missing dependencies %s by apt-get" % pkg)
     else:
         print("""Succsess!
 All dependencies search satisfied!  However, by-version check may still fail...
