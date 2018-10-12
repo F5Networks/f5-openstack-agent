@@ -10,7 +10,7 @@ The following test files need to be run with the pytest symbols plugin:
 
 Install the pytest_symbols plugin:
 
-    https://bldr-git.int.lineratesystems.com/tools/pytest-symbols
+    https://github.com/F5Networks/pytest-symbols.git
 
 After configuring the envirnomental data in test_env.json,
 execute those tests similar to this:
