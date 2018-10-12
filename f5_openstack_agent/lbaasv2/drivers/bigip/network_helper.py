@@ -349,7 +349,8 @@ class NetworkHelper(object):
         if hasattr(self, 'conf') and self.conf.external_gateway_mode:
             name = self._get_route_domain_name(name) if name else partition
         else:
-            name = partition
+            if not name:
+                name = partition
         r = bigip.tm.net.route_domains.route_domain
         obj = r.load(name=name, partition=partition)
         obj.delete()
