@@ -19,6 +19,7 @@ try:
 except ImportError:
     raise ImportError("Missing Python library barbicanclient."
                       "Install barbicanclient and restart the agent.")
+from f5_openstack_agent.utils import cert_parser
 try:
     # Try keystoneuath1 first as OpenStack is migrating from keystoneclient
     # to keystoneauth1. Some systems, particularly liberty, may not
@@ -135,6 +136,24 @@ class BarbicanCertManager(object):
         """
         container = self.barbican.containers.get(container_ref)
         return container.certificate.payload
+
+    def get_intermediates(self, container_ref):
+        """Retrieves intermediates chain from certificate manager.
+
+        Barbican secret containers can store pkcs7 format certificate
+        chains. using this function to extract multiple
+        certificates from the pkcs7 certificate chain.
+
+        :param string container_ref: Reference to certificate stored in a
+        certificate manager.
+        :returns string: An generator of x509 certificates.
+        This method MUST be implemented, in agent-compliant cert managers.
+        """
+        container = self.barbican.containers.get(container_ref)
+        if container.intermediates:
+            x509Pems = cert_parser.get_intermediates_pems(
+                container.intermediates.payload)
+            return x509Pems
 
     def get_private_key(self, container_ref):
         """Retrieves key from certificate manager.
