@@ -82,11 +82,11 @@ deploy:
   - provider: script
     skip_cleanup: true
     on:
-      branch: 9.6-stable
+      branch: 9.7-stable
       repo: F5Networks/f5-openstack-agent
     script:
-      - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh && ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent v9.6
-      
+      - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh && ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent v9.7
+
 notifications:
   slack:
     rooms:
