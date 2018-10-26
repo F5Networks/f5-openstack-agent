@@ -136,9 +136,7 @@ def check_other_dependencies(requires, dist_dir, agent_pkg):
     rpm_list_cmd = "rpm -qa"
     print("Collecting a list of already-install pkgs")
     (output, status) = runCommand(rpm_list_cmd)
-    to_get = list()
-    rpm_install = list()
-    yum_install = list()
+    to_get = deque()
     ignore = []
     while requires:
         my_dep = requires.popleft()
@@ -150,26 +148,13 @@ def check_other_dependencies(requires, dist_dir, agent_pkg):
     for rpm_file in to_install:
         for rpm_dep in to_get:
             if rpm_dep.name in rpm_file:
-                rpm_install.append(rpm_dep)
+                to_get.remove(rpm_dep)
         rpm_install_cmd = "rpm -i %s" % rpm_file
         runCommand(rpm_install_cmd)
-    miss = set(to_get) - set(rpm_install) 
-
-    #(pzhang) we use yum to install some dependencies
-    for pkg in list(miss):
-        if pkg.name != "f5-sdk":
-            yumCmd = ("yum install -y %s" % pkg.name)
-            print(yumCmd)
-            (output, status) = runCommand(yumCmd)
-            if status:
-               print("Error occurs in % installation" % pkg.name)
-               sys.exit(1)
-            yum_install.append(pkg)
-
-    miss = set(miss) - set(yum_install)
-    if miss:
+    if to_get:
         print("WARNING: there are missing dependencies!")
-        for dep in miss:
+        while to_get:
+            dep = to_get.popleft()
             print("%s %s %s" % (dep.name, dep.oper, dep.version))
     else:
         print("""Succsess!

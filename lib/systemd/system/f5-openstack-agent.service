@@ -4,7 +4,7 @@ After=syslog.target network.target
 Requires=network.target
 
 [Service]
-User=neutron
+User=root
 ExecStart=/usr/bin/f5-oslbaasv2-agent --log-file /var/log/neutron/f5-openstack-agent.log --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/services/f5/f5-openstack-agent.ini
 Restart=always
 

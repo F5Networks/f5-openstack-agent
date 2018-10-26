@@ -28,8 +28,7 @@ class SSLProfileHelper(object):
 
     @staticmethod
     def create_client_ssl_profile(
-            bigip, name, cert, key, key_passphrase=None,
-            sni_default=False, intermediates=None, parent_profile=None):
+            bigip, name, cert, key, sni_default=False, parent_profile=None):
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
@@ -45,23 +44,9 @@ class SSLProfileHelper(object):
             parent_profile = None
 
         certfilename = name + '.crt'
-        interfilename = name + '_inter' + '.crt' if intermediates else None
         keyfilename = name + '.key'
 
         try:
-            chain_path = None
-            if interfilename:
-                # import chains
-                uploader.upload_bytes(intermediates, interfilename)
-
-                param_set = {}
-                param_set['name'] = interfilename
-                param_set['from-local-file'] = os.path.join(
-                    '/var/config/rest/downloads/', interfilename)
-                cert_registrar.exec_cmd('install', **param_set)
-
-                chain_path = '/Common/' + interfilename
-
             # In-memory upload -- data not written to local file system but
             # is saved as a file on the BIG-IP.
             uploader.upload_bytes(cert, certfilename)
@@ -83,10 +68,7 @@ class SSLProfileHelper(object):
             # create ssl-client profile from cert/key pair
             chain = [{'name': name,
                       'cert': '/Common/' + certfilename,
-                      'chain': chain_path,
-                      'key': '/Common/' + keyfilename,
-                      'passphrase': key_passphrase}]
-
+                      'key': '/Common/' + keyfilename}]
             ssl_client_profile.create(name=name,
                                       partition='Common',
                                       certKeyChain=chain,
