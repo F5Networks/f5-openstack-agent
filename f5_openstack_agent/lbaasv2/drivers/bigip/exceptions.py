@@ -438,7 +438,7 @@ class F5MissingDependencies(F5AgentException):
                     line = fh.readline()
                     print('line', line)
                     debug_re = \
-                        re.compile('debug\s*=\s*([Tt]rue|[Ff]alse|[01])')
+                        re.compile(r'debug\s*=\s*([Tt]rue|[Ff]alse|[01])')
                     while line:
                         match = debug_re.search(line)
                         if match:  # there should only be one!

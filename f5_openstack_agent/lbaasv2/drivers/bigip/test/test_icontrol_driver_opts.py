@@ -30,7 +30,7 @@ expected = {'f5_common_networks': dict(default=False, help=True),
 
 def test_opts_type():
     """Check that all opts are a oslo_config.cfg.* object"""
-    type_check = re.compile('oslo_config\.cfg\.(\w+Opt)')
+    type_check = re.compile(r'oslo_config\.cfg\.(\w+Opt)')
     for opt in opts:
         match = type_check.search(str(opt))
         assert match, str("{} is not recognized as a oslo_config.cfg.*"
