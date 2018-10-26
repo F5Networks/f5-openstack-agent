@@ -53,7 +53,7 @@ class LBaaSBaseDriver(object):
 
     def backend_integrity(self):
         """Return True, if the agent is be considered viable for services."""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def backup_configuration(self):
         """Persist backend configuratoins."""
@@ -61,15 +61,15 @@ class LBaaSBaseDriver(object):
 
     def generate_capacity_score(self, capacity_policy):
         """Generate the capacity score of connected devices."""
-        raise NotImplemented
+        raise NotImplementedError()
 
     def update_operating_status(self):
         """Update pool member operational status from devices to controller."""
-        raise NotImplemented
+        raise NotImplementedError()
 
     def recover_errored_devices(self):
         """Trigger attempt to reconnect any errored devices."""
-        raise NotImplemented
+        raise NotImplementedError()
 
     def get_stats(self, service):
         """Get Stats for a loadbalancer Service."""
@@ -77,12 +77,12 @@ class LBaaSBaseDriver(object):
 
     def get_all_deployed_loadbalancers(self, purge_orphaned_folders=True):
         """Get all Loadbalancers defined on devices."""
-        raise NotImplemented
+        raise NotImplementedError()
 
     def purge_orphaned_loadbalancer(self, tenant_id, loadbalancer_id,
                                     hostnames):
         """Remove all loadbalancers without references in Neutron."""
-        raise NotImplemented
+        raise NotImplementedError()
 
     def service_exists(self, service):
         """Check If LBaaS Service is Defined on Driver Target."""
