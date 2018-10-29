@@ -12,6 +12,7 @@ NOTE: This version of F5 Openstack Agent will support Mitaka, Newton, Ocata and 
 Added Functionality
 ```````````````````
 * Enhanced SSL offloaing support:
+
   - Support to deploy intermediate certificate to BIG-IP device
   - Support to deploy private key passphrase to BIG-IP device
 
