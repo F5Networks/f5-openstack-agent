@@ -12,6 +12,7 @@ NOTE: This version of F5 Openstack Agent will support Mitaka, Newton, Ocata and 
 Added Functionality
 ```````````````````
 * Enhanced Agent logging:
+
   - Set default logging to False.
   - Enable f5-sdk debug logging when Agent logging is True.
 
@@ -27,10 +28,12 @@ v10.2.0
 Added Functionality
 ```````````````````
 * Enhanced F5 Agent resiliency.
+
   - F5 Agents manage BIG-IPs dynamically, resulting in improved tolerance for BIG-IP device failures.
   - F5 Agents will continue to run during BIG-IP device downtime and discover when BIG-IP devices come back online.
 
 * Improved Enhanced Services Definition (ESD).
+
   - Refer to the `ESD documentation`_ for details.
 
 Bug Fixes
