@@ -1456,7 +1456,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             service['members'][1].pop('port', None)
             builder._assure_members(service, mock.MagicMock())
             assert \
-                mock_log.debug.call_args_list == \
+                mock_log.warning.call_args_list == \
                 [mock.call('Member definition does not include Neutron port'),
                  mock.call('Member definition does not include Neutron port')]
 
@@ -1467,7 +1467,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             service['members'][0].pop('port', None)
             builder._assure_members(service, mock.MagicMock())
             assert \
-                mock_log.debug.call_args_list == \
+                mock_log.warning.call_args_list == \
                 [mock.call('Member definition does not include Neutron port')]
 
     def test_assure_member_has_two_ports(self, service):

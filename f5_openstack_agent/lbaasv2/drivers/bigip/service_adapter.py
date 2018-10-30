@@ -514,7 +514,7 @@ class ServiceModelAdapter(object):
                         listener["protocol"])
         vip["ipProtocol"] = "tcp"
 
-        if protocol == 'TCP':
+        if protocol == 'TCP' or protocol == 'HTTPS':
             virtual_type = 'fastl4'
         else:
             virtual_type = 'standard'

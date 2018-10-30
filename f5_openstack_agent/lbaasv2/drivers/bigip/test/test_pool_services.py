@@ -133,8 +133,6 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             pool = dict(name='name', partition='partition')
             target.service_adapter.get_pool.return_value = pool
             bigips = [Mock()]
-
-            target.pool_helper.exists = Mock(return_value=False)
             retval = target.create_pool(service_with_pool, bigips)
 
             assert not retval
@@ -145,7 +143,8 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_pool.return_value = pool
             bigips = [Mock()]
 
-            target.pool_helper.exists = Mock(return_value=True)
+            target.pool_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse409())
 
             retval = target.create_pool(service_with_pool, bigips)
 
@@ -157,11 +156,12 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_pool.return_value = pool
             bigips = [Mock()]
 
-            target.pool_helper.exists = Mock(return_value=False)
+            target.pool_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse400())
 
             retval = target.create_pool(service_with_pool, bigips)
 
-            assert not retval
+            assert retval
             assert not target.pool_helper.update.called
 
         def create_pool_error(target, service_with_pool):
@@ -169,7 +169,6 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_pool.return_value = pool
             bigips = [Mock()]
 
-            target.pool_helper.exists = Mock(return_value=False)
             target.pool_helper.create.side_effect = MockError()
 
             retval = target.create_pool(service_with_pool, bigips)
@@ -182,7 +181,8 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_pool.return_value = pool
             bigips = [Mock()]
 
-            target.pool_helper.exists = Mock(return_value=True)
+            target.pool_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse409())
             target.pool_helper.update.side_effect = MockError()
 
             retval = target.create_pool(service_with_pool, bigips)
@@ -319,7 +319,6 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_healthmonitor.return_value = \
                 monitor
             hm_helper = Mock()
-            hm_helper.exists = Mock(return_value=False)
             target._get_monitor_helper = Mock()
             target._get_monitor_helper.return_value = hm_helper
 
@@ -334,12 +333,13 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_healthmonitor.return_value = \
                 monitor
             hm_helper = Mock()
-            hm_helper.exists = Mock(return_value=True)
             target._get_monitor_helper = Mock()
             target._get_monitor_helper.return_value = hm_helper
 
-            bigips = [Mock()]
+            hm_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse409())
 
+            bigips = [Mock()]
             retval = target.create_healthmonitor(service_with_pool, bigips)
 
             assert not retval
@@ -350,14 +350,16 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_healthmonitor.return_value = \
                 monitor
             hm_helper = Mock()
-            hm_helper.exists = Mock(return_value=False)
             target._get_monitor_helper = Mock()
             target._get_monitor_helper.return_value = hm_helper
+
+            hm_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse400())
 
             bigips = [Mock()]
             retval = target.create_healthmonitor(service_with_pool, bigips)
 
-            assert not retval
+            assert retval
             assert not hm_helper.update.called
 
         def create_monitor_error(target, service_with_pool):
@@ -365,7 +367,6 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_healthmonitor.return_value = \
                 monitor
             hm_helper = Mock()
-            hm_helper.exists = Mock(return_value=False)
             target._get_monitor_helper = Mock()
             target._get_monitor_helper.return_value = hm_helper
 
@@ -382,11 +383,11 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
             target.service_adapter.get_healthmonitor.return_value = \
                 monitor
             hm_helper = Mock()
-            hm_helper.exists = Mock(return_value=True)
-
             target._get_monitor_helper = Mock()
             target._get_monitor_helper.return_value = hm_helper
 
+            hm_helper.create.side_effect = MockHTTPError(
+                MockHTTPErrorResponse409())
             hm_helper.update.side_effect = MockError()
 
             bigips = [Mock()]
