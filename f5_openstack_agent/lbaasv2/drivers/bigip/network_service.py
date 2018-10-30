@@ -179,7 +179,7 @@ class NetworkServiceBuilder(object):
                           "with route domain ID.")
                 self._annotate_service_route_domains(service)
             except f5_ex.InvalidNetworkType as exc:
-                LOG.warning(exc.msg)
+                LOG.warning(exc.message)
             except Exception as err:
                 LOG.exception(err)
                 raise f5_ex.RouteDomainCreationException(
@@ -827,10 +827,10 @@ class NetworkServiceBuilder(object):
                     if subnet['id'] in tenant_snat_subnets:
                         tenant_snat_subnets.remove(subnet['id'])
             except f5_ex.F5NeutronException as exc:
-                LOG.error("assure_delete_nets_nonshared: exception: %s"
+                LOG.debug("assure_delete_nets_nonshared: exception: %s"
                           % str(exc.msg))
             except Exception as exc:
-                LOG.error("assure_delete_nets_nonshared: exception: %s"
+                LOG.debug("assure_delete_nets_nonshared: exception: %s"
                           % str(exc.message))
 
         return deleted_names
