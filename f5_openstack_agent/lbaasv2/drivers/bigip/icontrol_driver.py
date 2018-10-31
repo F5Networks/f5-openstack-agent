@@ -945,9 +945,15 @@ class iControlDriver(LBaaSBaseDriver):
         pool_helper = resource_helper.BigIPResourceHelper(resource_helper.ResourceType.pool)
         for bigip in self.get_all_bigips():
             for tenant_id, members in tenant_members.iteritems():
+
                 partition = self.service_adapter.prefix + tenant_id
-                nodes = node_helper.get_resources(bigip, partition=partition)
-                pools = pool_helper.get_resources(bigip, partition=partition)
+                try:
+                    nodes = node_helper.get_resources(bigip, partition=partition)
+                    pools = pool_helper.get_resources(bigip, partition=partition)
+                except Exception as err:
+                    LOG.info('ccloud: Error in node or pool retrieval for partition %s: %s', (partition, err.response))
+                    continue
+
                 allf5members = []
                 orphan_members = []
                 orphan_nodes = []

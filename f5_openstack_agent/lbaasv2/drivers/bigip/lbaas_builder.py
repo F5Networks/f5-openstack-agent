@@ -46,9 +46,9 @@ class LBaaSBuilder(object):
         self.l2_service = l2_service
         self.service_adapter = driver.service_adapter
         self.listener_builder = listener_service.ListenerServiceBuilder(self,
-            self.service_adapter,
-            driver.cert_manager,
-            conf.f5_parent_ssl_profile)
+                                                                        self.service_adapter,
+                                                                        driver.cert_manager,
+                                                                        conf.f5_parent_ssl_profile)
         self.pool_builder = pool_service.PoolServiceBuilder(
             self.service_adapter
         )
@@ -180,8 +180,7 @@ class LBaaSBuilder(object):
 
         for pool in pools:
             if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
-                svc = {"loadbalancer": loadbalancer,
-                       "pool": pool}
+                svc = {"loadbalancer": loadbalancer, "pool": pool}
                 svc['members'] = self._get_pool_members(service, pool['id'])
 
                 try:
@@ -222,8 +221,7 @@ class LBaaSBuilder(object):
 
         for pool in pools:
             if pool['provisioning_status'] != plugin_const.PENDING_DELETE:
-                svc = {"loadbalancer": loadbalancer,
-                       "pool": pool}
+                svc = {"loadbalancer": loadbalancer, "pool": pool}
                 svc['members'] = self._get_pool_members(service, pool['id'])
 
                 try:
@@ -333,12 +331,12 @@ class LBaaSBuilder(object):
                    "pool": pool}
 
             if 'port' not in member and \
-               member['provisioning_status'] != plugin_const.PENDING_DELETE:
+                member['provisioning_status'] != plugin_const.PENDING_DELETE:
                 LOG.warning("Member definition does not include Neutron port")
 
             # delete member if pool is being deleted
-            if member['provisioning_status'] == plugin_const.PENDING_DELETE or\
-                    pool['provisioning_status'] == plugin_const.PENDING_DELETE:
+            if member['provisioning_status'] == plugin_const.PENDING_DELETE or \
+                pool['provisioning_status'] == plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.delete_member(svc, bigips)
                 except Exception as err:
@@ -431,6 +429,7 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     pool['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.PoolDeleteException(err.message)
+
     @utils.instrument_execution_time
     def _assure_listeners_deleted(self, service):
         if 'listeners' not in service:
@@ -444,6 +443,14 @@ class LBaaSBuilder(object):
             if listener['provisioning_status'] == plugin_const.PENDING_DELETE:
                 svc = {"loadbalancer": loadbalancer,
                        "listener": listener}
+                # ccloud: try to delete persistence which might be attached to listener
+                # ignore errors, persistence might be used somewhere else if pool is used more than once as default
+                try:
+                    self.listener_builder.remove_session_persistence(
+                        svc, bigips)
+                except Exception:
+                    pass
+                # delete the listener
                 try:
                     self.listener_builder.delete_listener(svc, bigips)
                 except Exception as err:

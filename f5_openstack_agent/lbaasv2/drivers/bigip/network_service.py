@@ -275,17 +275,25 @@ class NetworkServiceBuilder(object):
 
         if 'vip_address' in service['loadbalancer']:
             loadbalancer = service['loadbalancer']
-            if 'network_id' in loadbalancer:
-                lb_network = self.service_adapter.get_network_from_service(
-                    service, loadbalancer['network_id'])
-                vip_subnet = self.service_adapter.get_subnet_from_service(
-                    service, loadbalancer['vip_subnet_id'])
-                self.assign_route_domain(
-                    tenant_id, lb_network, vip_subnet)
-                rd_id = '%' + str(lb_network['route_domain_id'])
-                service['loadbalancer']['vip_address'] += rd_id
+            if 'network_id' in loadbalancer and loadbalancer['network_id']:
+                lb_network = self.service_adapter.get_network_from_service(service, loadbalancer['network_id'])
+                vip_subnet = self.service_adapter.get_subnet_from_service(service, loadbalancer['vip_subnet_id'])
+                self.assign_route_domain(tenant_id, lb_network, vip_subnet)
+                if 'route_domain_id' in lb_network and lb_network['route_domain_id']:
+                    rd_id = '%' + str(lb_network['route_domain_id'])
+                    if rd_id != '%0':
+                        loadbalancer['vip_address'] += rd_id
+                    else:
+                        raise f5_ex.RouteDomainQueryException('ccloud: NETWORK-RDCHECK5 Global routing disabled but route domain ID 0 was found. Discarding ...')
+                else:
+                    raise f5_ex.RouteDomainQueryException('ccloud: NETWORK-RDCHECK6 Global routing disabled but route domain ID could not be found for virtual_address member. Discarding ...')
             else:
-                service['loadbalancer']['vip_address'] += '%0'
+                if not self.conf.f5_global_routed_mode:
+                    raise f5_ex.RouteDomainQueryException('ccloud: NETWORK-RDCHECK7  Global routing disabled but NO vip_address network ID given. Discarding ...')
+                else:
+                    loadbalancer['vip_address'] += '%0'
+                    LOG.info("ccloud: NETWORK-RDCHECK8 Using default Route Domain because of global routing %s" % loadbalancer['vip_address'])
+
 
     def is_common_network(self, network):
         return self.l2_service.is_common_network(network)
