@@ -21,6 +21,7 @@ from oslo_log import log as logging
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
     LbaasServiceObject
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
+from f5_openstack_agent.lbaasv2.drivers.bigip import plugins
 
 LOG = logging.getLogger(__name__)
 
@@ -514,7 +515,7 @@ class ServiceModelAdapter(object):
                         listener["protocol"])
         vip["ipProtocol"] = "tcp"
 
-        if protocol == 'TCP':
+        if protocol == 'TCP' or plugins.is_https_transparent(self.conf):
             virtual_type = 'fastl4'
         else:
             virtual_type = 'standard'
@@ -522,7 +523,8 @@ class ServiceModelAdapter(object):
         if virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
         else:
-            # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
+            # add profiles for HTTP, HTTPS(unless https_transparent),
+            # TERMINATED_HTTPS protocols
             vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
         vip['fallbackPersistence'] = ''
