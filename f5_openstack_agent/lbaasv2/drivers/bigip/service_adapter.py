@@ -724,6 +724,10 @@ class ServiceModelAdapter(object):
                              'partition': 'Common',
                              'context': 'serverside'})
 
+        if 'lbaas_http_profile' in esd:
+            profiles.remove('/Common/http')
+            profiles.append('/Common/' + esd['lbaas_http_profile'])
+
         # persistence
         if 'lbaas_persist' in esd:
             if vip.get('persist', None):
