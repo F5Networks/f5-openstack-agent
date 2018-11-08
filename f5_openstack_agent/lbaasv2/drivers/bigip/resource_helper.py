@@ -59,6 +59,7 @@ class ResourceType(Enum):
     ssl_persistence = 33
     universal_persistence = 34
     ssl_cert_file = 35
+    http_profile = 36
     oneconnect = 37
 
 
@@ -320,6 +321,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.ltm.persistence.universals,
             ResourceType.ssl_cert_file:
                 lambda bigip: bigip.tm.sys.file.ssl_certs,
+            ResourceType.http_profile:
+                lambda bigip: bigip.tm.ltm.profile.https,
             ResourceType.oneconnect:
                 lambda bigip: bigip.tm.ltm.profile.one_connects
         }
