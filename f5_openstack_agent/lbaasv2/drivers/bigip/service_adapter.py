@@ -555,9 +555,6 @@ class ServiceModelAdapter(object):
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
             if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
-                if protocol == "TCP":
-                    vip['profiles'] = [p for p in vip['profiles']
-                                       if p != 'fastL4']
                 vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
     def get_vlan(self, vip, bigip, network_id):
@@ -650,7 +647,11 @@ class ServiceModelAdapter(object):
 
         # Application of ESD implies some type of L7 traffic routing.  Add
         # an HTTP profile.
-        vip['profiles'] = ["/Common/http", "/Common/fastL4"]
+        if 'lbaas_http_profile' in esd:
+            vip['profiles'] = ["/Common/" + esd['lbaas_http_profile'],
+                               "/Common/fastL4"]
+        else:
+            vip['profiles'] = ["/Common/http", "/Common/fastL4"]
 
         # persistence
         if 'lbaas_persist' in esd:
@@ -723,6 +724,10 @@ class ServiceModelAdapter(object):
             profiles.append({'name': esd['lbaas_sssl_profile'],
                              'partition': 'Common',
                              'context': 'serverside'})
+
+        if 'lbaas_http_profile' in esd:
+            profiles.remove('/Common/http')
+            profiles.append('/Common/' + esd['lbaas_http_profile'])
 
         # persistence
         if 'lbaas_persist' in esd:
