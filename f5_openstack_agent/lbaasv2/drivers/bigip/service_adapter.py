@@ -555,9 +555,6 @@ class ServiceModelAdapter(object):
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
             if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
-                if protocol == "TCP":
-                    vip['profiles'] = [p for p in vip['profiles']
-                                       if p != 'fastL4']
                 vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
     def get_vlan(self, vip, bigip, network_id):
@@ -713,6 +710,10 @@ class ServiceModelAdapter(object):
         profiles.append({'name':  ctcp_profile,
                          'partition': 'Common',
                          'context': ctcp_context})
+
+        if 'lbaas_oneconnect_profile' in esd:
+            profiles.remove('/Common/oneconnect')
+            profiles.append('/Common/' + esd['lbaas_oneconnect_profile'])
 
         # SSL profiles
         if 'lbaas_cssl_profile' in esd:
