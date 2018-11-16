@@ -886,6 +886,25 @@ class TestServiceAdapter(object):
         assert "rules" not in vip
         assert "policies" not in vip
 
+    def test_apply_esd_oneconnect_profile(adapter):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        esd = dict(lbaas_oneconnect_profile="oneconnect_profile")
+        vip = dict(profiles=["/Common/http", "/Common/oneconnect"])
+
+        adapter._apply_esd(vip, esd)
+
+        assert "persist" not in vip
+        assert "fallbackPersistence" not in vip
+        assert "policies" not in vip
+
+        expected = dict(profiles=["/Common/http",
+                                  dict(name="tcp",
+                                       partition="Common",
+                                       context="all"),
+                                  "/Common/oneconnect_profile"],
+                        rules=[])
+        assert vip == expected
+
     def test_apply_esd_ctcp_profile(adapter):
         adapter = ServiceModelAdapter(mock.MagicMock())
         esd = dict(lbaas_ctcp="tcp-mobile-optimized")
@@ -992,6 +1011,25 @@ class TestServiceAdapter(object):
                                        partition="Common",
                                        context="serverside")
                                   ],
+                        rules=[])
+
+        assert vip == expected
+
+    def test_apply_esd_http_profiles(adapter):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        esd = dict(lbaas_http_profile="http_profile")
+        vip = dict(profiles=["/Common/http"])
+
+        adapter._apply_esd(vip, esd)
+
+        assert "persist" not in vip
+        assert "fallbackPersistence" not in vip
+        assert "policies" not in vip
+
+        expected = dict(profiles=[dict(name="tcp",
+                                       partition="Common",
+                                       context="all"),
+                                  "/Common/http_profile"],
                         rules=[])
 
         assert vip == expected
@@ -1127,7 +1165,8 @@ class TestServiceAdapter(object):
     def test_apply_l4_esd_persist_profile_collision(adapter):
         adapter = ServiceModelAdapter(mock.MagicMock())
         esd = dict(lbaas_persist="hash")
-        vip = dict(profiles=[], persist=[dict(name='sourceip')])
+        vip = dict(profiles=[],
+                   persist=[dict(name='sourceip')])
 
         adapter._apply_fastl4_esd(vip, esd)
 
@@ -1166,6 +1205,20 @@ class TestServiceAdapter(object):
         assert vip['persist'] == [dict(name="sourceip")]
         assert vip['fallbackPersistence'] == 'hash'
         assert vip['profiles'] == ["/Common/http", "/Common/fastL4"]
+
+    def test_apply_l4_esd_http_profile(adapter):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        esd = dict(lbaas_http_profile="http_profile")
+
+        vip = dict(profiles=[])
+
+        adapter._apply_fastl4_esd(vip, esd)
+
+        assert "policies" not in vip
+        assert "persist" not in vip
+        assert "fallbackPersistence" not in vip
+
+        assert vip['profiles'] == ["/Common/http_profile", "/Common/fastL4"]
 
     def test_apply_l4_esd_fallback_persist_profile_nopersist(adapter):
         adapter = ServiceModelAdapter(mock.MagicMock())
