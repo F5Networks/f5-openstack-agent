@@ -293,6 +293,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'trace_service_requests',
         default=False,
         help='Log service object.'
+    ),
+    cfg.BoolOpt(
+        'report_esd_names_in_agent',
+        default=False,
+        help='whether or not to add valid esd names during report.'
     )
 ]
 
@@ -356,6 +361,9 @@ class iControlDriver(LBaaSBaseDriver):
         self.agent_configurations = {}  # overrides base, same value
         self.agent_configurations['device_drivers'] = [self.driver_name]
         self.agent_configurations['icontrol_endpoints'] = {}
+
+        # to store the verified esd names
+        self.esd_names = []
 
         # service component managers
         self.tenant_manager = None
@@ -435,6 +443,11 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.error("exception in intializing communications to BIG-IPs %s"
                       % str(exc))
             self._set_agent_status(False)
+
+    def get_valid_esd_names(self):
+        LOG.debug("verified esd names in get_valid_esd_names():")
+        LOG.debug(self.esd_names)
+        return self.esd_names
 
     def _init_bigip_managers(self):
 
@@ -814,6 +827,12 @@ class iControlDriver(LBaaSBaseDriver):
             esd.process_esd(self.get_all_bigips())
             self.lbaas_builder.init_esd(esd)
             self.service_adapter.init_esd(esd)
+
+            LOG.debug('esd details here after process_esd(): ')
+            LOG.debug(esd)
+            self.esd_names = esd.esd_dict.keys() or []
+            LOG.debug('##### self.esd_names obtainded here:')
+            LOG.debug(self.esd_names)
         except f5ex.esdJSONFileInvalidException as err:
             LOG.error("unable to initialize ESD. Error: %s.", err.message)
         self._set_agent_status(False)
@@ -926,6 +945,11 @@ class iControlDriver(LBaaSBaseDriver):
             self.agent_configurations[
                 'icontrol_endpoints'][bigip.hostname][
                     'status_message'] = bigip.status_message
+
+            if self.conf.report_esd_names_in_agent:
+                LOG.debug('adding names to report:')
+                self.agent_configurations['esd_name'] = \
+                    self.get_valid_esd_names()
         # Policy - if any BIG-IP are active we're operational
         if self.get_active_bigips():
             self.operational = True
