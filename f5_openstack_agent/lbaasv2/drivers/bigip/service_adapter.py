@@ -715,6 +715,10 @@ class ServiceModelAdapter(object):
                          'partition': 'Common',
                          'context': ctcp_context})
 
+        if 'lbaas_oneconnect_profile' in esd:
+            profiles.remove('/Common/oneconnect')
+            profiles.append('/Common/' + esd['lbaas_oneconnect_profile'])
+
         # SSL profiles
         if 'lbaas_cssl_profile' in esd:
             profiles.append({'name': esd['lbaas_cssl_profile'],

@@ -886,6 +886,25 @@ class TestServiceAdapter(object):
         assert "rules" not in vip
         assert "policies" not in vip
 
+    def test_apply_esd_oneconnect_profile(adapter):
+        adapter = ServiceModelAdapter(mock.MagicMock())
+        esd = dict(lbaas_oneconnect_profile="oneconnect_profile")
+        vip = dict(profiles=["/Common/http", "/Common/oneconnect"])
+
+        adapter._apply_esd(vip, esd)
+
+        assert "persist" not in vip
+        assert "fallbackPersistence" not in vip
+        assert "policies" not in vip
+
+        expected = dict(profiles=["/Common/http",
+                                  dict(name="tcp",
+                                       partition="Common",
+                                       context="all"),
+                                  "/Common/oneconnect_profile"],
+                        rules=[])
+        assert vip == expected
+
     def test_apply_esd_ctcp_profile(adapter):
         adapter = ServiceModelAdapter(mock.MagicMock())
         esd = dict(lbaas_ctcp="tcp-mobile-optimized")

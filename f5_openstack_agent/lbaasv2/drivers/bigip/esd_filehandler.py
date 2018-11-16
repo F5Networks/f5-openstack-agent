@@ -238,5 +238,9 @@ class EsdTagProcessor(EsdJSONValidation):
 
         'lbaas_fallback_persist': {
             'resource_type': ResourceType.persistence,
+            'value_type': types.StringTypes},
+
+        'lbaas_oneconnect_profile': {
+            'resource_type': ResourceType.oneconnect,
             'value_type': types.StringTypes}
     }
