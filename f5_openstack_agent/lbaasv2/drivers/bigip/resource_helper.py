@@ -322,7 +322,7 @@ class BigIPResourceHelper(object):
             ResourceType.ssl_cert_file:
                 lambda bigip: bigip.tm.sys.file.ssl_certs,
             ResourceType.http_profile:
-                lambda bigip: bigip.tm.ltm.profile.https，
+                lambda bigip: bigip.tm.ltm.profile.https,
             ResourceType.oneconnect:
                 lambda bigip: bigip.tm.ltm.profile.one_connects
         }
