@@ -47,6 +47,11 @@ OPTS = [
         default=10,
         help='Seconds between periodic task runs'
     ),
+    cfg.IntOpt(
+        'update_operating_status_interval',
+        default=30,
+        help='Seconds between update_operating_status task runs'
+    ),
     cfg.BoolOpt(
         'start_agent_admin_state_up',
         default=True,
@@ -133,6 +138,7 @@ OPTS = [
 ]
 
 PERIODIC_TASK_INTERVAL = 10
+UPDATE_OPERATING_STATUS_INTERVAL = 30
 
 
 class LogicalServiceCache(object):
@@ -238,6 +244,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         global PERIODIC_TASK_INTERVAL
         PERIODIC_TASK_INTERVAL = self.conf.periodic_interval
+
+        global UPDATE_OPERATING_STATUS_INTERVAL
+        UPDATE_OPERATING_STATUS_INTERVAL = \
+            self.conf.update_operating_status_interval
 
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
@@ -497,7 +507,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.recover_errored_devices()
 
     @periodic_task.periodic_task(
-        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
+        spacing=UPDATE_OPERATING_STATUS_INTERVAL)
     def scrub_dead_agents_in_env_and_group(self, context):
         """Triggering a dead agent scrub on the controller."""
         LOG.debug("running periodic scrub_dead_agents_in_env_and_group")
@@ -508,9 +518,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                                           self.conf.environment_group_number)
 
     @periodic_task.periodic_task(
-        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
+        spacing=UPDATE_OPERATING_STATUS_INTERVAL)
     def update_operating_status(self, context):
         """Update pool member operational status from devices to controller."""
+        LOG.debug('running update_operating_status:')
         if not self.plugin_rpc:
             return
 
