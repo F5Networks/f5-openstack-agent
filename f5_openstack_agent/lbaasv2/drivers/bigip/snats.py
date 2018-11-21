@@ -67,6 +67,12 @@ class BigipSnatManager(object):
 
     def get_snat_addrs(self, subnetinfo, tenant_id, snat_count, lb_id):
         # Get the ip addresses for snat """
+        if self.driver.conf.unlegacy_setting_placeholder:
+            LOG.debug('setting vnic_type to normal instead of baremetal')
+            vnic_type = "normal"
+        else:
+            vnic_type="baremetal"
+
         subnet = subnetinfo['subnet']
         snat_addrs = []
 
@@ -86,7 +92,7 @@ class BigipSnatManager(object):
                     mac_address=None,
                     name=index_snat_name,
                     fixed_address_count=1, device_id=lb_id,
-                    vnic_type="baremetal"
+                    vnic_type=vnic_type
                 )
                 if new_port is not None:
                     ip_address = new_port['fixed_ips'][0]['ip_address']
