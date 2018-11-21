@@ -270,6 +270,10 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'f5_network_segment_physical_network', default=None,
         help='Name of physical network to use for discovery of segment ID'
     ),
+    cfg.StrOpt(
+        'unlegacy_setting_placeholder', default=None,
+        help='use this setting to separate legacy with hw/etc on agent side'
+    ),
     cfg.IntOpt(
         'f5_network_segment_polling_interval', default=10,
         help='Seconds between periodic scans for disconnected virtual servers'
