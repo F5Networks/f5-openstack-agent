@@ -319,7 +319,7 @@ class TestServiceAdapter(object):
             connectionLimit=cx_limit, description=description, enabled=True,
             pool="pre-_" + pool['id'], mask="255.255.255.255",
             vlansDisabled=True,
-            profiles=['/Common/http', '/Common/oneconnect'],
+            profiles=['/Common/fastL4'],
             vlans=[], policies=[], rules=[],
             fallbackPersistence='', persist=[])
         assert expected == target._map_virtual(
@@ -380,8 +380,7 @@ class TestServiceAdapter(object):
         vip = dict()
         adapter._add_profiles_session_persistence(listener, None, vip)
 
-        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
-                                                    '/Common/oneconnect'],
+        expected = dict(ipProtocol='tcp', profiles=['/Common/fastL4'],
                         fallbackPersistence='', persist=[])
         assert vip == expected
 
@@ -409,8 +408,7 @@ class TestServiceAdapter(object):
         adapter._add_profiles_session_persistence(listener, pool, vip)
 
         expected = dict(ipProtocol='tcp',
-                        profiles=['/Common/http',
-                                  '/Common/oneconnect'],
+                        profiles=['/Common/fastL4'],
                         fallbackPersistence='', persist=[])
         assert vip == expected
 
@@ -426,8 +424,7 @@ class TestServiceAdapter(object):
         adapter._add_profiles_session_persistence(listener, pool, vip)
 
         expected = dict(ipProtocol='tcp',
-                        profiles=['/Common/http',
-                                  '/Common/oneconnect'],
+                        profiles=['/Common/fastL4'],
                         fallbackPersistence='', persist=[])
         assert vip == expected
 
@@ -442,8 +439,7 @@ class TestServiceAdapter(object):
         vip = dict()
         adapter._add_profiles_session_persistence(listener, pool, vip)
 
-        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
-                                                    '/Common/oneconnect'],
+        expected = dict(ipProtocol='tcp', profiles=['/Common/fastL4'],
                         fallbackPersistence='',
                         persist=[dict(name='/Common/source_addr')])
         assert vip == expected
@@ -452,8 +448,7 @@ class TestServiceAdapter(object):
         vip = dict()
         adapter._add_profiles_session_persistence(listener, pool, vip)
 
-        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
-                                                    '/Common/oneconnect'],
+        expected = dict(ipProtocol='tcp', profiles=['/Common/fastL4'],
                         fallbackPersistence='',
                         persist=[dict(name='/Common/source_addr')])
         assert vip == expected
@@ -555,9 +550,7 @@ class TestServiceAdapter(object):
 
         # should have http and oneconnect but not fastL4
         vs = adapter.get_virtual(service)
-        assert '/Common/http' in vs['profiles']
-        assert '/Common/oneconnect' in vs['profiles']
-        assert '/Common/fastL4' not in vs['profiles']
+        assert '/Common/fastL4' in vs['profiles']
 
     def test_vs_https_profiles(self, service):
         adapter = ServiceModelAdapter(mock.MagicMock())
@@ -567,9 +560,7 @@ class TestServiceAdapter(object):
         # should have http and oneconnect but not fastL4
         service['listener']['protocol'] = 'HTTPS'
         vs = adapter.get_virtual(service)
-        assert '/Common/http' in vs['profiles']
-        assert '/Common/oneconnect' in vs['profiles']
-        assert '/Common/fastL4' not in vs['profiles']
+        assert '/Common/fastL4' in vs['profiles']
 
     def test_vs_tcp_profiles(self, service):
         adapter = ServiceModelAdapter(mock.MagicMock())
