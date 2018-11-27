@@ -452,7 +452,15 @@ class ServiceModelAdapter(object):
         else:
             LOG.error("No VIP address or port specified")
 
-        vip["mask"] = '255.255.255.255'
+        # for the v6 ip address, do not explicitly assign the mask
+        try:
+            socket.inet_pton(socket.AF_INET,ip_address)
+            vip["mask"] = '255.255.255.255'
+        except socket.error:
+            try:
+                socket.inet_pton(socket.AF_INET6,ip_address)
+            except socket.error:
+                LOG.error("Not a validate ip address")
 
         if "admin_state_up" in listener:
             if listener["admin_state_up"]:
