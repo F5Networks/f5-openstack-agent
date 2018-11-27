@@ -884,13 +884,16 @@ class iControlDriver(LBaaSBaseDriver):
                                 }
         return deployed_virtual_dict
 
-    def _is_orphan(self, device_name, id):
-        # clear cache every x hours
+    def _maintain_orphan_cache(self):
+        # clear cache every 24 hours to delete outdated objects
         if (self.orphan_cache_last_reset + datetime.timedelta(hours=24)) < datetime.datetime.now():
             LOG.info('ccloud: Orphan objects cache cleared to avoid orphan orphans :-)')
             self.orphan_cache_last_reset = datetime.datetime.now()
             self.orphan_cache.clear()
 
+    def _is_orphan(self, device_name, id):
+
+        self._maintain_orphan_cache()
         # check if orphan can be deleted or rise counter by 1
         if not id or not device_name:
             return False
@@ -931,7 +934,9 @@ class iControlDriver(LBaaSBaseDriver):
                     pass
         return
 
+
     def get_orphans_cache(self):
+        self._maintain_orphan_cache()
         return self.orphan_cache
 
     @serialized('purge_orphaned_nodes')
