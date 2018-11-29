@@ -15,7 +15,8 @@
 #
 
 import hashlib
-import re
+import netaddr
+
 from operator import itemgetter
 from oslo_log import log as logging
 
@@ -453,14 +454,14 @@ class ServiceModelAdapter(object):
         else:
             LOG.error("No VIP address or port specified")
 
-        #differeniate the ipv4 and ipv6 cases
-        if re.match(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$", ip_address):
-            vip["mask"]='255.255.255.255'
+        # differeniate the ipv4 and ipv6 cases
+        ip_version = netaddr.IPAddress(ip_address)
+        if ip_version.version == 4:
+            vip["mask"] = '255.255.255.255'
+        elif ip_version.version == 6:
+            vip["mask"] = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
         else:
-            if re.match(r'^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$',ip_address,re.I):
-                vip["mask"]='ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
-            else:
-                LOG.error("Not a validate ip address")
+            LOG.error("Not a validate ip address")
 
         if "admin_state_up" in listener:
             if listener["admin_state_up"]:
