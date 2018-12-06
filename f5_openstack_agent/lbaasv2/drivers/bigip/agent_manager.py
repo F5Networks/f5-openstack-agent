@@ -129,6 +129,11 @@ OPTS = [
         default=60,
         help=(
             'Amount of time to wait for a errored service to become active')
+    ),
+    cfg.BoolOpt(
+        'https_transparent',
+        default=False,
+        help=('Transparent HTTPS protocol or not')
     )
 ]
 
