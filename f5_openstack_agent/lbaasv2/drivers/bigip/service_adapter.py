@@ -15,6 +15,8 @@
 #
 
 import hashlib
+import netaddr
+
 from operator import itemgetter
 from oslo_log import log as logging
 
@@ -452,7 +454,15 @@ class ServiceModelAdapter(object):
         else:
             LOG.error("No VIP address or port specified")
 
-        vip["mask"] = '255.255.255.255'
+        # differeniate the ipv4 and ipv6 cases
+        pure_ip_address = ip_address.split("%")[0]
+        ip_version = netaddr.IPAddress(pure_ip_address)
+        if ip_version.version == 4:
+            vip["mask"] = '255.255.255.255'
+        elif ip_version.version == 6:
+            vip["mask"] = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
+        else:
+            LOG.error("Not a validate ip address")
 
         if "admin_state_up" in listener:
             if listener["admin_state_up"]:
