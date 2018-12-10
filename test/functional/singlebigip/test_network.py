@@ -79,6 +79,7 @@ def setup(request, mgmt_root):
 
     te = ExecTestEnv
     te.mgmt_root = mgmt_root
+    te.mgmt_all = [mgmt_root]
     te.request = request
     te.partition = default_partition
     return te
@@ -200,7 +201,7 @@ class TestRouteDomain(object):
     def test_route_domain_CRUD(self, setup):
         te = setup
         rd_create = network_helper.create_route_domain(
-            te.mgmt_root, te.partition)
+            te.mgmt_root, te.mgmt_all, te.partition)
         add_resource_teardown(te.request, rd_create)
         rd_read = network_helper.get_route_domain(te.mgmt_root, te.partition)
         assert(rd_read.name == rd_read.name)
@@ -221,7 +222,9 @@ class TestRouteDomain(object):
         num_route_domains = 5
         exp_rd_ids = []
         for i in range(0, num_route_domains):
-            rd = network_helper.create_route_domain(te.mgmt_root, te.partition,
+            rd = network_helper.create_route_domain(te.mgmt_root,
+                                                    te.mgmt_all,
+                                                    te.partition,
                                                     is_aux=True)
             add_resource_teardown(te.request, rd)
             exp_rd_ids.append(rd.id)
@@ -237,7 +240,9 @@ class TestRouteDomain(object):
         num_route_domains = 5
         exp_rd_names = []
         for i in range(0, num_route_domains):
-            rd = network_helper.create_route_domain(te.mgmt_root, te.partition,
+            rd = network_helper.create_route_domain(te.mgmt_root,
+                                                    te.mgmt_all,
+                                                    te.partition,
                                                     is_aux=True)
             add_resource_teardown(te.request, rd)
             exp_rd_names.append(rd.name)
@@ -254,7 +259,9 @@ class TestRouteDomain(object):
         v_obj = te.mgmt_root.tm.net.vlans.vlan
         v = v_obj.create(name=vname, partition=te.partition)
         add_resource_teardown(te.request, v)
-        rd = network_helper.create_route_domain(te.mgmt_root, te.partition)
+        rd = network_helper.create_route_domain(te.mgmt_root,
+                                                te.mgmt_all,
+                                                te.partition)
         add_resource_teardown(te.request, rd)
         network_helper.add_vlan_to_domain(te.mgmt_root, vname,
                                           te.partition)
