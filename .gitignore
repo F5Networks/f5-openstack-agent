@@ -125,4 +125,5 @@ logs
 .project
 .pydevproject
 .settings/
+.vscode/
 
