@@ -72,12 +72,14 @@ class BigipTenantManager(object):
 
         # create tenant route domain
         if self.conf.use_namespaces:
-            for bigip in self.driver.get_all_bigips():
+            bigips = self.driver.get_all_bigips()
+            for bigip in bigips:
                 if not self.network_helper.route_domain_exists(bigip,
                                                                folder_name):
                     try:
                         self.network_helper.create_route_domain(
                             bigip,
+                            bigips,
                             folder_name,
                             self.conf.f5_route_domain_strictness)
                     except Exception as err:

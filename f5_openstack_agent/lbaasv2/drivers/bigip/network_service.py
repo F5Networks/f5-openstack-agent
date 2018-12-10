@@ -359,10 +359,12 @@ class NetworkServiceBuilder(object):
     def _create_aux_rd(self, tenant_id):
         # Create a new route domain
         route_domain_id = None
-        for bigip in self.driver.get_all_bigips():
+        bigips = self.driver.get_all_bigips()
+        for bigip in bigips:
             partition_id = self.service_adapter.get_folder_name(tenant_id)
             bigip_route_domain_id = self.network_helper.create_route_domain(
                 bigip,
+                bigips,
                 partition=partition_id,
                 strictness=self.conf.f5_route_domain_strictness,
                 is_aux=True)
