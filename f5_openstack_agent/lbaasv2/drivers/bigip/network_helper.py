@@ -278,7 +278,7 @@ class NetworkHelper(object):
         return ret_rd
 
     @log_helpers.log_method_call
-    def _get_next_domain_id(self, bigips):
+    def get_next_domain_id(self, bigips):
         """Get next route domain id """
         rd_ids = []
         for bigip in bigips:
@@ -299,7 +299,7 @@ class NetworkHelper(object):
         return lowest_available_index
 
     @log_helpers.log_method_call
-    def create_route_domain(self, bigip, bigips,
+    def create_route_domain(self, bigip, rd_id,
                             partition=const.DEFAULT_PARTITION,
                             strictness=False, is_aux=False, name=None):
         """Creates the route domain based upon settings in config
@@ -322,13 +322,12 @@ class NetworkHelper(object):
         else:
             name = partition
         rd = bigip.tm.net.route_domains.route_domain
-        id = self._get_next_domain_id(bigips)
         if is_aux:
-            name += '_aux_' + str(id)
+            name += '_aux_' + str(rd_id)
         payload = NetworkHelper.route_domain_defaults
         payload['name'] = name
         payload['partition'] = '/' + partition
-        payload['id'] = id
+        payload['id'] = rd_id
         if strictness:
             payload['strict'] = 'enabled'
         else:

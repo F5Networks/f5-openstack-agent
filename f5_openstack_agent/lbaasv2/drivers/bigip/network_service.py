@@ -360,11 +360,12 @@ class NetworkServiceBuilder(object):
         # Create a new route domain
         route_domain_id = None
         bigips = self.driver.get_all_bigips()
+        rd_id = self.network_helper.get_next_domain_id(bigips)
         for bigip in bigips:
             partition_id = self.service_adapter.get_folder_name(tenant_id)
             bigip_route_domain_id = self.network_helper.create_route_domain(
                 bigip,
-                bigips,
+                rd_id,
                 partition=partition_id,
                 strictness=self.conf.f5_route_domain_strictness,
                 is_aux=True)
