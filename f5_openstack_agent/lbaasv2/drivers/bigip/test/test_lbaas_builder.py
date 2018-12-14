@@ -487,7 +487,7 @@ def l7policy_create_service():
                 u'listener_id': u'7ddad6cc-887d-49aa-b970-5820471dc6e5',
                 u'name': u'',
                 u'position': 1,
-                u'provisioning_status': u'ACTIVE',
+                u'provisioning_status': u'PENDING_CREATE',
                 u'redirect_pool_id': None,
                 u'redirect_url': None,
                 u'rules': [],
@@ -511,7 +511,7 @@ def l7policy_create_service():
                 u'operating_status': 'ONLINE',
                 u'protocol': u'HTTP',
                 u'protocol_port': 80,
-                u'provisioning_status': u'ACTIVE',
+                u'provisioning_status': u'PENDING_UPDATE',
                 'snat_pool_name': u'Project_5197d6a284044c72b63f2fe6ae6edc21',
                 u'sni_containers': [],
                 u'tenant_id': u'5197d6a284044c72b63f2fe6ae6edc21',
@@ -1126,6 +1126,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test UPDATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
+        target.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1140,7 +1143,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
             expected_svc, expected_bigips)
-        assert listener['provisioning_status'] == "ACTIVE"
+        assert listener['provisioning_status'] == "PENDING_UPDATE"
         assert loadbalancer['provisioning_status'] == "PENDING_UPDATE"
 
     def test_assure_listeners_created_create(self, service, create_self):
@@ -1152,6 +1155,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
+        target.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1165,7 +1171,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
             expected_svc, expected_bigips)
-        assert listener['provisioning_status'] == "ACTIVE"
+        assert listener['provisioning_status'] == "PENDING_CREATE"
         assert loadbalancer['provisioning_status'] == "PENDING_UPDATE"
 
     def test_assure_listeners_created_create_error(self, service, create_self):
@@ -1177,6 +1183,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = "error"
+        target.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1203,20 +1212,17 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
+        target.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
-        expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
             constants_v2.F5_ERROR
         loadbalancer['provisioning_status'] = \
             constants_v2.F5_ACTIVE
         target._assure_listeners_created(service)
 
-        expected_svc = dict(loadbalancer=loadbalancer, pools=service['pools'],
-                            l7policies=[], l7policy_rules=[],
-                            listener=listener, networks=service['networks'])
-        target.listener_builder.create_listener.assert_called_once_with(
-            expected_svc, expected_bigips)
-        assert listener['provisioning_status'] == "ACTIVE"
+        assert listener['provisioning_status'] == "ERROR"
         assert loadbalancer['provisioning_status'] == "ACTIVE"
 
     def test_assure_listeners_deleted_pending_delete(
@@ -1229,6 +1235,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.delete_listener.return_value = None
+        target.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1254,6 +1263,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.delete_listener.return_value = "error"
+        target.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1278,6 +1290,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         # Test CREATE case
         target.listener_builder = Mock()
+        target.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         listener['provisioning_status'] = \
             constants_v2.F5_ACTIVE
@@ -1395,7 +1410,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                 assert not mock_policy_create.called
 
         for policy in svc['l7policies']:
-            assert policy['provisioning_status'] == 'ACTIVE'
+            assert policy['provisioning_status'] == 'PENDING_CREATE'
 
         assert svc['loadbalancer']['provisioning_status'] == 'ACTIVE'
 
@@ -1412,7 +1427,8 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             builder.esd.is_esd = Mock(return_value=False)
 
             builder._assure_l7policies_created(svc)
-            assert svc['l7policies'][0]['provisioning_status'] == 'ACTIVE'
+            assert svc['l7policies'][0]['provisioning_status'] == \
+                'PENDING_CREATE'
             assert not mock_pol_create.called
 
     def test_delete_policy(self, l7policy_delete_service):
@@ -1445,6 +1461,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
                         'lbaas_builder.LOG') as mock_log:
             builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                         constants_v2.F5_PENDING_UPDATE,
+                                         constants_v2.F5_ACTIVE])
             builder._assure_members(service, mock.MagicMock())
             assert mock_log.warning.call_args_list == []
 
@@ -1452,6 +1471,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
                         'lbaas_builder.LOG') as mock_log:
             builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                         constants_v2.F5_PENDING_UPDATE,
+                                         constants_v2.F5_ACTIVE])
             service['members'][0].pop('port', None)
             service['members'][1].pop('port', None)
             builder._assure_members(service, mock.MagicMock())
@@ -1464,6 +1486,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
                         'lbaas_builder.LOG') as mock_log:
             builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                         constants_v2.F5_PENDING_UPDATE,
+                                         constants_v2.F5_ACTIVE])
             service['members'][0].pop('port', None)
             builder._assure_members(service, mock.MagicMock())
             assert \
@@ -1474,6 +1499,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
                         'lbaas_builder.LOG') as mock_log:
             builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+            builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                         constants_v2.F5_PENDING_UPDATE,
+                                         constants_v2.F5_ACTIVE])
             builder._assure_members(service, mock.MagicMock())
             assert mock_log.warning.call_args_list == []
 
@@ -1581,11 +1609,14 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         monitor['provisioning_status'] = 'PENDING_CREATE'
 
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_monitors_created(svc)
         assert mock_create.called
 
-        assert monitor['provisioning_status'] == 'ACTIVE'
+        assert monitor['provisioning_status'] == 'PENDING_CREATE'
 
     @mock.patch(POOL_BLDR_PATH + '.create_healthmonitor')
     def test_assure_monitors_created_pending_create_error(
@@ -1596,6 +1627,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         monitor['provisioning_status'] = 'PENDING_CREATE'
 
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = "error"
         builder._assure_monitors_created(svc)
         assert mock_create.called
@@ -1611,11 +1645,12 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         monitor['provisioning_status'] = 'ERROR'
 
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_monitors_created(svc)
-        assert mock_create.called
-
-        assert monitor['provisioning_status'] == 'ACTIVE'
+        assert monitor['provisioning_status'] == 'ERROR'
 
     @mock.patch(POOL_BLDR_PATH + '.create_healthmonitor')
     def test_assure_monitors_created_pending_delete(
@@ -1626,6 +1661,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         monitor['provisioning_status'] = 'PENDING_DELETE'
 
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_monitors_created(svc)
         assert not mock_create.called
@@ -1642,11 +1680,14 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
         svc['pools'][0]['provisioning_status'] = 'PENDING_CREATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_pools_created(svc)
         assert mock_create.called
 
-        assert pool['provisioning_status'] == 'ACTIVE'
+        assert pool['provisioning_status'] == 'PENDING_CREATE'
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     def test__assure_pools_created_pool_update(
@@ -1656,12 +1697,15 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         svc['pools'][0]['provisioning_status'] = 'PENDING_UPDATE'
         pool = svc['pools'][0]
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_pools_created(svc)
 
         assert mock_create.called
 
-        assert pool['provisioning_status'] == 'ACTIVE'
+        assert pool['provisioning_status'] == 'PENDING_UPDATE'
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     def test__assure_pools_created_pool_active(
@@ -1671,6 +1715,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         pool = svc['pools'][0]
         svc['pools'][0]['provisioning_status'] = 'ACTIVE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_pools_created(svc)
 
@@ -1686,12 +1733,13 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         pool = svc['pools'][0]
         svc['pools'][0]['provisioning_status'] = 'ERROR'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_pools_created(svc)
 
-        assert mock_create.called
-
-        assert pool['provisioning_status'] == 'ACTIVE'
+        assert pool['provisioning_status'] == 'ERROR'
 
     @mock.patch(POOL_BLDR_PATH + '.create_pool')
     def test__assure_pools_created_pool_pending_to_error(
@@ -1701,6 +1749,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         pool = svc['pools'][0]
         svc['pools'][0]['provisioning_status'] = 'PENDING_CREATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = "ERROR"
         builder._assure_pools_created(svc)
 
@@ -1716,6 +1767,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         pool = svc['pools'][0]
         svc['pools'][0]['provisioning_status'] = 'PENDING_DELETE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = "ERROR"
         builder._assure_pools_created(svc)
 
@@ -1733,6 +1787,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         svc['listeners'][0]['provisioning_status'] = 'PENDING_UPDATE'
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_pools_created(svc)
 
@@ -1752,6 +1809,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         svc['listeners'][0]['provisioning_status'] = 'PENDING_CREATE'
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         mock_create.return_value = None
         builder._assure_pools_created(svc)
 
@@ -1771,6 +1831,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         svc['listeners'][0]['provisioning_status'] = 'PENDING_UPDATE'
         svc['loadbalancer']['provisioning_status'] = 'PENDING_UPDATE'
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         mock_create.return_value = "error"
 
@@ -1794,6 +1857,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         mock_create.return_value = \
             MockHTTPError(MockHTTPErrorResponse404(), 'Exists')
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         builder._assure_pools_created(svc)
 
@@ -1814,6 +1880,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         mock_create.return_value = \
             MockHTTPError(MockHTTPErrorResponse404(), 'Exists')
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
 
         builder._assure_pools_created(svc)
 
@@ -1824,6 +1893,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
 
     def test_get_pool_by_id(self, service, create_self):
         target = self.builder
+        target.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                     constants_v2.F5_PENDING_UPDATE,
+                                     constants_v2.F5_ACTIVE])
         never_id = uuid.uuid4()
         pool = service['pools'][0]
         pool_id = pool['id']
@@ -1839,6 +1911,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._update_subnet_hints = Mock()
         builder.driver.get_config_bigips.return_value = bigips
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                      constants_v2.F5_PENDING_UPDATE,
+                                      constants_v2.F5_ACTIVE])
 
         mock_vaddr = Mock()
         virtual_address = str(
@@ -1859,6 +1934,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._update_subnet_hints = Mock()
         builder.driver.get_config_bigips.return_value = bigips
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                      constants_v2.F5_PENDING_UPDATE,
+                                      constants_v2.F5_ACTIVE])
 
         mock_vaddr = Mock()
         virtual_address = str(
@@ -1881,6 +1959,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._update_subnet_hints = Mock()
         builder.driver.get_config_bigips.return_value = bigips
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                      constants_v2.F5_PENDING_UPDATE,
+                                      constants_v2.F5_ACTIVE])
 
         mock_vaddr = Mock()
         virtual_address = str(
@@ -1891,7 +1972,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             builder._assure_loadbalancer_created(svc, mock.MagicMock())
             assert mock_vaddr.assure.called
 
-        assert loadbalancer['provisioning_status'] == 'ACTIVE'
+        assert loadbalancer['provisioning_status'] == 'PENDING_CREATE'
 
         loadbalancer['provisioning_status'] = 'PENDING_UPDATE'
 
@@ -1900,9 +1981,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             builder._assure_loadbalancer_created(svc, mock.MagicMock())
             assert mock_vaddr.assure.called
 
-        assert loadbalancer['provisioning_status'] == 'ACTIVE'
+        assert loadbalancer['provisioning_status'] == 'PENDING_UPDATE'
 
-    def test_assure_loadbalancer_created_error_to_active(self, service):
+    def test_assure_loadbalancer_created_with_error(self, service):
         svc = service
         loadbalancer = svc.get('loadbalancer')
         loadbalancer['provisioning_status'] = 'ERROR'
@@ -1912,17 +1993,12 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._update_subnet_hints = Mock()
         builder.driver.get_config_bigips.return_value = bigips
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                      constants_v2.F5_PENDING_UPDATE,
+                                      constants_v2.F5_ACTIVE])
 
-        mock_vaddr = Mock()
-        virtual_address = str(
-            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
-            'VirtualAddress')
-        with patch(virtual_address, return_value=mock_vaddr):
-
-            builder._assure_loadbalancer_created(svc, mock.MagicMock())
-            assert mock_vaddr.assure.called
-
-        assert loadbalancer['provisioning_status'] == 'ACTIVE'
+        builder._assure_loadbalancer_created(svc, mock.MagicMock())
+        assert loadbalancer['provisioning_status'] == 'ERROR'
 
     def test_assure_loadbalancer_created_pending_delete(self, service):
         svc = service
@@ -1934,6 +2010,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._update_subnet_hints = Mock()
         builder.driver.get_config_bigips.return_value = bigips
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                      constants_v2.F5_PENDING_UPDATE,
+                                      constants_v2.F5_ACTIVE])
 
         mock_vaddr = Mock()
         virtual_address = str(
@@ -1956,6 +2035,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._update_subnet_hints = Mock()
         builder.driver.get_config_bigips.return_value = bigips
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                      constants_v2.F5_PENDING_UPDATE,
+                                      constants_v2.F5_ACTIVE])
 
         mock_vaddr = Mock()
         mock_vaddr.assure.side_effect = MockHTTPError(
@@ -1980,6 +2062,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._update_subnet_hints = Mock()
         builder.driver.get_config_bigips.return_value = bigips
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                      constants_v2.F5_PENDING_UPDATE,
+                                      constants_v2.F5_ACTIVE])
 
         mock_vaddr = Mock()
         virtual_address = str(
@@ -2002,6 +2087,9 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
         builder._update_subnet_hints = Mock()
         builder.driver.get_config_bigips.return_value = bigips
+        builder.const_status = tuple([constants_v2.F5_PENDING_CREATE,
+                                      constants_v2.F5_PENDING_UPDATE,
+                                      constants_v2.F5_ACTIVE])
 
         mock_vaddr = Mock()
         virtual_address = str(
