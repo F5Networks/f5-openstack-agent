@@ -32,7 +32,15 @@ LOG = logging.getLogger(__name__)
 
 class LBaaSBuilder(object):
     # F5 LBaaS Driver using iControl for BIG-IP to
-    # create objects (vips, pools) - not using an iApp."""
+    # create objects (vips, pools) - not using an iApp.
+    # pzhang(???): should we create error service repeatly.
+    sync_status = set([constants_v2.F5_PENDING_CREATE,
+                       constants_v2.F5_PENDING_UPDATE,
+                       constants_v2.F5_ERROR,
+                       constants_v2.F5_ACTIVE])
+
+    normal_status = set([constants_v2.F5_PENDING_CREATE,
+                         constants_v2.F5_PENDING_UPDATE])
 
     def __init__(self, conf, driver, l2_service=None):
         self.conf = conf
@@ -49,6 +57,9 @@ class LBaaSBuilder(object):
         self.l7service = l7policy_service.L7PolicyService(conf)
         self.esd = None
 
+        # pzhang LBaaSBuilder is not a singleton, no race condition
+        self.to_sync = False
+
     def init_esd(self, esd):
         self.esd = esd
 
@@ -56,8 +67,14 @@ class LBaaSBuilder(object):
         return self.esd.is_esd(esd)
 
     def assure_service(self, service, traffic_group, all_subnet_hints):
+
         """Assure that a service is configured on the BIGIP."""
         start_time = time()
+        # pzhang we need to tell const_state before we assure_different service
+        if self.to_sync:
+            self.const_status = self.sync_status
+        else:
+            self.const_status = self.normal_status
 
         LOG.debug("assuring loadbalancers")
 
@@ -105,6 +122,7 @@ class LBaaSBuilder(object):
 
         LOG.debug("    _assure_service took %.5f secs" %
                   (time() - start_time))
+        # pzhang(NOTE): post_service_networking use this
         return all_subnet_hints
 
     @staticmethod
@@ -137,9 +155,9 @@ class LBaaSBuilder(object):
             return
         bigips = self.driver.get_config_bigips()
         loadbalancer = service["loadbalancer"]
-        set_active = True
 
-        if self._is_not_pending_delete(loadbalancer):
+        # if self._is_not_pending_delete(loadbalancer):
+        if loadbalancer["provisioning_status"] in self.const_status:
 
             vip_address = virtual_address.VirtualAddress(
                 self.service_adapter,
@@ -150,9 +168,13 @@ class LBaaSBuilder(object):
                 except Exception as error:
                     LOG.error(str(error))
                     self._set_status_as_error(loadbalancer)
-                    set_active = False
 
-            self._set_status_as_active(loadbalancer, force=set_active)
+            # pzhang (NOTE): do not set this balancer ACTIVE,
+            #                before we really update loadbalancer
+            #                since we only update neutron db
+            #                (loadbalancer ACTIVE)
+            #                which loadbalancer is in PENDING_STATUES
+            # self._set_status_as_active(loadbalancer, force=set_active)
 
         if self.driver.l3_binding:
             loadbalancer = service["loadbalancer"]
@@ -180,7 +202,7 @@ class LBaaSBuilder(object):
 
         for listener in listeners:
             error = False
-            if self._is_not_pending_delete(listener):
+            if listener["provisioning_status"] in self.const_status:
 
                 svc = {"loadbalancer": loadbalancer,
                        "listener": listener,
@@ -193,12 +215,12 @@ class LBaaSBuilder(object):
                 error = self.listener_builder.create_listener(
                     svc, bigips)
 
+                # pzhang(NOTE): we set target listener ONLINE here
                 if error:
                     loadbalancer['provisioning_status'] = \
                         constants_v2.F5_ERROR
                     listener['provisioning_status'] = constants_v2.F5_ERROR
                 else:
-                    listener['provisioning_status'] = constants_v2.F5_ACTIVE
                     if listener['admin_state_up']:
                         listener['operating_status'] = constants_v2.F5_ONLINE
 
@@ -216,7 +238,7 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
         error = None
         for pool in pools:
-            if pool['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
+            if pool['provisioning_status'] in self.const_status:
                 svc = {"loadbalancer": loadbalancer,
                        "pool": pool}
                 svc['members'] = self._get_pool_members(service, pool['id'])
@@ -227,13 +249,13 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = constants_v2.F5_ERROR
                     loadbalancer['provisioning_status'] = constants_v2.F5_ERROR
                 else:
-                    pool['provisioning_status'] = constants_v2.F5_ACTIVE
-                    pool['operating_status'] = constants_v2.F5_ONLINE
+                    if pool['admin_state_up']:
+                        pool['operating_status'] = constants_v2.F5_ONLINE
 
     def _get_pool_members(self, service, pool_id):
         """Return a list of members associated with given pool."""
         members = []
-        for member in service['members']:
+        for member in service.get('members', []):
             if member['pool_id'] == pool_id:
                 members.append(member)
         return members
@@ -242,21 +264,17 @@ class LBaaSBuilder(object):
         monitors = service.get("healthmonitors", list())
         loadbalancer = service.get("loadbalancer", dict())
         bigips = self.driver.get_config_bigips()
-        force_active_status = True
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
                    "healthmonitor": monitor}
-            if monitor['provisioning_status'] != \
-                    constants_v2.F5_PENDING_DELETE:
+            if monitor['provisioning_status'] in \
+                    self.const_status:
                 if self.pool_builder.create_healthmonitor(svc, bigips):
                     monitor['provisioning_status'] = constants_v2.F5_ERROR
-                    force_active_status = False
-
-                self._set_status_as_active(monitor, force=force_active_status)
 
     def _assure_monitors_deleted(self, service):
-        monitors = service["healthmonitors"]
+        monitors = service.get("healthmonitors", [])
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
 
@@ -269,31 +287,38 @@ class LBaaSBuilder(object):
                     monitor['provisioning_status'] = constants_v2.F5_ERROR
 
     def _assure_members(self, service, all_subnet_hints):
+
         if not (("pools" in service) and ("members" in service)):
             return
 
-        members = service["members"]
+        members = service.get("members", [])
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
 
         # Group the members by pool.
         pool_to_member_map = dict()
         for member in members:
+            member_status = member['provisioning_status']
+            # pzhang(NOTE): when users delete a whole pool, the
+            # members are all in ACTIVE status.
+            if member_status in self.const_status or \
+                    member_status == constants_v2.F5_ACTIVE:
+                if 'port' not in member and \
+                        member_status != \
+                        constants_v2.F5_PENDING_DELETE:
+                    LOG.warning(
+                        "Member definition does not include Neutron port")
 
-            if 'port' not in member and \
-               member['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
-                LOG.debug("Member definition does not include Neutron port")
+                pool_id = member.get('pool_id', None)
+                if not pool_id:
+                    LOG.error("Pool member %s does not have a valid pool id",
+                              member.get('id', "NO MEMBER ID"))
+                    continue
 
-            pool_id = member.get('pool_id', None)
-            if not pool_id:
-                LOG.error("Pool member %s does not have a valid pool id",
-                          member.get('id', "NO MEMBER ID"))
-                continue
+                if pool_id not in pool_to_member_map:
+                    pool_to_member_map[pool_id] = list()
 
-            if pool_id not in pool_to_member_map:
-                pool_to_member_map[pool_id] = list()
-
-            pool_to_member_map[pool_id].append(member)
+                pool_to_member_map[pool_id].append(member)
 
         # Assure members by pool
         for pool_id, pool_members in pool_to_member_map.iteritems():
@@ -310,11 +335,7 @@ class LBaaSBuilder(object):
                     member['provisioning_status'] = "PENDING_DELETE"
                     member['parent_pool_deleted'] = True
 
-                provisioning = member.get('provisioning_status')
-                if 'missing' not in member \
-                   and provisioning != "PENDING_DELETE":
-                    member['provisioning_status'] = "ACTIVE"
-                elif 'missing' in member:
+                if 'missing' in member:
                     member['provisioning_status'] = "ERROR"
 
                 self._update_subnet_hints(member["provisioning_status"],
@@ -382,8 +403,10 @@ class LBaaSBuilder(object):
 
                     if error:
                         listener['provisioning_status'] = constants_v2.F5_ERROR
-
-        self.listener_builder.delete_orphaned_listeners(service, bigips)
+        # pzhang(NOTE): we can purge in method
+        #               clean_orphaned_objects_and_save_device_config
+        #               with in periodic_resync
+        # self.listener_builder.delete_orphaned_listeners(service, bigips)
 
     @staticmethod
     def get_pool_by_id(service, pool_id):
@@ -455,11 +478,8 @@ class LBaaSBuilder(object):
                     policy['f5_policy'], bigips)
 
             for p in service['l7policies']:
-                if self._is_not_pending_delete(p):
-                    if not error:
-                        self._set_status_as_active(p, force=True)
-                    else:
-                        self._set_status_as_error(p)
+                if error:
+                    self._set_status_as_error(p)
 
             loadbalancer = service.get('loadbalancer', {})
             if not error:
@@ -512,14 +532,8 @@ class LBaaSBuilder(object):
                     policy['f5_policy'], bigips)
 
             for p in policy['l7policies']:
-                if self._is_not_pending_delete(p):
-                    if not error:
-                        self._set_status_as_active(p, force=True)
-                    else:
-                        self._set_status_as_error(p)
-                else:
-                    if error:
-                        self._set_status_as_error(p)
+                if error:
+                    self._set_status_as_error(p)
 
     def get_listener_stats(self, service, stats):
         """Get statistics for a loadbalancer service.

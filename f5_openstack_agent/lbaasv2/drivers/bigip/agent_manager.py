@@ -324,6 +324,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self._report_state)
             heartbeat.start(interval=report_interval)
 
+        # pzhang(NOTE): connect to the bigip, to set icontrol operational
+        if self.lbdriver:
+            self.lbdriver.connect()
+
     def _load_driver(self, conf):
         self.lbdriver = None
 

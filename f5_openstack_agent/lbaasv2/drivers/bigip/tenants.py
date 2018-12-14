@@ -119,6 +119,9 @@ class BigipTenantManager(object):
         try:
             self.system_helper.delete_folder(bigip, partition)
         except Exception as err:
-            LOG.debug(
-                "Folder deletion exception for tenant partition %s occurred. "
-                "Manual cleanup might be required." % (tenant_id))
+            LOG.warning(
+                "Folder deletion exception for tenant partition %s occurred.\n"
+                " %s \n"
+                "It may have other loadbalancers under the same partition.\n"
+                "Manual intervention might be required."
+                % (tenant_id, err.message))
