@@ -152,7 +152,10 @@ class LBaaSBuilder(object):
                     self._set_status_as_error(loadbalancer)
                     set_active = False
 
-            self._set_status_as_active(loadbalancer, force=set_active)
+            # pzhang (NOTE): do not set this balancer ACTIVE, before we really update loadbalancer
+            #                since we only update neutron db (loadbalancer ACTIVE) 
+            #                which loadbalancer is in PENDING_STATUES
+            # self._set_status_as_active(loadbalancer, force=set_active)
 
         if self.driver.l3_binding:
             loadbalancer = service["loadbalancer"]
@@ -193,12 +196,12 @@ class LBaaSBuilder(object):
                 error = self.listener_builder.create_listener(
                     svc, bigips)
 
+                #pzhang (NOTE): we set target listener ONLINE here
                 if error:
                     loadbalancer['provisioning_status'] = \
                         constants_v2.F5_ERROR
                     listener['provisioning_status'] = constants_v2.F5_ERROR
                 else:
-                    listener['provisioning_status'] = constants_v2.F5_ACTIVE
                     if listener['admin_state_up']:
                         listener['operating_status'] = constants_v2.F5_ONLINE
 

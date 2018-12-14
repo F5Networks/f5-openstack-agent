@@ -322,9 +322,9 @@ def is_operational(method):
 
 class iControlDriver(LBaaSBaseDriver):
     """Control service deployment."""
-
+    # pzhang(NOTE) here: we only sync, CRUD objs in below status
     positive_plugin_const_state = \
-        tuple([f5const.F5_ACTIVE, f5const.F5_PENDING_CREATE,
+        tuple([f5const.F5_PENDING_CREATE,
                f5const.F5_PENDING_UPDATE])
 
     def __init__(self, conf, registerOpts=True):
@@ -1509,25 +1509,59 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('create_listener')
     @is_operational
+    @log_helpers.log_method_call
     def create_listener(self, listener, service):
         """Create virtual server."""
         LOG.debug("Creating listener")
-        return self._common_service_handler(service)
+        # pzhang(NOTE): put target listener in "listeners" of service dict
+        service["listeners"] = [listener]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_listener_status({'listeners':[listener]})
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('update_listener')
     @is_operational
     def update_listener(self, old_listener, listener, service):
         """Update virtual server."""
         LOG.debug("Updating listener")
-        service['old_listener'] = old_listener
-        return self._common_service_handler(service)
+        service["listeners"] = [listener]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_listener_status({'listeners':[listener]})
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {})
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('delete_listener')
     @is_operational
     def delete_listener(self, listener, service):
         """Delete virtual server."""
         LOG.debug("Deleting listener")
-        return self._common_service_handler(service)
+        service["listeners"] = [listener]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_listener_status({'listeners':[listener]})
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('create_pool')
     @is_operational
@@ -1670,7 +1704,17 @@ class iControlDriver(LBaaSBaseDriver):
             # Get the latest service. It may have changed.
             service = self.plugin_rpc.get_service_by_loadbalancer_id(lb_id)
         if service.get('loadbalancer', None):
-            return self._common_service_handler(service)
+            self._common_service_handler(service)
+            #pzhang (NOTE): move udpate neutron db out here for the lb tree
+            if self.do_service_update:
+                self.update_service_status(service)
+            loadbalancer = service.get('loadbalancer', {}) 
+            lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                      f5const.F5_ERROR)
+            lb_pending = \
+                (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+                 lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+            return lb_pending
         else:
             LOG.debug("Attempted sync of deleted pool")
 
@@ -1901,7 +1945,7 @@ class iControlDriver(LBaaSBaseDriver):
         start_time = time()
 
         lb_pending = True
-        do_service_update = True
+        self.do_service_update = True
 
         if self.conf.trace_service_requests:
             self.trace_service_requests(service)
@@ -1940,7 +1984,7 @@ class iControlDriver(LBaaSBaseDriver):
                               "definition is completed: %s",
                               error.message)
                     if not delete_event:
-                        do_service_update = False
+                        self.do_service_update = False
                         raise error
                 except Exception as error:
                     LOG.error("Prep-network exception: icontrol_driver: %s",
@@ -1999,17 +2043,6 @@ class iControlDriver(LBaaSBaseDriver):
             if lb_provisioning_status == f5const.F5_PENDING_DELETE:
                 self.tenant_manager.assure_tenant_cleanup(service,
                                                           all_subnet_hints)
-
-            if do_service_update:
-                self.update_service_status(service)
-
-            lb_provisioning_status = loadbalancer.get("provisioning_status",
-                                                      f5const.F5_ERROR)
-            lb_pending = \
-                (lb_provisioning_status == f5const.F5_PENDING_CREATE or
-                 lb_provisioning_status == f5const.F5_PENDING_UPDATE)
-
-        return lb_pending
 
     def update_service_status(self, service, timed_out=False):
         """Update status of objects in controller."""
@@ -2184,6 +2217,7 @@ class iControlDriver(LBaaSBaseDriver):
         provisioning_status = loadbalancer.get('provisioning_status',
                                                f5const.F5_ERROR)
 
+        # if provisioning_status in self.positive_plugin_const_state:
         if provisioning_status in self.positive_plugin_const_state:
             if timed_out:
                 operating_status = (f5const.F5_OFFLINE)
