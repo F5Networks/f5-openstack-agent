@@ -322,15 +322,15 @@ def is_operational(method):
 
 class iControlDriver(LBaaSBaseDriver):
     """Control service deployment."""
-
+    # pzhang(NOTE) here: we only sync, CRUD objs in below status
     positive_plugin_const_state = \
-        tuple([f5const.F5_ACTIVE, f5const.F5_PENDING_CREATE,
+        tuple([f5const.F5_PENDING_CREATE,
                f5const.F5_PENDING_UPDATE])
 
     def __init__(self, conf, registerOpts=True):
         # The registerOpts parameter allows a test to
         # turn off config option handling so that it can
-        # set the options manually instead. """
+        # set the options manually instead.
         super(iControlDriver, self).__init__(conf)
         self.conf = conf
         if registerOpts:
@@ -664,7 +664,7 @@ class iControlDriver(LBaaSBaseDriver):
             raise
 
     def _open_bigip(self, hostname):
-        # Open bigip connection """
+        # Open bigip connection
         try:
             bigip = self.__bigips[hostname]
             if bigip.status not in ['creating', 'error']:
@@ -840,7 +840,7 @@ class iControlDriver(LBaaSBaseDriver):
     def _validate_ha(self, bigip):
         # if there was only one address supplied and
         # this is not a standalone device, get the
-        # devices trusted by this device. """
+        # devices trusted by this device.
         device_group_name = None
         if self.conf.f5_ha_type == 'standalone':
             if len(self.hostnames) != 1:
@@ -1488,95 +1488,167 @@ class iControlDriver(LBaaSBaseDriver):
     @is_operational
     def create_loadbalancer(self, loadbalancer, service):
         """Create virtual server."""
-        return self._common_service_handler(service)
+        self._common_service_handler(service)
+        return self._update_target(service)
 
     @serialized('update_loadbalancer')
     @is_operational
     def update_loadbalancer(self, old_loadbalancer, loadbalancer, service):
         """Update virtual server."""
         # anti-pattern three args unused.
-        return self._common_service_handler(service)
+        self._common_service_handler(service)
+        return self._update_target(service)
 
     @serialized('delete_loadbalancer')
     @is_operational
     def delete_loadbalancer(self, loadbalancer, service):
         """Delete loadbalancer."""
         LOG.debug("Deleting loadbalancer")
-        return self._common_service_handler(
+        self._common_service_handler(
             service,
             delete_partition=True,
             delete_event=True)
+        return self._update_target(service)
 
     @serialized('create_listener')
     @is_operational
+    @log_helpers.log_method_call
     def create_listener(self, listener, service):
         """Create virtual server."""
         LOG.debug("Creating listener")
-        return self._common_service_handler(service)
+        # pzhang(NOTE): put target listener in "listeners" of service dict
+        service["listeners"] = [listener]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_listener_status,
+                                   {"listeners": [listener]})
 
     @serialized('update_listener')
     @is_operational
     def update_listener(self, old_listener, listener, service):
         """Update virtual server."""
         LOG.debug("Updating listener")
-        service['old_listener'] = old_listener
-        return self._common_service_handler(service)
+        service["listeners"] = [listener]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_listener_status,
+                                   {"listeners": [listener]})
 
     @serialized('delete_listener')
     @is_operational
     def delete_listener(self, listener, service):
         """Delete virtual server."""
         LOG.debug("Deleting listener")
-        return self._common_service_handler(service)
+        service["listeners"] = [listener]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_listener_status,
+                                   {"listeners": [listener]})
 
     @serialized('create_pool')
     @is_operational
     def create_pool(self, pool, service):
         """Create lb pool."""
         LOG.debug("Creating pool")
-        return self._common_service_handler(service)
+        # pzhang(NOTE): pool is created by updateing the listener
+        target_listener = [ls for ls in service["listeners"]
+                           if ls["default_pool_id"] == pool["id"]]
+        target_listener[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["listeners"] = target_listener
+        service["pools"] = [pool]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_pool_status,
+                                   [pool])
 
     @serialized('update_pool')
     @is_operational
     def update_pool(self, old_pool, pool, service):
         """Update lb pool."""
         LOG.debug("Updating pool")
-        return self._common_service_handler(service)
+        # pzhang(NOTE): pool is created by updateing the listener
+        target_listener = [ls for ls in service["listeners"]
+                           if ls["default_pool_id"] == pool["id"]]
+        target_listener[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["listeners"] = target_listener
+        service["pools"] = [pool]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_pool_status,
+                                   [pool])
 
     @serialized('delete_pool')
     @is_operational
     def delete_pool(self, pool, service):
         """Delete lb pool."""
         LOG.debug("Deleting pool")
-        return self._common_service_handler(service)
+        # pzhang(NOTE): pool-listener link is created by updateing the listener
+        target_listener = [ls for ls in service["listeners"]
+                           if ls["default_pool_id"] == pool["id"]]
+        target_listener[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["listeners"] = target_listener
+        service["pools"] = [pool]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_pool_status,
+                                   [pool])
 
     @serialized('create_member')
     @is_operational
     def create_member(self, member, service):
         """Create pool member."""
         LOG.debug("Creating member")
-        return self._common_service_handler(service)
+        # pzhang(NOTE): pool-member link is created by updateing the pool
+        target_pool = [pl for pl in service["pools"]
+                       if pl["id"] == member["pool_id"]]
+        target_pool[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["pools"] = target_pool
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_member_status,
+                                   service["members"])
 
     @serialized('update_member')
     @is_operational
     def update_member(self, old_member, member, service):
         """Update pool member."""
         LOG.debug("Updating member")
-        return self._common_service_handler(service)
+        # pzhang(NOTE): pool-member link is created by updateing the pool
+        target_pool = [pl for pl in service["pools"]
+                       if pl["id"] == member["pool_id"]]
+        target_pool[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["pools"] = target_pool
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_member_status,
+                                   service["members"])
 
     @serialized('delete_member')
     @is_operational
     def delete_member(self, member, service):
         """Delete pool member."""
         LOG.debug("Deleting member")
-        return self._common_service_handler(service, delete_event=True)
+        # pzhang(NOTE): pool-member link is created by updateing the pool
+        target_pool = [pl for pl in service["pools"]
+                       if pl["id"] == member["pool_id"]]
+        target_pool[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["pools"] = target_pool
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_member_status,
+                                   service["members"])
 
     @serialized('create_health_monitor')
     @is_operational
     def create_health_monitor(self, health_monitor, service):
         """Create pool health monitor."""
         LOG.debug("Creating health monitor")
-        return self._common_service_handler(service)
+        # pzhang(FIXME): pool-monitor link is created by updateing the pool
+        service["healthmonitors"] = [health_monitor]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_health_monitor_status,
+                                   [health_monitor])
 
     @serialized('update_health_monitor')
     @is_operational
@@ -1584,14 +1656,117 @@ class iControlDriver(LBaaSBaseDriver):
                               health_monitor, service):
         """Update pool health monitor."""
         LOG.debug("Updating health monitor")
-        return self._common_service_handler(service)
+        # pzhang(FIXME): pool-monitor link is created by updateing the pool
+        service["healthmonitors"] = [health_monitor]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_health_monitor_status,
+                                   [health_monitor])
 
     @serialized('delete_health_monitor')
     @is_operational
     def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor."""
         LOG.debug("Deleting health monitor")
-        return self._common_service_handler(service)
+        # pzhang(FIXME): pool-monitor link is created by updateing the pool
+        service["healthmonitors"] = [health_monitor]
+        self._common_service_handler(service)
+        return self._update_target(service,
+                                   self._update_health_monitor_status,
+                                   [health_monitor])
+
+    @serialized('create_l7policy')
+    @is_operational
+    def create_l7policy(self, l7policy, service):
+        """Create lb l7policy."""
+        LOG.debug("Creating l7policy")
+        # pzhang(NOTE): l7policy is created by updateing the listener
+        target_listener = [ls for ls in service["listeners"]
+                           if ls["id"] == l7policy["listener_id"]]
+        target_listener[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["listeners"] = target_listener
+        self._common_service_handler(service)
+        l7policies = service['l7policies']
+        return self._update_target(service,
+                                   self._update_l7policy_status,
+                                   l7policies)
+
+    @serialized('update_l7policy')
+    @is_operational
+    def update_l7policy(self, old_l7policy, l7policy, service):
+        """Update lb l7policy."""
+        LOG.debug("Updating l7policy")
+        target_listener = [ls for ls in service["listeners"]
+                           if ls["id"] == l7policy["listener_id"]]
+        target_listener[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["listeners"] = target_listener
+        self._common_service_handler(service)
+        l7policies = service['l7policies']
+        return self._update_target(service,
+                                   self._update_l7policy_status,
+                                   l7policies)
+
+    @serialized('delete_l7policy')
+    @is_operational
+    def delete_l7policy(self, l7policy, service):
+        """Delete lb l7policy."""
+        LOG.debug("Deleting l7policy")
+        target_listener = [ls for ls in service["listeners"]
+                           if ls["id"] == l7policy["listener_id"]]
+        target_listener[0]["provisioning_status"] = "PENDING_UPDATE"
+        service["listeners"] = target_listener
+        self._common_service_handler(service)
+        l7policies = service['l7policies']
+        return self._update_target(service,
+                                   self._update_l7policy_status,
+                                   l7policies)
+
+    @serialized('create_l7rule')
+    @is_operational
+    def create_l7rule(self, pool, service):
+        """Create lb l7rule."""
+        LOG.debug("Creating l7rule")
+        self._common_service_handler(service)
+        l7rules = service['l7policy_rules']
+        return self._update_target(service,
+                                   self._update_l7rule_status,
+                                   l7rules)
+
+    @serialized('update_l7rule')
+    @is_operational
+    def update_l7rule(self, old_l7rule, l7rule, service):
+        """Update lb l7rule."""
+        LOG.debug("Updating l7rule")
+        self._common_service_handler(service)
+        l7rules = service['l7policy_rules']
+        return self._update_target(service,
+                                   self._update_l7rule_status,
+                                   l7rules)
+
+    @serialized('delete_l7rule')
+    @is_operational
+    def delete_l7rule(self, l7rule, service):
+        """Delete lb l7rule."""
+        LOG.debug("Deleting l7rule")
+        self._common_service_handler(service)
+        l7rules = service['l7policy_rules']
+        return self._update_target(service,
+                                   self._update_l7rule_status,
+                                   l7rules)
+
+    def _update_target(self, service,
+                       update_method=None, target=None):
+        if self.do_service_update:
+            if target is not None and update_method is not None:
+                update_method(target)
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {})
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @is_operational
     def get_stats(self, service):
@@ -1670,7 +1845,19 @@ class iControlDriver(LBaaSBaseDriver):
             # Get the latest service. It may have changed.
             service = self.plugin_rpc.get_service_by_loadbalancer_id(lb_id)
         if service.get('loadbalancer', None):
-            return self._common_service_handler(service)
+            self.lbaas_builder.to_sync = True
+            self._common_service_handler(service)
+            self.lbaas_builder.to_sync = False
+            # pzhang(NOTE): move udpate neutron db out here for the lb tree
+            if self.do_service_update:
+                self.update_service_status(service)
+            loadbalancer = service.get('loadbalancer', {})
+            lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                      f5const.F5_ERROR)
+            lb_pending = \
+                (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+                 lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+            return lb_pending
         else:
             LOG.debug("Attempted sync of deleted pool")
 
@@ -1901,7 +2088,7 @@ class iControlDriver(LBaaSBaseDriver):
         start_time = time()
 
         lb_pending = True
-        do_service_update = True
+        self.do_service_update = True
 
         if self.conf.trace_service_requests:
             self.trace_service_requests(service)
@@ -1940,7 +2127,7 @@ class iControlDriver(LBaaSBaseDriver):
                               "definition is completed: %s",
                               error.message)
                     if not delete_event:
-                        do_service_update = False
+                        self.do_service_update = False
                         raise error
                 except Exception as error:
                     LOG.error("Prep-network exception: icontrol_driver: %s",
@@ -2000,17 +2187,6 @@ class iControlDriver(LBaaSBaseDriver):
                 self.tenant_manager.assure_tenant_cleanup(service,
                                                           all_subnet_hints)
 
-            if do_service_update:
-                self.update_service_status(service)
-
-            lb_provisioning_status = loadbalancer.get("provisioning_status",
-                                                      f5const.F5_ERROR)
-            lb_pending = \
-                (lb_provisioning_status == f5const.F5_PENDING_CREATE or
-                 lb_provisioning_status == f5const.F5_PENDING_UPDATE)
-
-        return lb_pending
-
     def update_service_status(self, service, timed_out=False):
         """Update status of objects in controller."""
         LOG.debug("_update_service_status")
@@ -2043,7 +2219,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         self._update_loadbalancer_status(service, timed_out)
 
-    def _update_member_status(self, members, timed_out):
+    def _update_member_status(self, members, timed_out=False):
         """Update member status in OpenStack."""
         for member in members:
             if 'provisioning_status' in member:
@@ -2184,6 +2360,7 @@ class iControlDriver(LBaaSBaseDriver):
         provisioning_status = loadbalancer.get('provisioning_status',
                                                f5const.F5_ERROR)
 
+        # if provisioning_status in self.positive_plugin_const_state:
         if provisioning_status in self.positive_plugin_const_state:
             if timed_out:
                 operating_status = (f5const.F5_OFFLINE)
@@ -2376,48 +2553,6 @@ class iControlDriver(LBaaSBaseDriver):
                 % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
                    f5const.MIN_TMOS_MINOR_VERSION))
         return major_version, minor_version
-
-    @serialized('create_l7policy')
-    @is_operational
-    def create_l7policy(self, l7policy, service):
-        """Create lb l7policy."""
-        LOG.debug("Creating l7policy")
-        self._common_service_handler(service)
-
-    @serialized('update_l7policy')
-    @is_operational
-    def update_l7policy(self, old_l7policy, l7policy, service):
-        """Update lb l7policy."""
-        LOG.debug("Updating l7policy")
-        self._common_service_handler(service)
-
-    @serialized('delete_l7policy')
-    @is_operational
-    def delete_l7policy(self, l7policy, service):
-        """Delete lb l7policy."""
-        LOG.debug("Deleting l7policy")
-        self._common_service_handler(service)
-
-    @serialized('create_l7rule')
-    @is_operational
-    def create_l7rule(self, pool, service):
-        """Create lb l7rule."""
-        LOG.debug("Creating l7rule")
-        self._common_service_handler(service)
-
-    @serialized('update_l7rule')
-    @is_operational
-    def update_l7rule(self, old_l7rule, l7rule, service):
-        """Update lb l7rule."""
-        LOG.debug("Updating l7rule")
-        self._common_service_handler(service)
-
-    @serialized('delete_l7rule')
-    @is_operational
-    def delete_l7rule(self, l7rule, service):
-        """Delete lb l7rule."""
-        LOG.debug("Deleting l7rule")
-        self._common_service_handler(service)
 
     def trace_service_requests(self, service):
         """Dump services to a file for debugging."""
