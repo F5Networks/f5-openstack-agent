@@ -105,7 +105,7 @@ class LBaaSBuilder(object):
 
         LOG.debug("    _assure_service took %.5f secs" %
                   (time() - start_time))
-        # pzhang(NOTE): post_service_networking use this 
+        # pzhang(NOTE): post_service_networking use this
         return all_subnet_hints
 
     @staticmethod
@@ -138,7 +138,6 @@ class LBaaSBuilder(object):
             return
         bigips = self.driver.get_config_bigips()
         loadbalancer = service["loadbalancer"]
-        set_active = True
 
         if self._is_not_pending_delete(loadbalancer):
 
@@ -151,10 +150,11 @@ class LBaaSBuilder(object):
                 except Exception as error:
                     LOG.error(str(error))
                     self._set_status_as_error(loadbalancer)
-                    set_active = False
 
-            # pzhang (NOTE): do not set this balancer ACTIVE, before we really update loadbalancer
-            #                since we only update neutron db (loadbalancer ACTIVE) 
+            # pzhang (NOTE): do not set this balancer ACTIVE,
+            #                before we really update loadbalancer
+            #                since we only update neutron db
+            #                (loadbalancer ACTIVE)
             #                which loadbalancer is in PENDING_STATUES
             # self._set_status_as_active(loadbalancer, force=set_active)
 
@@ -197,7 +197,7 @@ class LBaaSBuilder(object):
                 error = self.listener_builder.create_listener(
                     svc, bigips)
 
-                #pzhang (NOTE): we set target listener ONLINE here
+                # pzhang(NOTE): we set target listener ONLINE here
                 if error:
                     loadbalancer['provisioning_status'] = \
                         constants_v2.F5_ERROR
@@ -255,7 +255,6 @@ class LBaaSBuilder(object):
                 if self.pool_builder.create_healthmonitor(svc, bigips):
                     monitor['provisioning_status'] = constants_v2.F5_ERROR
 
-
     def _assure_monitors_deleted(self, service):
         monitors = service["healthmonitors"]
         loadbalancer = service["loadbalancer"]
@@ -310,8 +309,6 @@ class LBaaSBuilder(object):
                 if pool_deleted:
                     member['provisioning_status'] = "PENDING_DELETE"
                     member['parent_pool_deleted'] = True
-
-                provisioning = member.get('provisioning_status')
 
                 if 'missing' in member:
                     member['provisioning_status'] = "ERROR"

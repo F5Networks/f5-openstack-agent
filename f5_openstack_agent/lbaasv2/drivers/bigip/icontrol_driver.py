@@ -1488,24 +1488,51 @@ class iControlDriver(LBaaSBaseDriver):
     @is_operational
     def create_loadbalancer(self, loadbalancer, service):
         """Create virtual server."""
-        return self._common_service_handler(service)
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {})
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('update_loadbalancer')
     @is_operational
     def update_loadbalancer(self, old_loadbalancer, loadbalancer, service):
         """Update virtual server."""
         # anti-pattern three args unused.
-        return self._common_service_handler(service)
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {})
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('delete_loadbalancer')
     @is_operational
     def delete_loadbalancer(self, loadbalancer, service):
         """Delete loadbalancer."""
         LOG.debug("Deleting loadbalancer")
-        return self._common_service_handler(
+        self._common_service_handler(
             service,
             delete_partition=True,
             delete_event=True)
+        if self.do_service_update:
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {})
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('create_listener')
     @is_operational
@@ -1517,9 +1544,9 @@ class iControlDriver(LBaaSBaseDriver):
         service["listeners"] = [listener]
         self._common_service_handler(service)
         if self.do_service_update:
-            self._update_listener_status({'listeners':[listener]})
+            self._update_listener_status({'listeners': [listener]})
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1535,7 +1562,7 @@ class iControlDriver(LBaaSBaseDriver):
         service["listeners"] = [listener]
         self._common_service_handler(service)
         if self.do_service_update:
-            self._update_listener_status({'listeners':[listener]})
+            self._update_listener_status({'listeners': [listener]})
             self._update_loadbalancer_status(service, timed_out=False)
         loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
@@ -1553,9 +1580,9 @@ class iControlDriver(LBaaSBaseDriver):
         service["listeners"] = [listener]
         self._common_service_handler(service)
         if self.do_service_update:
-            self._update_listener_status({'listeners':[listener]})
+            self._update_listener_status({'listeners': [listener]})
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1573,7 +1600,7 @@ class iControlDriver(LBaaSBaseDriver):
         if self.do_service_update:
             self._update_pool_status([pool])
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1591,7 +1618,7 @@ class iControlDriver(LBaaSBaseDriver):
         if self.do_service_update:
             self._update_pool_status([pool])
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1609,7 +1636,7 @@ class iControlDriver(LBaaSBaseDriver):
         if self.do_service_update:
             self._update_pool_status([pool])
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1623,13 +1650,13 @@ class iControlDriver(LBaaSBaseDriver):
         """Create pool member."""
         LOG.debug("Creating member")
         detail_member = \
-            [m for m in service["members"] if m["id"]==member["id"]]
+            [m for m in service["members"] if m["id"] == member["id"]]
         service["members"] = detail_member
         self._common_service_handler(service)
         if self.do_service_update:
             self._update_member_status(detail_member, timed_out=False)
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1643,13 +1670,13 @@ class iControlDriver(LBaaSBaseDriver):
         """Update pool member."""
         LOG.debug("Updating member")
         detail_member = \
-            [m for m in service["members"] if m["id"]==member["id"]]
+            [m for m in service["members"] if m["id"] == member["id"]]
         service["members"] = detail_member
         self._common_service_handler(service)
         if self.do_service_update:
             self._update_member_status(detail_member, timed_out=False)
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1663,13 +1690,13 @@ class iControlDriver(LBaaSBaseDriver):
         """Delete pool member."""
         LOG.debug("Deleting member")
         detail_member = \
-            [m for m in service["members"] if m["id"]==member["id"]]
+            [m for m in service["members"] if m["id"] == member["id"]]
         service["members"] = detail_member
         self._common_service_handler(service)
         if self.do_service_update:
             self._update_member_status(detail_member, timed_out=False)
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1687,7 +1714,7 @@ class iControlDriver(LBaaSBaseDriver):
         if self.do_service_update:
             self._update_health_monitor_status([health_monitor])
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1706,7 +1733,7 @@ class iControlDriver(LBaaSBaseDriver):
         if self.do_service_update:
             self._update_health_monitor_status([health_monitor])
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1724,7 +1751,7 @@ class iControlDriver(LBaaSBaseDriver):
         if self.do_service_update:
             self._update_health_monitor_status([health_monitor])
             self._update_loadbalancer_status(service, timed_out=False)
-        loadbalancer = service.get('loadbalancer', {}) 
+        loadbalancer = service.get('loadbalancer', {})
         lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                   f5const.F5_ERROR)
         lb_pending = \
@@ -1810,10 +1837,10 @@ class iControlDriver(LBaaSBaseDriver):
             service = self.plugin_rpc.get_service_by_loadbalancer_id(lb_id)
         if service.get('loadbalancer', None):
             self._common_service_handler(service)
-            #pzhang (NOTE): move udpate neutron db out here for the lb tree
+            # pzhang(NOTE): move udpate neutron db out here for the lb tree
             if self.do_service_update:
                 self.update_service_status(service)
-            loadbalancer = service.get('loadbalancer', {}) 
+            loadbalancer = service.get('loadbalancer', {})
             lb_provisioning_status = loadbalancer.get("provisioning_status",
                                                       f5const.F5_ERROR)
             lb_pending = \
