@@ -78,7 +78,7 @@ class ListenerServiceBuilder(object):
                 if err.response.status_code == 409:
                     LOG.debug("Virtual server already exists updating")
                     try:
-                        self.update_listener(service, bigips)
+                        self.update_listener(service, [bigip])
                         #self.vs_helper.update(bigip, vip)
                     except Exception as e:
                         LOG.warn("Update triggered in create failed, this could be due to timing issues in assure_service")
@@ -855,6 +855,8 @@ class ListenerServiceBuilder(object):
                     if 'lbaas_fastl4' in esd:
                         if esd['lbaas_fastl4']=='':
                             fastl4= {}
+                        else:
+                            fastl4 = {'partition': 'Common', 'name': esd['lbaas_fastl4'], 'context': 'all'}
 
                     if len(stcp_profiles)==0:
                         if 'lbaas_stcp' in esd:

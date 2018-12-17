@@ -165,6 +165,7 @@ class LogicalServiceCache(object):
 
     def put(self, service, agent_host):
         """Add a service to the cache."""
+        LOG.warning("cloud: Loadbalancer put into cache %s", service['loadbalancer']['id'])
         port_id = service['loadbalancer'].get('vip_port_id', None)
         loadbalancer_id = service['loadbalancer']['id']
         tenant_id = service['loadbalancer']['tenant_id']
@@ -464,10 +465,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.info("ccloud - periodic_resync: Running sync tasks")
                 if not self.needs_resync:
                     self.needs_resync = True
-                    LOG.debug(
-                        'Forcing resync of services on resync timer (%d seconds).'
-                        % self.service_resync_interval)
+                    LOG.debug('Forcing resync of services on resync timer (%d seconds).' % self.service_resync_interval)
                     self.cache.services = {}
+                    LOG.warning("ccloud: cache cleared: service cache = ".format(self.cache.services))
                     self.last_resync = now
                     self.lbdriver.flush_cache()
                 LOG.debug("periodic_sync: service_resync_interval expired: %s"
@@ -483,7 +483,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     self.needs_resync = True
                 if self.sync_state():
                     self.needs_resync = True
-                self.clean_orphaned_snat_objects()
+                try:
+                    self.clean_orphaned_snat_objects()
+                except Exception as e:
+                    LOG.warning("ccloud - Couldn't clear orphan snat objects because of : " + str(e.message))
             else:
                 LOG.info("ccloud - periodic_resync: Resync not needed! Discarding ...")
 
@@ -510,20 +513,25 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     # ccloud: clean orphaned snat pools
     @log_helpers.log_method_call
     def clean_orphaned_snat_objects(self):
-        virtual_addresses = self.lbdriver.get_all_virtual_addresses()
-        snat_pools = self.lbdriver.get_all_snat_pools()
+        try:
+            virtual_addresses = self.lbdriver.get_all_virtual_addresses()
+            snat_pools = self.lbdriver.get_all_snat_pools()
 
-        for va in virtual_addresses:
-            snat_obj = self.find_in_collection(va.name.replace('Project_', 'lb_'), snat_pools)
-            if snat_obj is not None:
-                snat_pools.remove(snat_obj)
+            for va in virtual_addresses:
+                snat_obj = self.find_in_collection(va.name.replace('Project_', 'lb_'), snat_pools)
+                if snat_obj is not None:
+                    snat_pools.remove(snat_obj)
 
-        for orphaned_snat in snat_pools:
-            LOG.debug("sapcc: purging orphaned snat pool %s" % orphaned_snat.name)
-            try:
-                orphaned_snat.delete()
-            except Exception as e:
-                LOG.warning("sapcc: attempt made to purge orphaned snat pool which might be in use: " + str(e.message))
+            for orphaned_snat in snat_pools:
+                LOG.debug("sapcc: purging orphaned snat pool %s" % orphaned_snat.name)
+                try:
+                    orphaned_snat.delete()
+                except Exception as e:
+                    LOG.warning("sapcc: attempt made to purge orphaned snat pool which might be in use: " + str(e.message))
+
+        except Exception as e:
+            LOG.warning("Unable to clean snat objects: %s" % e.message)
+
 
     def find_in_collection(self, name, collection):
         for item in collection:
@@ -560,6 +568,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @utils.instrument_execution_time
     def sync_state(self):
         """Sync state of BIG-IP with that of the neutron database."""
+        LOG.debug("manager:sync_state: Resync loadbalancers via validate_service")
+
         resync = False
 
         known_services = set()
@@ -591,6 +601,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       % list(active_loadbalancer_ids))
             LOG.debug("currently known loadbalancer ids before sync are: %s"
                       % list(known_services))
+            LOG.debug("ccloud: plugin got all loadbalancer ids as: %s"
+                      % list(all_loadbalancer_ids))
+            LOG.debug("ccloud: cache : {}".format(self.cache))
 
             # ccloud: Get rid of 'Cached service not found in neutron database' message
             # Clear cache entry if not found in neutron. In case of a temp issue
@@ -604,6 +617,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # agent is bound, that does not exist in our service cache.
             for lb_id in all_loadbalancer_ids:
                 if not self.cache.get_by_loadbalancer_id(lb_id):
+                    LOG.debug("ccloud: validate_service: %s" % lb_id)
                     self.validate_service(lb_id)
 
             # This produces a list of loadbalancers with pending tasks to
@@ -657,12 +671,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     @utils.instrument_execution_time
     def validate_service(self, lb_id):
-
         try:
             service = self.plugin_rpc.get_service_by_loadbalancer_id(
                 lb_id
             )
             self.cache.put(service, self.agent_host)
+            LOG.info("ccloud: validate_service - get service from rpc '{}' for sync".format(service))
             if not self.lbdriver.service_exists(service) or \
                     self.has_provisioning_status_of_error(service):
                 LOG.info("active loadbalancer '{}' is not on BIG-IP"
@@ -723,6 +737,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 lb_id
             )
             self.cache.put(service, self.agent_host)
+            LOG.info("ccloud: refresh_service - get service from rpc '{}' for sync".format(service))
             if self.lbdriver.sync(service):
                 self.needs_resync = True
         except q_exception.NeutronException as exc:
@@ -914,7 +929,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Deletes the hanging listeners from the deleted loadbalancers"""
         listener_status = self.plugin_rpc.validate_listeners_state(
             list(listeners.keys()))
-        LOG.debug('validated_pools_state returned: %s'
+        LOG.debug('validated_listeners_state returned: %s'
                   % listener_status)
         for listenerid in listener_status:
             # If the listener status is Unknown, it no longer exists

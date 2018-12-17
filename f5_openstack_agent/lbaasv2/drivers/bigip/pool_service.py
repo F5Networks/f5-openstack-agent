@@ -53,8 +53,17 @@ class PoolServiceBuilder(object):
         :param bigips: Array of BigIP class instances to create pool.
         """
         pool = self.service_adapter.get_pool(service)
+        ex = None
         for bigip in bigips:
-            self.pool_helper.create(bigip, pool)
+            try:
+                self.pool_helper.create(bigip, pool)
+                LOG.warning("Pool created: %s", pool['name'])
+            except HTTPError as err:
+                LOG.info("Pool creation FAILED: %s", pool['name'])
+                ex = err
+        if ex:
+            raise err
+
 
     def delete_pool(self, service, bigips):
         """Delete a pool on set of BIG-IPs.
@@ -66,11 +75,19 @@ class PoolServiceBuilder(object):
         :param bigips: Array of BigIP class instances to delete pool.
         """
         pool = self.service_adapter.get_pool(service)
-
+        ex = None
         for bigip in bigips:
-            self.pool_helper.delete(bigip,
-                                    name=pool["name"],
-                                    partition=pool["partition"])
+            try:
+                self.pool_helper.delete(bigip,
+                                        name=pool["name"],
+                                        partition=pool["partition"])
+                LOG.info("Pool deleted: %s", pool['name'])
+            except HTTPError as err:
+                LOG.info("Pool deletion FAILED: %s", pool['name'])
+                ex = err
+        if ex:
+            raise err
+
 
     def update_pool(self, service, bigips):
         """Update BIG-IP pool.
@@ -80,8 +97,17 @@ class PoolServiceBuilder(object):
         :param bigips: Array of BigIP class instances to create pool.
         """
         pool = self.service_adapter.get_pool(service)
+        ex = None
         for bigip in bigips:
-            self.pool_helper.update(bigip, pool)
+            try:
+                self.pool_helper.update(bigip, pool)
+                LOG.info("Pool updated FAILED: %s", pool['name'])
+            except HTTPError as err:
+                LOG.info("Pool update FAILED: %s", pool['name'])
+                ex = err
+        if ex:
+            raise err
+
 
     def create_healthmonitor(self, service, bigips):
         # create member
@@ -89,11 +115,19 @@ class PoolServiceBuilder(object):
         hm_helper = self._get_monitor_helper(service)
         pool = self.service_adapter.get_pool(service)
 
+        ex = None
         for bigip in bigips:
-            hm_helper.create(bigip, hm)
+            try:
+                hm_helper.create(bigip, hm)
+                # update pool with new health monitor
+                self.pool_helper.update(bigip, pool)
+                LOG.info("Health Monitor created: %s", hm['name'])
+            except HTTPError as err:
+                LOG.info("Health Monitor creation FAILED: %s", hm['name'])
+                ex = err
+        if ex:
+            raise err
 
-            # update pool with new health monitor
-            self.pool_helper.update(bigip, pool)
 
     def delete_healthmonitor(self, service, bigips):
         # delete health monitor
@@ -104,25 +138,39 @@ class PoolServiceBuilder(object):
         pool = self.service_adapter.get_pool(service)
         pool["monitor"] = ""
 
+        ex = None
         for bigip in bigips:
-            # need to first remove monitor reference from pool
-            self.pool_helper.update(bigip, pool)
-
-            # after updating pool, delete monitor
-            hm_helper.delete(bigip,
-                             name=hm["name"],
-                             partition=hm["partition"])
+            try:
+                # need to first remove monitor reference from pool
+                self.pool_helper.update(bigip, pool)
+                # after updating pool, delete monitor
+                hm_helper.delete(bigip,
+                                 name=hm["name"],
+                                 partition=hm["partition"])
+                LOG.info("Health Monitor deleted: %s", hm['name'])
+            except HTTPError as err:
+                LOG.info("Health Monitor deletion FAILED: %s", hm['name'])
+                ex = err
+        if ex:
+            raise err
 
     def update_healthmonitor(self, service, bigips):
         hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
         pool = self.service_adapter.get_pool(service)
 
+        ex = None
         for bigip in bigips:
-            hm_helper.update(bigip, hm)
-
-            # update pool with new health monitor
-            self.pool_helper.update(bigip, pool)
+            try:
+                hm_helper.update(bigip, hm)
+                # update pool with new health monitor
+                self.pool_helper.update(bigip, pool)
+                LOG.info("Health Monitor updated: %s", hm['name'])
+            except HTTPError as err:
+                LOG.info("Health Monitor update FAILED: %s", hm['name'])
+                ex = err
+        if ex:
+            raise err
 
     # Note: can't use BigIPResourceHelper class because members
     # are created within pool objects. Following member methods
@@ -132,13 +180,22 @@ class PoolServiceBuilder(object):
         member = self.service_adapter.get_member(service)
         if '%' not in member['address'] or '%0' in member['address']:
             LOG.error("ccloud: POOL-RDCHECK1 - trying to create member with address: %s", member['address'])
+
+        ex = None
         for bigip in bigips:
-            part = pool["partition"]
-            p = self.pool_helper.load(bigip,
-                                      name=pool["name"],
-                                      partition=part)
-            m = p.members_s.members
-            m.create(**member)
+            try:
+                part = pool["partition"]
+                p = self.pool_helper.load(bigip,
+                                          name=pool["name"],
+                                          partition=part)
+                m = p.members_s.members
+                m.create(**member)
+                LOG.info("Member created: %s", member['address'])
+            except HTTPError as err:
+                LOG.info("Member creation FAILED: %s", member['address'])
+                ex = err
+        if ex:
+            raise err
 
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
@@ -146,6 +203,8 @@ class PoolServiceBuilder(object):
         if '%' not in member['address'] or '%0' in member['address']:
             LOG.error("ccloud: POOL-RDCHECK2 - trying to create member with address: %s", member['address'])
         part = pool["partition"]
+
+        ex = None
         for bigip in bigips:
             p = self.pool_helper.load(bigip,
                                       name=pool["name"],
@@ -158,38 +217,53 @@ class PoolServiceBuilder(object):
                 m = m.load(name=urllib.quote(member["name"]),
                            partition=part)
 
-                m.delete()
                 try:
+                    m.delete()
+                    LOG.info("Member deleted: %s", member['address'])
+
                     node = self.service_adapter.get_member_node(service)
                     self.node_helper.delete(bigip,
                                             name=urllib.quote(node["name"]),
                                             partition=node["partition"])
+                    LOG.info("Node deleted: %s", node["name"])
+
                 except HTTPError as err:
                     # Possilbe error if node is shared with another member.
                     # If so, ignore the error.
                     if err.response.status_code == 400:
                         LOG.debug(err.message)
                     else:
-                        raise
+                        LOG.info("Member or Node deletion FAILED: %s", member['address'])
+                        ex = err
+        if ex:
+            raise err
 
     def update_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
         member = self.service_adapter.get_member(service)
         if '%' not in member['address'] or '%0' in member['address']:
             LOG.error("ccloud: POOL-RDCHECK3 - trying to create member with address: %s", member['address'])
-
         part = pool["partition"]
-        for bigip in bigips:
-            p = self.pool_helper.load(bigip,
-                                      name=pool["name"],
-                                      partition=part)
 
-            m = p.members_s.members
-            if m.exists(name=urllib.quote(member["name"]), partition=part):
-                m = m.load(name=urllib.quote(member["name"]),
-                           partition=part)
-                member.pop("address", None)
-                m.modify(**member)
+        ex = None
+        for bigip in bigips:
+            try:
+                p = self.pool_helper.load(bigip,
+                                          name=pool["name"],
+                                          partition=part)
+
+                m = p.members_s.members
+                if m.exists(name=urllib.quote(member["name"]), partition=part):
+                    m = m.load(name=urllib.quote(member["name"]),
+                               partition=part)
+                    member.pop("address", None)
+                    m.modify(**member)
+                    #LOG.info("Member updated: %s", member['address'])
+            except HTTPError as err:
+                #LOG.info("Member update FAILED: %s", member['address'])
+                ex = err
+        if ex:
+            raise err
 
     def _get_monitor_helper(self, service):
         monitor_type = self.service_adapter.get_monitor_type(service)

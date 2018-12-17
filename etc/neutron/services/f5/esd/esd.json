@@ -11,6 +11,10 @@
     "lbaas_irule": ["cc_proxy_protocol_V2_e8f6_v1_0"],
     "lbaas_one_connect": ""
   },
+  "fastl4_protocol_keepalive_dd2b_v1_0": {
+    "lbaas_fastl4": "cc_fastl4",
+    "lbaas_one_connect": ""
+  },
   "standard_tcp_a3de_v1_0": {
     "lbaas_fastl4": "",
     "lbaas_ctcp": "tcp",
