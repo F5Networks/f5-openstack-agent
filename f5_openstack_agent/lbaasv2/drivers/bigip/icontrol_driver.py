@@ -1682,7 +1682,18 @@ class iControlDriver(LBaaSBaseDriver):
     def create_health_monitor(self, health_monitor, service):
         """Create pool health monitor."""
         LOG.debug("Creating health monitor")
-        return self._common_service_handler(service)
+        service["healthmonitors"] = [health_monitor]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_health_monitor_status([health_monitor])
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('update_health_monitor')
     @is_operational
@@ -1690,14 +1701,36 @@ class iControlDriver(LBaaSBaseDriver):
                               health_monitor, service):
         """Update pool health monitor."""
         LOG.debug("Updating health monitor")
-        return self._common_service_handler(service)
+        service["healthmonitors"] = [health_monitor]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_health_monitor_status([health_monitor])
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('delete_health_monitor')
     @is_operational
     def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor."""
         LOG.debug("Deleting health monitor")
-        return self._common_service_handler(service)
+        service["healthmonitors"] = [health_monitor]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_health_monitor_status([health_monitor])
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @is_operational
     def get_stats(self, service):

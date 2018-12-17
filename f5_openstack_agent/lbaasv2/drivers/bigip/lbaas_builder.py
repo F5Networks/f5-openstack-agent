@@ -246,7 +246,6 @@ class LBaaSBuilder(object):
         monitors = service.get("healthmonitors", list())
         loadbalancer = service.get("loadbalancer", dict())
         bigips = self.driver.get_config_bigips()
-        force_active_status = True
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
@@ -255,9 +254,7 @@ class LBaaSBuilder(object):
                     constants_v2.F5_PENDING_DELETE:
                 if self.pool_builder.create_healthmonitor(svc, bigips):
                     monitor['provisioning_status'] = constants_v2.F5_ERROR
-                    force_active_status = False
 
-                self._set_status_as_active(monitor, force=force_active_status)
 
     def _assure_monitors_deleted(self, service):
         monitors = service["healthmonitors"]
