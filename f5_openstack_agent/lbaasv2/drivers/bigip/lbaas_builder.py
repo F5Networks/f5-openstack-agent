@@ -230,8 +230,8 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = constants_v2.F5_ERROR
                     loadbalancer['provisioning_status'] = constants_v2.F5_ERROR
                 else:
-                    pool['provisioning_status'] = constants_v2.F5_ACTIVE
-                    pool['operating_status'] = constants_v2.F5_ONLINE
+                    if pool['admin_state_up']:
+                        pool['operating_status'] = constants_v2.F5_ONLINE
 
     def _get_pool_members(self, service, pool_id):
         """Return a list of members associated with given pool."""

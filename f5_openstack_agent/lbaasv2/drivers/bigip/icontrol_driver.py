@@ -1568,21 +1568,54 @@ class iControlDriver(LBaaSBaseDriver):
     def create_pool(self, pool, service):
         """Create lb pool."""
         LOG.debug("Creating pool")
-        return self._common_service_handler(service)
+        service["pools"] = [pool]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_pool_status([pool])
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('update_pool')
     @is_operational
     def update_pool(self, old_pool, pool, service):
         """Update lb pool."""
         LOG.debug("Updating pool")
-        return self._common_service_handler(service)
+        service["pools"] = [pool]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_pool_status([pool])
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('delete_pool')
     @is_operational
     def delete_pool(self, pool, service):
         """Delete lb pool."""
         LOG.debug("Deleting pool")
-        return self._common_service_handler(service)
+        service["pools"] = [pool]
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_pool_status([pool])
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('create_member')
     @is_operational
