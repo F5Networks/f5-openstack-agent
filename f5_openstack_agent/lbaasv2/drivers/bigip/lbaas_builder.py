@@ -105,6 +105,7 @@ class LBaaSBuilder(object):
 
         LOG.debug("    _assure_service took %.5f secs" %
                   (time() - start_time))
+        # pzhang(NOTE): post_service_networking use this 
         return all_subnet_hints
 
     @staticmethod
@@ -314,10 +315,8 @@ class LBaaSBuilder(object):
                     member['parent_pool_deleted'] = True
 
                 provisioning = member.get('provisioning_status')
-                if 'missing' not in member \
-                   and provisioning != "PENDING_DELETE":
-                    member['provisioning_status'] = "ACTIVE"
-                elif 'missing' in member:
+
+                if 'missing' in member:
                     member['provisioning_status'] = "ERROR"
 
                 self._update_subnet_hints(member["provisioning_status"],

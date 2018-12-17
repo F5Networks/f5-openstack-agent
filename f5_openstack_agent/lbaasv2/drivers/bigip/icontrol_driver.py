@@ -1622,21 +1622,60 @@ class iControlDriver(LBaaSBaseDriver):
     def create_member(self, member, service):
         """Create pool member."""
         LOG.debug("Creating member")
-        return self._common_service_handler(service)
+        detail_member = \
+            [m for m in service["members"] if m["id"]==member["id"]]
+        service["members"] = detail_member
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_member_status(detail_member, timed_out=False)
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('update_member')
     @is_operational
     def update_member(self, old_member, member, service):
         """Update pool member."""
         LOG.debug("Updating member")
-        return self._common_service_handler(service)
+        detail_member = \
+            [m for m in service["members"] if m["id"]==member["id"]]
+        service["members"] = detail_member
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_member_status(detail_member, timed_out=False)
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('delete_member')
     @is_operational
     def delete_member(self, member, service):
         """Delete pool member."""
         LOG.debug("Deleting member")
-        return self._common_service_handler(service, delete_event=True)
+        detail_member = \
+            [m for m in service["members"] if m["id"]==member["id"]]
+        service["members"] = detail_member
+        self._common_service_handler(service)
+        if self.do_service_update:
+            self._update_member_status(detail_member, timed_out=False)
+            self._update_loadbalancer_status(service, timed_out=False)
+        loadbalancer = service.get('loadbalancer', {}) 
+        lb_provisioning_status = loadbalancer.get("provisioning_status",
+                                                  f5const.F5_ERROR)
+        lb_pending = \
+            (lb_provisioning_status == f5const.F5_PENDING_CREATE or
+             lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+        return lb_pending
 
     @serialized('create_health_monitor')
     @is_operational
