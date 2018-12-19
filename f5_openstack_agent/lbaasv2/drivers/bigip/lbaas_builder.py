@@ -179,6 +179,13 @@ class LBaaSBuilder(object):
         bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
+            # only take action on pending_xx status listeners.
+            provisioning_status = listener['provisioning_status']
+            if not provisioning_status in [
+                constants_v2.F5_PENDING_CREATE,
+                constants_v2.F5_PENDING_UPDATE,
+                constants_v2.F5_PENDING_DELETE]:
+                continue
             error = False
             if self._is_not_pending_delete(listener):
 

@@ -16,6 +16,7 @@
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from requests import HTTPError
@@ -268,6 +269,13 @@ class ListenerServiceBuilder(object):
         else:
             listeners = service['listeners']
             for listener in listeners:
+                # only take action on pending_xx status listeners.
+                provisioning_status = listener['provisioning_status']
+                if not provisioning_status in [
+                    constants_v2.F5_PENDING_CREATE,
+                    constants_v2.F5_PENDING_UPDATE,
+                    constants_v2.F5_PENDING_DELETE]:
+                    continue
                 svc = {"loadbalancer": service["loadbalancer"],
                        "listener": listener}
                 vip = self.service_adapter.get_virtual(svc)
