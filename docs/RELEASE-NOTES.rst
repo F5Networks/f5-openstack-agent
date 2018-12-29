@@ -23,8 +23,8 @@ Added Functionality
 Bug Fixes
 `````````
 
-- Self ip can't be created in both units using the same route domain ids.
-- Deletes incorrect route domain.
+- Can't create self ip in both units using the same route domain ids.
+- Agent deletes incorrect route domain.
 
 Limitations
 ```````````
