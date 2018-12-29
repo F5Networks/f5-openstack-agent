@@ -13,10 +13,12 @@ Added Functionality
 ```````````````````
 * Enhanced Advanced Load Balancer(ALB).
 
-  Add 2 profile types support in Enhanced Service Definition(ESD):
+  - Add 2 profile types support in Enhanced Service Definition(ESD):
 
-  - HTTP profile.
-  - OneConnect profile.
+    - HTTP profile.
+    - OneConnect profile.
+
+  - Expose ESD API to Native Neutron L7 Policy CLI(Neutron Node)
 
 Bug Fixes
 `````````
