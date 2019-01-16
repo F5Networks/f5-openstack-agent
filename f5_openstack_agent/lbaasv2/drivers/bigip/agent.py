@@ -72,7 +72,7 @@ class F5AgentService(n_rpc.Service):
             self.manager.run_periodic_tasks,
             None,
             None
-        )   # Hmmm....  "tg"?
+        )   # tg = olso_service thread group to run periodic tasks
         super(F5AgentService, self).start()
 
 

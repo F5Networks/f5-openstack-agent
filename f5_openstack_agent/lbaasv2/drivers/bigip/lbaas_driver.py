@@ -36,8 +36,8 @@ class LBaaSBaseDriver(object):
     def set_plugin_rpc(self, plugin_rpc):
         """Provide LBaaS Plugin RPC access."""
 
-    def post_init(self):
-        """Run after agent is fully connected """
+    def set_agent_report_state(self, report_state_callback):
+        """Set Agent Report State."""
         raise NotImplementedError()
 
     def set_tunnel_rpc(self, tunnel_rpc):
@@ -45,20 +45,32 @@ class LBaaSBaseDriver(object):
         raise NotImplementedError()
 
     def set_l2pop_rpc(self, l2pop_rpc):
-        """Provide FDB Connector with L2 Population RPC access """
-        raise NotImplementedError()
-
-    def connect(self):
-        """Connect backend API endpoints """
+        """Provide FDB Connector with L2 Population RPC access."""
         raise NotImplementedError()
 
     def flush_cache(self):
         """Remove all cached items."""
         raise NotImplementedError()
 
+    def backend_integrity(self):
+        """Return True, if the agent is be considered viable for services."""
+        raise NotImplemented()
+
     def backup_configuration(self):
-        """Persist backend configuratoins """
+        """Persist backend configuratoins."""
         raise NotImplementedError()
+
+    def generate_capacity_score(self, capacity_policy):
+        """Generate the capacity score of connected devices."""
+        raise NotImplemented
+
+    def update_operating_status(self):
+        """Update pool member operational status from devices to controller."""
+        raise NotImplemented
+
+    def recover_errored_devices(self):
+        """Trigger attempt to reconnect any errored devices."""
+        raise NotImplemented
 
     def get_stats(self, service):
         """Get Stats for a loadbalancer Service."""
@@ -73,12 +85,12 @@ class LBaaSBaseDriver(object):
         """Remove all loadbalancers without references in Neutron."""
         raise NotImplemented
 
-    def exists(self, service):
+    def service_exists(self, service):
         """Check If LBaaS Service is Defined on Driver Target."""
         raise NotImplementedError()
 
     def sync(self, service):
-        """Force Sync a Service on Driver Target """
+        """Force Sync a Service on Driver Target."""
         raise NotImplementedError()
 
     def create_pool(self, pool, service):

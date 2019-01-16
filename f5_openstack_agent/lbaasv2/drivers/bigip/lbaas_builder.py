@@ -50,8 +50,8 @@ class LBaaSBuilder(object):
                                                                         driver.cert_manager,
                                                                         conf.f5_parent_ssl_profile)
         self.pool_builder = pool_service.PoolServiceBuilder(
-            self.service_adapter
-        )
+            self.service_adapter,
+            conf.f5_parent_https_monitor)
         self.l7service = l7policy_service.L7PolicyService(self, conf)
         self.esd = None
 

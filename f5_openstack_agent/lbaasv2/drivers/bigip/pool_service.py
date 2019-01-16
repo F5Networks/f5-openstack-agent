@@ -34,7 +34,7 @@ class PoolServiceBuilder(object):
     health monitors, and members on one or more BIG-IP systems.
     """
 
-    def __init__(self, service_adapter):
+    def __init__(self, service_adapter, f5_parent_https_monitor=None):
         self.service_adapter = service_adapter
         self.http_mon_helper = BigIPResourceHelper(ResourceType.http_monitor)
         self.https_mon_helper = BigIPResourceHelper(ResourceType.https_monitor)
@@ -42,6 +42,7 @@ class PoolServiceBuilder(object):
         self.ping_mon_helper = BigIPResourceHelper(ResourceType.ping_monitor)
         self.pool_helper = BigIPResourceHelper(ResourceType.pool)
         self.node_helper = BigIPResourceHelper(ResourceType.node)
+        self.f5_parent_https_monitor = f5_parent_https_monitor
 
     def create_pool(self, service, bigips):
         """Create a pool on set of BIG-IPs.
@@ -57,12 +58,24 @@ class PoolServiceBuilder(object):
         for bigip in bigips:
             try:
                 self.pool_helper.create(bigip, pool)
-                LOG.warning("Pool created: %s", pool['name'])
+                LOG.info("Pool created: %s", pool['name'])
             except HTTPError as err:
-                LOG.info("Pool creation FAILED: %s", pool['name'])
-                ex = err
+                if err.response.status_code == 409:
+                    LOG.info("Pool already exists...updating")
+                    try:
+                        self.pool_helper.update(bigip, pool)
+                        LOG.info("Pool updated: %s", pool['name'])
+                    except Exception as err:
+                        ex = err
+                        LOG.error("Pool creation/update FAILED for pool %s on %s: %s",
+                                  pool['name'], bigip, err.message)
+                else:
+                    ex = err
+                    LOG.error("Pool creation FAILED for pool %s on %s: %s",
+                              pool['name'], bigip, err.message)
+
         if ex:
-            raise err
+            raise ex
 
 
     def delete_pool(self, service, bigips):
@@ -86,7 +99,7 @@ class PoolServiceBuilder(object):
                 LOG.info("Pool deletion FAILED: %s", pool['name'])
                 ex = err
         if ex:
-            raise err
+            raise ex
 
 
     def update_pool(self, service, bigips):
@@ -106,12 +119,14 @@ class PoolServiceBuilder(object):
                 LOG.info("Pool update FAILED: %s", pool['name'])
                 ex = err
         if ex:
-            raise err
+            raise ex
 
 
     def create_healthmonitor(self, service, bigips):
         # create member
         hm = self.service_adapter.get_healthmonitor(service)
+        #ccloud: set additional attributes like parent monitor in case of creation, might be ignored for update
+        self._set_monitor_attributes(service, hm)
         hm_helper = self._get_monitor_helper(service)
         pool = self.service_adapter.get_pool(service)
 
@@ -123,10 +138,20 @@ class PoolServiceBuilder(object):
                 self.pool_helper.update(bigip, pool)
                 LOG.info("Health Monitor created: %s", hm['name'])
             except HTTPError as err:
-                LOG.info("Health Monitor creation FAILED: %s", hm['name'])
-                ex = err
+                if err.response.status_code == 409:
+                    try:
+                        hm_helper.update(bigip, hm)
+                        LOG.info("Health Monitor upserted: %s", hm['name'])
+                    except Exception as err:
+                        ex = err
+                        LOG.error("Failed to upsert monitor %s on %s: %s",
+                                  hm['name'], bigip, err.message)
+                else:
+                    ex = err
+                    LOG.error("Failed to upsert monitor %s on %s: %s",
+                              hm['name'], bigip, err.message)
         if ex:
-            raise err
+            raise ex
 
 
     def delete_healthmonitor(self, service, bigips):
@@ -152,7 +177,7 @@ class PoolServiceBuilder(object):
                 LOG.info("Health Monitor deletion FAILED: %s", hm['name'])
                 ex = err
         if ex:
-            raise err
+            raise ex
 
     def update_healthmonitor(self, service, bigips):
         hm = self.service_adapter.get_healthmonitor(service)
@@ -170,7 +195,7 @@ class PoolServiceBuilder(object):
                 LOG.info("Health Monitor update FAILED: %s", hm['name'])
                 ex = err
         if ex:
-            raise err
+            raise ex
 
     # Note: can't use BigIPResourceHelper class because members
     # are created within pool objects. Following member methods
@@ -195,7 +220,7 @@ class PoolServiceBuilder(object):
                 LOG.info("Member creation FAILED: %s", member['address'])
                 ex = err
         if ex:
-            raise err
+            raise ex
 
     def delete_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
@@ -226,7 +251,6 @@ class PoolServiceBuilder(object):
                                             name=urllib.quote(node["name"]),
                                             partition=node["partition"])
                     LOG.info("Node deleted: %s", node["name"])
-
                 except HTTPError as err:
                     # Possilbe error if node is shared with another member.
                     # If so, ignore the error.
@@ -236,7 +260,7 @@ class PoolServiceBuilder(object):
                         LOG.info("Member or Node deletion FAILED: %s", member['address'])
                         ex = err
         if ex:
-            raise err
+            raise ex
 
     def update_member(self, service, bigips):
         pool = self.service_adapter.get_pool(service)
@@ -263,7 +287,7 @@ class PoolServiceBuilder(object):
                 #LOG.info("Member update FAILED: %s", member['address'])
                 ex = err
         if ex:
-            raise err
+            raise ex
 
     def _get_monitor_helper(self, service):
         monitor_type = self.service_adapter.get_monitor_type(service)
@@ -276,6 +300,35 @@ class PoolServiceBuilder(object):
         else:
             hm = self.http_mon_helper
         return hm
+
+    def _set_monitor_attributes(self, service, monitor):
+        monitor_type = self.service_adapter.get_monitor_type(service)
+        if monitor_type == "HTTPS":
+            if self.f5_parent_https_monitor:
+                monitor['defaultsFrom'] = self.f5_parent_https_monitor
+
+    def member_exists(self, service, bigip):
+        """Return True if a member exists in a pool.
+
+        :param service: Has pool and member name/partition
+        :param bigip: BIG-IP to get member status from.
+        :return: Boolean
+        """
+        pool = self.service_adapter.get_pool(service)
+        member = self.service_adapter.get_member(service)
+        part = pool["partition"]
+        try:
+            p = self.pool_helper.load(bigip,
+                                      name=pool["name"],
+                                      partition=part)
+
+            m = p.members_s.members
+            if m.exists(name=urllib.quote(member["name"]), partition=part):
+                return True
+        except Exception as e:
+            # log error but continue on
+            LOG.error("Error checking member exists: %s", e.message)
+        return False
 
     def get_member_status(self, service, bigip, status_keys):
         """Return status values for a single pool.

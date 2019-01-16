@@ -212,27 +212,38 @@ class ServiceModelAdapter(object):
                     lbaas_healthmonitor["type"] == "HTTPS"):
 
                 # url path
-                if "url_path" in lbaas_healthmonitor:
-                    healthmonitor["send"] = ("GET " +
-                                             lbaas_healthmonitor["url_path"] +
-                                             " HTTP/1.0\\r\\n\\r\\n")
-                else:
-                    healthmonitor["send"] = "GET / HTTP/1.0\\r\\n\\r\\n"
+                if "url_path" not in lbaas_healthmonitor or not lbaas_healthmonitor["url_path"]:
+                    lbaas_healthmonitor["url_path"] = "/"
+                if "http_method" not in lbaas_healthmonitor or not lbaas_healthmonitor["http_method"]:
+                        lbaas_healthmonitor["http_method"] = "GET"
+
+                healthmonitor["send"] = (lbaas_healthmonitor["http_method"] + " " +
+                                         lbaas_healthmonitor["url_path"] +
+                                         " HTTP/1.0\\r\\n\\r\\n")
 
                 # expected codes
                 healthmonitor["recv"] = self._get_recv_text(
                     lbaas_healthmonitor)
 
         # interval - delay
-        if "delay" in lbaas_healthmonitor:
-            healthmonitor["interval"] = lbaas_healthmonitor["delay"]
+        if "delay" not in lbaas_healthmonitor or not lbaas_healthmonitor["delay"]:
+            lbaas_healthmonitor["delay"] = "5"
+        healthmonitor["interval"] = lbaas_healthmonitor["delay"]
+        # ccloud : ignore OS timeout because F5 treats stuff different
+        # timeout = delay * interval + 1 second
+        if "max_retries" not in lbaas_healthmonitor or not lbaas_healthmonitor["max_retries"]:
+            lbaas_healthmonitor["max_retries"] = "3"
 
-        # timeout
-        if "timeout" in lbaas_healthmonitor:
-            if "max_retries" in lbaas_healthmonitor:
-                timeout = (int(lbaas_healthmonitor["max_retries"]) *
-                           int(lbaas_healthmonitor["timeout"]))
-                healthmonitor["timeout"] = timeout
+        timeout = (int(lbaas_healthmonitor["max_retries"]) *
+                   int(lbaas_healthmonitor["delay"])) + 1
+        healthmonitor["timeout"] = timeout
+
+        # timeout OLD logic
+        # if "timeout" in lbaas_healthmonitor:
+        #     if "max_retries" in lbaas_healthmonitor:
+        #         timeout = (int(lbaas_healthmonitor["max_retries"]) *
+        #                    int(lbaas_healthmonitor["timeout"]))
+        #         healthmonitor["timeout"] = timeout
 
         return healthmonitor
 

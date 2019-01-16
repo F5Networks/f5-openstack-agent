@@ -78,51 +78,46 @@ class NetworkServiceBuilder(object):
     def initialize_vcmp(self):
         self.l2_service.initialize_vcmp_manager()
 
-    def initialize_tunneling(self):
+    def initialize_tunneling(self, bigip):
         # setup tunneling
         vtep_folder = self.conf.f5_vtep_folder
         vtep_selfip_name = self.conf.f5_vtep_selfip_name
-        local_ips = []
 
-        for bigip in self.driver.get_all_bigips():
+        bigip.local_ip = None
 
-            bigip.local_ip = None
+        if not vtep_folder or vtep_folder.lower() == 'none':
+            vtep_folder = 'Common'
 
-            if not vtep_folder or vtep_folder.lower() == 'none':
-                vtep_folder = 'Common'
+        if vtep_selfip_name and \
+                not vtep_selfip_name.lower() == 'none':
 
-            if vtep_selfip_name and \
-               not vtep_selfip_name.lower() == 'none':
+            # profiles may already exist
+            # create vxlan_multipoint_profile`
+            self.network_helper.create_vxlan_multipoint_profile(
+                bigip,
+                'vxlan_ovs',
+                partition='Common')
+            # create l2gre_multipoint_profile
+            self.network_helper.create_l2gre_multipoint_profile(
+                bigip,
+                'gre_ovs',
+                partition='Common')
 
-                # profiles may already exist
-                # create vxlan_multipoint_profile`
-                self.network_helper.create_vxlan_multipoint_profile(
-                    bigip,
-                    'vxlan_ovs',
-                    partition='Common')
-                # create l2gre_multipoint_profile
-                self.network_helper.create_l2gre_multipoint_profile(
-                    bigip,
-                    'gre_ovs',
-                    partition='Common')
+            # find the IP address for the selfip for each box
+            local_ip = self.bigip_selfip_manager.get_selfip_addr(
+                bigip,
+                vtep_selfip_name,
+                partition=vtep_folder
+            )
 
-                # find the IP address for the selfip for each box
-                local_ip = self.bigip_selfip_manager.get_selfip_addr(
-                    bigip,
-                    vtep_selfip_name,
-                    partition=vtep_folder
-                )
-
-                if local_ip:
-                    bigip.local_ip = local_ip
-                    local_ips.append(local_ip)
-                else:
-                    raise f5_ex.MissingVTEPAddress(
-                        'device %s missing vtep selfip %s'
-                        % (bigip.device_name,
-                           '/' + vtep_folder + '/' +
-                           vtep_selfip_name))
-        return local_ips
+            if local_ip:
+                bigip.local_ip = local_ip
+            else:
+                raise f5_ex.MissingVTEPAddress(
+                    'device %s missing vtep selfip %s'
+                    % (bigip.device_name,
+                       '/' + vtep_folder + '/' +
+                       vtep_selfip_name))
 
     def is_service_connected(self, service):
         networks = service.get('networks', {})
@@ -233,6 +228,7 @@ class NetworkServiceBuilder(object):
                         LOG.exception(err)
 
     def _annotate_service_route_domains(self, service):
+        # wtn : subnet for member has to be subnet for vip
         # Add route domain notation to pool member and vip addresses.
         # ccloud: don't allow creation of members without route domain in case of NOT global routed mode setting
         tenant_id = service['loadbalancer']['tenant_id']
