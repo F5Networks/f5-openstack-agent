@@ -595,9 +595,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     self.cache.services = {}
                     self.lbdriver.flush_cache()
                     self.last_resync = now
-                    LOG.debug('ccloud - periodic_sync: Forcing resync of ALL services on resync timer (%d seconds).' % self.service_resync_interval)
+                    LOG.debug('ccloud - periodic_resync: Forcing resync of ALL services on resync timer (%d seconds).' % self.service_resync_interval)
                 else:
-                    LOG.debug('ccloud - periodic_sync: Forcing resync of NON CACHED services on resync timer (%d seconds).' % self.service_resync_interval)
+                    LOG.debug('ccloud - periodic_resync: Forcing resync of NON CACHED services on resync timer (%d seconds).' % self.service_resync_interval)
+            elif self.needs_resync:
+                LOG.debug('ccloud - periodic_resync: Starting requested resync of NON CACHED services.')
             else:
                 LOG.debug("ccloud - periodic_resync: Waiting minimum {0} seconds for next timer triggered resync".format((self.service_resync_interval - (now - self.last_resync ).seconds)))
 
@@ -621,22 +623,22 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
             if self.orphans_cleanup_interval > 0:
                 if (self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval)) < now:
-                    LOG.debug("ccloud - orphans: Start cleaning orphan objects from F5 device")
+                    LOG.debug("ccloud - periodic_resync - orphans: Start cleaning orphan objects from F5 device")
                     self.last_clean_orphans = self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval)
                     if self.clean_orphaned_objects_and_save_device_config():
                         self.needs_resync = True
                     orphan_cache = self.lbdriver.get_orphans_cache()
-                    LOG.debug("ccloud - orphans: Finished cleaning orphan objects from F5 device. {0} objects remaining --> {1}".format(len(orphan_cache), orphan_cache))
+                    LOG.debug("ccloud - periodic_resync - orphans: Finished cleaning orphan objects from F5 device. {0} objects remaining --> {1}".format(len(orphan_cache), orphan_cache))
                 else:
-                    LOG.debug("ccloud - periodic_resync: Skipping cleaning orphan objects because cleanup interval not expired. Waiting another {0} seconds"
+                    LOG.debug("ccloud - periodic_resync - orphans: Skipping cleaning orphan objects because cleanup interval not expired. Waiting another {0} seconds"
                              .format((self.last_clean_orphans + datetime.timedelta(minutes=self.orphans_cleanup_interval) - now).seconds))
             else:
-                LOG.debug("ccloud - orphans: No orphan cleaning enabled. Only SNAT pool orphan handling will be done")
+                LOG.debug("ccloud - periodic_resync - orphans: No orphan cleaning enabled. Only SNAT pool orphan handling will be done")
 
             LOG.info("ccloud - periodic_resync: Resync took {0} seconds".format((datetime.datetime.now() - now).seconds))
 
         except Exception as e:
-            LOG.exception("ccloud - Exception in periodic resync happend: " + str(e.message))
+            LOG.exception("ccloud - periodic_resync: Exception in periodic resync happend: " + str(e.message))
             pass
 
     # ccloud: clean orphaned snat pools
@@ -701,7 +703,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       % list(known_services))
             LOG.debug("ccloud: plugin got all loadbalancer ids as: %s"
                       % list(all_loadbalancer_ids))
-            LOG.debug("ccloud: cache : {}".format(self.cache))
 
             # ccloud: Get rid of 'Cached service not found in neutron database' message
             # Clear cache entry if not found in neutron. In case of a temp issue
