@@ -67,11 +67,11 @@ class LBaaSBuilder(object):
 
         self._assure_listeners_created(service)
 
-        self._assure_pools_configured(service)
-
         self._assure_monitors(service)
 
         self._assure_members(service, all_subnet_hints)
+
+        self._assure_pools_configured(service)
 
         self._assure_pools_deleted(service)
 
@@ -239,6 +239,9 @@ class LBaaSBuilder(object):
                         # update virtual sever pool name, session persistence
                         self.listener_builder.update_session_persistence(
                             svc, bigips)
+
+                    # ccloud: update pool to set lb_method right
+                    self.pool_builder.update_pool(svc, bigips)
 
 
                 except HTTPError as err:
