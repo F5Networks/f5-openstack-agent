@@ -259,7 +259,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         LOG.debug('setting service resync intervl to %d seconds' % self.service_resync_interval)
 
 
-    # calculate last resync date in a way that not all the agents do it at a same time when they got redeployed
+        # calculate last resync date in a way that not all the agents do it at a same time when they got redeployed
         # with that first agent will resync after start_delay seconds, second after start_delay*2 secs, ...
         max_grps = 3
         if self.conf.environment_group_number:
@@ -282,22 +282,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         orphan_delay = int(self.orphans_cleanup_interval / max_grps)
         self.last_clean_orphans = self.last_resync - datetime.timedelta(seconds=(orphan_delay*(max_grps - grp_nr )+max_grps))
 
-        #
-        #
-        #
-        #                           - datetime.timedelta(minutes=t[grp_nr-1] - 5)
-        #
-        #
-        #
-        #
-        # # define interval in minutes
-        # self.orphans_cleanup_interval = 60 * orphans_interval
-        # # schedule first run with 1 hour difference on every agent. Start first run after 5 minutes, 1h and 5 mins, ...
-        # x = self.orphans_cleanup_interval / 3
-        # t = [x*3, x*2, x, x*3, x*2, x, x*3, x*2, x, x*3, x*2, x]
-        # if grp_nr < 1:
-        #     grp_nr = 1
-        # self.last_clean_orphans = datetime.datetime.now() - datetime.timedelta(minutes=t[grp_nr-1] - 5)
         LOG.info('ccloud: Orphan cleanup testrun  = %s', self.conf.ccloud_orphans_cleanup_testrun)
         LOG.info('ccloud: Orphan cleanup interval = %s', self.orphans_cleanup_interval)
         LOG.info('ccloud: Orphan cleanup first run will start at %s UTC', self.last_clean_orphans + datetime.timedelta(seconds=self.orphans_cleanup_interval))
