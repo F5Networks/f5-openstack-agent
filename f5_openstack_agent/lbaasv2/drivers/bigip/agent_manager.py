@@ -266,10 +266,17 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             grp_nr = int(self.conf.environment_group_number)
         else:
             grp_nr = randint(1, max_grps)
+        # Hack for QA with more than 3 env_grps
+        if grp_nr > max_grps:
+            max_grps = max_grps*2
 
         rsi = self.service_resync_interval
         start_delay = int(rsi / max_grps)
         self.last_resync = datetime.datetime.now() - datetime.timedelta(seconds=(start_delay*(max_grps-grp_nr)+max_grps))
+
+        LOG.info('ccloud: Periodic resync interval = %s', self.service_resync_interval)
+        LOG.info('ccloud: Periodic resync triggered by timer of ALL objects will be done latest after %s UTC', self.last_resync + datetime.timedelta(seconds=self.service_resync_interval))
+
 
         # get orphan cleanup interval and set to a value between 0 and 24 if nonsense given
         orphans_interval = float(self.conf.ccloud_orphans_cleanup_interval)
@@ -590,14 +597,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.needs_resync = True
                 self.cache.services = {}
                 self.lbdriver.flush_cache()
-                self.last_resync = now
+                self.last_resync = self.last_resync + datetime.timedelta(seconds=self.service_resync_interval)
                 LOG.debug("ccloud - periodic_resync: Forcing resync of ALL services because of a recovered F5 device")
             elif (now - self.last_resync).seconds > self.service_resync_interval:
                 if not self.needs_resync:
                     self.needs_resync = True
                     self.cache.services = {}
                     self.lbdriver.flush_cache()
-                    self.last_resync = now
+                    self.last_resync = self.last_resync + datetime.timedelta(seconds=self.service_resync_interval)
                     LOG.debug('ccloud - periodic_resync: Forcing resync of ALL services on resync timer (%d seconds).' % self.service_resync_interval)
                 else:
                     LOG.debug('ccloud - periodic_resync: Forcing resync of NON CACHED services on resync timer (%d seconds).' % self.service_resync_interval)
