@@ -500,7 +500,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     )
                 )
                 self.agent_state['configurations'][
-                    'environment_capaciy_score'] = env_score
+                    'environment_capacity_score'] = env_score
             else:
                 self.agent_state['configurations'][
                     'environment_capacity_score'] = 0
