@@ -55,7 +55,7 @@ class NetworkServiceBuilder(object):
         self.service_adapter = self.driver.service_adapter
 
     def post_init(self):
-        # Run and Post Initialization Tasks """
+        # Run and Post Initialization Tasks
         # run any post initialized tasks, now that the agent
         # is fully connected
         self.l2_service.post_init()
@@ -64,11 +64,11 @@ class NetworkServiceBuilder(object):
         self.l2_service.tunnel_sync(tunnel_ips)
 
     def set_tunnel_rpc(self, tunnel_rpc):
-        # Provide FDB Connector with ML2 RPC access """
+        # Provide FDB Connector with ML2 RPC access
         self.l2_service.set_tunnel_rpc(tunnel_rpc)
 
     def set_l2pop_rpc(self, l2pop_rpc):
-        # Provide FDB Connector with ML2 RPC access """
+        # Provide FDB Connector with ML2 RPC access
         self.l2_service.set_l2pop_rpc(l2pop_rpc)
 
     def initialize_vcmp(self):
@@ -227,7 +227,7 @@ class NetworkServiceBuilder(object):
         tenant_id = service['loadbalancer']['tenant_id']
         self.update_rds_cache(tenant_id)
         if 'members' in service:
-            for member in service['members']:
+            for member in service.get('members', []):
                 if 'address' in member:
                     LOG.debug("processing member %s" % member['address'])
                     if 'network_id' in member and member['network_id']:
@@ -708,7 +708,7 @@ class NetworkServiceBuilder(object):
         else:
             update_loadbalancer = loadbalancer
 
-        members = service['members']
+        members = service.get('members', [])
         for member in members:
             member['network'] = service_adapter.get_network_from_service(
                 service, member['network_id'])
@@ -951,7 +951,7 @@ class NetworkServiceBuilder(object):
                                           'subnet': subnet,
                                           'is_for_member': False}
 
-        for member in service['members']:
+        for member in service.get('members', []):
             if member['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
                 if 'network_id' in member:
                     network = service_adapter.get_network_from_service(
