@@ -330,7 +330,7 @@ class iControlDriver(LBaaSBaseDriver):
     def __init__(self, conf, registerOpts=True):
         # The registerOpts parameter allows a test to
         # turn off config option handling so that it can
-        # set the options manually instead. """
+        # set the options manually instead.
         super(iControlDriver, self).__init__(conf)
         self.conf = conf
         if registerOpts:
@@ -664,7 +664,7 @@ class iControlDriver(LBaaSBaseDriver):
             raise
 
     def _open_bigip(self, hostname):
-        # Open bigip connection """
+        # Open bigip connection
         try:
             bigip = self.__bigips[hostname]
             if bigip.status not in ['creating', 'error']:
@@ -840,7 +840,7 @@ class iControlDriver(LBaaSBaseDriver):
     def _validate_ha(self, bigip):
         # if there was only one address supplied and
         # this is not a standalone device, get the
-        # devices trusted by this device. """
+        # devices trusted by this device.
         device_group_name = None
         if self.conf.f5_ha_type == 'standalone':
             if len(self.hostnames) != 1:
@@ -1181,8 +1181,9 @@ class iControlDriver(LBaaSBaseDriver):
                     node_dict[n.name] = n
 
                 for member in members:
-                    rd = self.network_builder.find_subnet_route_domain(
-                        tenant_id, member.get('subnet_id', None))
+                    if self.network_builder:
+                        rd = self.network_builder.find_subnet_route_domain(
+                            tenant_id, member.get('subnet_id', None))
                     node_name = "{}%{}".format(member['address'], rd)
                     node_dict.pop(node_name, None)
 
