@@ -33,13 +33,19 @@ except ImportError as CriticalError:
 
 
 try:
-    from neutron.agent.linux import interface
     from neutron.common import config as common_config
     from neutron.common import rpc as n_rpc
     try:
         from neutron.conf.agent import common as config
     except Exception:
         from neutron.agent.common import config
+    # pzhang(NOTE): for openstack backward compatible
+    try:
+        # m/o/p version neutron config opts
+        from neutron.agent.linux.interface import OPTS as INTERFACE_OPTS
+    except Exception:
+        # q version neutron config opts
+        from neutron.conf.agent.common import INTERFACE_OPTS
 except ImportError as Error:
     pass
 
@@ -48,6 +54,7 @@ import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as f5constants
 
 LOG = oslo_logging.getLogger(__name__)
 
+# pzhang(NOTE): any uses? needs to check for later
 OPTS = [
 
 ]
@@ -71,7 +78,8 @@ def main():
     """F5 LBaaS agent for OpenStack."""
     cfg.CONF.register_opts(OPTS)
     cfg.CONF.register_opts(manager.OPTS)
-    cfg.CONF.register_opts(interface.OPTS)
+    # pzhang(NOTE): may not be used anywhere, needs to check
+    cfg.CONF.register_opts(INTERFACE_OPTS)
 
     config.register_agent_state_opts_helper(cfg.CONF)
     config.register_root_helper(cfg.CONF)
