@@ -50,8 +50,8 @@ class EsdJSONValidation(object):
                     self.esdJSONDict.update(fileJSONDict)
 
             except ValueError as err:
-                    LOG.error('ESD JSON File is invalid: %s', err)
-                    raise f5_ex.esdJSONFileInvalidException()
+                LOG.error('ESD JSON File is invalid: %s', err)
+                raise f5_ex.esdJSONFileInvalidException()
 
         return self.esdJSONDict
 

@@ -256,7 +256,7 @@ class LBaaSBuilder(object):
                 self._set_status_as_active(monitor, force=force_active_status)
 
     def _assure_monitors_deleted(self, service):
-        monitors = service["healthmonitors"]
+        monitors = service.get("healthmonitors", list())
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
 
