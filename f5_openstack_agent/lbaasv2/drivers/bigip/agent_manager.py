@@ -256,7 +256,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
         self.service_resync_interval = conf.service_resync_interval
-        LOG.debug('setting service resync intervl to %d seconds' % self.service_resync_interval)
+        LOG.debug('setting service resync interval to %d seconds' % self.service_resync_interval)
 
 
         # calculate last resync date in a way that not all the agents do it at a same time when they got redeployed

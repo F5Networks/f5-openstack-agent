@@ -336,7 +336,7 @@ def is_operational(method):
                 LOG.error(str(ioe))
                 raise ioe
         else:
-            LOG.error('Cannot execute %s. Not operational. Re-initializing.'
+            LOG.error('Cannot execute %s. Not operational. Re-initializing ...'
                       % method.__name__)
             instance._init_bigips()
     return wrapper
@@ -1086,6 +1086,12 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.assured_networks = {}
             bigip.assured_tenant_snat_subnets = {}
             bigip.assured_gateway_subnets = []
+
+    # method is only needed for f5-utils cli calls like druckhammer, ...
+    @is_operational
+    def make_bigips_operational(self):
+        return
+
 
     @serialized('get_all_deployed_loadbalancers')
     @is_operational
@@ -2100,6 +2106,8 @@ class iControlDriver(LBaaSBaseDriver):
         try:
             try:
                 self.tenant_manager.assure_tenant_created(service)
+                LOG.debug("    _assure_tenant_created took %.5f secs" %
+                          (time() - start_time))
             except Exception as e:
                 LOG.error("Tenant folder creation exception: %s",
                           e.message)
@@ -2107,9 +2115,6 @@ class iControlDriver(LBaaSBaseDriver):
                     loadbalancer['provisioning_status'] = \
                         plugin_const.ERROR
                 raise e
-
-            LOG.debug("    _assure_tenant_created took %.5f secs" %
-                      (time() - start_time))
 
             traffic_group = self.service_to_traffic_group(service)
             loadbalancer['traffic_group'] = traffic_group

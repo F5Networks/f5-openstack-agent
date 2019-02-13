@@ -65,6 +65,7 @@ class BaseAction(object):
 
 
         self.manager = manager.LbaasAgentManager(cfg.CONF)
+        self.manager.lbdriver.make_bigips_operational()
         self.driver = self.manager.lbdriver
 
 
