@@ -779,8 +779,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 try:
                     del self.pending_services[lb_id]
                 except KeyError as e:
-                    LOG.error("LB not found in pending services: {0}".format(
-                        e.message))
+                    # ccloud: message makes no sense if lb got deleted in between of self._get_remote_loadbalancers and
+                    # self.refresh_service(lb_id)
+                    pass
+                    #LOG.error("LB not found in pending services: {0}".format(
+                    #    e.message))
 
         # If there are services in the pending cache resync
         if self.pending_services:
