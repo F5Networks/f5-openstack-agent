@@ -21,7 +21,7 @@ class SyncAll(base_action.BaseAction):
         if self.project_id is not None:
             print("Syncing all LBs in project {}".format(self.project_id))
         else:
-            print("Syncing all LBs hosted on agent {}".format(self.host))
+            print("Syncing all LBs hosted on agent {}".format(self.manager.agent_host))
 
         for service in services:
 

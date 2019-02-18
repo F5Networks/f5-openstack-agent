@@ -239,12 +239,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     target = oslo_messaging.Target(version='1.0')
 
-    def __init__(self, conf):
+    def __init__(self, conf, cli_sync=False):
         """Initialize LbaasAgentManager."""
         super(LbaasAgentManager, self).__init__(conf)
         LOG.debug("Initializing LbaasAgentManager")
         LOG.debug("runtime environment: %s" % sys.version)
 
+        self.cli_sync = cli_sync
         self.conf = conf
         self.context = ncontext.get_admin_context_without_session()
         self.serializer = None
@@ -351,22 +352,25 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.lbdriver.set_tunnel_rpc(self.tunnel_rpc)
         # Allow the driver to update forwarding records in the SDN
         self.lbdriver.set_l2pop_rpc(self.l2_pop_rpc)
-        # Allow the driver to force and agent state report to the controller
-        self.lbdriver.set_agent_report_state(self._report_state)
 
-        # Set the flag to resync tunnels/services
-        self.needs_resync = True
+        # Disable state monitoring for utils calls like druckhammer, ...
+        if not self.cli_sync:
+            # Allow the driver to force and agent state report to the controller
+            self.lbdriver.set_agent_report_state(self._report_state)
 
-        # Mark this agent admin_state_up per startup policy
-        if(self.admin_state_up):
-            self.plugin_rpc.set_agent_admin_state(self.admin_state_up)
+            # Set the flag to resync tunnels/services
+            self.needs_resync = True
 
-        # Start state reporting of agent to Neutron
-        report_interval = self.conf.AGENT.report_interval
-        if report_interval:
-            heartbeat = loopingcall.FixedIntervalLoopingCall(
-                self._report_state)
-            heartbeat.start(interval=report_interval)
+            # Mark this agent admin_state_up per startup policy
+            if(self.admin_state_up):
+                self.plugin_rpc.set_agent_admin_state(self.admin_state_up)
+
+            # Start state reporting of agent to Neutron
+            report_interval = self.conf.AGENT.report_interval
+            if report_interval:
+                heartbeat = loopingcall.FixedIntervalLoopingCall(
+                    self._report_state)
+                heartbeat.start(interval=report_interval)
 
     def _load_driver(self, conf):
         self.lbdriver = None
@@ -528,12 +532,20 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL, run_immediately=True)
     def connect_driver(self, context):
+
+        if self.cli_sync:
+            return
+
         """Trigger driver connect attempts to all devices."""
         if self.lbdriver:
             self.lbdriver.connect()
 
     @periodic_task.periodic_task(spacing=(PERIODIC_TASK_INTERVAL/2))
     def recover_errored_devices(self, context):
+
+        if self.cli_sync:
+            return
+
         """Try to reconnect to errored devices."""
         if self.lbdriver:
             LOG.debug("running periodic task to recover disconnected BIG-IPs")
@@ -550,6 +562,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @periodic_task.periodic_task(
        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
     def scrub_dead_agents_in_env_and_group(self, context):
+
+        if self.cli_sync:
+            return
+
         """Triggering a dead agent scrub on the controller."""
         LOG.debug("ccloud: scrubbing - running periodic scrub_dead_agents_in_env_and_group for EnvGroup %s", self.conf.environment_group_number)
         if not self.plugin_rpc:
@@ -561,6 +577,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @periodic_task.periodic_task(
         spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
     def update_operating_status(self, context):
+
+        if self.cli_sync:
+            return
+
         """Update pool member operational status from devices to controller."""
         if not self.plugin_rpc:
             return
@@ -584,6 +604,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     # cache and resync service definitions form the controller
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def periodic_resync(self, context):
+
+        if self.cli_sync:
+            return
 
         """Determine if it is time to resync services from controller."""
         try:

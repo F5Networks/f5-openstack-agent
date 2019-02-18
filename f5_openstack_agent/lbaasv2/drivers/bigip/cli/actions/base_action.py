@@ -63,8 +63,7 @@ class BaseAction(object):
         if namespace.log:
             common_config.setup_logging()
 
-
-        self.manager = manager.LbaasAgentManager(cfg.CONF)
+        self.manager = manager.LbaasAgentManager(cfg.CONF, cli_sync=True)
         self.manager.lbdriver.make_bigips_operational()
         self.driver = self.manager.lbdriver
 
