@@ -400,6 +400,7 @@ class NetworkHelper(object):
         description = model.get('description', None)
         route_domain_id = model.get('route_domain_id',
                                     const.DEFAULT_ROUTE_DOMAIN_ID)
+        mtu = model.get('mtu', None)
         if not name:
             return None
         v = bigip.tm.net.vlans.vlan
@@ -412,6 +413,9 @@ class NetworkHelper(object):
 
             if description:
                 payload['description'] = description
+            if mtu:
+                payload['mtu'] = mtu
+
             obj = v.create(**payload)
             interface = model.get('interface', None)
             if interface:

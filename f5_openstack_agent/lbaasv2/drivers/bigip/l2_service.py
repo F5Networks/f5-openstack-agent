@@ -255,6 +255,9 @@ class L2ServiceBuilder(object):
                      'partition': network_folder,
                      'description': network['id'],
                      'route_domain_id': network['route_domain_id']}
+            if network['mtu']:
+                model['mtu'] = network['mtu']
+
             self.network_helper.create_vlan(bigip, model)
         except Exception as err:
             LOG.exception("%s", err.message)
@@ -307,6 +310,9 @@ class L2ServiceBuilder(object):
                      'partition': network_folder,
                      'description': network['id'],
                      'route_domain_id': network['route_domain_id']}
+            if network['mtu']:
+                model['mtu'] = network['mtu']
+
             self.network_helper.create_vlan(bigip, model)
         except Exception as err:
             LOG.exception("%s", err.message)
@@ -403,6 +409,9 @@ class L2ServiceBuilder(object):
                  'interface': vlan['interface'],
                  'description': vlan['network']['id'],
                  'route_domain_id': vlan['network']['route_domain_id']}
+        if vlan['network']['mtu']:
+            model['mtu'] = vlan['network']['mtu']
+
         try:
             self.network_helper.create_vlan(vcmp_host['bigip'], model)
             LOG.debug(('Created VLAN %s on vCMP Host %s' %
