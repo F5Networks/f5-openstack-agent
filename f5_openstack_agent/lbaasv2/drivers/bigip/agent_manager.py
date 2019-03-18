@@ -848,7 +848,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.info("ccloud: Start syncing loadbalancer '{}'".format(lb_id))
                 self.lbdriver.sync(service)
                 LOG.info("ccloud: Finished syncing loadbalancer '{}'".format(lb_id))
-                self.cache.put(service, self.agent_host)
+                if service:
+                    self.cache.put(service, self.agent_host)
         except f5_ex.InvalidNetworkType as exc:
             LOG.warning(exc.msg)
         except q_exception.NeutronException as exc:
