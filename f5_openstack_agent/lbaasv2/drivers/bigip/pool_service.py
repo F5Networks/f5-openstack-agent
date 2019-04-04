@@ -358,8 +358,7 @@ class PoolServiceBuilder(object):
                 member_status = self.pool_helper.collect_stats(
                     m, stat_keys=status_keys)
             else:
-                LOG.error("Unable to get member status. "
-                          "Member %s does not exist.", member["name"])
+                LOG.warning("Unable to get member status. Member %s does not exist.", member["name"])
 
         except Exception as e:
             # log error but continue on
