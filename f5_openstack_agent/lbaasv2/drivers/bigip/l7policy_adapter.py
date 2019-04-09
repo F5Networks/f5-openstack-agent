@@ -74,7 +74,127 @@ class Condition(object):
         if condition['invert']:
             setattr(self, 'not', condition['invert'])
         self.__dict__.update(cond_type_map[condition['type']])
-        setattr(self, self.cond_comp_type_map[condition['compare_type']], True)
+        if condition['compare_type'] in self.cond_comp_type_map:
+            setattr(self,
+                    self.cond_comp_type_map[condition['compare_type']],
+                    True)
+            setattr(self, "not_regex", True)
+
+
+class iRule(object):
+    """Describes a single iRule for REGEX l7policy"""
+
+    action_mapping = {
+        "REDIRECT_TO_POOL": '''when HTTP_REQUEST {
+            if {[HTTP::%s] matches_regex "%s"} {
+                pool %s
+            }
+        }''',
+        "REDIRECT_TO_URL": '''when HTTP_REQUEST {
+            if {[HTTP::%s] matches_regex "%s"} {
+                HTTP::redirect "%s"
+            }
+        }'''
+    }
+
+    file_action_mapping = {
+        "REDIRECT_TO_POOL": '''when HTTP_REQUEST {
+            if {[HTTP::%s] ends_with "%s"} {
+                pool %s
+            }
+        }''',
+        "REDIRECT_TO_URL": '''when HTTP_REQUEST {
+            if {[HTTP::%s] ends_with "%s"} {
+                HTTP::redirect "%s"
+            }
+        }'''
+    }
+
+    type_mapping = {
+        "HOST_NAME": "host",
+        "PATH": "path",
+        "FILE_TYPE": "uri",
+        "HEADER": "header %s",
+        "COOKIE": "cookie %s"
+    }
+
+    def __init__(self, policy):
+        self.listener = policy["listener_id"]
+        self.action = policy["action"]
+        self.action_pool = policy.get("redirect_pool_id")
+        self.action_uri = policy.get("redirect_url")
+        self.value = None
+        self.type = None
+        self.apiAnonymous = None
+        self.key = None
+        self.template = None
+
+    def adapt_regex_to_irule(
+            self, policy, service, partition, env_prefix):
+        """Adapt OpenStack rules into conditions and actions."""
+        irule_list = []
+        for os_rule_dict in policy['rules']:
+            rule_id = os_rule_dict['id']
+            os_rule = self._get_l7rule(rule_id, service)
+            if os_rule['provisioning_status'] != 'PENDING_DELETE' and \
+               os_rule['admin_state_up']:
+                if os_rule['compare_type'] == "REGEX":
+                    self.value = os_rule["value"]
+                    self.key = os_rule.get("key")
+
+                    if os_rule["type"] in ("HEADER", "COOKIE"):
+                        self.type = self.type_mapping[
+                            os_rule["type"]] % self.key
+                    else:
+                        self.type = self.type_mapping[os_rule["type"]]
+
+                    if os_rule["type"] == "FILE_TYPE":
+                        self.template = self.file_action_mapping[self.action]
+                    else:
+                        self.template = self.action_mapping[self.action]
+
+                    irule_object = self._l7rule_to_irule(
+                        partition,
+                        env_prefix,
+                        rule_id)
+
+                    irule_list.append(irule_object)
+        return irule_list
+
+    def _l7rule_to_irule(self, partition, env_prefix, rule_id):
+        irule_object = {}
+
+        if self.action == "REDIRECT_TO_POOL":
+            pool_name = self._get_pool_name(
+                partition, env_prefix, self.action_pool)
+            self.apiAnonymous = self.template % (self.type,
+                                                 self.value,
+                                                 pool_name)
+        if self.action == "REDIRECT_TO_URL":
+            self.apiAnonymous = self.template % (self.type,
+                                                 self.value,
+                                                 self.action_uri)
+        irule_object["listener"] = self.listener
+        irule_object["apiAnonymous"] = self.apiAnonymous
+        # irule_object["action_pool"] = self.action_pool
+        # irule_object["action_uri"] = self.action_uri
+        irule_object["partition"] = partition
+        irule_object["name"] = "irule_" + rule_id
+        irule_object["fullPath"] = self._get_fullPath(partition, rule_id)
+        return irule_object
+
+    def _get_l7rule(self, rule_id, service):
+        """Get rule dict from service list."""
+        for rule in service['l7rules']:
+            if rule['id'] == rule_id:
+                return rule
+
+    def _get_pool_name(self, partition, env_prefix, action_value):
+        """Construct pool name from partition and OpenStack pool name."""
+        return '/{0}/{1}{2}'.format(partition, env_prefix, action_value)
+
+    def _get_fullPath(self, partition, name):
+        return '/{0}/{1}'.format(partition, name)
 
 
 class Rule(object):
@@ -96,7 +216,8 @@ class Rule(object):
             if os_rule['provisioning_status'] != 'PENDING_DELETE' and \
                os_rule['admin_state_up']:
                 cond = Condition(os_rule, str(idx))
-                self.conditions.append(cond.__dict__)
+                if cond.__dict__.get("not_regex", False):
+                    self.conditions.append(cond.__dict__)
         act_type, act_val = self._get_action_and_value(policy['id'], service)
         action = Action(act_type, '0', partition, env_prefix, act_val)
         self.actions.append(action.__dict__)
@@ -137,12 +258,16 @@ class L7PolicyServiceAdapter(ServiceModelAdapter):
     """Map OpenStack policies and rules to policy and rules on device."""
     def _adapt_policies_to_rules(self):
         """OS Policies are translated into Rules on the device."""
+        self.iRules = []
         for policy in self.service['l7policies']:
             if policy['provisioning_status'] != 'PENDING_DELETE' and \
                policy['admin_state_up']:
                 bigip_rule = Rule(
                     policy, self.service, self.folder, self.prefix)
                 self.policy_dict['rules'].append(bigip_rule.__dict__)
+                irule = iRule(policy)
+                self.iRules += irule.adapt_regex_to_irule(
+                    policy, self.service, self.folder, self.prefix)
         if not self.policy_dict['rules']:
             msg = 'All policies were in a PENDING_DELETE or admin_state ' \
                 'DOWN.  Deleting wrapper_policy.'

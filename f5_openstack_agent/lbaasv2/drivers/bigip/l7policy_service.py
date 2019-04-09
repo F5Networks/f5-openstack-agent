@@ -35,6 +35,7 @@ class L7PolicyService(object):
     def __init__(self, conf):
         self.conf = conf
         self.policy_helper = BigIPResourceHelper(ResourceType.l7policy)
+        self.rule_helper = BigIPResourceHelper(ResourceType.rule)
 
     def create_l7policy(self, f5_l7policy, bigips):
         LOG.debug("L7PolicyService: create_l7policy")
@@ -102,7 +103,12 @@ class L7PolicyService(object):
 
         l7policy_adapter = L7PolicyServiceAdapter(self.conf)
 
-        os_policies = {'l7rules': [], 'l7policies': [], 'f5_policy': {}}
+        os_policies = {
+            'l7rules': [],
+            'l7policies': [],
+            'f5_policy': {},
+            'iRules': []
+        }
 
         # get all policies and rules for listener referenced by this policy
         listener = lbaas_service.get_listener(l7policy['listener_id'])
@@ -117,6 +123,71 @@ class L7PolicyService(object):
 
         if os_policies['l7policies']:
             os_policies['f5_policy'] = l7policy_adapter.translate(os_policies)
+            if getattr(l7policy_adapter, 'iRules', None):
+                os_policies['iRules'] = l7policy_adapter.iRules
 
         LOG.debug(pprint.pformat(os_policies, indent=2))
         return os_policies
+
+    def create_irule(self, irules, bigips):
+        LOG.debug("L7PolicyService: create_iRule")
+
+        error = None
+        for bigip in bigips:
+            for rule in irules:
+                try:
+                    self.rule_helper.create(bigip, rule)
+                except HTTPError as err:
+                    status_code = err.response.status_code
+                    if status_code == 409:
+                        LOG.debug(
+                            "L7 rule (REGEX irule) already exists...updating")
+                        try:
+                            self.rule_helper.update(bigip, rule)
+                        except Exception as err:
+                            error = f5_ex.L7PolicyUpdateException(err.message)
+                    else:
+                        error = f5_ex.L7PolicyCreationException(err.message)
+                except Exception as err:
+                    error = f5_ex.L7PolicyCreationException(err.message)
+
+                if error:
+                    LOG.error("L7 rule (REGEX irule) creation error: %s" %
+                              error.message)
+
+        return error
+
+    def delete_irule(self, f5_l7policy, bigips):
+        LOG.debug("L7PolicyService:delete_iRule")
+
+        error = False
+        for bigip in bigips:
+            try:
+                self.rule_helper.delete(
+                    bigip, f5_l7policy['name'], f5_l7policy['partition'])
+            except HTTPError as err:
+                status_code = err.response.status_code
+                if status_code == 404:
+                    LOG.warn(
+                        "Deleting L7 policy (iRule) failed...not found: %s",
+                        err.message
+                    )
+                elif status_code == 400:
+                    LOG.debug(
+                        "Deleting L7 policy (iRule) failed...unknown "
+                        "client error: %s", err.message
+                    )
+                    error = f5_ex.L7PolicyDeleteException(err.message)
+                else:
+                    error = f5_ex.L7PolicyDeleteException(err.message)
+            except Exception as err:
+                LOG.exception(err)
+                error = f5_ex.L7PolicyDeleteException(err.message)
+
+            if error:
+                LOG.error(
+                    "L7 Policy (iRule) deletion error: %s",
+                    error.message
+                )
+
+        return error
