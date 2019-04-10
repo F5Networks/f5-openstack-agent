@@ -519,10 +519,23 @@ class LBaaSBuilder(object):
                 error = self.l7service.delete_l7policy(
                     policy['f5_policy'], bigips)
 
-            # pzhang(TODO): add delete l7rules
-            # if policy['l7rules']:
-            #     error = self.l7service.delete_irule(
-            #         policy['l7rules'], bigips)
+            delete_irules = []
+            for rule in (policy['l7rules']):
+                if rule.get('provisioning_status') == 'PENDING_DELETE':
+                    tenant_id = rule.get('tenant_id')
+                    partition = self.service_adapter.get_folder_name(
+                        tenant_id
+                    )
+                    name = 'irule_' + rule.get('id')
+                    delete_rule = {
+                        "name": name,
+                        "partition": partition
+                    }
+                    delete_irules.append(delete_rule)
+
+            if delete_irules:
+                error = self.l7service.delete_irule(
+                    delete_irules, bigips)
 
             for p in policy['l7policies']:
                 if self._is_not_pending_delete(p):
