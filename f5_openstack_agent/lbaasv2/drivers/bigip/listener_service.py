@@ -290,7 +290,7 @@ class ListenerServiceBuilder(object):
 
 
         # process esd's AND create new client ssl config for listener
-        vip = self.apply_esds(service)
+        self.apply_esds(service, vip)
 
         # apply changes to listener AND remove not needed ssl profiles on F5
         error = None
@@ -792,7 +792,7 @@ class ListenerServiceBuilder(object):
                 LOG.debug("Removed iRule {0} for virtual sever {1}".
                           format(irule_name, vs_name))
 
-    def apply_esds(self, service):
+    def apply_esds(self, service, vip):
 
 
         listener = service['listener']
@@ -816,8 +816,6 @@ class ListenerServiceBuilder(object):
         policies = []
         irules = []
         # get virtual server name
-
-        update_attrs = self.service_adapter.get_virtual(service)
 
         # get ssl certificates for listener
         tls = self.service_adapter.get_tls(service)
@@ -915,9 +913,9 @@ class ListenerServiceBuilder(object):
 
                     # persistence
                     if 'lbaas_persist' in esd:
-                        update_attrs['persist'] = [{'name': esd['lbaas_persist']}]
+                        vip['persist'] = [{'name': esd['lbaas_persist']}]
                     if 'lbaas_fallback_persist' in esd:
-                        update_attrs['fallbackPersistence'] = esd['lbaas_fallback_persist']
+                        vip['fallbackPersistence'] = esd['lbaas_fallback_persist']
 
                     # iRules
                     if 'lbaas_irule' in esd:
@@ -955,12 +953,10 @@ class ListenerServiceBuilder(object):
             profiles.append(compression_profile)
 
         if profiles:
-            update_attrs['profiles'] = profiles
+            vip['profiles'] = profiles
 
-        update_attrs['rules'] = update_attrs.get('rules',[])+irules
+        vip['rules'] = vip.get('rules',[])+irules
 
-        update_attrs['policies'] = update_attrs.get('policies',[])+policies
+        vip['policies'] = vip.get('policies',[])+policies
 
-        LOG.info("APPLY_ESD: Listener after ESDs got applied: %s", update_attrs)
-
-        return update_attrs
+        LOG.info("APPLY_ESD: Listener after ESDs got applied: %s", vip)

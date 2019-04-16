@@ -217,7 +217,9 @@ class PoolServiceBuilder(object):
                 m.create(**member)
                 LOG.info("Member created: %s", member['address'])
             except HTTPError as err:
-                LOG.info("Member creation FAILED: %s", member['address'])
+                # ccloud:   Do not log failure because create is always called and updates are made in case of failure
+                #           create member method logs it's own method in case of failure
+                #LOG.info("Member creation FAILED: %s", member['address'])
                 ex = err
         if ex:
             raise ex

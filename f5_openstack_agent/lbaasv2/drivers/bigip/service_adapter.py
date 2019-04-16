@@ -365,9 +365,8 @@ class ServiceModelAdapter(object):
         if pool:
             p = self.init_pool_name(loadbalancer, pool)
             vip["pool"] = p["name"]
-
-
-
+        else:
+            vip["pool"] = None
 
         vip["description"] = self.get_resource_description(listener)
 
@@ -403,11 +402,6 @@ class ServiceModelAdapter(object):
                 vip["enabled"] = True
             else:
                 vip["disabled"] = True
-
-        if "pool" in listener:
-            vip["pool"] = listener["pool"]
-        else:
-            vip["pool"] = None
 
         return vip
 
