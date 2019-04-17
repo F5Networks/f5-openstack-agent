@@ -94,7 +94,12 @@ class iRule(object):
             if {[HTTP::%s] matches_regex "%s"} {
                 HTTP::redirect "%s"
             }
-        }'''
+        }''',
+        "REJECT": '''when HTTP_REQUEST {
+            if {[HTTP::%s] matches_regex "%s"} {
+                drop
+            }
+        } '''
     }
 
     file_action_mapping = {
@@ -107,7 +112,12 @@ class iRule(object):
             if {[HTTP::%s] ends_with "%s"} {
                 HTTP::redirect "%s"
             }
-        }'''
+        }''',
+        "REJECT": '''when HTTP_REQUEST {
+            if {[HTTP::%s] matches_regex "%s"} {
+                drop
+            }
+        } '''
     }
 
     type_mapping = {
@@ -174,6 +184,9 @@ class iRule(object):
             self.apiAnonymous = self.template % (self.type,
                                                  self.value,
                                                  self.action_uri)
+        if self.action == "REJECT":
+            self.apiAnonymous = self.template % (self.type,
+                                                 self.value)
         irule_object["listener"] = self.listener
         irule_object["apiAnonymous"] = self.apiAnonymous
         # irule_object["action_pool"] = self.action_pool
