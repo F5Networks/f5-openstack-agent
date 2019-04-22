@@ -114,7 +114,7 @@ class iRule(object):
             }
         }''',
         "REJECT": '''when HTTP_REQUEST {
-            if {[HTTP::%s] matches_regex "%s"} {
+            if {[HTTP::%s] ends_with "%s"} {
                 drop
             }
         } '''
