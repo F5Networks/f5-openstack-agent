@@ -457,7 +457,7 @@ class LBaaSBuilder(object):
                 error = self.l7service.create_l7policy(
                     policy['f5_policy'], bigips)
 
-            if policy['iRules']:
+            if policy.get('iRules'):
                 error = self.l7service.create_irule(
                     policy['iRules'], bigips)
 
@@ -473,7 +473,7 @@ class LBaaSBuilder(object):
                 listener = lbaas_service.get_listener(listener_id)
                 if listener:
                     listener['f5_policy'] = policy['f5_policy']
-                service['irules'][listener_id] = policy['iRules']
+                service['irules'][listener_id] = policy.get('iRules')
             else:
                 loadbalancer['provisioning_status'] = \
                     constants_v2.F5_ERROR
