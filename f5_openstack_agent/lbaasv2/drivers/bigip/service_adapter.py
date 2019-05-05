@@ -123,11 +123,16 @@ class ServiceModelAdapter(object):
             listener["session_persistence"] = pool["session_persistence"]
 
         listener_policies = self.get_listener_policies(service)
+        listener_irules = self.get_listener_irules(service)
 
         vip = self._map_virtual(loadbalancer, listener, pool=pool,
-                                policies=listener_policies)
+                                policies=listener_policies,
+                                irules=list(listener_irules))
 
         return vip
+
+    def get_listener_irules(self, service):
+        return [r["name"] for r in service.get("irules", [])]
 
     def get_listener_policies(self, service):
         """Return a map of listener L7 policy ids to a list of L7 rules."""
@@ -424,7 +429,8 @@ class ServiceModelAdapter(object):
         else:
             return 'round-robin'
 
-    def _map_virtual(self, loadbalancer, listener, pool=None, policies=None):
+    def _map_virtual(self, loadbalancer, listener,
+                     pool=None, policies=None, irules=[]):
         if policies:
             LOG.debug("L7_debug: policies: %s", policies)
         vip = self._init_virtual_name(loadbalancer, listener)
@@ -473,7 +479,7 @@ class ServiceModelAdapter(object):
         self._add_vlan_and_snat(listener, vip)
         self._add_profiles_session_persistence(listener, pool, vip)
 
-        vip['rules'] = list()
+        vip['rules'] = irules
         vip['policies'] = list()
         if policies:
             self._apply_l7_and_esd_policies(listener, policies, vip)
