@@ -15,6 +15,7 @@ Added Functionality
 
   - Added support for Queens
   - Added some HPB code
+  - Enabled REGEX comparison type for l7 rules
   - Added some IPv6 code
 
 Bug Fixes
