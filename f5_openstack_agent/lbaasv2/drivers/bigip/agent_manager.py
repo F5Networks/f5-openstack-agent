@@ -129,6 +129,11 @@ OPTS = [
         default=60,
         help=(
             'Amount of time to wait for a errored service to become active')
+    ),
+    cfg.BoolOpt(
+        'password_cipher_mode',
+        default=False,
+        help='The flag indicating the password is plain text or not.'
     )
 ]
 
