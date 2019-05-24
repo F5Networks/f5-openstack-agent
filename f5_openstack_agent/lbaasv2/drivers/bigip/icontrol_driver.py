@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import base64
 import datetime
 import hashlib
 import json
@@ -388,6 +389,11 @@ class iControlDriver(LBaaSBaseDriver):
             resource_helper.ResourceType.virtual)
         self.pool_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
+
+        if self.conf.password_cipher_mode:
+            self.conf.icontrol_password = \
+                base64.b64decode(self.conf.icontrol_password)
+            self.conf.os_password = base64.b64decode(self.conf.os_password)
 
         try:
 
