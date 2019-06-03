@@ -56,7 +56,7 @@ Added Functionality
 
 Bug Fixes
 `````````
-- Self ip can't be created in both units using the same route domain ids.
+- Can not create selfip in both units using the same route domain ids.
 - Deletes incorrect route domain.
 
 Limitations
