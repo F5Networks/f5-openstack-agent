@@ -498,6 +498,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.connect()
 
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
+    def refresh_esd(self, context):
+        if self.lbdriver.esd:
+            LOG.debug("refresh esd files")
+            self.lbdriver.init_esd()
+
+    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def recover_errored_devices(self, context):
         """Try to reconnect to errored devices."""
         if self.lbdriver:

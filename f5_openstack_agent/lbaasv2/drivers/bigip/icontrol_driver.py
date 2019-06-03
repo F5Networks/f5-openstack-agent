@@ -369,6 +369,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         # to store the verified esd names
         self.esd_names = []
+        self.esd = None
 
         # service component managers
         self.tenant_manager = None
@@ -832,21 +833,27 @@ class iControlDriver(LBaaSBaseDriver):
             self.network_builder.post_init()
 
         # read enhanced services definitions
+        self.init_esd()
+        self._set_agent_status(False)
+
+    def init_esd(self):
+        # read all esd file from esd dir
+        # init esd object in lbaas_builder
+        # init esd object in service_adapter
         esd_dir = os.path.join(self.get_config_dir(), 'esd')
-        esd = EsdTagProcessor(esd_dir)
+        self.esd = EsdTagProcessor(esd_dir)
         try:
-            esd.process_esd(self.get_all_bigips())
-            self.lbaas_builder.init_esd(esd)
-            self.service_adapter.init_esd(esd)
+            self.esd.process_esd(self.get_all_bigips())
+            self.lbaas_builder.init_esd(self.esd)
+            self.service_adapter.init_esd(self.esd)
 
             LOG.debug('esd details here after process_esd(): ')
-            LOG.debug(esd)
-            self.esd_names = esd.esd_dict.keys() or []
+            LOG.debug(self.esd)
+            self.esd_names = self.esd.esd_dict.keys() or []
             LOG.debug('##### self.esd_names obtainded here:')
             LOG.debug(self.esd_names)
         except f5ex.esdJSONFileInvalidException as err:
             LOG.error("unable to initialize ESD. Error: %s.", err.message)
-        self._set_agent_status(False)
 
     def _validate_ha(self, bigip):
         # if there was only one address supplied and

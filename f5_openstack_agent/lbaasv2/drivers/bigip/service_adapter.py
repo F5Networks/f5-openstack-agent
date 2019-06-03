@@ -479,6 +479,8 @@ class ServiceModelAdapter(object):
         self._add_vlan_and_snat(listener, vip)
         self._add_profiles_session_persistence(listener, pool, vip)
 
+        existed_irules = vip.get('rules', [])
+        irules += existed_irules
         vip['rules'] = irules
         vip['policies'] = list()
         if policies:
@@ -685,9 +687,8 @@ class ServiceModelAdapter(object):
             vip['fallbackPersistence'] = esd['lbaas_fallback_persist']
 
         # iRules
-        vip['rules'] = list()
         if 'lbaas_irule' in esd:
-            irules = []
+            irules = vip.get('rules', [])
             for irule in esd['lbaas_irule']:
                 irules.append('/Common/' + irule)
             vip['rules'] = irules
@@ -765,9 +766,8 @@ class ServiceModelAdapter(object):
             vip['fallbackPersistence'] = esd['lbaas_fallback_persist']
 
         # iRules
-        vip['rules'] = list()
         if 'lbaas_irule' in esd:
-            irules = []
+            irules = vip.get('rules', [])
             for irule in esd['lbaas_irule']:
                 irules.append('/Common/' + irule)
             vip['rules'] = irules
