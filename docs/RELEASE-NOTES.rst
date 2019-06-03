@@ -5,7 +5,7 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
-v9.8.1 (Mitaka, Newton, Ocata, Pike, Queens)
+v9.8.2 (Mitaka, Newton, Ocata, Pike, Queens)
 ------------------------------------
 NOTE: This version of F5 Openstack Agent supports Mitaka, Newton, Ocata, Pike and Queens Openstack releases.
 
@@ -13,10 +13,7 @@ Added Functionality
 ```````````````````
 * Enhanced Advanced Load Balancer(ALB).
 
-  - Added support for Queens
-  - Added some HPB code
-  - Enabled REGEX comparison type for l7 rules
-  - Added some IPv6 code
+  - Added a switch to control whether or not b64decode 2 passwords
 
 Bug Fixes
 `````````
