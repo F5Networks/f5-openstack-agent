@@ -841,19 +841,21 @@ class iControlDriver(LBaaSBaseDriver):
         # init esd object in lbaas_builder
         # init esd object in service_adapter
         esd_dir = os.path.join(self.get_config_dir(), 'esd')
-        self.esd = EsdTagProcessor(esd_dir)
+        # EsdTagProcessor is a singleton, so nothing new
+        self.esd = EsdTagProcessor()
         try:
-            self.esd.process_esd(self.get_all_bigips())
+            self.esd.process_esd(self.get_all_bigips(), esd_dir)
             self.lbaas_builder.init_esd(self.esd)
             self.service_adapter.init_esd(self.esd)
 
-            LOG.debug('esd details here after process_esd(): ')
-            LOG.debug(self.esd)
-            self.esd_names = self.esd.esd_dict.keys() or []
-            LOG.debug('##### self.esd_names obtainded here:')
-            LOG.debug(self.esd_names)
         except f5ex.esdJSONFileInvalidException as err:
             LOG.error("unable to initialize ESD. Error: %s.", err.message)
+
+        LOG.debug('ESD details here after process_esd(): ')
+        LOG.debug(self.esd)
+        self.esd_names = self.esd.esd_dict.keys() or []
+        LOG.debug('self.esd_names obtainded here:')
+        LOG.debug(self.esd_names)
 
     def _validate_ha(self, bigip):
         # if there was only one address supplied and
