@@ -16,6 +16,7 @@
 
 import errno
 import inspect
+import service_launcher
 import sys
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as exceptions
@@ -23,7 +24,6 @@ import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as exceptions
 try:
     from oslo_config import cfg
     from oslo_log import log as oslo_logging
-    from oslo_service import service
 except ImportError as CriticalError:
     frame = inspect.getframeinfo(inspect.currentframe())
     CriticalError = \
@@ -77,14 +77,12 @@ def main():
     """F5 LBaaS agent for OpenStack."""
     cfg.CONF.register_opts(OPTS)
     cfg.CONF.register_opts(manager.OPTS)
-    # pzhang(NOTE): may not be used anywhere, needs to check
     cfg.CONF.register_opts(INTERFACE_OPTS)
 
     config.register_agent_state_opts_helper(cfg.CONF)
     config.register_root_helper(cfg.CONF)
 
     common_config.init(sys.argv[1:])
-    # alias for common_config.setup_logging()...
     config.setup_logging()
 
     mgr = manager.LbaasAgentManager(cfg.CONF)
@@ -94,7 +92,18 @@ def main():
         topic=f5constants.TOPIC_LOADBALANCER_AGENT_V2,
         manager=mgr
     )
-    service.launch(cfg.CONF, svc).wait()
+
+    def handler(*args):
+        LOG.info("receive signal to refresh ESD files!")
+        if mgr.lbdriver.esd_processor:
+            mgr.lbdriver.init_esd()
+            LOG.info("ESD has been refreshed")
+
+    service_launch = service_launcher.F5ServiceLauncher(cfg.CONF)
+
+    service_launch.signal_handler.add_handler('SIGUSR1', handler)
+    service_launch.launch_service(svc)
+    service_launch.wait()
 
 
 if __name__ == '__main__':
