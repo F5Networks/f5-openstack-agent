@@ -134,6 +134,11 @@ OPTS = [
         'password_cipher_mode',
         default=False,
         help='The flag indicating the password is plain text or not.'
+    ),
+    cfg.BoolOpt(
+        'esd_auto_refresh',
+        default=False,
+        help='Enable ESD file periodic refresh'
     )
 ]
 
@@ -499,8 +504,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def refresh_esd(self, context):
-        if self.lbdriver.esd:
-            LOG.debug("refresh esd files")
+        """Refresh ESD files."""
+        if self.lbdriver.esd_processor and self.conf.esd_auto_refresh:
+            LOG.debug("refresh ESD files")
             self.lbdriver.init_esd()
 
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)

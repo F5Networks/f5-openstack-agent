@@ -369,7 +369,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         # to store the verified esd names
         self.esd_names = []
-        self.esd = None
+        self.esd_processor = None
 
         # service component managers
         self.tenant_manager = None
@@ -842,18 +842,18 @@ class iControlDriver(LBaaSBaseDriver):
         # init esd object in service_adapter
         esd_dir = os.path.join(self.get_config_dir(), 'esd')
         # EsdTagProcessor is a singleton, so nothing new
-        self.esd = EsdTagProcessor()
+        self.esd_processor = EsdTagProcessor()
         try:
-            self.esd.process_esd(self.get_all_bigips(), esd_dir)
-            self.lbaas_builder.init_esd(self.esd)
-            self.service_adapter.init_esd(self.esd)
+            self.esd_processor.process_esd(self.get_all_bigips(), esd_dir)
+            self.lbaas_builder.init_esd(self.esd_processor)
+            self.service_adapter.init_esd(self.esd_processor)
 
         except f5ex.esdJSONFileInvalidException as err:
             LOG.error("unable to initialize ESD. Error: %s.", err.message)
 
         LOG.debug('ESD details here after process_esd(): ')
-        LOG.debug(self.esd)
-        self.esd_names = self.esd.esd_dict.keys() or []
+        LOG.debug(self.esd_processor)
+        self.esd_names = self.esd_processor.esd_dict.keys() or []
         LOG.debug('self.esd_names obtainded here:')
         LOG.debug(self.esd_names)
 
@@ -2408,6 +2408,8 @@ class iControlDriver(LBaaSBaseDriver):
     @is_operational
     def update_l7policy(self, old_l7policy, l7policy, service):
         """Update lb l7policy."""
+        if not self.conf.esd_auto_refresh:
+            self.init_esd()
         LOG.debug("Updating l7policy")
         self._common_service_handler(service)
 
