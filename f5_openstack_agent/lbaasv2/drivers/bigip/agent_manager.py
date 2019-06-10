@@ -16,6 +16,7 @@
 #
 
 import datetime
+import os
 import sys
 import uuid
 
@@ -134,6 +135,11 @@ OPTS = [
         'password_cipher_mode',
         default=False,
         help='The flag indicating the password is plain text or not.'
+    ),
+    cfg.BoolOpt(
+        'esd_auto_refresh',
+        default=False,
+        help='Enable ESD file periodic refresh'
     )
 ]
 
@@ -499,9 +505,32 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def refresh_esd(self, context):
-        if self.lbdriver.esd:
-            LOG.debug("refresh esd files")
-            self.lbdriver.init_esd()
+        """Refresh ESD files."""
+        LOG.debug("start refreshing ESD files")
+        if self.lbdriver.esd_processor:
+            try:
+                if self.conf.esd_auto_refresh:
+                    self.lbdriver.init_esd()
+                else:
+                    refresh_flag_path = os.path.join(
+                        self.lbdriver.get_config_dir(),
+                        'esd-refresh'
+                    )
+                    refresh_flag = os.path.isfile(refresh_flag_path)
+                    if refresh_flag:
+                        self.lbdriver.init_esd()
+                        os.remove(refresh_flag_path)
+            except f5_ex.esdJSONFileInvalidException:
+                LOG.warning("ESD file refresh is failed")
+                LOG.warning("ESD file refresh is failed")
+            except IOError as err:
+                LOG.warning("Can not operate esd-refresh file")
+                LOG.warning("Message: %s", err.message)
+            except OSError as err:
+                LOG.warning("esd-refresh file may be removed in advance")
+                LOG.warning("Message: %s", err.message)
+            except Exception:
+                LOG.exception("ESD refresh failed")
 
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def recover_errored_devices(self, context):

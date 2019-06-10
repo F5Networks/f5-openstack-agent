@@ -369,7 +369,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         # to store the verified esd names
         self.esd_names = []
-        self.esd = None
+        self.esd_processor = None
 
         # service component managers
         self.tenant_manager = None
@@ -833,7 +833,12 @@ class iControlDriver(LBaaSBaseDriver):
             self.network_builder.post_init()
 
         # read enhanced services definitions
-        self.init_esd()
+        try:
+            self.init_esd()
+        except f5ex.esdJSONFileInvalidException as err:
+            LOG.error("unable to initialize ESD at startup. Error: %s.",
+                      err.message)
+
         self._set_agent_status(False)
 
     def init_esd(self):
@@ -842,18 +847,18 @@ class iControlDriver(LBaaSBaseDriver):
         # init esd object in service_adapter
         esd_dir = os.path.join(self.get_config_dir(), 'esd')
         # EsdTagProcessor is a singleton, so nothing new
-        self.esd = EsdTagProcessor()
+        self.esd_processor = EsdTagProcessor()
         try:
-            self.esd.process_esd(self.get_all_bigips(), esd_dir)
-            self.lbaas_builder.init_esd(self.esd)
-            self.service_adapter.init_esd(self.esd)
+            self.esd_processor.process_esd(self.get_all_bigips(), esd_dir)
+            self.lbaas_builder.init_esd(self.esd_processor)
+            self.service_adapter.init_esd(self.esd_processor)
 
-        except f5ex.esdJSONFileInvalidException as err:
-            LOG.error("unable to initialize ESD. Error: %s.", err.message)
+        except f5ex.esdJSONFileInvalidException:
+            raise
 
         LOG.debug('ESD details here after process_esd(): ')
-        LOG.debug(self.esd)
-        self.esd_names = self.esd.esd_dict.keys() or []
+        LOG.debug(self.esd_processor)
+        self.esd_names = self.esd_processor.esd_dict.keys() or []
         LOG.debug('self.esd_names obtainded here:')
         LOG.debug(self.esd_names)
 
