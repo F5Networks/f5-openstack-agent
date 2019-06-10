@@ -17,7 +17,7 @@
 import pytest
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
-    EsdJSONValidation
+    EsdTagProcessor
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 
 
@@ -38,57 +38,59 @@ class TestEsdFileHanlder(object):
 
     def test_invalid_dir_name(self):
         # invliad directory name
-        reader = EsdJSONValidation('/as87awoiujasdf/')
-        assert not reader.esdJSONFileList
+        esd = EsdTagProcessor()
+        reader = esd.read_json('/as87awoiujasdf/')
+        assert not reader
 
     def test_no_files(self, get_relative_path):
         # verify no files in empty directory
-        reader = EsdJSONValidation(
+        esd = EsdTagProcessor()
+        reader = esd.read_json(
             '{}/{}/empty_dir'.format(get_relative_path, self.remaining_path))
-        assert not reader.esdJSONFileList
+        assert not reader
 
     def test_no_json_files(self, get_relative_path):
         # verify no files are read in dir that contains non-JSON files
-        reader = EsdJSONValidation(
+        esd = EsdTagProcessor()
+        reader = esd.read_json(
             '{}/{}/no_json'.format(get_relative_path, self.remaining_path))
-        assert not reader.esdJSONFileList
+        assert not reader
 
     def test_mix_json_files(self, get_relative_path):
         # verify single JSON file
-        reader = EsdJSONValidation(
+        esd = EsdTagProcessor()
+        reader = esd.read_json(
             '{}/{}/mix_json/'.format(get_relative_path, self.remaining_path))
-        self.assertEqual(1, len(reader.esdJSONFileList))
+        self.assertEqual(3, len(reader.keys()))
 
     def test_json_only_files(self, get_relative_path):
         # expect three files
-        reader = EsdJSONValidation(
+        esd = EsdTagProcessor()
+        reader = esd.read_json(
             '{}/{}/valid'.format(get_relative_path, self.remaining_path))
-        self.assertEqual(3, len(reader.esdJSONFileList))
+        self.assertEqual(3, len(reader.keys()))
 
     def test_invalid_json(self, get_relative_path):
-        handler = EsdJSONValidation(
-            '{}/{}/invalid'.format(get_relative_path, self.remaining_path))
-
-        # verify exception raised
+        esd = EsdTagProcessor()
         with self.assertRaises(f5_ex.esdJSONFileInvalidException):
-            handler.read_json()
+            esd.read_json(
+                '{}/{}/invalid'.format(get_relative_path, self.remaining_path))
 
     def test_valid_json(self, get_relative_path):
-        handler = EsdJSONValidation(
+        esd = EsdTagProcessor()
+        result = esd.read_json(
             '{}/{}/valid/'.format(get_relative_path, self.remaining_path))
-        dict = handler.read_json()
 
         # verify keys in the final dictionary
-        self.assertIn('app_type_1', dict)
-        self.assertIn('app_type_2', dict)
-        self.assertIn('app_type_3', dict)
+        self.assertIn('app_type_1', result)
+        self.assertIn('app_type_2', result)
+        self.assertIn('app_type_3', result)
 
     def test_empty_json(self, get_relative_path):
         # verify empty file is read
-        handler = EsdJSONValidation(
+        esd = EsdTagProcessor()
+        result = esd.read_json(
             '{}/{}/empty_file/'.format(get_relative_path, self.remaining_path))
-        self.assertEqual(1, len(handler.esdJSONFileList))
 
         # verify empty dict is returned
-        dict = handler.read_json()
-        assert not dict
+        assert not result

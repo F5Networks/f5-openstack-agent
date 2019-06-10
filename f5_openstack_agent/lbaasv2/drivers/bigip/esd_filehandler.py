@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import copy
 import glob
 import json
 import os
@@ -31,56 +32,50 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
 LOG = logging.getLogger(__name__)
 
 
-class EsdJSONValidation(object):
-    """Class reads the json file(s)
+class EsdTagProcessor(object):
+    """Class processes json dictionary
 
-    It checks and parses the content of json file(s) to a dictionary
+    It checks compares the tags from esdjson dictionary to list of valid tags
     """
-    def __init__(self, esddir):
-        self.esdJSONFileList = glob.glob(os.path.join(esddir, '*.json'))
-        self.esdJSONDict = {}
+    _instance = None
+    esd_dict = {}
 
-    def read_json(self):
-        for fileList in self.esdJSONFileList:
+    def __new__(cls, *args, **kwargs):
+        if not isinstance(cls._instance, cls):
+            cls._instance = object.__new__(cls, *args, **kwargs)
+        return cls._instance
+
+    def read_json(self, esddir):
+        esdJSONFileList = glob.glob(os.path.join(esddir, '*.json'))
+        esdJSONDict = {}
+        for fileList in esdJSONFileList:
             try:
                 with open(fileList) as json_file:
                     # Reading each file to a dictionary
                     fileJSONDict = json.load(json_file)
                     # Combine all dictionaries to one
-                    self.esdJSONDict.update(fileJSONDict)
+                    esdJSONDict.update(fileJSONDict)
 
             except ValueError as err:
                 LOG.error('ESD JSON File is invalid: %s', err)
                 raise f5_ex.esdJSONFileInvalidException()
 
-        return self.esdJSONDict
+        return esdJSONDict
 
-
-class EsdTagProcessor(EsdJSONValidation):
-    """Class processes json dictionary
-
-    It checks compares the tags from esdjson dictionary to list of valid tags
-    """
-    def __init__(self, esddir):
-        super(EsdTagProcessor, self).__init__(esddir)
-
-    # this function will return intersection of known valid esd tags
-    # and the ones that user provided
-    def valid_tag_key_subset(self):
-        self.validtags = list(set(self.esdJSONDict.keys()) &
-                              set(self.valid_esd_tags.keys()))
-        if not self.validtags:
-            LOG.error("Intersect of valid esd tags and user esd tags is empty")
-
-        if set(self.validtags) != set(self.esdJSONDict.keys()):
-            LOG.error("invalid tags in the user esd tags")
-
-    def process_esd(self, bigips):
+    def process_esd(self, bigips, esddir):
+        esd_json_backup = {}
+        esd_json_backup = copy.deepcopy(self.esd_dict)
         try:
-            dict = self.read_json()
+            dict = self.read_json(esddir)
             self.esd_dict = self.verify_esd_dict(bigips, dict)
         except f5_ex.esdJSONFileInvalidException:
-            self.esd_dict = {}
+            # if error happens, we set backup esd.
+            self.esd_dict = copy.deepcopy(esd_json_backup)
+            LOG.warning(
+                "ESD JSON File is invalid, "
+                "ESD JSON Dict is restored to %s",
+                esd_json_backup
+            )
             raise
 
     def get_esd(self, name):
