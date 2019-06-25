@@ -575,113 +575,96 @@ class iControlDriver(LBaaSBaseDriver):
 
             self.__last_connect_attempt = datetime.datetime.now()
 
+            min_one_initialized = False
             for hostname in self.hostnames:
-                # connect to each BIG-IP and set it status
-                bigip = self._open_bigip(hostname)
-                if bigip.status == 'connected':
-                    # set the status down until we assure initialized
-                    bigip.status = 'initializing'
-                    bigip.status_message = 'initializing HA viability'
-                    LOG.debug('initializing HA viability %s' % hostname)
-                    device_group_name = None
-                    if not self.ha_validated:
-                        device_group_name = self._validate_ha(bigip)
-                        LOG.debug('HA validated from %s with DSG %s' %
-                                  (hostname, device_group_name))
-                        self.ha_validated = True
-                    if not self.tg_initialized:
-                        self._init_traffic_groups(bigip)
-                        LOG.debug('learned traffic groups from %s as %s' %
-                                  (hostname, self.__traffic_groups))
-                        self.tg_initialized = True
-                    LOG.debug('initializing bigip %s' % hostname)
-                    self._init_bigip(bigip, hostname, device_group_name)
-                    LOG.debug('initializing agent configurations %s'
-                              % hostname)
-                    self._init_agent_config(bigip)
-                    # Assure basic BIG-IP HA is operational
-                    LOG.debug('validating HA state for %s' % hostname)
-                    bigip.status = 'validating_HA'
-                    bigip.status_message = 'validating the current HA state'
-                    if self._validate_ha_operational(bigip):
-                        LOG.debug('setting status to active for %s' % hostname)
-                        bigip.status = 'active'
-                        bigip.status_message = 'BIG-IP ready for provisioning'
-                        self._post_init()
-                    else:
-                        LOG.debug('setting status to error for %s' % hostname)
-                        bigip.status = 'error'
-                        bigip.status_message = 'BIG-IP is not operational'
-                        self._set_agent_status(False)
-                else:
-                    LOG.error('error opening BIG-IP %s - %s:%s'
-                              % (hostname, bigip.status, bigip.status_message))
-                    self._set_agent_status(False)
+                if self._init_bigip_from_hostname(hostname):
+                    min_one_initialized = True
+
+            if min_one_initialized:
+                self._set_agent_status(force_resync=True)
+            else:
+                self._set_agent_status(force_resync=False)
+
         except Exception as exc:
             LOG.error('Invalid agent configuration: %s' % exc.message)
+            self._set_agent_status(force_resync=False)
             raise
-        self._set_agent_status(force_resync=True)
 
     def _init_errored_bigips(self):
+        min_one_initialized = False
         try:
             errored_bigips = self.get_errored_bigips_hostnames()
-            recovered = False
             if errored_bigips:
                 LOG.debug('attempting to recover %s BIG-IPs' %
                           len(errored_bigips))
                 for hostname in errored_bigips:
                     # try to connect and set status
-                    bigip = self._open_bigip(hostname)
-                    if bigip.status == 'connected':
-                        # set the status down until we assure initialized
-                        bigip.status = 'initializing'
-                        bigip.status_message = 'initializing HA viability'
-                        LOG.debug('initializing HA viability %s' % hostname)
-                        LOG.debug('proceeding to initialize %s' % hostname)
-                        device_group_name = None
-                        if not self.ha_validated:
-                            device_group_name = self._validate_ha(bigip)
-                            LOG.debug('HA validated from %s with DSG %s' %
-                                      (hostname, device_group_name))
-                            self.ha_validated = True
-                        if not self.tg_initialized:
-                            self._init_traffic_groups(bigip)
-                            LOG.debug('known traffic groups initialized',
-                                      ' from %s as %s' %
-                                      (hostname, self.__traffic_groups))
-                            self.tg_initialized = True
-                        LOG.debug('initializing bigip %s' % hostname)
-                        self._init_bigip(bigip, hostname, device_group_name)
-                        LOG.debug('initializing agent configurations %s'
-                                  % hostname)
-                        self._init_agent_config(bigip)
-
-                        # Assure basic BIG-IP HA is operational
-                        LOG.debug('validating HA state for %s' % hostname)
-                        bigip.status = 'validating_HA'
-                        bigip.status_message = \
-                            'validating the current HA state'
-                        if self._validate_ha_operational(bigip):
-                            LOG.debug('setting status to active for %s'
-                                      % hostname)
-                            bigip.status = 'active'
-                            bigip.status_message = \
-                                'BIG-IP ready for provisioning'
-                            self._post_init()
-                            self._set_agent_status(True)
-                        else:
-                            LOG.debug('setting status to error for %s'
-                                      % hostname)
-                            bigip.status = 'error'
-                            bigip.status_message = 'BIG-IP is not operational'
-                            self._set_agent_status(False)
-                        recovered = True
+                    if self._init_bigip_from_hostname(hostname):
+                        min_one_initialized = True
+                if min_one_initialized:
+                    self._set_agent_status(force_resync=True)
+                else:
+                    self._set_agent_status(force_resync=False)
             else:
                 LOG.debug('there are no disconnected BIG-IPs to recover')
         except Exception as exc:
             LOG.error('Invalid agent configuration: %s' % exc.message)
             raise
-        return recovered
+        return min_one_initialized
+
+    def _init_bigip_from_hostname(self, hostname):
+        initialized = True
+        LOG.debug('ccloud: _init_bigip_from_hostname: %s' % hostname)
+        try:
+            # connect to each BIG-IP and set it status
+            bigip = self._open_bigip(hostname)
+            if bigip.status == 'connected':
+                # set the status down until we assure initialized
+                bigip.status = 'initializing'
+                bigip.status_message = 'initializing HA viability'
+                LOG.debug('initializing HA viability %s' % hostname)
+                device_group_name = None
+                if not self.ha_validated:
+                    device_group_name = self._validate_ha(bigip)
+                    LOG.debug('HA validated from %s with DSG %s' %
+                              (hostname, device_group_name))
+                    self.ha_validated = True
+                if not self.tg_initialized:
+                    self._init_traffic_groups(bigip)
+                    LOG.debug('learned traffic groups from %s as %s' %
+                              (hostname, self.__traffic_groups))
+                    self.tg_initialized = True
+                LOG.debug('initializing bigip %s' % hostname)
+                self._init_bigip(bigip, hostname, device_group_name)
+                LOG.debug('initializing agent configurations %s'
+                          % hostname)
+                self._init_agent_config(bigip)
+                # Assure basic BIG-IP HA is operational
+                LOG.debug('validating HA state for %s' % hostname)
+                bigip.status = 'validating_HA'
+                bigip.status_message = 'validating the current HA state'
+                if self._validate_ha_operational(bigip):
+                    LOG.debug('setting status to active for %s' % hostname)
+                    bigip.status = 'active'
+                    bigip.status_message = 'BIG-IP ready for provisioning'
+                    self._post_init()
+                else:
+                    LOG.debug('setting status to error for %s' % hostname)
+                    bigip.status = 'error'
+                    bigip.status_message = 'BIG-IP is not operational'
+                    initialized = False
+            else:
+                LOG.error('error opening BIG-IP %s - %s:%s'
+                          % (hostname, bigip.status, bigip.status_message))
+                initialized = False
+        except Exception as e:
+            bigip.status = 'error'
+            bigip.status_message = 'BIG-IP is not operational'
+            LOG.error('ccloud: Invalid agent configuration: BIG-IP %s - %s:%s - %s'
+                      % (hostname, bigip.status, bigip.status_message, e.message))
+            initialized = False
+        finally:
+            return initialized
 
     def _open_bigip(self, hostname):
         # Open bigip connection """
@@ -967,6 +950,7 @@ class iControlDriver(LBaaSBaseDriver):
             self.agent_report_state(force_resync=force_resync)
 
     def get_failover_state(self, bigip):
+        # wtn ging schief
         try:
             if hasattr(bigip, 'tm'):
                 fs = bigip.tm.sys.dbs.db.load(name='failover.state')
