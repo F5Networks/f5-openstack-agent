@@ -543,7 +543,7 @@ class ListenerServiceBuilder(object):
             # Revert VS back to fastL4. Must do an update to replace
             # profiles instead of using add/remove profile. Leave http
             # profiles in place for non-TCP listeners.
-            vip['profiles'] = ['/Common/fastL4']
+            vip['profiles'] = ['/Common/cc_fastL4']
 
         for bigip in bigips:
             # Check for custom app_cookie profile.
@@ -802,8 +802,7 @@ class ListenerServiceBuilder(object):
 
         if l7policies is None:
             return
-
-        fastl4 = {'partition':'Common','name':'fastL4','context':'all'}
+        fastl4 = {'partition':'Common','name':'cc_fastL4','context':'all'}
         stcp_profiles = []
         ctcp_profiles = []
         cssl_profiles = []

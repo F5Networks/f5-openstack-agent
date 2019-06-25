@@ -441,7 +441,7 @@ class ServiceModelAdapter(object):
             vip['persist'] = []
 
         if virtual_type == 'fastl4':
-            vip['profiles'] = ['/Common/fastL4']
+            vip['profiles'] = ['/Common/cc_fastL4']
         else:
             # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
 

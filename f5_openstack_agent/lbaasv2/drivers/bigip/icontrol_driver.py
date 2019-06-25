@@ -950,7 +950,6 @@ class iControlDriver(LBaaSBaseDriver):
             self.agent_report_state(force_resync=force_resync)
 
     def get_failover_state(self, bigip):
-        # wtn ging schief
         try:
             if hasattr(bigip, 'tm'):
                 fs = bigip.tm.sys.dbs.db.load(name='failover.state')
