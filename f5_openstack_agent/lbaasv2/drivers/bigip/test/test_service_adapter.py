@@ -892,8 +892,8 @@ class TestServiceAdapter(object):
                                   dict(name="tcp",
                                        partition="Common",
                                        context="all"),
-                                  "/Common/oneconnect_profile"],
-                        rules=[])
+                                  "/Common/oneconnect_profile"]
+                        )
         assert vip == expected
 
     def test_apply_esd_ctcp_profile(adapter):
@@ -911,8 +911,8 @@ class TestServiceAdapter(object):
                                   dict(name="tcp-mobile-optimized",
                                        partition="Common",
                                        context="all")
-                                  ],
-                        rules=[])
+                                  ]
+                        )
         assert vip == expected
 
     def test_apply_esd_stcp_profile(adapter):
@@ -933,8 +933,8 @@ class TestServiceAdapter(object):
                                   dict(name="tcp",
                                        partition="Common",
                                        context="clientside")
-                                  ],
-                        rules=[])
+                                  ]
+                        )
 
         assert vip == expected
 
@@ -957,8 +957,8 @@ class TestServiceAdapter(object):
                                   dict(name="tcp-mobile-optimized",
                                        partition="Common",
                                        context="clientside")
-                                  ],
-                        rules=[])
+                                  ]
+                        )
 
         assert vip == expected
 
@@ -980,8 +980,8 @@ class TestServiceAdapter(object):
                                   dict(name="clientssl",
                                        partition="Common",
                                        context="clientside")
-                                  ],
-                        rules=[])
+                                  ]
+                        )
 
         assert vip == expected
 
@@ -1001,8 +1001,8 @@ class TestServiceAdapter(object):
                                   dict(name="serverssl",
                                        partition="Common",
                                        context="serverside")
-                                  ],
-                        rules=[])
+                                  ]
+                        )
 
         assert vip == expected
 
@@ -1020,8 +1020,8 @@ class TestServiceAdapter(object):
         expected = dict(profiles=[dict(name="tcp",
                                        partition="Common",
                                        context="all"),
-                                  "/Common/http_profile"],
-                        rules=[])
+                                  "/Common/http_profile"]
+                        )
 
         assert vip == expected
 
@@ -1136,7 +1136,6 @@ class TestServiceAdapter(object):
 
         assert "persist" not in vip
         assert "fallbackPersistence" not in vip
-        assert vip['rules'] == []
         assert vip['policies'] == [dict(name='demo_policy',
                                         partition="Common")]
 
@@ -1262,6 +1261,5 @@ class TestServiceAdapter(object):
 
         assert "persist" not in vip
         assert "fallbackPersistence" not in vip
-        assert vip['rules'] == []
         assert vip['policies'] == [dict(name='demo_policy',
                                         partition="Common")]
