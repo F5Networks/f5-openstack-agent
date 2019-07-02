@@ -369,6 +369,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         # to store the verified esd names
         self.esd_names = []
+        self.esd_processor = None
 
         # service component managers
         self.tenant_manager = None
@@ -499,6 +500,11 @@ class iControlDriver(LBaaSBaseDriver):
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
         self.lbaas_builder = LBaaSBuilder(self.conf, self)
+
+        # Set esd_processor object as soon as ServiceModelAdapter and
+        # LBaaSBuilder class instantiated, otherwise manager RPC exception
+        # will break setting esd_porcessor procedure.
+        self.init_esd()
 
         if self.conf.f5_global_routed_mode:
             self.network_builder = None
@@ -831,22 +837,32 @@ class iControlDriver(LBaaSBaseDriver):
         if self.network_builder:
             self.network_builder.post_init()
 
-        # read enhanced services definitions
-        esd_dir = os.path.join(self.get_config_dir(), 'esd')
-        esd = EsdTagProcessor(esd_dir)
-        try:
-            esd.process_esd(self.get_all_bigips())
-            self.lbaas_builder.init_esd(esd)
-            self.service_adapter.init_esd(esd)
+        self._set_agent_status(False)
 
-            LOG.debug('esd details here after process_esd(): ')
-            LOG.debug(esd)
-            self.esd_names = esd.esd_dict.keys() or []
-            LOG.debug('##### self.esd_names obtainded here:')
-            LOG.debug(self.esd_names)
+    def init_esd(self):
+        # read all esd file from esd dir
+        # init esd object in lbaas_builder
+        # init esd object in service_adapter
+        esd_dir = os.path.join(self.get_config_dir(), 'esd')
+        # EsdTagProcessor is a singleton, so nothing new
+        self.esd_processor = EsdTagProcessor()
+        try:
+            self.esd_processor.process_esd(self.get_all_bigips(), esd_dir)
+            self.lbaas_builder.init_esd(self.esd_processor)
+            self.service_adapter.init_esd(self.esd_processor)
+
         except f5ex.esdJSONFileInvalidException as err:
             LOG.error("unable to initialize ESD. Error: %s.", err.message)
-        self._set_agent_status(False)
+        except IOError as ioe:
+            LOG.error("unable to process ESD file. Error: %s.", ioe.message)
+        except Exception as exc:
+            LOG.error("unknown Error happens. Error: %s.", exc.message)
+
+        LOG.debug('ESD details here after process_esd(): ')
+        LOG.debug(self.esd_processor)
+        self.esd_names = self.esd_processor.esd_dict.keys() or []
+        LOG.debug('self.esd_names obtainded here:')
+        LOG.debug(self.esd_names)
 
     def _validate_ha(self, bigip):
         # if there was only one address supplied and
