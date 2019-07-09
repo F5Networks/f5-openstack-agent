@@ -135,19 +135,18 @@ class NetworkServiceBuilder(object):
             segmentation_id = \
                 network.get('provider:segmentation_id', None)
             if not segmentation_id:
-                if network_type in supported_net_types and \
-                   self.conf.f5_network_segment_physical_network:
+                if network_type in supported_net_types and self.conf.f5_network_segment_physical_network:
                     return False
-
-                LOG.error("Misconfiguration: Segmentation ID is "
-                          "missing from the service definition. "
-                          "Please check the setting for "
-                          "f5_network_segment_physical_network in "
-                          "f5-openstack-agent.ini in case neutron "
-                          "is operating in Hierarchical Port Binding "
-                          "mode.")
-                raise f5_ex.InvalidNetworkDefinition(
-                    "Network segment ID %s not defined" % network_id)
+                else:
+                    LOG.error("Misconfiguration: Segmentation ID is "
+                              "missing from the service definition. "
+                              "Please check the setting for "
+                              "f5_network_segment_physical_network in "
+                              "f5-openstack-agent.ini in case neutron "
+                              "is operating in Hierarchical Port Binding "
+                              "mode.")
+                    raise f5_ex.InvalidNetworkDefinition(
+                        "Network segment ID %s not defined" % network_id)
 
         return True
 
@@ -157,9 +156,13 @@ class NetworkServiceBuilder(object):
         if self.conf.f5_global_routed_mode:
             return
 
-        if not self.is_service_connected(service):
+        try:
+            if not self.is_service_connected(service):
+                raise f5_ex.NetworkNotReady(
+                    "Network segment(s) definition incomplete")
+        except f5_ex.InvalidNetworkDefinition as exc:
             raise f5_ex.NetworkNotReady(
-                "Network segment(s) definition incomplete")
+                "Network segment(s) definition invalid %s", exc.message)
 
         if self.conf.use_namespaces:
             try:
@@ -582,7 +585,11 @@ class NetworkServiceBuilder(object):
         net_type = network.get('provider:network_type', None)
         net_seg_key = network.get('provider:segmentation_id', None)
         if not net_type or not net_seg_key:
-            raise f5_ex.InvalidNetworkType
+            raise f5_ex.InvalidNetworkType(
+                'Provider network attributes not complete:'
+                'provider: network_type - {0} '
+                'and provider:segmentation_id - {1}'
+                .format(net_type, net_seg_key))
 
         return net_type + '-' + str(net_seg_key)
 
@@ -862,7 +869,7 @@ class NetworkServiceBuilder(object):
 
                 my_deleted_names, my_in_use_subnets = \
                     self.bigip_snat_manager.delete_bigip_snats(
-                        bigip, subnetinfo, tenant_id,lb_id)
+                        bigip, subnetinfo, tenant_id, lb_id)
                 deleted_names = deleted_names.union(my_deleted_names)
                 for in_use_subnetid in my_in_use_subnets:
                     subnet_hints['check_for_delete_subnets'].pop(
@@ -1069,7 +1076,6 @@ class NetworkServiceBuilder(object):
         networks = dict()
         loadbalancer = service['loadbalancer']
         service_adapter = self.service_adapter
-
         lb_status = loadbalancer['provisioning_status']
         if lb_status != plugin_const.PENDING_DELETE:
             if 'network_id' in loadbalancer:
