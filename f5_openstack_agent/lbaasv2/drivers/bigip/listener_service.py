@@ -178,7 +178,11 @@ class ListenerServiceBuilder(object):
 
         container = self.cert_manager.get_container(container_ref)
         caClientTrust = bool(container.name and container.name.startswith('CATrust'))
-
+        ex = None
+        error_default = False
+        error_not_default = False
+        # Add 2 client ssl profiles. Try to add both even if first one has errors
+        #
         try:
             # upload cert/key and create SSL profile
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
@@ -191,7 +195,15 @@ class ListenerServiceBuilder(object):
                 parent_profile=self.parent_ssl_profile,
                 caClientTrust=caClientTrust
             )
+        except HTTPError as err:
+            if err.response.status_code != 409:
+                ex = err
+                error_default = True
+        except Exception as e:
+                ex = e
+                error_default = True
 
+        try:
             # upload cert/key and create SSL profile
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
                 bigip,
@@ -203,7 +215,13 @@ class ListenerServiceBuilder(object):
                 parent_profile=self.parent_ssl_profile,
                 caClientTrust=caClientTrust
             )
-
+        except HTTPError as err:
+            if err.response.status_code != 409:
+                ex = err
+                error_not_default = True
+        except Exception as e:
+            ex = e
+            error_not_default = True
         finally:
             del cert
             del key
@@ -212,9 +230,13 @@ class ListenerServiceBuilder(object):
         # add ssl profile to virtual server
         if add_to_vip:
             f5name = name
-            if not sni_default:
+            if sni_default and not error_default:
+                self._add_profile(vip, f5name, bigip, context='clientside')
+            elif not sni_default and not error_not_default:
                 f5name += '_NotDefault'
-            self._add_profile(vip, f5name, bigip, context='clientside')
+                self._add_profile(vip, f5name, bigip, context='clientside')
+        if ex:
+            raise ex
 
     def update_listener(self, service, bigips):
         u"""Update Listener from a single BIG-IP system.
@@ -366,7 +388,6 @@ class ListenerServiceBuilder(object):
             persistence = pool['session_persistence']
             persistence_type = persistence['type']
             vip_persist = self.service_adapter.get_session_persistence(service)
-            listener = service['listener']
             for bigip in bigips:
                 # For TCP listeners, must remove fastL4 profile before adding
                 # adding http/oneconnect profiles.
@@ -593,14 +614,14 @@ class ListenerServiceBuilder(object):
             ssl_client_profile = bigip.tm.ltm.profile.client_ssls.client_ssl
             if ssl_client_profile.exists(name=name, partition='Common'):
                 obj = ssl_client_profile.load(name=name, partition='Common')
-                obj.delete()
+                if obj:
+                    obj.delete()
+                    LOG.info("ccloud: SSL Profile deleted: %s" % name)
 
         except Exception as err:
             # Not necessarily an error -- profile might be referenced
             # by another virtual server.
-            LOG.warn(
-                "Unable to delete profile %s. "
-                "Response message: %s." % (name, err.message))
+            LOG.warn("Unable to delete profile %s . Response message: %s ." % (name, err.message))
 
     def _remove_profile(self, vip, profile_name, bigip):
         """Delete profile.

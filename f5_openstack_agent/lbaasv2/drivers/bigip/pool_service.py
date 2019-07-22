@@ -114,9 +114,9 @@ class PoolServiceBuilder(object):
         for bigip in bigips:
             try:
                 self.pool_helper.update(bigip, pool)
-                LOG.info("Pool updated FAILED: %s", pool['name'])
+                LOG.info("Pool updated DONE: %s", pool['name'])
             except HTTPError as err:
-                LOG.info("Pool update FAILED: %s", pool['name'])
+                LOG.debug("Pool update FAILED: %s", pool['name'])
                 ex = err
         if ex:
             raise ex
@@ -257,7 +257,7 @@ class PoolServiceBuilder(object):
                     # Possilbe error if node is shared with another member.
                     # If so, ignore the error.
                     if err.response.status_code == 400:
-                        LOG.debug(err.message)
+                        LOG.debug("ccloud: Node %s not deleted because it's referenced as member somewhere else" % node['name'])
                     else:
                         LOG.info("Member or Node deletion FAILED: %s", member['address'])
                         ex = err

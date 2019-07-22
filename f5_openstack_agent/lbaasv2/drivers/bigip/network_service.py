@@ -645,7 +645,7 @@ class NetworkServiceBuilder(object):
             if match is not None:
                 ip_address = ip_address[:-len(match.group(0))]
 
-            snat_addrs =  [ip_address]
+            snat_addrs = [ip_address]
             for assure_bigip in assure_bigips:
                 self.bigip_snat_manager.assure_bigip_snats(
                     assure_bigip, subnetinfo, snat_addrs, tenant_id, lb_id)
@@ -704,34 +704,26 @@ class NetworkServiceBuilder(object):
 
         # Delete shared config objects
         deleted_names = set()
+        lb_is_last_on_network = self._is_last_on_network(service)
+
         for bigip in self.driver.get_config_bigips():
             LOG.debug('post_service_networking: calling '
-                      '_assure_delete_networks del nets sh for bigip %s %s'
+                      '_assure_delete_networks del nets shared for bigip %s %s'
                       % (bigip.device_name, all_subnet_hints))
             subnet_hints = all_subnet_hints[bigip.device_name]
-            deleted_names = deleted_names.union(
-                self._assure_delete_nets_shared(bigip, service,
-                                                subnet_hints))
+            deleted_names = deleted_names.union(self._assure_delete_nets_shared(bigip, service, subnet_hints, lb_is_last_on_network))
 
         # Delete non shared config objects
         for bigip in self.driver.get_all_bigips():
             LOG.debug('    post_service_networking: calling '
-                      '    _assure_delete_networks del nets ns for bigip %s'
+                      '    _assure_delete_networks del nets NONshared for bigip %s'
                       % bigip.device_name)
-
             subnet_hints = all_subnet_hints[bigip.device_name]
-
-            deleted_names = deleted_names.union(
-                self._assure_delete_nets_nonshared(
-                    bigip, service, subnet_hints)
-            )
+            deleted_names = deleted_names.union(self._assure_delete_nets_nonshared(bigip, service, subnet_hints, lb_is_last_on_network))
 
         for port_name in deleted_names:
-            LOG.debug('    post_service_networking: calling '
-                      '    del port %s'
-                      % port_name)
-            self.driver.plugin_rpc.delete_port_by_name(
-                port_name=port_name)
+            LOG.debug('    post_service_networking: calling del port %s' % port_name)
+            self.driver.plugin_rpc.delete_port_by_name(port_name=port_name)
 
     @utils.instrument_execution_time
     def update_bigip_l2(self, service):
@@ -848,60 +840,67 @@ class NetworkServiceBuilder(object):
             self.l2_service.delete_bigip_fdbs(
                 bigip, net_folder, fdb_info, loadbalancer)
 
-    def _assure_delete_nets_shared(self, bigip, service, subnet_hints):
+    def _assure_delete_nets_shared(self, bigip, service, subnet_hints, lb_is_last_on_network):
         # Assure shared configuration (which syncs) is deleted
         deleted_names = set()
         tenant_id = service['loadbalancer']['tenant_id']
         lb_id = service['loadbalancer']['id']
 
+        # delete all snats for a subnet id subnet doesn't hold any ip's anymore
         delete_gateway = self.bigip_selfip_manager.delete_gateway_on_subnet
-        for subnetinfo in self._get_subnets_to_delete(bigip,
-                                                      service,
-                                                      subnet_hints):
+        subnet_to_delete, subnet_with_deletion = self._get_subnets_to_delete(bigip, service, subnet_hints)
+        for subnetinfo in subnet_to_delete:
             try:
+                my_deleted_names, my_in_use_subnets = self.bigip_snat_manager.delete_bigip_snats(bigip, subnetinfo, tenant_id, lb_id)
+                deleted_names = deleted_names.union(my_deleted_names)
+                for in_use_subnetid in my_in_use_subnets:
+                    subnet_hints['check_for_delete_subnets'].pop(in_use_subnetid, None)
+
                 if not self.conf.f5_snat_mode:
                     gw_name = delete_gateway(bigip, subnetinfo)
                     deleted_names.add(gw_name)
-                else:
-                    if self._is_last_on_network(service):
-                        self.network_helper.delete_route(bigip, const.DEFAULT_PARTITION,subnetinfo['subnet_id'])
+                elif lb_is_last_on_network:
+                    self.network_helper.delete_route(bigip, const.DEFAULT_PARTITION,subnetinfo['subnet_id'])
 
-
-                my_deleted_names, my_in_use_subnets = \
-                    self.bigip_snat_manager.delete_bigip_snats(
-                        bigip, subnetinfo, tenant_id, lb_id)
-                deleted_names = deleted_names.union(my_deleted_names)
-                for in_use_subnetid in my_in_use_subnets:
-                    subnet_hints['check_for_delete_subnets'].pop(
-                        in_use_subnetid, None)
             except NeutronException as exc:
-                LOG.error("assure_delete_nets_shared: exception: %s"
+                LOG.error("assure_delete_nets_shared: exception #1: %s"
                           % str(exc.msg))
             except Exception as exc:
-                LOG.error("assure_delete_nets_shared: exception: %s"
+                LOG.error("assure_delete_nets_shared: exception #2: %s"
+                          % str(exc.message))
+
+        # delete one snat for a loadbalancer if a load balancer deletion happend
+        for subnetinfo in subnet_with_deletion:
+            try:
+                my_deleted_names, my_in_use_subnets = self.bigip_snat_manager.delete_bigip_snats(bigip, subnetinfo, tenant_id, lb_id)
+                deleted_names = deleted_names.union(my_deleted_names)
+
+            except NeutronException as exc:
+                LOG.error("assure_delete_nets_shared: exception #3: %s"
+                          % str(exc.msg))
+            except Exception as exc:
+                LOG.error("assure_delete_nets_shared: exception #4: %s"
                           % str(exc.message))
 
         return deleted_names
 
     @utils.instrument_execution_time
-    def _assure_delete_nets_nonshared(self, bigip, service, subnet_hints):
+    def _assure_delete_nets_nonshared(self, bigip, service, subnet_hints, lb_is_last_on_network):
         # Delete non shared base objects for networks
         deleted_names = set()
 
-        if not self._is_last_on_network(service):
+        if not lb_is_last_on_network:
             return deleted_names
 
 
-        for subnetinfo in self._get_subnets_to_delete(bigip,
-                                                      service,
-                                                      subnet_hints):
+        subnet_to_delete, subnet_with_deletion = self._get_subnets_to_delete(bigip, service, subnet_hints)
+        for subnetinfo in subnet_to_delete:
             try:
                 network = subnetinfo['network']
                 if self.l2_service.is_common_network(network):
                     network_folder = 'Common'
                 else:
-                    network_folder = self.service_adapter.get_folder_name(
-                        service['loadbalancer']['tenant_id'])
+                    network_folder = self.service_adapter.get_folder_name(service['loadbalancer']['tenant_id'])
 
                 subnet = subnetinfo['subnet']
                 if self.conf.f5_populate_static_arp:
@@ -913,12 +912,10 @@ class NetworkServiceBuilder(object):
                     )
 
 
-                if self._is_last_on_network(service):
+                if lb_is_last_on_network:
                     self.network_helper.delete_route(bigip, const.DEFAULT_PARTITION,subnetinfo['subnet_id'])
 
-
-                local_selfip_name = "local-" + bigip.device_name + \
-                                    "-" + subnet['id']
+                local_selfip_name = "local-" + bigip.device_name + "-" + subnet['id']
 
                 selfip_address = self.bigip_selfip_manager.get_selfip_addr(
                     bigip,
@@ -927,8 +924,7 @@ class NetworkServiceBuilder(object):
                 )
 
                 if not selfip_address:
-                    LOG.error("Failed to get self IP address %s in cleanup.",
-                              local_selfip_name)
+                    LOG.error("Failed to get self IP address %s in cleanup.", local_selfip_name)
 
                 self.bigip_selfip_manager.delete_selfip(
                     bigip,
@@ -937,8 +933,7 @@ class NetworkServiceBuilder(object):
                 )
 
                 if self.l3_binding and selfip_address:
-                    self.l3_binding.unbind_address(subnet_id=subnet['id'],
-                                                   ip_address=selfip_address)
+                    self.l3_binding.unbind_address(subnet_id=subnet['id'], ip_address=selfip_address)
 
                 deleted_names.add(local_selfip_name)
 
@@ -950,8 +945,7 @@ class NetworkServiceBuilder(object):
                 self.remove_from_rds_cache(network, subnet)
                 tenant_id = service['loadbalancer']['tenant_id']
                 if tenant_id in bigip.assured_tenant_snat_subnets:
-                    tenant_snat_subnets = \
-                        bigip.assured_tenant_snat_subnets[tenant_id]
+                    tenant_snat_subnets = bigip.assured_tenant_snat_subnets[tenant_id]
                     if subnet['id'] in tenant_snat_subnets:
                         tenant_snat_subnets.remove(subnet['id'])
             except NeutronException as exc:
@@ -977,10 +971,11 @@ class NetworkServiceBuilder(object):
         return True
 
     @utils.instrument_execution_time
-    def _get_subnets_to_delete(self, bigip, service, subnet_hints):
+    def _get_subnets_to_delete(self, bigip, service, subnet_hints, whole_subnet=True):
         # Clean up any Self IP, SNATs, networks, and folder for
         # services items that we deleted.
         subnets_to_delete = []
+        subnets_with_deletion = []
         for subnetinfo in subnet_hints['check_for_delete_subnets'].values():
             subnet = self.service_adapter.get_subnet_from_service(
                 service, subnetinfo['subnet_id'])
@@ -997,8 +992,10 @@ class NetworkServiceBuilder(object):
                     subnet,
                     route_domain):
                 subnets_to_delete.append(subnetinfo)
+            else:
+                subnets_with_deletion.append(subnetinfo)
 
-        return subnets_to_delete
+        return subnets_to_delete, subnets_with_deletion
 
     @utils.instrument_execution_time
     def _ips_exist_on_subnet(self, bigip, service, subnet, route_domain):

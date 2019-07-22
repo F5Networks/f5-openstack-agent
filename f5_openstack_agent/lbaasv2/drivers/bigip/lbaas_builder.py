@@ -56,40 +56,47 @@ class LBaaSBuilder(object):
         self.esd = None
 
     @utils.instrument_execution_time
-    def assure_service(self, service, traffic_group, all_subnet_hints):
+    def assure_service(self, service, traffic_group, all_subnet_hints, delete_event=False):
         """Assure that a service is configured on the BIGIP."""
         start_time = time()
         LOG.debug("Starting assure_service")
 
+        # Needed also for delete events because of subnet hints
         self._assure_loadbalancer_created(service, all_subnet_hints)
+        # Create and update
+        if not delete_event:
+            self._assure_pools_created(service)
 
-        self._assure_pools_created(service)
+            self._assure_listeners_created(service)
 
-        self._assure_listeners_created(service)
+            self._assure_monitors_created(service)
 
-        self._assure_monitors(service)
+            self._assure_members_created(service, all_subnet_hints)
 
-        self._assure_members(service, all_subnet_hints)
+            self._assure_pools_configured(service)
 
-        self._assure_pools_configured(service)
+            self._assure_l7policies_created(service)
 
-        self._assure_pools_deleted(service)
+            self._assure_l7rules_created(service)
+        else: # delete
+            self._assure_monitors_deleted(service)
 
-        self._assure_l7policies_created(service)
+            self._assure_members_deleted(service, all_subnet_hints)
 
-        self._assure_l7rules_created(service)
+            self._assure_l7rules_deleted(service)
 
-        self._assure_l7rules_deleted(service)
+            self._assure_l7policies_deleted(service)
 
-        self._assure_l7policies_deleted(service)
+            self._assure_pools_deleted(service)
 
-        self._assure_listeners_deleted(service)
+            self._assure_listeners_deleted(service)
 
-        self._assure_loadbalancer_deleted(service)
+            self._assure_loadbalancer_deleted(service)
 
         LOG.debug("    _assure_service took %.5f secs" %
                   (time() - start_time))
         return all_subnet_hints
+
     @utils.instrument_execution_time
     def _assure_loadbalancer_created(self, service, all_subnet_hints):
         if 'loadbalancer' not in service:
@@ -231,18 +238,20 @@ class LBaaSBuilder(object):
 
                     # get associated listeners for pool
                     for listener in pool['listeners']:
-                        svc['listener'] = \
-                            self.get_listener_by_id(service, listener['id'])
-                        self.listener_builder.update_listener_pool(
-                            svc, pool_name["name"], bigips)
+                        listener = self.get_listener_by_id(service, listener['id'])
 
-                        # update virtual sever pool name, session persistence
-                        self.listener_builder.update_session_persistence(
-                            svc, bigips)
+                        if listener:
+                            svc['listener'] = listener
+                            self.listener_builder.update_listener_pool(
+                                svc, pool_name["name"], bigips)
+                            # update virtual sever pool name, session persistence
+                            self.listener_builder.update_session_persistence(
+                                svc, bigips)
 
                     # ccloud: update pool to set lb_method right
                     self.pool_builder.update_pool(svc, bigips)
 
+                    pool['provisioning_status'] = plugin_const.ACTIVE
 
                 except HTTPError as err:
                     if err.response.status_code != 409:
@@ -250,14 +259,14 @@ class LBaaSBuilder(object):
                         loadbalancer['provisioning_status'] = (
                             plugin_const.ERROR)
                         LOG.exception(err)
-                        raise f5_ex.PoolCreationException(err.message)
+                        raise f5_ex.PoolCreationException("ccloud: Error #1" + err.message)
 
                 except Exception as err:
                     pool['provisioning_status'] = plugin_const.ERROR
                     loadbalancer['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.PoolCreationException(err.message)
+                    LOG.exception(err)
+                    raise f5_ex.PoolCreationException("ccloud: Error #2" + err.message)
 
-                pool['provisioning_status'] = plugin_const.ACTIVE
     @utils.instrument_execution_time
     def _get_pool_members(self, service, pool_id):
         '''Return a list of members associated with given pool.'''
@@ -283,7 +292,8 @@ class LBaaSBuilder(object):
                 raise f5_ex.VirtualServerUpdateException(err.message)
 
     @utils.instrument_execution_time
-    def _assure_monitors(self, service):
+    def _assure_monitors_deleted(self, service):
+
         if not (("pools" in service) and ("healthmonitors" in service)):
             return
 
@@ -301,7 +311,22 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     monitor['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MonitorDeleteException(err.message)
-            else:
+
+    @utils.instrument_execution_time
+    def _assure_monitors_created(self, service):
+
+        if not (("pools" in service) and ("healthmonitors" in service)):
+            return
+
+        monitors = service["healthmonitors"]
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_config_bigips()
+
+        for monitor in monitors:
+            svc = {"loadbalancer": loadbalancer,
+                   "healthmonitor": monitor,
+                   "pool": self.get_pool_by_id(service, monitor["pool_id"])}
+            if monitor['provisioning_status'] != plugin_const.PENDING_DELETE:
                 try:
                     self.pool_builder.create_healthmonitor(svc, bigips)
                 except HTTPError as err:
@@ -318,8 +343,60 @@ class LBaaSBuilder(object):
                     raise f5_ex.MonitorCreationException(err.message)
 
                 monitor['provisioning_status'] = plugin_const.ACTIVE
+
     @utils.instrument_execution_time
-    def _assure_members(self, service, all_subnet_hints):
+    def _assure_members_created(self, service, all_subnet_hints):
+        if not (("pools" in service) and ("members" in service)):
+            return
+
+        members = service["members"]
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_config_bigips()
+
+        for member in members:
+            pool = self.get_pool_by_id(service, member["pool_id"])
+            svc = {"loadbalancer": loadbalancer,
+                   "member": member,
+                   "pool": pool}
+
+            if 'port' not in member and \
+                member['provisioning_status'] != plugin_const.PENDING_DELETE:
+                LOG.warning("Member definition does not include Neutron port")
+
+            # delete member if pool is being deleted
+            if not (member['provisioning_status'] == plugin_const.PENDING_DELETE or \
+                pool['provisioning_status'] == plugin_const.PENDING_DELETE):
+                try:
+                    self.pool_builder.create_member(svc, bigips)
+                    member['provisioning_status'] = plugin_const.ACTIVE
+                except HTTPError as err:
+                    if err.response.status_code != 409:
+                        # FIXME(RB)
+                        # pool['provisioning_status'] = plugin_const.ERROR
+                        loadbalancer['provisioning_status'] = (
+                            plugin_const.ERROR
+                        )
+                        raise f5_ex.MemberCreationException(err.message)
+                    else:
+                        try:
+                            self.pool_builder.update_member(svc, bigips)
+                        except Exception as err:
+                            member['provisioning_status'] = plugin_const.ERROR
+                            raise f5_ex.MemberUpdateException(err.message)
+
+
+                except Exception as err:
+                    member['provisioning_status'] = plugin_const.ERROR
+                    raise f5_ex.MemberCreationException(err.message)
+
+                self._update_subnet_hints(member["provisioning_status"],
+                                          member["subnet_id"],
+                                          member["network_id"],
+                                          all_subnet_hints,
+                                          True)
+
+    @utils.instrument_execution_time
+    def _assure_members_deleted(self, service, all_subnet_hints):
         if not (("pools" in service) and ("members" in service)):
             return
 
@@ -345,35 +422,12 @@ class LBaaSBuilder(object):
                 except Exception as err:
                     member['provisioning_status'] = plugin_const.ERROR
                     raise f5_ex.MemberDeleteException(err.message)
-            else:
-                try:
-                    self.pool_builder.create_member(svc, bigips)
-                    member['provisioning_status'] = plugin_const.ACTIVE
-                except HTTPError as err:
-                    if err.response.status_code != 409:
-                        # FIXME(RB)
-                        # pool['provisioning_status'] = plugin_const.ERROR
-                        loadbalancer['provisioning_status'] = (
-                            plugin_const.ERROR
-                        )
-                        raise f5_ex.MemberCreationException(err.message)
-                    else:
-                        try:
-                            self.pool_builder.update_member(svc, bigips)
-                        except Exception as err:
-                            member['provisioning_status'] = plugin_const.ERROR
-                            raise f5_ex.MemberUpdateException(err.message)
 
-
-                except Exception as err:
-                    member['provisioning_status'] = plugin_const.ERROR
-                    raise f5_ex.MemberCreationException(err.message)
-
-            self._update_subnet_hints(member["provisioning_status"],
-                                      member["subnet_id"],
-                                      member["network_id"],
-                                      all_subnet_hints,
-                                      True)
+                self._update_subnet_hints(member["provisioning_status"],
+                                          member["subnet_id"],
+                                          member["network_id"],
+                                          all_subnet_hints,
+                                          True)
 
 
     @utils.instrument_execution_time
@@ -413,7 +467,6 @@ class LBaaSBuilder(object):
                        "pool": pool}
 
                 try:
-
                     # update listeners for pool
                     for listener in pool['listeners']:
                         svc['listener'] = \

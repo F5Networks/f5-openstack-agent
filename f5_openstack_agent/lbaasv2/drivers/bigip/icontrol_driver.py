@@ -1654,7 +1654,7 @@ class iControlDriver(LBaaSBaseDriver):
     def delete_listener(self, listener, service):
         """Delete virtual server"""
         LOG.debug("Deleting listener")
-        return self._common_service_handler(service)
+        return self._common_service_handler(service, delete_event=True)
 
     @serialized('create_pool')
     @is_operational
@@ -1675,7 +1675,7 @@ class iControlDriver(LBaaSBaseDriver):
     def delete_pool(self, pool, service):
         """Delete lb pool"""
         LOG.debug("Deleting pool")
-        return self._common_service_handler(service)
+        return self._common_service_handler(service, delete_event=True)
 
     @serialized('create_member')
     @is_operational
@@ -1717,7 +1717,7 @@ class iControlDriver(LBaaSBaseDriver):
     def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor"""
         LOG.debug("Deleting health monitor")
-        return self._common_service_handler(service)
+        return self._common_service_handler(service, delete_event=True)
 
     # sapcc: get all snat pools
     @serialized('get_all_snat_pools')
@@ -2141,14 +2141,17 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.debug("ccloud: Pre assure service ***********************************************")
             self.lbaas_builder.assure_service(service,
                                               traffic_group,
-                                              all_subnet_hints)
+                                              all_subnet_hints,
+                                              delete_event)
             LOG.debug("ccloud: Post assure service **********************************************")
 
             if self.network_builder:
                 start_time = time()
                 try:
+                    LOG.debug("ccloud: Pre post_service_networking ***********************************************")
                     self.network_builder.post_service_networking(
                         service, all_subnet_hints)
+                    LOG.debug("ccloud: Post post_service_networking **********************************************")
                 except Exception as error:
                     LOG.error("Post-network exception: icontrol_driver: %s",
                               error.message)
@@ -2579,7 +2582,7 @@ class iControlDriver(LBaaSBaseDriver):
     def delete_l7policy(self, l7policy, service):
         """Delete lb l7policy"""
         LOG.debug("Deleting l7policy")
-        self._common_service_handler(service)
+        self._common_service_handler(service, delete_event=True)
 
     @serialized('create_l7rule')
     @is_operational
@@ -2600,7 +2603,7 @@ class iControlDriver(LBaaSBaseDriver):
     def delete_l7rule(self, l7rule, service):
         """Delete lb l7rule"""
         LOG.debug("Deleting l7rule")
-        self._common_service_handler(service)
+        self._common_service_handler(service, delete_event=True)
 
     def trace_service_requests(self, service):
         with open(self.file_name, 'r+') as fp:

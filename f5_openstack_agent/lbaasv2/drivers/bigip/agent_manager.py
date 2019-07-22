@@ -857,6 +857,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         except Exception as exc:
             LOG.exception("Service validation error: %s" % exc.message)
 
+
     @staticmethod
     def has_provisioning_status_of_error(service):
         """Determine if a service is in an ERROR/DEGRADED status.

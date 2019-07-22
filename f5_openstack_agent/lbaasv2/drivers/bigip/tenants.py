@@ -80,7 +80,7 @@ class BigipTenantManager(object):
             route_domain_id = None
             bigiprds = []
             for bigip in self.driver.get_all_bigips():
-                bigip_route_domain = self.network_helper.route_domain_exists(bigip, const.DEFAULT_PARTITION,network_id)
+                bigip_route_domain = self.network_helper.route_domain_exists(bigip, const.DEFAULT_PARTITION, network_id)
                 bigip_route_domain_id = bigip_route_domain.id if bigip_route_domain else None
                 # rd already created but not different between bigips (maybe not created on all of them)
                 if bigip_route_domain_id and route_domain_id is None:
@@ -117,7 +117,7 @@ class BigipTenantManager(object):
                 # error within rd creation procedure
                 except Exception as err:
                     LOG.exception(err.message)
-                    raise f5ex.RouteDomainCreationException("Failed to create route domain for network %s in tenant in %s" % (network_id, const.DEFAULT_PARTITION))
+                    raise f5ex.RouteDomainCreationException("Failed to create route domain for network %s in tenant %s" % (network_id, const.DEFAULT_PARTITION))
 
         LOG.debug("Allocated route domain for network %s for tenant %s"
                   % (network_id, tenant_id))
