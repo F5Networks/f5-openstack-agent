@@ -293,6 +293,16 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'trace_service_requests',
         default=False,
         help='Log service object.'
+    ),
+    cfg.BoolOpt(
+        'report_esd_names_in_agent',
+        default=False,
+        help='whether or not to add valid esd names during report.'
+    ),
+    cfg.StrOpt(
+        'f5_agent_lic',
+        default='TEST,TEST',
+        help='F5 agent license'
     )
 ]
 
@@ -356,6 +366,9 @@ class iControlDriver(LBaaSBaseDriver):
         self.agent_configurations = {}  # overrides base, same value
         self.agent_configurations['device_drivers'] = [self.driver_name]
         self.agent_configurations['icontrol_endpoints'] = {}
+
+        # to store the verified esd names
+        self.esd_names = []
 
         # service component managers
         self.tenant_manager = None
@@ -435,6 +448,11 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.error("exception in intializing communications to BIG-IPs %s"
                       % str(exc))
             self._set_agent_status(False)
+
+    def get_valid_esd_names(self):
+        LOG.debug("verified esd names in get_valid_esd_names():")
+        LOG.debug(self.esd_names)
+        return self.esd_names
 
     def _init_bigip_managers(self):
 
@@ -578,6 +596,14 @@ class iControlDriver(LBaaSBaseDriver):
                         bigip.status = 'active'
                         bigip.status_message = 'BIG-IP ready for provisioning'
                         self._post_init()
+                        if bigip.status == 'active':
+                            LOG.debug('starting check license...')
+                            LOG.debug('starting check license...')
+                            LOG.debug('jlkjadslkfjl;jal;fkj')
+                            #if not self.lic_check(bigip):
+                            #    bigip.status = 'error'
+                            #    bigip.status_message = 'No agent license for this device'
+                            #    self._set_agent_status(False)
                     else:
                         LOG.debug('setting status to error for %s' % hostname)
                         bigip.status = 'error'
@@ -638,6 +664,12 @@ class iControlDriver(LBaaSBaseDriver):
                                 'BIG-IP ready for provisioning'
                             self._post_init()
                             self._set_agent_status(True)
+                            if bigip.status == 'active':
+                                LOG.debug('starting check license')
+                                # if not self.lic_check(bigip):
+                                #     bigip.status = 'error'
+                                #     bigip.status_message = 'No agent license for this device'
+                                #     self._set_agent_status(False)
                         else:
                             LOG.debug('setting status to error for %s'
                                       % hostname)
@@ -814,6 +846,12 @@ class iControlDriver(LBaaSBaseDriver):
             esd.process_esd(self.get_all_bigips())
             self.lbaas_builder.init_esd(esd)
             self.service_adapter.init_esd(esd)
+
+            LOG.debug('esd details here after process_esd(): ')
+            LOG.debug(esd)
+            self.esd_names = esd.esd_dict.keys() or []
+            LOG.debug('##### self.esd_names obtainded here:')
+            LOG.debug(self.esd_names)
         except f5ex.esdJSONFileInvalidException as err:
             LOG.error("unable to initialize ESD. Error: %s.", err.message)
         self._set_agent_status(False)
@@ -926,6 +964,11 @@ class iControlDriver(LBaaSBaseDriver):
             self.agent_configurations[
                 'icontrol_endpoints'][bigip.hostname][
                     'status_message'] = bigip.status_message
+
+            if self.conf.report_esd_names_in_agent:
+                LOG.debug('adding names to report:')
+                self.agent_configurations['esd_name'] = \
+                    self.get_valid_esd_names()
         # Policy - if any BIG-IP are active we're operational
         if self.get_active_bigips():
             self.operational = True
@@ -1099,7 +1142,7 @@ class iControlDriver(LBaaSBaseDriver):
                                         bigip, folder)
                                     self.system_helper.purge_folder(
                                         bigip, folder)
-                                    LOG.error('orphaned folder %s on %s' %
+                                    LOG.debug('orphaned folder %s on %s' %
                                               (folder, bigip.hostname))
                                 except Exception as exc:
                                     LOG.error('error purging folder %s: %s' %
@@ -1777,7 +1820,7 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in self.get_config_bigips():
             # Does the tenant folder exist?
             if not self.system_helper.folder_exists(bigip, folder_name):
-                LOG.error("Folder %s does not exists on bigip: %s" %
+                LOG.debug("Folder %s does not exist on bigip: %s" %
                           (folder_name, bigip.hostname))
                 return False
 
@@ -1785,10 +1828,10 @@ class iControlDriver(LBaaSBaseDriver):
             virtual_address = VirtualAddress(self.service_adapter,
                                              loadbalancer)
             if not virtual_address.exists(bigip):
-                LOG.error("Virtual address %s(%s) does not "
-                          "exists on bigip: %s" % (virtual_address.name,
-                                                   virtual_address.address,
-                                                   bigip.hostname))
+                LOG.debug("Virtual address %s(%s) does not "
+                          "exist on bigip: %s" % (virtual_address.name,
+                                                  virtual_address.address,
+                                                  bigip.hostname))
                 return False
 
             # Ensure that each virtual service exists.
@@ -1800,7 +1843,7 @@ class iControlDriver(LBaaSBaseDriver):
                 if not self.vs_manager.exists(bigip,
                                               name=virtual_server['name'],
                                               partition=folder_name):
-                    LOG.error("Virtual /%s/%s not found on bigip: %s" %
+                    LOG.debug("Virtual /%s/%s not found on bigip: %s" %
                               (virtual_server['name'], folder_name,
                                bigip.hostname))
                     return False
@@ -1814,7 +1857,7 @@ class iControlDriver(LBaaSBaseDriver):
                         bigip,
                         name=bigip_pool['name'],
                         partition=folder_name):
-                    LOG.error("Pool /%s/%s not found on bigip: %s" %
+                    LOG.debug("Pool /%s/%s not found on bigip: %s" %
                               (folder_name, bigip_pool['name'],
                                bigip.hostname))
                     return False
@@ -1829,7 +1872,7 @@ class iControlDriver(LBaaSBaseDriver):
                     # First check that number of members deployed
                     # is equal to the number in the service.
                     if len(deployed_members) != len(pool['members']):
-                        LOG.error("Pool %s members member count mismatch "
+                        LOG.debug("Pool %s members member count mismatch "
                                   "match: deployed %d != service %d" %
                                   (bigip_pool['name'], len(deployed_members),
                                    len(pool['members'])))
@@ -1845,7 +1888,7 @@ class iControlDriver(LBaaSBaseDriver):
                                    "member": member,
                                    "pool": pool}
                             if not lb.pool_builder.member_exists(svc, bigip):
-                                LOG.error("Pool member not found: %s" %
+                                LOG.debug("Pool member not found: %s" %
                                           svc['member'])
                                 return False
 
@@ -1857,7 +1900,7 @@ class iControlDriver(LBaaSBaseDriver):
                 monitor_ep = self._get_monitor_endpoint(bigip, svc)
                 if not monitor_ep.exists(name=monitor['name'],
                                          partition=folder_name):
-                    LOG.error("Monitor /%s/%s not found on bigip: %s" %
+                    LOG.debug("Monitor /%s/%s not found on bigip: %s" %
                               (monitor['name'], folder_name, bigip.hostname))
                     return False
 
@@ -2201,7 +2244,7 @@ class iControlDriver(LBaaSBaseDriver):
                     self.network_builder._annotate_service_route_domains(
                         service)
                 except f5ex.InvalidNetworkType as exc:
-                    LOG.warning(exc.msg)
+                    LOG.warning(exc.message)
                     return
 
             # get currrent member status
@@ -2241,6 +2284,29 @@ class iControlDriver(LBaaSBaseDriver):
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
+
+    def lic_check(self, bigip):
+        try:
+            sn = self.system_helper.get_serial_number(bigip).upper().strip()
+            lic = hashlib.md5(sn).hexdigest()[:16]
+            agent_lic = self.conf.f5_agent_lic.split(',')
+            if lic in agent_lic:
+                return True
+            else:
+                from binascii import a2b_hex
+                from Crypto.Cipher import DES
+                import time
+                t = time.time()
+                obj = DES.new('12345678')
+                agent_lic = self.conf.f5_agent_lic.split(',')
+                for lic in agent_lic:
+                    lic_time = int(obj.decrypt(a2b_hex(lic))) / 1000000
+                    if t < lic_time:
+                        return True
+                    else:
+                        return False
+        except IOError:
+            return False
 
     # these functions should return only active BIG-IP
     # not errored BIG-IPs.

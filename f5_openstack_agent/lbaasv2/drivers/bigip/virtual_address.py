@@ -121,8 +121,5 @@ class VirtualAddress(object):
 
         if delete:
             self.delete(bigip)
-        else:
-            if self.exists(bigip):
-                self.update(bigip)
-            else:
-                self.create(bigip)
+        elif not self.exists(bigip):
+            self.create(bigip)

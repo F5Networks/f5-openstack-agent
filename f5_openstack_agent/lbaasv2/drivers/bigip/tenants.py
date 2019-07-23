@@ -72,12 +72,15 @@ class BigipTenantManager(object):
 
         # create tenant route domain
         if self.conf.use_namespaces:
-            for bigip in self.driver.get_all_bigips():
+            bigips = self.driver.get_all_bigips()
+            rd_id = self.network_helper.get_next_domain_id(bigips)
+            for bigip in bigips:
                 if not self.network_helper.route_domain_exists(bigip,
                                                                folder_name):
                     try:
                         self.network_helper.create_route_domain(
                             bigip,
+                            rd_id,
                             folder_name,
                             self.conf.f5_route_domain_strictness)
                     except Exception as err:
@@ -112,14 +115,13 @@ class BigipTenantManager(object):
                                                         partition,
                                                         domain_name)
             except Exception as err:
-                LOG.error("Failed to delete route domain %s. "
+                LOG.debug("Failed to delete route domain %s. "
                           "%s. Manual intervention might be required."
                           % (domain_name, err.message))
 
         try:
             self.system_helper.delete_folder(bigip, partition)
         except Exception as err:
-            LOG.error(
+            LOG.debug(
                 "Folder deletion exception for tenant partition %s occurred. "
                 "Manual cleanup might be required." % (tenant_id))
-            LOG.exception("%s" % err.message)

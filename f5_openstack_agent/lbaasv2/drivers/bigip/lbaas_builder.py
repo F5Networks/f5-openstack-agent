@@ -282,7 +282,7 @@ class LBaaSBuilder(object):
 
             if 'port' not in member and \
                member['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
-                LOG.warning("Member definition does not include Neutron port")
+                LOG.debug("Member definition does not include Neutron port")
 
             pool_id = member.get('pool_id', None)
             if not pool_id:

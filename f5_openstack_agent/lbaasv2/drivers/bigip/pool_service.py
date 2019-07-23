@@ -58,24 +58,19 @@ class PoolServiceBuilder(object):
         :param bigips: Array of BigIP class instances to create pool.
         """
         pool = self.service_adapter.get_pool(service)
+
         error = None
 
         for bigip in bigips:
             try:
-                self.pool_helper.create(bigip, pool)
-            except HTTPError as err:
-                if err.response.status_code == 409:
+                if self.pool_helper.exists(bigip,
+                                           name=pool['name'],
+                                           partition=pool['partition']):
                     LOG.debug("Pool already exists...updating")
-                    try:
-                        self.pool_helper.update(bigip, pool)
-                    except Exception as err:
-                        error = f5_ex.PoolUpdateException(err.message)
-                        LOG.error("Failed to assure pool %s on %s: %s",
-                                  pool['name'], bigip, error.message)
+                    self.pool_helper.update(bigip, pool)
                 else:
-                    error = f5_ex.PoolCreationException(err.message)
-                    LOG.error("Failed to assure pool %s on %s: %s",
-                              pool['name'], bigip, error.message)
+                    LOG.debug("Pool does not exist...creating")
+                    self.pool_helper.create(bigip, pool)
             except Exception as err:
                 error = f5_ex.PoolCreationException(err.message)
                 LOG.error("Failed to assure pool %s on %s: %s",
@@ -144,19 +139,14 @@ class PoolServiceBuilder(object):
 
         for bigip in bigips:
             try:
-                hm_helper.create(bigip, hm)
-            except HTTPError as err:
-                if err.response.status_code == 409:
-                    try:
-                        hm_helper.update(bigip, hm)
-                    except Exception as err:
-                        error = f5_ex.MonitorUpdateException(err.message)
-                        LOG.error("Failed to update monitor %s on %s: %s",
-                                  hm['name'], bigip, error.message)
+                if hm_helper.exists(bigip,
+                                    name=hm['name'],
+                                    partition=hm['partition']):
+                    LOG.debug("Health monitor already exists...updating")
+                    hm_helper.update(bigip, hm)
                 else:
-                    error = f5_ex.MonitorCreationException(err.message)
-                    LOG.error("Failed to create monitor %s on %s: %s",
-                              hm['name'], bigip, error.message)
+                    LOG.debug("Health monitor does not exist...creating")
+                    hm_helper.create(bigip, hm)
             except Exception as err:
                 error = f5_ex.MonitorCreationException(err.message)
                 LOG.error("Failed to create monitor %s on %s: %s",
