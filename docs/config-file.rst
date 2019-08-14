@@ -359,7 +359,8 @@ icontrol_username               string                      The username of an a
                                                                                                 objects
 ------------------------------- --------------------------- ----------------------------------- ------------------------------------------- ---------------------
 icontrol_password               string                      Password for the BIG-IP user        See BIG-IP password requirements.           N/A
-                                                            account
+                                                            account(encoded if password_ciphe
+                                                            r_mode is True)
 =============================== =========================== =================================== =========================================== =====================
 
 .. index::

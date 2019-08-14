@@ -176,6 +176,7 @@ class LBaaSBuilder(object):
         pools = service.get("pools", list())
         l7policies = service.get("l7policies", list())
         l7rules = service.get("l7policy_rules", list())
+        irules = service.get("irules", dict())
         bigips = self.driver.get_config_bigips()
 
         for listener in listeners:
@@ -187,6 +188,7 @@ class LBaaSBuilder(object):
                        "pools": pools,
                        "l7policies": l7policies,
                        "l7policy_rules": l7rules,
+                       "irules": irules.get(listener["id"], list()),
                        "networks": networks}
 
                 # create_listener() will do an update if VS exists
@@ -432,6 +434,7 @@ class LBaaSBuilder(object):
         listener_policy_map = dict()
         bigips = self.driver.get_config_bigips()
         lbaas_service = LbaasServiceObject(service)
+        service['irules'] = dict()
 
         l7policies = service['l7policies']
         LOG.debug("L7 debug: processing policies: %s", l7policies)
@@ -454,6 +457,10 @@ class LBaaSBuilder(object):
                 error = self.l7service.create_l7policy(
                     policy['f5_policy'], bigips)
 
+            if policy.get('iRules'):
+                error = self.l7service.create_irule(
+                    policy['iRules'], bigips)
+
             for p in service['l7policies']:
                 if self._is_not_pending_delete(p):
                     if not error:
@@ -466,6 +473,7 @@ class LBaaSBuilder(object):
                 listener = lbaas_service.get_listener(listener_id)
                 if listener:
                     listener['f5_policy'] = policy['f5_policy']
+                service['irules'][listener_id] = policy.get('iRules')
             else:
                 loadbalancer['provisioning_status'] = \
                     constants_v2.F5_ERROR
@@ -510,6 +518,24 @@ class LBaaSBuilder(object):
             if not policy['f5_policy'].get('rules', list()):
                 error = self.l7service.delete_l7policy(
                     policy['f5_policy'], bigips)
+
+            delete_irules = []
+            for rule in (policy['l7rules']):
+                if rule.get('provisioning_status') == 'PENDING_DELETE':
+                    tenant_id = rule.get('tenant_id')
+                    partition = self.service_adapter.get_folder_name(
+                        tenant_id
+                    )
+                    name = 'irule_' + rule.get('id')
+                    delete_rule = {
+                        "name": name,
+                        "partition": partition
+                    }
+                    delete_irules.append(delete_rule)
+
+            if delete_irules:
+                error = self.l7service.delete_irule(
+                    delete_irules, bigips)
 
             for p in policy['l7policies']:
                 if self._is_not_pending_delete(p):
