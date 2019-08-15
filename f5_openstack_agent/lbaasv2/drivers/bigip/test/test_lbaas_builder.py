@@ -1137,7 +1137,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         expected_svc = dict(loadbalancer=service['loadbalancer'],
                             pools=service['pools'], l7policies=[],
                             l7policy_rules=[], listener=listener,
-                            networks=service['networks'])
+                            irules=[], networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
             expected_svc, expected_bigips)
         assert listener['provisioning_status'] == "ACTIVE"
@@ -1161,7 +1161,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target._assure_listeners_created(service)
 
         expected_svc = dict(loadbalancer=loadbalancer, pools=service['pools'],
-                            l7policies=[], l7policy_rules=[],
+                            l7policies=[], l7policy_rules=[], irules=[],
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
             expected_svc, expected_bigips)
@@ -1186,7 +1186,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target._assure_listeners_created(service)
 
         expected_svc = dict(loadbalancer=loadbalancer, pools=service['pools'],
-                            l7policies=[], l7policy_rules=[],
+                            l7policies=[], l7policy_rules=[], irules=[],
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
             expected_svc, expected_bigips)
@@ -1212,7 +1212,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target._assure_listeners_created(service)
 
         expected_svc = dict(loadbalancer=loadbalancer, pools=service['pools'],
-                            l7policies=[], l7policy_rules=[],
+                            l7policies=[], l7policy_rules=[], irules=[],
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
             expected_svc, expected_bigips)
