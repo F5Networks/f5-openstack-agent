@@ -43,6 +43,8 @@ class PoolServiceBuilder(object):
             resource_helper.ResourceType.tcp_monitor)
         self.udp_mon_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.udp_monitor)
+        self.sip_mon_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.sip_monitor)
         self.ping_mon_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.ping_monitor)
         self.pool_helper = resource_helper.BigIPResourceHelper(
@@ -248,6 +250,8 @@ class PoolServiceBuilder(object):
             hm = self.ping_mon_helper
         elif monitor_type == "UDP":
             hm = self.udp_mon_helper
+        elif monitor_type == "SIP":
+            hm = self.sip_mon_helper
         else:
             hm = self.http_mon_helper
         return hm

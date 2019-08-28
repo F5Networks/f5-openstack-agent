@@ -1723,6 +1723,8 @@ class iControlDriver(LBaaSBaseDriver):
             hm = bigip.tm.ltm.monitor.gateway_icmps.gateway_icmp
         elif monitor_type == "UDP":
             hm = bigip.tm.ltm.monitor.udps.udp
+        elif monitor_type == "SIP":
+            hm = bigip.tm.ltm.monitor.sips.sip
         else:
             hm = bigip.tm.ltm.monitor.https.http
 
