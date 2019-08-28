@@ -520,13 +520,17 @@ class ServiceModelAdapter(object):
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
         protocol = listener.get('protocol', "")
-        if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS"]:
+        if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS", "UDP"]:
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
-        vip["ipProtocol"] = "tcp"
+
+        if protocol == "UDP":
+            vip["ipProtocol"] = "udp"
+        else:
+            vip["ipProtocol"] = "tcp"
 
         # if protocol is HTTPS, also use fastl4
-        if protocol == 'TCP' or protocol == 'HTTPS':
+        if protocol in ['TCP', 'HTTPS', 'UDP']:
             virtual_type = 'fastl4'
         else:
             virtual_type = 'standard'
