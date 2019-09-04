@@ -61,6 +61,7 @@ class ResourceType(Enum):
     ssl_cert_file = 35
     http_profile = 36
     oneconnect = 37
+    udp_monitor = 38
 
 
 class BigIPResourceHelper(object):
@@ -205,6 +206,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.ltm.monitor.https_s.https,
             ResourceType.tcp_monitor:
                 lambda bigip: bigip.tm.ltm.monitor.tcps.tcp,
+            ResourceType.udp_monitor:
+                lambda bigip: bigip.tm.ltm.monitor.udps.udp,
             ResourceType.ping_monitor:
                 lambda bigip: bigip.tm.ltm.monitor.gateway_icmps.gateway_icmp,
             ResourceType.node: lambda bigip: bigip.tm.ltm.nodes.node,

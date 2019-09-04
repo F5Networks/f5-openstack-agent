@@ -41,6 +41,8 @@ class PoolServiceBuilder(object):
             resource_helper.ResourceType.https_monitor)
         self.tcp_mon_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.tcp_monitor)
+        self.udp_mon_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.udp_monitor)
         self.ping_mon_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.ping_monitor)
         self.pool_helper = resource_helper.BigIPResourceHelper(
@@ -132,7 +134,6 @@ class PoolServiceBuilder(object):
         return error
 
     def create_healthmonitor(self, service, bigips):
-        # create member
         hm = self.service_adapter.get_healthmonitor(service)
         hm_helper = self._get_monitor_helper(service)
         error = None
@@ -245,6 +246,8 @@ class PoolServiceBuilder(object):
             hm = self.tcp_mon_helper
         elif monitor_type == "PING":
             hm = self.ping_mon_helper
+        elif monitor_type == "UDP":
+            hm = self.udp_mon_helper
         else:
             hm = self.http_mon_helper
         return hm
