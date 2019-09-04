@@ -112,7 +112,8 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
-        listener["use_snat"] = self.snat_mode()
+        listener["use_snat"] = self.snat_mode() and not listener.get(
+            "transparent")
         if listener["use_snat"] and self.snat_count() > 0:
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
@@ -598,7 +599,12 @@ class ServiceModelAdapter(object):
                 vip['sourceAddressTranslation']['pool'] = \
                     listener["snat_pool_name"]
             else:
+                # if snat_count < 0, use automap
                 vip['sourceAddressTranslation']['type'] = 'automap'
+        else:
+            vip['sourceAddressTranslation'] = {}
+            vip['sourceAddressTranslation']['type'] = None
+            vip['sourceAddressTranslation']['pool'] = None
 
         # default values for pinning the VS to a specific VLAN set
         vip['vlansDisabled'] = True
