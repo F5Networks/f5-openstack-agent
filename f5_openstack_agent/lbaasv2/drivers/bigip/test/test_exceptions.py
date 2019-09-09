@@ -518,8 +518,8 @@ def test_VXLANDeleteException():
 
 
 def test_BigIPNotLicensedForVcmp():
-        with pytest.raises(exceptions.BigIPNotLicensedForVcmp):
-            raise getattr(exceptions, 'BigIPNotLicensedForVcmp')()
+    with pytest.raises(exceptions.BigIPNotLicensedForVcmp):
+        raise getattr(exceptions, 'BigIPNotLicensedForVcmp')()
 
 
 if __name__ == '__main__':
