@@ -137,7 +137,7 @@ def strip_cidr_netmask(ip_address):
     '''
 
     split_ip = ip_address.split('/')
-    if len(split_ip) is 2:
+    if len(split_ip) == 2:
         return split_ip[0]
     else:
         msg = 'The IP address provided was not in CIDR notation.'
