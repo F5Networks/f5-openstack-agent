@@ -126,9 +126,9 @@ def old_setup_vcmp_method_test(mock_mgmt_root, mock_driver, mock_host_obj):
 def test___init__(setup_vcmp_mgr):
     vcmp = setup_vcmp_mgr
     assert vcmp.vcmp_hosts != []
-    assert len(vcmp.vcmp_hosts) is 2
+    assert len(vcmp.vcmp_hosts) == 2
     assert vcmp.vcmp_hosts[0]['guests'] != []
-    assert len(vcmp.vcmp_hosts[0]['guests']) is 1
+    assert len(vcmp.vcmp_hosts[0]['guests']) == 1
 
 
 def test___init__no_vcmp_hosts():
@@ -237,13 +237,13 @@ def test__check_vcmp_host_assignments_bad_platform(setup_vcmp_method_test):
 def test__get_vlan_use_count(setup_vcmp_method_test):
     vcmp, mock_bigip = setup_vcmp_method_test
     use_cnt = vcmp._get_vlan_use_count(vcmp.vcmp_hosts[0], 'test_vlan')
-    assert use_cnt is 1
+    assert use_cnt == 1
 
 
 def test__get_vlan_use_count_zero(setup_vcmp_method_test):
     vcmp, mock_bigip = setup_vcmp_method_test
     use_cnt = vcmp._get_vlan_use_count(vcmp.vcmp_hosts[0], 'test_vlan_2')
-    assert use_cnt is 0
+    assert use_cnt == 0
 
 
 def test__is_vlan_assoc_with_vcmp_guest(setup_vcmp_method_test):
