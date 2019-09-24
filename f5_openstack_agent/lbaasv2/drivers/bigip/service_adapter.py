@@ -75,9 +75,6 @@ class ServiceModelAdapter(object):
     def snat_mode(self):
         return self.conf.f5_snat_mode
 
-    def snat_count(self):
-        return self.conf.f5_snat_addresses_per_subnet
-
     def vip_on_common_network(self, service):
         loadbalancer = service.get('loadbalancer', {})
         network_id = loadbalancer.get('network_id', "")
@@ -112,11 +109,20 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
-        listener["use_snat"] = self.snat_mode() and not listener.get(
+        # set snat pool for listener
+        listener["use_snat"] = self.conf.f5_snat_mode and not listener.get(
             "transparent")
-        if listener["use_snat"] and self.snat_count() > 0:
-            listener["snat_pool_name"] = self.get_folder_name(
-                loadbalancer["tenant_id"])
+        if listener["use_snat"]:
+            if self.conf.f5_snat_per_provider:
+                if self.conf.f5_snat_addresses_per_subnet > 0:
+                    folder_name = self.get_folder_name(
+                        loadbalancer["tenant_id"])
+                    prvd_name = loadbalancer["provider"]
+                    listener["snat_pool_name"] = folder_name + '_' + prvd_name
+            else:
+                if self.conf.f5_snat_addresses_per_subnet > 0:
+                    listener["snat_pool_name"] = self.get_folder_name(
+                        loadbalancer["tenant_id"])
 
         pool = self.get_vip_default_pool(service)
 
@@ -126,6 +132,7 @@ class ServiceModelAdapter(object):
         listener_policies = self.get_listener_policies(service)
         listener_irules = self.get_listener_irules(service)
 
+        # pzhang set snat for listener in this
         vip = self._map_virtual(loadbalancer, listener, pool=pool,
                                 policies=listener_policies,
                                 irules=list(listener_irules))
@@ -595,7 +602,7 @@ class ServiceModelAdapter(object):
 
     def _add_vlan_and_snat(self, listener, vip):
 
-        # snat
+        # set snat mode (automap/sant pool) to listener
         if "use_snat" in listener and listener["use_snat"]:
             vip['sourceAddressTranslation'] = {}
             if "snat_pool_name" in listener:

@@ -414,6 +414,35 @@ def service():
                     u'session_persistence': None,
                     u'sessionpersistence': None,
                     u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd'}],
+        u'subnets': {
+            u'81f42a8a-fc98-4281-8de4-2b946e931457': {
+                u'updated_at': u'2019-09-10T09:11:06Z',
+                u'ipv6_ra_mode': None,
+                u'allocation_pools': [{
+                    u'start': u'10.250.26.2',
+                    u'end': u'10.250.26.254'
+                }],
+                u'host_routes': [],
+                u'revision_number': 0,
+                u'ipv6_address_mode': None,
+                u'id': u'81f42a8a-fc98-4281-8de4-2b946e931457',
+                u'dns_nameservers': [],
+                u'gateway_ip': u'10.250.26.1',
+                u'shared': False,
+                u'project_id': u'ff3500317f2249109620cd5f2a019adb',
+                u'description': u'',
+                u'tags': [],
+                u'cidr': u'10.250.26.0/24',
+                u'subnetpool_id': None,
+                u'service_types': [],
+                u'name': u'pef-mb-subnet',
+                u'enable_dhcp': True,
+                u'network_id': u'cdf1eb6d-9b17-424a-a054-778f3d3a5490',
+                u'tenant_id': u'd9ed216f67f04a84bf8fd97c155855cd',
+                u'created_at': u'2019-09-10T09:11:06Z',
+                u'ip_version': 4
+            }
+        }
     }
 
 
@@ -1121,11 +1150,13 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         listener = service.get('listeners')[0]
         target = self.builder
         service['listener'] = listener
+        service['subnets'] = service.get('subnets')
         loadbalancer = service['loadbalancer']
 
         # Test UPDATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
+        target.driver.get_config_bigips.return_value = []
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1147,11 +1178,13 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         listener = service.get('listeners')[0]
         target = self.builder
         service['listener'] = listener
+        service['subnets'] = service.get('subnets')
         loadbalancer = service['loadbalancer']
 
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
+        target.driver.get_config_bigips.return_value = []
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1172,11 +1205,13 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         listener = service.get('listeners')[0]
         target = self.builder
         service['listener'] = listener
+        service['subnets'] = service.get('subnets')
         loadbalancer = service['loadbalancer']
 
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = "error"
+        target.driver.get_config_bigips.return_value = []
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
@@ -1203,6 +1238,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         # Test CREATE case
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
+        target.driver.get_config_bigips.return_value = []
 
         expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
