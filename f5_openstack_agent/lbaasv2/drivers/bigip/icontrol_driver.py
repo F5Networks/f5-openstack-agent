@@ -499,21 +499,24 @@ class iControlDriver(LBaaSBaseDriver):
         self.tenant_manager = BigipTenantManager(self.conf, self)
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
-        self.lbaas_builder = LBaaSBuilder(self.conf, self)
-
-        # Set esd_processor object as soon as ServiceModelAdapter and
-        # LBaaSBuilder class instantiated, otherwise manager RPC exception
-        # will break setting esd_porcessor procedure.
-        self.init_esd()
 
         if self.conf.f5_global_routed_mode:
             self.network_builder = None
+            self.lbaas_builder = LBaaSBuilder(self.conf, self)
         else:
             self.network_builder = NetworkServiceBuilder(
                 self.conf.f5_global_routed_mode,
                 self.conf,
                 self,
                 self.l3_binding)
+            snat_manager = self.network_builder.bigip_snat_manager
+            self.lbaas_builder = LBaaSBuilder(self.conf, self,
+                                              snat_manager=snat_manager)
+
+        # Set esd_processor object as soon as ServiceModelAdapter and
+        # LBaaSBuilder class instantiated, otherwise manager RPC exception
+        # will break setting esd_porcessor procedure.
+        self.init_esd()
 
     def _init_bigip_hostnames(self):
         # Validate and parse bigip credentials
@@ -771,6 +774,7 @@ class iControlDriver(LBaaSBaseDriver):
                 self.system_helper.get_interface_macaddresses_dict(bigip)
             bigip.assured_networks = {}
             bigip.assured_tenant_snat_subnets = {}
+            bigip.assured_tenant_snat_providers = {}
             bigip.assured_gateway_subnets = []
 
             if self.conf.f5_ha_type != 'standalone':
@@ -1104,6 +1108,7 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in self.get_all_bigips():
             bigip.assured_networks = {}
             bigip.assured_tenant_snat_subnets = {}
+            bigip.assured_tenant_snat_providers = {}
             bigip.assured_gateway_subnets = []
 
     @serialized('get_all_deployed_loadbalancers')

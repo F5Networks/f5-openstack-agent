@@ -44,6 +44,7 @@ class NetworkServiceBuilder(object):
 
         self.bigip_selfip_manager = BigipSelfIpManager(
             self.driver, self.l2_service, self.driver.l3_binding)
+
         self.bigip_snat_manager = BigipSnatManager(
             self.driver, self.l2_service, self.driver.l3_binding)
 
@@ -55,7 +56,7 @@ class NetworkServiceBuilder(object):
         self.service_adapter = self.driver.service_adapter
 
     def post_init(self):
-        # Run and Post Initialization Tasks """
+        # Run and Post Initialization Tasks
         # run any post initialized tasks, now that the agent
         # is fully connected
         self.l2_service.post_init()
@@ -64,11 +65,11 @@ class NetworkServiceBuilder(object):
         self.l2_service.tunnel_sync(tunnel_ips)
 
     def set_tunnel_rpc(self, tunnel_rpc):
-        # Provide FDB Connector with ML2 RPC access """
+        # Provide FDB Connector with ML2 RPC access
         self.l2_service.set_tunnel_rpc(tunnel_rpc)
 
     def set_l2pop_rpc(self, l2pop_rpc):
-        # Provide FDB Connector with ML2 RPC access """
+        # Provide FDB Connector with ML2 RPC access
         self.l2_service.set_l2pop_rpc(l2pop_rpc)
 
     def initialize_vcmp(self):
@@ -207,7 +208,8 @@ class NetworkServiceBuilder(object):
         LOG.debug("Getting subnetinfo for ...")
         LOG.debug(assure_bigips)
         for subnetinfo in subnetsinfo:
-            if self.conf.f5_snat_addresses_per_subnet > 0:
+            if (self.conf.f5_snat_addresses_per_subnet > 0 and
+                    not self.conf.f5_snat_per_provider):
                 self._assure_subnet_snats(assure_bigips, service, subnetinfo)
 
             if subnetinfo['is_for_member'] and not self.conf.f5_snat_mode:
@@ -602,6 +604,7 @@ class NetworkServiceBuilder(object):
                     "Unable to satisfy request to allocate %d "
                     "snats.  Actual SNAT count: %d SNATs" %
                     (snats_per_subnet, len(snat_addrs)))
+
             for assure_bigip in assure_bigips:
                 self.bigip_snat_manager.assure_bigip_snats(
                     assure_bigip, subnetinfo, snat_addrs, tenant_id)
@@ -735,6 +738,7 @@ class NetworkServiceBuilder(object):
 
     def _assure_delete_nets_shared(self, bigip, service, subnet_hints):
         # Assure shared configuration (which syncs) is deleted
+
         deleted_names = set()
         tenant_id = service['loadbalancer']['tenant_id']
 
@@ -746,6 +750,8 @@ class NetworkServiceBuilder(object):
                 if not self.conf.f5_snat_mode:
                     gw_name = delete_gateway(bigip, subnetinfo)
                     deleted_names.add(gw_name)
+                # if the a subnet has no related resource on the bigip,
+                # then the snat pool will be deleted
                 my_deleted_names, my_in_use_subnets = \
                     self.bigip_snat_manager.delete_bigip_snats(
                         bigip, subnetinfo, tenant_id)
@@ -863,6 +869,10 @@ class NetworkServiceBuilder(object):
 
     def _ips_exist_on_subnet(self, bigip, service, subnet, route_domain):
         # Does the big-ip have any IP addresses on this subnet?
+        # if the loadbalancer is pending_delete status
+        # the F5 agent will check the subnet used by the loadbalancer for
+        # deleting. if any vip related or memeber ip within the subnet,
+        # then this function return False
         LOG.debug("_ips_exist_on_subnet entry %s rd %s"
                   % (str(subnet['cidr']), route_domain))
         route_domain = str(route_domain)
@@ -892,7 +902,7 @@ class NetworkServiceBuilder(object):
                 return True
 
         # If there aren't any virtual addresses, are there
-        # node addresses on this subnet?
+        # node (member) addresses on this subnet?
         nodes = self.network_helper.get_node_addresses(
             bigip,
             partition=folder
