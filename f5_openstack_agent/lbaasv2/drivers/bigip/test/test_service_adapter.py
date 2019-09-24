@@ -114,7 +114,8 @@ class TestServiceAdapter(object):
         monitor_id = str(uuid.uuid4())
         return {'loadbalancer': dict(id=str(uuid.uuid4()),
                                      tenant_id=tenant_id,
-                                     vip_address='192.168.1.1%0'),
+                                     vip_address='192.168.1.1%0',
+                                     provider='f5netowrks'),
                 'pools': [dict(id=default_pool_id,
                                session_persistence=True)],
                 'healthmonitors': [dict(id=str(monitor_id))],
@@ -276,6 +277,7 @@ class TestServiceAdapter(object):
         target.get_folder_name = Mock(return_value=tenant_id)
         target.snat_mode = Mock(return_value=True)
         basic_service['pool'] = basic_service['pools'][0]
+        basic_service['loadbalancer'] = basic_service['loadbalancer']
         vip = 'vip'
         target._map_virtual = Mock(return_value=vip)
         target._add_bigip_items = Mock()
@@ -283,7 +285,8 @@ class TestServiceAdapter(object):
         assert target.get_virtual(basic_service) == vip
         assert basic_service['pool']['session_persistence'] == \
             basic_service['listener']['session_persistence']
-        assert basic_service['listener']['snat_pool_name'] == tenant_id
+        assert basic_service['listener']['snat_pool_name'] == tenant_id + \
+            '_' + basic_service['loadbalancer']['provider']
         target._map_virtual.assert_called_once_with(
             basic_service['loadbalancer'], basic_service['listener'],
             pool=basic_service['pool'], policies=list())

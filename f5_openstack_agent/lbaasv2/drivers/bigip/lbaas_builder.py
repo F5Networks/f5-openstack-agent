@@ -19,12 +19,14 @@ from time import time
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import l7policy_service
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
     LbaasServiceObject
 from f5_openstack_agent.lbaasv2.drivers.bigip import listener_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
+
 from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
@@ -32,12 +34,13 @@ LOG = logging.getLogger(__name__)
 
 class LBaaSBuilder(object):
     # F5 LBaaS Driver using iControl for BIG-IP to
-    # create objects (vips, pools) - not using an iApp."""
+    # create objects (vips, pools) - not using an iApp.
 
-    def __init__(self, conf, driver, l2_service=None):
+    def __init__(self, conf, driver, l2_service=None, snat_manager=None):
         self.conf = conf
         self.driver = driver
         self.l2_service = l2_service
+        self.bigip_snat_manager = snat_manager
         self.service_adapter = driver.service_adapter
         self.listener_builder = listener_service.ListenerServiceBuilder(
             self.service_adapter,
@@ -181,6 +184,15 @@ class LBaaSBuilder(object):
         for listener in listeners:
             error = False
             if self._is_not_pending_delete(listener):
+                # create and set snat for neutron provider here,
+                # since the neturon providers can be perceived
+                # in loadbalancer dict.
+                if (self.conf.f5_snat_mode and
+                        self.conf.f5_snat_addresses_per_provider
+                        and self.conf.f5_snat_addresses_per_provider > 0):
+                    self._assure_provider_snats(bigips,
+                                                service,
+                                                loadbalancer)
 
                 svc = {"loadbalancer": loadbalancer,
                        "listener": listener,
@@ -201,6 +213,39 @@ class LBaaSBuilder(object):
                     listener['provisioning_status'] = constants_v2.F5_ACTIVE
                     if listener['admin_state_up']:
                         listener['operating_status'] = constants_v2.F5_ONLINE
+
+    def _assure_provider_snats(self, bigips, service, loadbalancer):
+        snats_per_provider = self.conf.f5_snat_addresses_per_provider
+        provider_name = loadbalancer["provider"]
+        lb_id = loadbalancer["id"]
+        tenant_id = loadbalancer["tenant_id"]
+        subnet_id = loadbalancer["vip_subnet_id"]
+        subnet = service["subnets"][subnet_id]
+        network_id = loadbalancer["network_id"]
+        network = service["networks"][network_id]
+
+        bigips = [bigip for bigip in bigips
+                  if tenant_id not in bigip.assured_tenant_snat_providers or
+                  subnet_id not in bigip.assured_tenant_snat_providers[
+                      tenant_id] or provider_name not in
+                  bigip.assured_tenant_snat_providers[tenant_id][subnet_id]]
+
+        if bigips and self.bigip_snat_manager:
+            snat_addrs = self.bigip_snat_manager.get_provider_snat_addrs(
+                provider_name, lb_id, tenant_id, subnet_id, snats_per_provider
+            )
+
+            if len(snat_addrs) != snats_per_provider:
+                raise f5_ex.SNATCreationException(
+                    "Unable to satisfy request to allocate %d "
+                    "snats.  Actual SNAT count: %d SNATs" %
+                    (snats_per_provider, len(snat_addrs)))
+
+            for bigip in bigips:
+                self.bigip_snat_manager.assure_provider_bigip_snats(
+                    bigip, provider_name, snat_addrs, tenant_id, network,
+                    subnet
+                )
 
     def _assure_pools_created(self, service):
         if "pools" not in service:
