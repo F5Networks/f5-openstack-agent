@@ -84,6 +84,11 @@ OPTS = [
         help=('Interface and VLAN for the VTEP overlay network')
     ),
     cfg.StrOpt(
+        'provider_name',
+        default='f5networks',
+        help=('provider_name for snat pool addresses')
+    ),
+    cfg.StrOpt(
         'agent_id',
         default=None,
         help=('static agent ID to use with Neutron')
