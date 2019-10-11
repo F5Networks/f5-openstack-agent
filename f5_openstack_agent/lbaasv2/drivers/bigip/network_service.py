@@ -595,7 +595,9 @@ class NetworkServiceBuilder(object):
                   subnet['id'])
         if len(assure_bigips):
             snat_addrs = self.bigip_snat_manager.get_snat_addrs(
-                subnetinfo, tenant_id, snats_per_subnet, lb_id)
+                subnetinfo, tenant_id, snats_per_subnet, lb_id,
+                self.conf.provider_name
+            )
 
             if len(snat_addrs) != snats_per_subnet:
                 raise f5_ex.SNATCreationException(
@@ -604,7 +606,8 @@ class NetworkServiceBuilder(object):
                     (snats_per_subnet, len(snat_addrs)))
             for assure_bigip in assure_bigips:
                 self.bigip_snat_manager.assure_bigip_snats(
-                    assure_bigip, subnetinfo, snat_addrs, tenant_id)
+                    assure_bigip, subnetinfo, snat_addrs,
+                    tenant_id, self.conf.provider_name)
 
     def _allocate_gw_addr(self, subnetinfo):
         # Create a name for the port and for the IP Forwarding
@@ -748,7 +751,7 @@ class NetworkServiceBuilder(object):
                     deleted_names.add(gw_name)
                 my_deleted_names, my_in_use_subnets = \
                     self.bigip_snat_manager.delete_bigip_snats(
-                        bigip, subnetinfo, tenant_id)
+                        bigip, subnetinfo, tenant_id, self.conf.provider_name)
                 deleted_names = deleted_names.union(my_deleted_names)
                 for in_use_subnetid in my_in_use_subnets:
                     subnet_hints['check_for_delete_subnets'].pop(

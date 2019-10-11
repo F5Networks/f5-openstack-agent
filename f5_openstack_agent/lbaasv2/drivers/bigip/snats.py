@@ -65,7 +65,8 @@ class BigipSnatManager(object):
         LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
         return ''
 
-    def get_snat_addrs(self, subnetinfo, tenant_id, snat_count, lb_id):
+    def get_snat_addrs(self, subnetinfo, tenant_id, snat_count, lb_id,
+                       provider_name):
         # Get the ip addresses for snat """
         if self.driver.conf.unlegacy_setting_placeholder:
             LOG.debug('setting vnic_type to normal instead of baremetal')
@@ -79,7 +80,7 @@ class BigipSnatManager(object):
         snat_name = self._get_snat_name(subnet, tenant_id)
         for i in range(snat_count):
             ip_address = ""
-            index_snat_name = snat_name + "_" + str(i)
+            index_snat_name = snat_name + "_" + provider_name + "_" + str(i)
             ports = self.driver.plugin_rpc.get_port_by_name(
                 port_name=index_snat_name)
             if len(ports) > 0:
@@ -106,7 +107,8 @@ class BigipSnatManager(object):
 
         return snat_addrs
 
-    def assure_bigip_snats(self, bigip, subnetinfo, snat_addrs, tenant_id):
+    def assure_bigip_snats(self, bigip, subnetinfo, snat_addrs, tenant_id,
+                           provider_name):
         # Ensure Snat Addresses are configured on a bigip.
         # Called for every bigip only in replication mode.
         # otherwise called once and synced.
@@ -128,9 +130,11 @@ class BigipSnatManager(object):
         )
         snat_info['addrs'] = snat_addrs
 
-        self._assure_bigip_snats(bigip, subnetinfo, snat_info, tenant_id)
+        self._assure_bigip_snats(bigip, subnetinfo, snat_info, tenant_id,
+                                 provider_name)
 
-    def _assure_bigip_snats(self, bigip, subnetinfo, snat_info, tenant_id):
+    def _assure_bigip_snats(self, bigip, subnetinfo, snat_info, tenant_id,
+                            provider_name):
         # Configure the ip addresses for snat
         network = subnetinfo['network']
         subnet = subnetinfo['subnet']
@@ -144,7 +148,7 @@ class BigipSnatManager(object):
         for i, snat_address in enumerate(snat_info['addrs']):
             ip_address = snat_address + \
                 '%' + str(network['route_domain_id'])
-            index_snat_name = snat_name + "_" + str(i)
+            index_snat_name = snat_name + "_" + provider_name + "_" + str(i)
 
             snat_traffic_group = self._get_snat_traffic_group(tenant_id)
             # snat.create() did  the following in LBaaSv1
@@ -208,7 +212,7 @@ class BigipSnatManager(object):
 
         bigip.assured_tenant_snat_subnets[tenant_id].append(subnet['id'])
 
-    def delete_bigip_snats(self, bigip, subnetinfo, tenant_id):
+    def delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
         # Assure shared snat configuration (which syncs) is deleted.
         #
         if not subnetinfo['network']:
@@ -216,7 +220,8 @@ class BigipSnatManager(object):
                       'for missing network ... skipping.')
             return set()
 
-        return self._delete_bigip_snats(bigip, subnetinfo, tenant_id)
+        return self._delete_bigip_snats(bigip, subnetinfo, tenant_id,
+                                        provider_name)
 
     def _remove_assured_tenant_snat_subnet(self, bigip, tenant_id, subnet):
         # Remove ref for the subnet for this tenant"""
@@ -239,7 +244,7 @@ class BigipSnatManager(object):
                 'Tenant id %s does not exist in '
                 'bigip.assured_tenant_snat_subnets' % tenant_id)
 
-    def _delete_bigip_snats(self, bigip, subnetinfo, tenant_id):
+    def _delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
         # Assure snats deleted in standalone mode """
         subnet = subnetinfo['subnet']
         network = subnetinfo['network']
@@ -256,7 +261,7 @@ class BigipSnatManager(object):
         # Delete SNATs on traffic-group-local-only
         snat_name = self._get_snat_name(subnet, tenant_id)
         for i in range(self.driver.conf.f5_snat_addresses_per_subnet):
-            index_snat_name = snat_name + "_" + str(i)
+            index_snat_name = snat_name + "_" + provider_name + "_" + str(i)
             tmos_snat_name = index_snat_name
 
             if self.l3_binding:
