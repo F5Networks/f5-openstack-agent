@@ -2288,6 +2288,10 @@ class iControlDriver(LBaaSBaseDriver):
     def service_to_traffic_group(self, service):
         # Hash service tenant id to index of traffic group
         # return which iControlDriver.__traffic_group that tenant is "in?"
+        tg = service['loadbalancer']['description']
+        if tg in self.__traffic_groups:
+            return tg
+
         return self.tenant_to_traffic_group(
             service['loadbalancer']['tenant_id'])
 

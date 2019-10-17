@@ -88,10 +88,10 @@ class ClusterManager(object):
 
         return None
 
-    def get_mgmt_addr_by_device(self, bigip, device_name):
+    def get_mgmt_addr_by_device(self, bigip, device_obj):
         devices = self.devices(bigip)
         for device in devices:
-            if device.name == device_name:
+            if device.name == device_obj.name:
                 return device.managementIp
 
         return None
