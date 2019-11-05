@@ -407,9 +407,11 @@ class NetworkHelper(object):
         if v.exists(name=name, partition=partition):
             obj = v.load(name=name, partition=partition)
         else:
+            # ccloud: Enable SYN Flood protection
             payload = {'name': name,
                        'partition': partition,
-                       'tag': tag}
+                       'tag': tag,
+                       'hardwareSyncookie': 'enabled'}
 
             if description:
                 payload['description'] = description
