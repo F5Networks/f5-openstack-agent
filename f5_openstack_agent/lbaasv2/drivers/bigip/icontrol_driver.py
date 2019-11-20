@@ -1185,8 +1185,9 @@ class iControlDriver(LBaaSBaseDriver):
                     node_dict[n.name] = n
 
                 for member in members:
-                    rd = self.network_builder.find_subnet_route_domain(
-                        tenant_id, member.get('subnet_id', None))
+                    if self.network_builder:
+                        rd = self.network_builder.find_subnet_route_domain(
+                            tenant_id, member.get('subnet_id', None))
                     node_name = "{}%{}".format(member['address'], rd)
                     node_dict.pop(node_name, None)
 
