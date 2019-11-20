@@ -274,7 +274,7 @@ class LBaaSBuilder(object):
                     monitor['provisioning_status'] = constants_v2.F5_ERROR
 
     def _assure_monitors_deleted(self, service):
-        monitors = service.get("healthmonitors", [])
+        monitors = service.get("healthmonitors", list())
         loadbalancer = service["loadbalancer"]
         bigips = self.driver.get_config_bigips()
 
