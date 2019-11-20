@@ -134,6 +134,16 @@ OPTS = [
         default=60,
         help=(
             'Amount of time to wait for a errored service to become active')
+    ),
+    cfg.BoolOpt(
+        'password_cipher_mode',
+        default=False,
+        help='The flag indicating the password is plain text or not.'
+    ),
+    cfg.BoolOpt(
+        'esd_auto_refresh',
+        default=True,
+        help='Enable ESD file periodic refresh'
     )
 ]
 
@@ -329,6 +339,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self._report_state)
             heartbeat.start(interval=report_interval)
 
+        if self.lbdriver:
+            self.lbdriver.connect()
+
     def _load_driver(self, conf):
         self.lbdriver = None
 
@@ -493,6 +506,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Trigger driver connect attempts to all devices."""
         if self.lbdriver:
             self.lbdriver.connect()
+
+    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
+    def refresh_esd(self, context):
+        """Refresh ESD files."""
+        if self.lbdriver.esd_processor and self.conf.esd_auto_refresh:
+            LOG.info("refresh ESD files automatically")
+            self.lbdriver.init_esd()
 
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def recover_errored_devices(self, context):
