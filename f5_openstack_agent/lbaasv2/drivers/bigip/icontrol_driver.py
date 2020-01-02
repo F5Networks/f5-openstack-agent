@@ -1539,6 +1539,7 @@ class iControlDriver(LBaaSBaseDriver):
     def create_listener(self, listener, service):
         """Create virtual server."""
         LOG.debug("Creating listener")
+        service['listeners'][0]['protocol'] = "TRIANGLE"
         return self._common_service_handler(service)
 
     @serialized('update_listener')
@@ -1690,6 +1691,7 @@ class iControlDriver(LBaaSBaseDriver):
     @serialized('sync')
     @is_operational
     def sync(self, service):
+        # pzhang
         """Sync service defintion to device."""
         # loadbalancer and plugin_rpc may not be set
         lb_id = service.get('loadbalancer', dict()).get('id', '')

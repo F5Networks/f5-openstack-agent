@@ -191,6 +191,7 @@ class LBaaSBuilder(object):
                        "irules": irules.get(listener["id"], list()),
                        "networks": networks}
 
+                # import pdb; pdb.set_trace()
                 # create_listener() will do an update if VS exists
                 error = self.listener_builder.create_listener(
                     svc, bigips)

@@ -616,8 +616,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
             # Validate each service we own, i.e. loadbalancers to which this
             # agent is bound, that does not exist in our service cache.
-            self._validate_services(all_loadbalancer_ids)
+            # pzhang RMA
+            # self._validate_services(all_loadbalancer_ids)
 
+            # pzhang PENDING
             resync = self._refresh_pending_services()
 
             # Get a list of any cached service we now know after
@@ -646,6 +648,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         resync = False
         # This produces a list of loadbalancers with pending tasks to
         # be performed.
+        # import pdb; pdb.set_trace()
         pending_loadbalancers, pending_lb_ids = \
             self._get_remote_loadbalancers('get_pending_loadbalancers',
                                            host=self.agent_host)
@@ -752,6 +755,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def refresh_service(self, lb_id):
+        # pzhang
         try:
             service = self.plugin_rpc.get_service_by_loadbalancer_id(
                 lb_id

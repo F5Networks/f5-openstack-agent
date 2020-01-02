@@ -56,6 +56,7 @@ class ListenerServiceBuilder(object):
         listener = service.get('listener', dict())
         network_id = loadbalancer.get('network_id', "")
 
+        # pzhang
         vip = self.service_adapter.get_virtual(service)
         tls = self.service_adapter.get_tls(service)
         if tls:

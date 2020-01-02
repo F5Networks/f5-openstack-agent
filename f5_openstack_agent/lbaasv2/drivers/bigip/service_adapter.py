@@ -112,8 +112,9 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
+        # pzhang: 修改 snat
         listener["use_snat"] = self.snat_mode() and not listener.get(
-            "transparent")
+            "transparent") and not (listener.get("protocol") == "TRIANGLE")
         if listener["use_snat"] and self.snat_count() > 0:
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
@@ -477,7 +478,9 @@ class ServiceModelAdapter(object):
             else:
                 vip["disabled"] = True
 
+        # pzhang SNAT 修改
         self._add_vlan_and_snat(listener, vip)
+        # pzhang HTTP layer4 修改
         self._add_profiles_session_persistence(listener, pool, vip)
 
         existed_irules = vip.get('rules', [])
@@ -538,12 +541,17 @@ class ServiceModelAdapter(object):
             vip["ipProtocol"] = "tcp"
 
         # if protocol is HTTPS, also use fastl4
-        if protocol in ['TCP', 'HTTPS', 'UDP']:
+        if protocol in ['TCP', 'HTTPS', 'UDP', 'TRIANGLE']:
             virtual_type = 'fastl4'
         else:
             virtual_type = 'standard'
 
-        if virtual_type == 'fastl4':
+        if virtual_type == 'fastl4' and protocol == 'TRIANGLE':
+            # pzhang customerized profile GSLB
+            vip['profiles'] = ['/Common/GSLB']
+            vip['translateAddress'] = 'enabled'
+            vip['translatePort'] = 'disabled'
+        elif virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
         else:
             # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
