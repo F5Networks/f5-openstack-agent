@@ -112,7 +112,7 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
-        # pzhang: 修改 snat
+        # triangle protocol disable all snat
         listener["use_snat"] = self.snat_mode() and not listener.get(
             "transparent") and not (listener.get("protocol") == "TRIANGLE")
         if listener["use_snat"] and self.snat_count() > 0:
@@ -478,9 +478,7 @@ class ServiceModelAdapter(object):
             else:
                 vip["disabled"] = True
 
-        # pzhang SNAT 修改
         self._add_vlan_and_snat(listener, vip)
-        # pzhang HTTP layer4 修改
         self._add_profiles_session_persistence(listener, pool, vip)
 
         existed_irules = vip.get('rules', [])
@@ -531,12 +529,15 @@ class ServiceModelAdapter(object):
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
         protocol = listener.get('protocol', "")
-
-        # pzhang: give me a True or False boolean
-        # change it back when client command changes
         oneconnect = listener.get('oneconnect', False)
 
-        if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS", "UDP"]:
+        if protocol not in ["HTTP",
+                            "HTTPS",
+                            "TCP",
+                            "TERMINATED_HTTPS",
+                            "UDP",
+                            "TRIANGLE",
+                            "FTP"]:
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
 
@@ -551,11 +552,13 @@ class ServiceModelAdapter(object):
         else:
             virtual_type = 'standard'
 
-        if virtual_type == 'fastl4' and protocol == 'TRIANGLE':
-            # pzhang customerized profile GSLB
+        if protocol == 'TRIANGLE':
+            # fixed customerized profile name GSLB
             vip['profiles'] = ['/Common/GSLB']
             vip['translateAddress'] = 'enabled'
             vip['translatePort'] = 'disabled'
+        elif protocol == 'FTP':
+            vip['profiles'] = ['/Common/ftp']
         elif virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
         else:
