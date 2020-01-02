@@ -531,6 +531,11 @@ class ServiceModelAdapter(object):
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
         protocol = listener.get('protocol', "")
+
+        # pzhang: give me a True or False boolean
+        # change it back when client command changes
+        oneconnect = listener.get('oneconnect', False)
+
         if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS", "UDP"]:
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
@@ -555,7 +560,7 @@ class ServiceModelAdapter(object):
             vip['profiles'] = ['/Common/fastL4']
         else:
             # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
-            vip['profiles'] = ['/Common/http', '/Common/oneconnect']
+            vip['profiles'] = ['/Common/http']
 
         vip['fallbackPersistence'] = ''
         vip['persist'] = []
@@ -566,7 +571,8 @@ class ServiceModelAdapter(object):
             lb_algorithm = pool.get('lb_algorithm', 'ROUND_ROBIN')
 
         valid_persist_types = ['SOURCE_IP', 'APP_COOKIE', 'HTTP_COOKIE']
-        if persistence:
+
+        if persistence and oneconnect:
             persistence_type = persistence.get('type', "")
             if persistence_type not in valid_persist_types:
                 LOG.warning("Invalid peristence type: %s",
@@ -586,8 +592,16 @@ class ServiceModelAdapter(object):
                 if lb_algorithm == 'SOURCE_IP':
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
-            if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
+            if persistence_type in ['HTTP_COOKIE',
+                                    'APP_COOKIE']:
                 vip['profiles'] = ['/Common/http', '/Common/oneconnect']
+
+        if oneconnect:
+            if '/Common/oneconnect' not in vip['profiles']:
+                vip['profiles'].append("/Common/oneconnect")
+        else:
+            if '/Common/oneconnect' in vip['profiles']:
+                vip['profiles'].remove('/Common/oneconnect')
 
     def get_vlan(self, vip, bigip, network_id):
         if network_id in bigip.assured_networks:

@@ -1540,6 +1540,8 @@ class iControlDriver(LBaaSBaseDriver):
         """Create virtual server."""
         LOG.debug("Creating listener")
         service['listeners'][0]['protocol'] = "TRIANGLE"
+        service['listeners'][0]['oneconnect']
+
         return self._common_service_handler(service)
 
     @serialized('update_listener')
