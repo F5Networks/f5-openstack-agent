@@ -112,7 +112,8 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
-        listener["use_snat"] = self.snat_mode()
+        listener["use_snat"] = self.snat_mode() and not listener.get(
+            "transparent")
         if listener["use_snat"] and self.snat_count() > 0:
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
@@ -519,13 +520,17 @@ class ServiceModelAdapter(object):
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
         protocol = listener.get('protocol', "")
-        if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS"]:
+        if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS", "UDP"]:
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
-        vip["ipProtocol"] = "tcp"
+
+        if protocol == "UDP":
+            vip["ipProtocol"] = "udp"
+        else:
+            vip["ipProtocol"] = "tcp"
 
         # if protocol is HTTPS, also use fastl4
-        if protocol == 'TCP' or protocol == 'HTTPS':
+        if protocol in ['TCP', 'HTTPS', 'UDP']:
             virtual_type = 'fastl4'
         else:
             virtual_type = 'standard'
@@ -590,7 +595,12 @@ class ServiceModelAdapter(object):
                 vip['sourceAddressTranslation']['pool'] = \
                     listener["snat_pool_name"]
             else:
+                # if snat_count < 0, use automap
                 vip['sourceAddressTranslation']['type'] = 'automap'
+        else:
+            vip['sourceAddressTranslation'] = {}
+            vip['sourceAddressTranslation']['type'] = None
+            vip['sourceAddressTranslation']['pool'] = None
 
         # default values for pinning the VS to a specific VLAN set
         vip['vlansDisabled'] = True

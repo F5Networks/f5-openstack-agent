@@ -321,7 +321,9 @@ class TestServiceAdapter(object):
             vlansDisabled=True,
             profiles=['/Common/fastL4'],
             vlans=[], policies=[], rules=[],
-            fallbackPersistence='', persist=[])
+            fallbackPersistence='', persist=[],
+            sourceAddressTranslation={'pool': None, 'type': None},
+        )
         assert expected == target._map_virtual(
             loadbalancer, listener, pool=pool)
 
@@ -331,7 +333,10 @@ class TestServiceAdapter(object):
 
         vip = dict()
         adapter._add_vlan_and_snat(listener, vip)
-        expected = dict(vlansDisabled=True, vlans=[])
+        expected = dict(
+            vlansDisabled=True, vlans=[],
+            sourceAddressTranslation={'pool': None, 'type': None}
+        )
         assert vip == expected
 
     def test_add_vlan_and_snat_automap(self, basic_service):
