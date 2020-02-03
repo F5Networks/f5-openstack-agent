@@ -601,8 +601,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
             # Validate each service we own, i.e. loadbalancers to which this
             # agent is bound, that does not exist in our service cache.
+            # pzhang RMA
             self._validate_services(all_loadbalancer_ids)
 
+            # pzhang PENDING
             resync = self._refresh_pending_services()
 
             # Get a list of any cached service we now know after

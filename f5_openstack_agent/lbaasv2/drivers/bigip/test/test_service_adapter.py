@@ -371,8 +371,7 @@ class TestServiceAdapter(object):
         adapter._add_profiles_session_persistence(listener, None, vip)
 
         expected = dict(ipProtocol='tcp',
-                        profiles=['/Common/http',
-                                  '/Common/oneconnect'],
+                        profiles=['/Common/http'],
                         fallbackPersistence='', persist=[])
         assert vip == expected
 
@@ -469,8 +468,7 @@ class TestServiceAdapter(object):
         vip = dict()
         adapter._add_profiles_session_persistence(listener, pool, vip)
 
-        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
-                                                    '/Common/oneconnect'],
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http'],
                         fallbackPersistence='',
                         persist=[dict(name='/Common/cookie')])
         assert vip == expected
@@ -479,8 +477,7 @@ class TestServiceAdapter(object):
         vip = dict()
         adapter._add_profiles_session_persistence(listener, pool, vip)
 
-        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
-                                                    '/Common/oneconnect'],
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http'],
                         fallbackPersistence='/Common/source_addr',
                         persist=[dict(name='/Common/cookie')])
         assert vip == expected
@@ -497,8 +494,7 @@ class TestServiceAdapter(object):
         vip = dict()
         adapter._add_profiles_session_persistence(listener, pool, vip)
 
-        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
-                                                    '/Common/oneconnect'],
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http'],
                         fallbackPersistence='',
                         persist=[dict(name='/Common/cookie')])
         assert vip == expected
@@ -507,8 +503,7 @@ class TestServiceAdapter(object):
         vip = dict()
         adapter._add_profiles_session_persistence(listener, pool, vip)
 
-        expected = dict(ipProtocol='tcp', profiles=['/Common/http',
-                                                    '/Common/oneconnect'],
+        expected = dict(ipProtocol='tcp', profiles=['/Common/http'],
                         fallbackPersistence='/Common/source_addr',
                         persist=[dict(name='/Common/cookie')])
         assert vip == expected
@@ -528,8 +523,7 @@ class TestServiceAdapter(object):
 
         expected = dict(
             name=vip_name,
-            ipProtocol='tcp', profiles=['/Common/http',
-                                        '/Common/oneconnect'],
+            ipProtocol='tcp', profiles=['/Common/http'],
             fallbackPersistence='',
             persist=[dict(name=persist_name)])
         assert vip == expected
@@ -540,8 +534,7 @@ class TestServiceAdapter(object):
 
         expected = dict(
             name=vip_name,
-            ipProtocol='tcp', profiles=['/Common/http',
-                                        '/Common/oneconnect'],
+            ipProtocol='tcp', profiles=['/Common/http'],
             fallbackPersistence='/Common/source_addr',
             persist=[dict(name=persist_name)])
         assert vip == expected
@@ -589,7 +582,6 @@ class TestServiceAdapter(object):
         service['listener']['protocol'] = 'TERMINATED_HTTPS'
         vs = adapter.get_virtual(service)
         assert '/Common/http' in vs['profiles']
-        assert '/Common/oneconnect' in vs['profiles']
         assert '/Common/fastL4' not in vs['profiles']
 
     def test_get_vip_default_pool_no_pool(self, service):

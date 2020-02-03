@@ -112,8 +112,9 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
+        # triangle protocol disable all snat
         listener["use_snat"] = self.snat_mode() and not listener.get(
-            "transparent")
+            "transparent") and not (listener.get("protocol") == "TRIANGLE")
         if listener["use_snat"] and self.snat_count() > 0:
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
@@ -520,7 +521,15 @@ class ServiceModelAdapter(object):
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
         protocol = listener.get('protocol', "")
-        if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS", "UDP"]:
+        oneconnect = listener.get('oneconnect', False)
+
+        if protocol not in ["HTTP",
+                            "HTTPS",
+                            "TCP",
+                            "TERMINATED_HTTPS",
+                            "UDP",
+                            "TRIANGLE",
+                            "FTP"]:
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
 
@@ -530,16 +539,23 @@ class ServiceModelAdapter(object):
             vip["ipProtocol"] = "tcp"
 
         # if protocol is HTTPS, also use fastl4
-        if protocol in ['TCP', 'HTTPS', 'UDP']:
+        if protocol in ['TCP', 'HTTPS', 'UDP', 'TRIANGLE']:
             virtual_type = 'fastl4'
         else:
             virtual_type = 'standard'
 
-        if virtual_type == 'fastl4':
+        if protocol == 'TRIANGLE':
+            # fixed customerized profile name GSLB
+            vip['profiles'] = ['/Common/GSLB']
+            vip['translateAddress'] = 'disabled'
+            vip['translatePort'] = 'disabled'
+        elif protocol == 'FTP':
+            vip['profiles'] = ['/Common/ftp']
+        elif virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
         else:
             # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
-            vip['profiles'] = ['/Common/http', '/Common/oneconnect']
+            vip['profiles'] = ['/Common/http']
 
         vip['fallbackPersistence'] = ''
         vip['persist'] = []
@@ -550,6 +566,7 @@ class ServiceModelAdapter(object):
             lb_algorithm = pool.get('lb_algorithm', 'ROUND_ROBIN')
 
         valid_persist_types = ['SOURCE_IP', 'APP_COOKIE', 'HTTP_COOKIE']
+
         if persistence:
             persistence_type = persistence.get('type', "")
             if persistence_type not in valid_persist_types:
@@ -570,8 +587,16 @@ class ServiceModelAdapter(object):
                 if lb_algorithm == 'SOURCE_IP':
                     vip['fallbackPersistence'] = '/Common/source_addr'
 
-            if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
+            if persistence_type in ['HTTP_COOKIE',
+                                    'APP_COOKIE']:
                 vip['profiles'] = ['/Common/http', '/Common/oneconnect']
+
+        if oneconnect:
+            if '/Common/oneconnect' not in vip['profiles']:
+                vip['profiles'].append("/Common/oneconnect")
+        else:
+            if '/Common/oneconnect' in vip['profiles']:
+                vip['profiles'].remove('/Common/oneconnect')
 
     def get_vlan(self, vip, bigip, network_id):
         if network_id in bigip.assured_networks:

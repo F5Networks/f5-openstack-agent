@@ -189,7 +189,6 @@ class LBaaSBuilder(object):
                        "l7policy_rules": l7rules,
                        "networks": networks}
 
-                # create_listener() will do an update if VS exists
                 error = self.listener_builder.create_listener(
                     svc, bigips)
 
