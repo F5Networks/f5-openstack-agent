@@ -5,12 +5,13 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
-v5.0.0
+v5.0.3
 ------
 NOTE: special release.
 
 Added Functionality
 ```````````````````
+* Added ftp oneconnect and triangle.
 
 Bug Fixes
 `````````
