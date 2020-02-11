@@ -28,7 +28,8 @@ class SSLProfileHelper(object):
 
     @staticmethod
     def create_client_ssl_profile(
-            bigip, name, cert, key, intermediate=None, sni_default=False, parent_profile=None, caClientTrust=False):
+            bigip, name, cert, key, intermediate=None, sni_default=False, parent_profile=None, caClientTrust=False,
+            key_passphrase=None):
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         intermediate_registrar = bigip.tm.sys.crypto.certs
@@ -95,6 +96,8 @@ class SSLProfileHelper(object):
                       'cert': '/Common/' + certfilename,
                       'key': '/Common/' + keyfilename}]
 
+            if key_password:
+                chain[0]['passphrase'] = key_passphrase
 
             if caClientTrust and intermediate:
                 ssl_client_profile.create(name=profilename,

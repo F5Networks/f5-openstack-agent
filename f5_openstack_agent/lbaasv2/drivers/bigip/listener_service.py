@@ -172,6 +172,7 @@ class ListenerServiceBuilder(object):
     def create_ssl_profile(self, container_ref, bigip, vip, sni_default=False, add_to_vip=True):
         cert = self.cert_manager.get_certificate(container_ref)
         key = self.cert_manager.get_private_key(container_ref)
+        key_passphrase = self.cert_manager.get_private_key_passphrase(container_ref)
         intermediate = self.cert_manager.get_intermediates(container_ref)
         name = self.cert_manager.get_name(container_ref,
                                           self.service_adapter.prefix)
@@ -193,7 +194,8 @@ class ListenerServiceBuilder(object):
                 intermediate,
                 sni_default=True,
                 parent_profile=self.parent_ssl_profile,
-                caClientTrust=caClientTrust
+                caClientTrust=caClientTrust,
+                key_passphrase=key_passphrase
             )
         except HTTPError as err:
             if err.response.status_code != 409:
@@ -213,7 +215,8 @@ class ListenerServiceBuilder(object):
                 intermediate,
                 sni_default=False,
                 parent_profile=self.parent_ssl_profile,
-                caClientTrust=caClientTrust
+                caClientTrust=caClientTrust,
+                key_passphrase=key_passphrase
             )
         except HTTPError as err:
             if err.response.status_code != 409:
