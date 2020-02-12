@@ -96,7 +96,7 @@ class SSLProfileHelper(object):
                       'cert': '/Common/' + certfilename,
                       'key': '/Common/' + keyfilename}]
 
-            if key_password:
+            if key_passphrase:
                 chain[0]['passphrase'] = key_passphrase
 
             if caClientTrust and intermediate:
