@@ -147,6 +147,17 @@ class BarbicanCertManager(object):
         container = self.barbican.containers.get(container_ref)
         return container.private_key.payload
 
+    def get_private_key_passphrase(self, container_ref):
+        """Retrieves key passphrase from certificate manager.
+
+        :param string container_ref: Reference to key stored in a
+        certificate manager.
+        :returns string: passphrase.
+        This method MUST be implemented, in agent-compliant cert managers.
+        """
+        container = self.barbican.containers.get(container_ref)
+        return container.private_key_passphrase.payload
+
     def get_name(self, container_ref, prefix):
         """Returns a name that uniquely identifies cert/key pair.
 
