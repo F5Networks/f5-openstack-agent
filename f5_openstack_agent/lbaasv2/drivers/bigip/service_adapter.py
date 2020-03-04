@@ -480,6 +480,10 @@ class ServiceModelAdapter(object):
         self._add_vlan_and_snat(listener, vip)
         self._add_profiles_session_persistence(listener, pool, vip)
 
+        # Set bandwidth contoller
+        if 'bwcPolicy' in listener:
+            vip['bwcPolicy'] = listener.get("bwcPolicy")
+
         existed_irules = vip.get('rules', [])
         irules += existed_irules
         vip['rules'] = irules

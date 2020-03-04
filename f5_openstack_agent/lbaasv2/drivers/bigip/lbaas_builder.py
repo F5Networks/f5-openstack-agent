@@ -55,6 +55,9 @@ class LBaaSBuilder(object):
     def is_esd(self, esd):
         return self.esd.is_esd(esd)
 
+    def is_bwc(self, desc):
+        return desc.startswith("vip_bwc_policy:")
+
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
         start_time = time()
@@ -441,6 +444,33 @@ class LBaaSBuilder(object):
         for l7policy in l7policies:
             LOG.debug("L7 debug: assuring policy: %s", l7policy)
             name = l7policy.get('name', None)
+
+            desc = l7policy.get('description', None)
+            position = l7policy.get('position', 1)
+            if self.is_bwc(desc) and 'listeners' in service:
+                # Parse bwc policy name from L7 policy description
+                bwc = desc[15:]
+                for listener in service['listeners']:
+                    if listener['id'] == l7policy['listener_id']:
+                        policy_state = l7policy.get('provisioning_status')
+                        bwc_position = listener.get('bwcPosition', None)
+                        if policy_state == "PENDING_CREATE" or \
+                           policy_state == "ACTIVE":
+                            # Only bwc l7 policy with the highest priority
+                            # can take effect. Skip rest of bwc l7 policies
+                            # of the same listener
+                            if not bwc_position or bwc_position > position:
+                                LOG.debug('Add bwc policy %s to listener %s',
+                                          bwc, listener['id'])
+                                listener['bwcPosition'] = position
+                                listener['bwcPolicy'] = "/Common/" + bwc
+                        if policy_state == "PENDING_DELETE" and \
+                           'bwcPolicy' not in listener:
+                            LOG.debug('Remove bwc policy %s from listener %s',
+                                      bwc, listener['id'])
+                            listener['bwcPolicy'] = None
+                continue
+
             if not self.esd.is_esd(name):
                 listener_id = l7policy.get('listener_id', None)
                 if not listener_id or listener_id in listener_policy_map:
@@ -488,7 +518,8 @@ class LBaaSBuilder(object):
         l7policies = service['l7policies']
         for l7policy in l7policies:
             name = l7policy.get('name', None)
-            if not self.esd.is_esd(name):
+            desc = l7policy.get('description', None)
+            if not self.esd.is_esd(name) and not self.is_bwc(desc):
                 listener_id = l7policy.get('listener_id', None)
                 if not listener_id or listener_id in listener_policy_map:
                     continue
