@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import ast
+
 import hashlib
 import netaddr
 
@@ -512,9 +514,12 @@ class ServiceModelAdapter(object):
 
             policy_name = policy.get('name', None)
             esd = self.esd.get_esd(policy_name)
-            if esd:
+
+            if isinstance(esd, dict):
                 esd_composite.update(esd)
 
+        # TCP with source ip transmission will not go to
+        # apply_fastl4_esd logical.
         if listener['protocol'] == 'TCP':
             self._apply_fastl4_esd(vip, esd_composite)
         else:
@@ -528,6 +533,26 @@ class ServiceModelAdapter(object):
 
     def is_esd(self, name):
         return self.esd.get_esd(name) is not None
+
+    def parse_descript_opts(self, listener):
+        extra_opts = {}
+        listener_id = listener.get('id')
+        descript = listener.get('description')
+
+        if descript:
+            try:
+                extra_opts = ast.literal_eval(descript)
+                LOG.debug("listener %s get extra descript options %s" %
+                          (listener_id, descript))
+            except Exception as exc:
+                LOG.error("listener id: %s can not parse extra options %s" %
+                          (listener_id, descript))
+                LOG.error("exception is %s" % exc)
+                LOG.error(
+                    "CAUTION: listener will show on neutron lbaas " +
+                    "table, BUT it will not be configure on BIGIP device")
+                raise exc
+        return extra_opts
 
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
@@ -547,10 +572,24 @@ class ServiceModelAdapter(object):
         else:
             virtual_type = 'standard'
 
+        extra_options = self.parse_descript_opts(listener)
+
+        # according to the extra_options,
+        # some vip profile will be overwrite
+        if extra_options:
+            tcp_type = extra_options.get('TCP-type')
+            # add this for TCP source ip transparent
+            if tcp_type == 'standard' and protocol == 'TCP':
+                virtual_type = 'standard'
+
         if virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
+        # standard type TCP listener canot have http and oneconnect profile
+        # or ssh lb members will be diconnected
+        elif virtual_type == 'standard' and protocol == 'TCP':
+            vip['profiles'] = []
         else:
-            # add profiles for HTTP, HTTPS, TERMINATED_HTTPS protocols
+            # add profiles for HTTP, TERMINATED_HTTPS protocols
             vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
         vip['fallbackPersistence'] = ''
@@ -681,10 +720,35 @@ class ServiceModelAdapter(object):
         # Application of ESD implies some type of L7 traffic routing.  Add
         # an HTTP profile.
         if 'lbaas_http_profile' in esd:
-            vip['profiles'] = ["/Common/" + esd['lbaas_http_profile'],
-                               "/Common/fastL4"]
-        else:
-            vip['profiles'] = ["/Common/http", "/Common/fastL4"]
+            if "/Common/fastL4" in vip['profiles']:
+                vip['profiles'] = ["/Common/" + esd['lbaas_http_profile'],
+                                   "/Common/fastL4"]
+            else:
+                vip['profiles'] = ["/Common/" + esd['lbaas_http_profile']]
+
+        # fastL4 listener cannot configure server and client
+        # protocol, or it will throw errors
+        # start with server tcp profile
+        if "/Common/fastL4" not in vip['profiles']:
+            if 'lbaas_stcp' in esd:
+                # set serverside tcp profile
+                vip['profiles'].append({'name': esd['lbaas_stcp'],
+                                        'partition': 'Common',
+                                        'context': 'serverside'})
+                # restrict client profile
+                ctcp_context = 'clientside'
+            else:
+                # no serverside profile; use client profile for both
+                ctcp_context = 'all'
+
+            # must define client profile; default to tcp if not in ESD
+            if 'lbaas_ctcp' in esd:
+                ctcp_profile = esd['lbaas_ctcp']
+            else:
+                ctcp_profile = 'tcp'
+            vip['profiles'].append({'name':  ctcp_profile,
+                                    'partition': 'Common',
+                                    'context': ctcp_context})
 
         # persistence
         if 'lbaas_persist' in esd:
