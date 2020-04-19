@@ -304,7 +304,7 @@ def service():
                 }],
                 'binding:vif_details': {},
                 'binding:vif_type': 'binding_failed',
-                'device_owner': 'network:f5lbaasv2',
+                'device_owner': 'F5:lbaasv2',
                 'tenant_id': 'b95f6e974471433eb9f482303a5da291',
                 'binding:profile': {},
                 'binding:vnic_type': 'normal',

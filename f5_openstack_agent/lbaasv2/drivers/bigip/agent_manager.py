@@ -369,6 +369,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         # create our class we will use to send callbacks to the controller
         # for processing by the driver plugin
+        # agent_id set here, check it later
         self.plugin_rpc = plugin_rpc.LBaaSv2PluginRPC(
             topic,
             self.context,

@@ -196,7 +196,7 @@ def l7policy_and_rules():
                 "created_at": "2017-11-23T01:14:37",
                 "description": None,
                 "device_id": "990ba002-6eb2-40b6-9c63-f364b28a630b",
-                "device_owner": "network:f5lbaasv2",
+                "device_owner": "F5:lbaasv2",
                 "dns_name": None,
                 "extra_dhcp_opts": [],
                 "fixed_ips": [
@@ -355,7 +355,7 @@ def service():
                           u'created_at': u'2016-10-24T21:17:30',
                           u'description': None,
                           u'device_id': u'0bd0b8ff-1c51-5061-b0c4',
-                          u'device_owner': u'network:f5lbaasv2',
+                          u'device_owner': u'F5:lbaasv2',
                           u'dns_name': None,
                           u'extra_dhcp_opts': [],
                           u'fixed_ips': [
@@ -448,7 +448,7 @@ def l7policy_create_service():
                           u'created_at': u'2016-10-24T21:17:30',
                           u'description': None,
                           u'device_id': u'0bd0b8ff-1c51-5061-b0c4',
-                          u'device_owner': u'network:f5lbaasv2',
+                          u'device_owner': u'F5:lbaasv2',
                           u'dns_name': None,
                           u'extra_dhcp_opts': [],
                           u'fixed_ips': [
@@ -552,7 +552,7 @@ def l7policy_delete_service():
                           u'created_at': u'2016-10-24T21:17:30',
                           u'description': None,
                           u'device_id': u'0bd0b8ff-1c51-5061-b0c4',
-                          u'device_owner': u'network:f5lbaasv2',
+                          u'device_owner': u'F5:lbaasv2',
                           u'dns_name': None,
                           u'extra_dhcp_opts': [],
                           u'fixed_ips': [
@@ -656,7 +656,7 @@ def l7rule_create_service():
                           u'created_at': u'2016-10-24T21:17:30',
                           u'description': None,
                           u'device_id': u'0bd0b8ff-1c51-5061-b0c4',
-                          u'device_owner': u'network:f5lbaasv2',
+                          u'device_owner': u'F5:lbaasv2',
                           u'dns_name': None,
                           u'extra_dhcp_opts': [],
                           u'fixed_ips': [
@@ -773,7 +773,7 @@ def l7rule_delete_service():
                           u'created_at': u'2016-10-24T21:17:30',
                           u'description': None,
                           u'device_id': u'0bd0b8ff-1c51-5061-b0c4',
-                          u'device_owner': u'network:f5lbaasv2',
+                          u'device_owner': u'F5:lbaasv2',
                           u'dns_name': None,
                           u'extra_dhcp_opts': [],
                           u'fixed_ips': [
@@ -890,7 +890,7 @@ def shared_pool_service():
                           u'created_at': u'2016-10-24T21:17:30',
                           u'description': None,
                           u'device_id': u'0bd0b8ff-1c51-5061-b0c4',
-                          u'device_owner': u'network:f5lbaasv2',
+                          u'device_owner': u'F5:lbaasv2',
                           u'dns_name': None,
                           u'extra_dhcp_opts': [],
                           u'fixed_ips': [

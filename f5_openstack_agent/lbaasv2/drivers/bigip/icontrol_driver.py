@@ -272,7 +272,8 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Name of physical network to use for discovery of segment ID'
     ),
     cfg.StrOpt(
-        'unlegacy_setting_placeholder', default=None,
+        'unlegacy_setting_placeholder',
+        default='side',
         help='use this setting to separate legacy with hw/etc on agent side'
     ),
     cfg.IntOpt(
@@ -303,6 +304,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'report_esd_names_in_agent',
         default=False,
         help='whether or not to add valid esd names during report.'
+    ),
+    cfg.BoolOpt(
+        'separate_host',
+        default=True,
+        help='whether to use separate host'
     )
 ]
 

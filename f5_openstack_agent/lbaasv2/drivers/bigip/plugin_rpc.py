@@ -349,7 +349,8 @@ class LBaaSv2PluginRPC(object):
                               fixed_address_count=1,
                               device_id=None,
                               vnic_type="normal",
-                              binding_profile={}):
+                              binding_profile={},
+                              host_passed=None):
         """Add a neutron port to the subnet."""
         port = None
         try:
@@ -360,7 +361,7 @@ class LBaaSv2PluginRPC(object):
                                mac_address=mac_address,
                                name=name,
                                fixed_address_count=fixed_address_count,
-                               host=self.host,
+                               host=host_passed or self.host,
                                device_id=device_id,
                                vnic_type=vnic_type,
                                binding_profile=binding_profile),

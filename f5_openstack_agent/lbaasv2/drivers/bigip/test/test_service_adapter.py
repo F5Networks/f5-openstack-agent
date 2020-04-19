@@ -58,7 +58,7 @@ def service():
                           u'created_at': u'2016-10-24T21:17:30',
                           u'description': None,
                           u'device_id': u'0bd0b8ff-1c51-5061-b0c4',
-                          u'device_owner': u'network:f5lbaasv2',
+                          u'device_owner': u'F5:lbaasv2',
                           u'dns_name': None,
                           u'extra_dhcp_opts': [],
                           u'fixed_ips': [

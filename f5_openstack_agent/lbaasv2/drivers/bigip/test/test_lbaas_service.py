@@ -95,7 +95,7 @@ service_def = {
               'created_at': '2016-10-27T16:57:53',
               'description': None,
               'device_id': 'ca979235-4310-5ed8-b679-2222f37f861c',
-              'device_owner': 'network:f5lbaasv2',
+              'device_owner': 'F5:lbaasv2',
               'dns_name': None,
               'extra_dhcp_opts': [],
               'fixed_ips':
