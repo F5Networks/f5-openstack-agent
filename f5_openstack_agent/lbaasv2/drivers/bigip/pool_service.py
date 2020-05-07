@@ -45,6 +45,8 @@ class PoolServiceBuilder(object):
             resource_helper.ResourceType.udp_monitor)
         self.sip_mon_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.sip_monitor)
+        self.diameter_mon_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.diameter_monitor)
         self.ping_mon_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.ping_monitor)
         self.pool_helper = resource_helper.BigIPResourceHelper(
@@ -252,6 +254,8 @@ class PoolServiceBuilder(object):
             hm = self.udp_mon_helper
         elif monitor_type == "SIP":
             hm = self.sip_mon_helper
+        elif monitor_type == "DIAMETER":
+            hm = self.diameter_mon_helper
         else:
             hm = self.http_mon_helper
         return hm
