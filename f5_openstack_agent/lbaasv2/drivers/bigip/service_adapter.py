@@ -603,13 +603,10 @@ class ServiceModelAdapter(object):
             vip['profiles'] = ['/Common/fastL4']
         elif virtual_type == 'standard' and protocol == 'TCP':
             vip['profiles'] = ['/Common/tcp']
-            # vip['profiles'] = []
         elif virtual_type == 'standard' and protocol == 'UDP':
             vip['profiles'] = ['/Common/udp']
-            # vip['profiles'] = []
         elif virtual_type == 'mr' and protocol == 'TCP':
             vip['profiles'] = ['/Common/tcp']
-            # vip['profiles'] = ['/Common/tcp']
         else:
             # add profiles for HTTP, TERMINATED_HTTPS protocols
             vip['profiles'] = ['/Common/http', '/Common/oneconnect']
@@ -653,7 +650,6 @@ class ServiceModelAdapter(object):
         if add_diameter:
             diameter_session = extra_options.get('ds')
             diameter_router = extra_options.get('dr')
-            # tcp_profile = extra_options.get('dtcp')
 
             if not diameter_session:
                 diameter_session = '/Common/diametersession'
@@ -667,7 +663,6 @@ class ServiceModelAdapter(object):
                     diameter_router not in vip['profiles']:
                 vip['profiles'] += [diameter_session,
                                     diameter_router]
-                                   #  tcp_profile]
 
     def get_vlan(self, vip, bigip, network_id):
         if network_id in bigip.assured_networks:
@@ -793,8 +788,6 @@ class ServiceModelAdapter(object):
             if '/Common/tcp' in vip['profiles']:
                 vip['profiles'].remove('/Common/tcp')
 
-            # if '/Common/udp' not in vip['profiles'] and \
-                    # '/Common/tcp' not in vip['profiles']:
             vip['profiles'].append({'name':  ctcp_profile,
                                     'partition': 'Common',
                                     'context': ctcp_context})
