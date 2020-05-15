@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
 
 LOG = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ class BigipTenantManager(object):
         self.system_helper = SystemHelper()
         self.network_helper = NetworkHelper()
         self.service_adapter = self.driver.service_adapter
+        self.rd_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.route_domain)
 
     def assure_tenant_created(self, service):
         """Create tenant partition.
@@ -81,12 +84,29 @@ class BigipTenantManager(object):
                         self.network_helper.create_route_domain(
                             bigip,
                             rd_id,
+                            service['qos'],
                             folder_name,
                             self.conf.f5_route_domain_strictness)
                     except Exception as err:
                         LOG.exception(err.message)
                         raise f5ex.RouteDomainCreationException(
                             "Failed to create route domain for "
+                            "tenant in %s" % (folder_name))
+                else:
+                    LOG.debug("Try to update route domain")
+                    try:
+                        payload = self.network_helper.route_domain_update
+                        payload['name'] = folder_name
+                        payload['partition'] = folder_name
+                        if service['qos'] == '':
+                            payload['bwcPolicy'] = 'None'
+                        else:
+                            payload['bwcPolicy'] = '/Common/' + service['qos']
+                        self.rd_helper.update(bigip, payload)
+                    except Exception as err:
+                        LOG.exception(err.message)
+                        raise f5ex.RouteDomainCreationException(
+                            "Failed to update route domain for "
                             "tenant in %s" % (folder_name))
 
     def assure_tenant_cleanup(self, service, all_subnet_hints):

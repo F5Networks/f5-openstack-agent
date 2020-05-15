@@ -54,6 +54,12 @@ class NetworkHelper(object):
         'floodingType': 'none',
     }
 
+    route_domain_update = {
+        'name': None,
+        'partition': None,
+        'bwcPolicy': None,
+    }
+
     route_domain_defaults = {
         'name': None,
         'partition': '/' + const.DEFAULT_PARTITION,
@@ -299,7 +305,7 @@ class NetworkHelper(object):
         return lowest_available_index
 
     @log_helpers.log_method_call
-    def create_route_domain(self, bigip, rd_id,
+    def create_route_domain(self, bigip, rd_id, qos,
                             partition=const.DEFAULT_PARTITION,
                             strictness=False, is_aux=False, name=None):
         """Creates the route domain based upon settings in config
@@ -317,6 +323,7 @@ class NetworkHelper(object):
             is_aux - whether or not it is 'aux' in definition
             name - name of the RD as it should have
         """
+        LOG.debug("Create route domain with qos name %s " % qos)
         if name and self.conf.external_gateway_mode:
             name = self._get_route_domain_name(name)
         else:
@@ -328,6 +335,10 @@ class NetworkHelper(object):
         payload['name'] = name
         payload['partition'] = '/' + partition
         payload['id'] = rd_id
+        if len(qos) == 0:
+            payload['bwcPolicy'] = 'None'
+        else:
+            payload['bwcPolicy'] = '/Common/' + qos
         if strictness:
             payload['strict'] = 'enabled'
         else:
