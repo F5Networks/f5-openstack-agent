@@ -433,6 +433,17 @@ class ServiceModelAdapter(object):
 
         vip["description"] = self.get_resource_description(listener)
 
+        # to test this against different values
+        if listener.get("connection_rate_limit") is not None:
+            LOG.info("for listener: %s", listener["id"])
+            vip["rateLimit"] = listener.get("connection_rate_limit", 0)
+            LOG.info("setting rateLimit to")
+            LOG.info(vip["rateLimit"])
+
+            if vip["rateLimit"] < 0:
+                vip["rateLimit"] = 0
+                LOG.info("setting to 0")
+
         if pool:
             pool_name = self.init_pool_name(loadbalancer, pool)
             vip['pool'] = pool_name.get('name', "")
