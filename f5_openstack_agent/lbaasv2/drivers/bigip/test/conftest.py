@@ -118,7 +118,7 @@ class TestingWithServiceConstructor(object):
                  device_id=device_id, divcie_owner='newutron:LOADBALANCERV2',
                  dns_assignment=dns_assignment, dns_name=None,
                  extra_dhcp_opts=[], id=cls.new_id(), network_id=network_id,
-                 name='loadbalancer-'.format(new_id), security_groups=[],
+                 name='loadbalancer-{}'.format(new_id), security_groups=[],
                  mac_address='xx:xx:xx:xx:xx:xx', status='UP',
                  tenant_id=tenant_id, fixed_ips=fixed_ips)
         new_lb = \
