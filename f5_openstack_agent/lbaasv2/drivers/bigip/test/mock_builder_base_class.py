@@ -425,8 +425,8 @@ class MockBuilderBase(object):
                         stored.expected_call_cnt
             except AssertionError:
                 raise AssertionError(
-                    "Expected '{}.{}' method to be called {} times. "
-                    "Impacted builder: {}".format(
+                    "Expected '{}.{}' method to be called {} times.  Was "
+                    "actually called {} times. ".format(
                         stored.target_mod, stored.mocked_method,
                         stored.expected.call_cnt, stored.mock_builder))
 

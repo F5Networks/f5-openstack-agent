@@ -63,6 +63,7 @@ class ResourceType(Enum):
     oneconnect = 37
     udp_monitor = 38
     sip_monitor = 39
+    diameter_monitor = 40
 
 
 class BigIPResourceHelper(object):
@@ -211,6 +212,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.ltm.monitor.udps.udp,
             ResourceType.sip_monitor:
                 lambda bigip: bigip.tm.ltm.monitor.sips.sip,
+            ResourceType.diameter_monitor:
+                lambda bigip: bigip.tm.ltm.monitor.diameters.diameter,
             ResourceType.ping_monitor:
                 lambda bigip: bigip.tm.ltm.monitor.gateway_icmps.gateway_icmp,
             ResourceType.node: lambda bigip: bigip.tm.ltm.nodes.node,

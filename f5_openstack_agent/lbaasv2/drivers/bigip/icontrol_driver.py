@@ -1609,6 +1609,10 @@ class iControlDriver(LBaaSBaseDriver):
     def create_health_monitor(self, health_monitor, service):
         """Create pool health monitor."""
         LOG.debug("Creating health monitor")
+        monitors = service.get("healthmonitors", list())
+        for mn in monitors:
+            if mn.get("name") == "diameter":
+                mn["type"] = "DIAMETER"
         return self._common_service_handler(service)
 
     @serialized('update_health_monitor')
@@ -1617,6 +1621,10 @@ class iControlDriver(LBaaSBaseDriver):
                               health_monitor, service):
         """Update pool health monitor."""
         LOG.debug("Updating health monitor")
+        monitors = service.get("healthmonitors", list())
+        for mn in monitors:
+            if mn.get("name") == "diameter":
+                mn["type"] = "DIAMETER"
         return self._common_service_handler(service)
 
     @serialized('delete_health_monitor')
@@ -1624,6 +1632,10 @@ class iControlDriver(LBaaSBaseDriver):
     def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor."""
         LOG.debug("Deleting health monitor")
+        monitors = service.get("healthmonitors", list())
+        for mn in monitors:
+            if mn.get("name") == "diameter":
+                mn["type"] = "DIAMETER"
         return self._common_service_handler(service)
 
     @is_operational
