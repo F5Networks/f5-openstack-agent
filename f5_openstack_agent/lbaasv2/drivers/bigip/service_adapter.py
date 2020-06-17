@@ -561,11 +561,6 @@ class ServiceModelAdapter(object):
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
 
-        if protocol == "UDP":
-            vip["ipProtocol"] = "udp"
-        else:
-            vip["ipProtocol"] = "tcp"
-
         # if protocol is HTTPS, also use fastl4
         if protocol in ['TCP', 'HTTPS', 'UDP']:
             virtual_type = 'fastl4'
@@ -574,20 +569,44 @@ class ServiceModelAdapter(object):
 
         extra_options = self.parse_descript_opts(listener)
 
+        add_sip = False
+        add_diameter = False
         # according to the extra_options,
         # some vip profile will be overwrite
         if extra_options:
-            tcp_type = extra_options.get('TCP-type')
+            listener_type = extra_options.get('Listener-type')
+            extra_profile = extra_options.get('Add-profile')
+
+            other_proto = extra_options.get('Listener-proto')
             # add this for TCP source ip transparent
-            if tcp_type == 'standard' and protocol == 'TCP':
+            if other_proto == 'UDP':
+                # TCP with UDP description, it will become UDP
+                protocol = "UDP"
+                # change listener protocol here
+                listener["protocol"] = "UDP"
+
+            if listener_type == 'standard':
                 virtual_type = 'standard'
+
+            if extra_profile == 'SIP':
+                add_sip = True
+            elif extra_profile == 'Diameter':
+                virtual_type = "mr"
+                add_diameter = True
+
+        if protocol == "UDP":
+            vip["ipProtocol"] = "udp"
+        else:
+            vip["ipProtocol"] = "tcp"
 
         if virtual_type == 'fastl4':
             vip['profiles'] = ['/Common/fastL4']
-        # standard type TCP listener canot have http and oneconnect profile
-        # or ssh lb members will be diconnected
         elif virtual_type == 'standard' and protocol == 'TCP':
-            vip['profiles'] = []
+            vip['profiles'] = ['/Common/tcp']
+        elif virtual_type == 'standard' and protocol == 'UDP':
+            vip['profiles'] = ['/Common/udp']
+        elif virtual_type == 'mr' and protocol == 'TCP':
+            vip['profiles'] = ['/Common/tcp']
         else:
             # add profiles for HTTP, TERMINATED_HTTPS protocols
             vip['profiles'] = ['/Common/http', '/Common/oneconnect']
@@ -623,6 +642,27 @@ class ServiceModelAdapter(object):
 
             if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
                 vip['profiles'] = ['/Common/http', '/Common/oneconnect']
+
+        if add_sip:
+            if '/Common/sip' not in vip['profiles']:
+                vip['profiles'].append('/Common/sip')
+
+        if add_diameter:
+            diameter_session = extra_options.get('ds')
+            diameter_router = extra_options.get('dr')
+
+            if not diameter_session:
+                diameter_session = '/Common/diametersession'
+            else:
+                diameter_session = '/Common/' + diameter_session
+
+            if not diameter_router:
+                diameter_router = '/Common/diameterrouter'
+
+            if diameter_session not in vip['profiles'] and \
+                    diameter_router not in vip['profiles']:
+                vip['profiles'] += [diameter_session,
+                                    diameter_router]
 
     def get_vlan(self, vip, bigip, network_id):
         if network_id in bigip.assured_networks:
@@ -726,9 +766,7 @@ class ServiceModelAdapter(object):
             else:
                 vip['profiles'] = ["/Common/" + esd['lbaas_http_profile']]
 
-        # fastL4 listener cannot configure server and client
-        # protocol, or it will throw errors
-        # start with server tcp profile
+        # for standard type tcp listener
         if "/Common/fastL4" not in vip['profiles']:
             if 'lbaas_stcp' in esd:
                 # set serverside tcp profile
@@ -746,6 +784,10 @@ class ServiceModelAdapter(object):
                 ctcp_profile = esd['lbaas_ctcp']
             else:
                 ctcp_profile = 'tcp'
+
+            if '/Common/tcp' in vip['profiles']:
+                vip['profiles'].remove('/Common/tcp')
+
             vip['profiles'].append({'name':  ctcp_profile,
                                     'partition': 'Common',
                                     'context': ctcp_context})
@@ -807,9 +849,12 @@ class ServiceModelAdapter(object):
             ctcp_profile = esd['lbaas_ctcp']
         else:
             ctcp_profile = 'tcp'
-        profiles.append({'name':  ctcp_profile,
-                         'partition': 'Common',
-                         'context': ctcp_context})
+
+        # in case of udp listener cahanges back to 'tcp'
+        if '/Common/udp' not in vip["profiles"]:
+            profiles.append({'name':  ctcp_profile,
+                             'partition': 'Common',
+                             'context': ctcp_context})
 
         if 'lbaas_oneconnect_profile' in esd:
             profiles.remove('/Common/oneconnect')
