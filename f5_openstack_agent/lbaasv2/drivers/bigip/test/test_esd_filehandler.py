@@ -61,14 +61,14 @@ class TestEsdFileHanlder(object):
         esd = EsdTagProcessor()
         reader = esd.read_json(
             '{}/{}/mix_json/'.format(get_relative_path, self.remaining_path))
-        self.assertEqual(3, len(reader.keys()))
+        self.assertEqual(3, len(list(reader.keys())))
 
     def test_json_only_files(self, get_relative_path):
         # expect three files
         esd = EsdTagProcessor()
         reader = esd.read_json(
             '{}/{}/valid'.format(get_relative_path, self.remaining_path))
-        self.assertEqual(3, len(reader.keys()))
+        self.assertEqual(3, len(list(reader.keys())))
 
     def test_invalid_json(self, get_relative_path):
         esd = EsdTagProcessor()

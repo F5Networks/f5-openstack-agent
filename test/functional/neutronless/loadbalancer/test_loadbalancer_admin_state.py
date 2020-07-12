@@ -75,7 +75,7 @@ def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
     """
 
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
 
@@ -101,7 +101,7 @@ def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
     # Update loadbalancer, admin_state_up=False
     # CLI: lbaas-loadbalancer-update --admin-state-up=False lb1
     # LB svc object: "admin_state_up": false
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
     virtual_addr = bigip.get_resource(ResourceType.virtual_address,
@@ -112,7 +112,7 @@ def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
     # Update loadbalancer, admin_state_up=True
     # CLI: lbaas-loadbalancer-update --admin-state-up=True lb1
     # LB svc object: "admin_state_up": true
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
     virtual_addr = bigip.get_resource(ResourceType.virtual_address,
@@ -123,7 +123,7 @@ def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
     # Delete loadbalancer
     # CLI: lbaas-loadbalancer-delete lb1
     # LB svc object: "admin_state_up": true
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(
         service, delete_partition=True, delete_event=True)
     assert not lb_pending
@@ -134,7 +134,7 @@ def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
     # CLI:
     # lbaas-loadbalancer-create --name lb1 --admin-state-down mgmt_v4_subnet
     # LB svc object: "admin_state_up": false
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     virtual_addr_name = "%s_%s" % (env_prefix, lb_reader.id())
     lb_pending = icontrol_driver._common_service_handler(service)
@@ -149,7 +149,7 @@ def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
     # Update loadbalancer, admin_state_up=True
     # CLI: lbaas-loadbalancer-update --admin-state-up=True lb1
     # LB svc object: "admin_state_up": true
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
     virtual_addr = bigip.get_resource(ResourceType.virtual_address,
@@ -160,7 +160,7 @@ def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
     # Update loadbalancer, admin_state_up=False
     # CLI: lbaas-loadbalancer-update --admin-state-up=False lb1
     # LB svc object: "admin_state_up": false
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
     virtual_addr = bigip.get_resource(ResourceType.virtual_address,
@@ -171,7 +171,7 @@ def test_create_update_lb_state(track_bigip_cfg, bigip, services, icd_config,
     # Delete loadbalancer
     # CLI: lbaas-loadbalancer-delete lb1
     # LB svc object: "admin_state_up": false
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(
         service, delete_partition=True, delete_event=True)
     assert not lb_pending

@@ -67,8 +67,8 @@ def configure_icd(icd_config, create_mock_rpc):
         '''minimal fake config object to replace oslo with controlled params'''
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
+            for k, v in list(self.__dict__.items()):
+                if isinstance(v, str):
                     self.__dict__[k] = v.encode('utf-8')
 
         def __repr__(self):
@@ -186,13 +186,13 @@ def test_vcmp_createlb(track_bigip_cfg, setup_bigip_devices, bigip, vcmp_setup,
     assert create_uris == set(vcmp_uris['vcmp_lb_uris'])
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c'
+        [call(port_name='local-{}-ce69e293-56e7-43b8-b51c'
               '-01b91d66af20'.format(
                   pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
-         call(port_name=u'snat-traffic-group-local-only-ce69e293-'
+         call(port_name='snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
     # Since the loadbalancer was not deleted via a service object, we should
     # have a leftover VLAN on the vCMP host and the VLAN should be associated
@@ -216,13 +216,13 @@ def test_vcmp_deletelb(track_bigip_cfg, setup_bigip_devices, bigip, vcmp_setup,
     assert create_uris == set(vcmp_uris['vcmp_lb_uris'])
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-{}-ce69e293-56e7-43b8-'
+        [call(port_name='local-{}-ce69e293-56e7-43b8-'
               'b51c-01b91d66af20'.format(
                   pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
-         call(port_name=u'snat-traffic-group-local-only-ce69e293-'
+         call(port_name='snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
     logcall(setup_bigip_devices,
             icontroldriver._common_service_handler,
@@ -256,13 +256,13 @@ def test_vcmp_deletelb_with_mgmt_vlan(
     assert create_uris == set(vcmp_uris['vcmp_lb_uris'])
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-{}-ce69e293-56e7-43b8-'
+        [call(port_name='local-{}-ce69e293-56e7-43b8-'
               'b51c-01b91d66af20'.format(
                   pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
-         call(port_name=u'snat-traffic-group-local-only-ce69e293-'
+         call(port_name='snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
     logcall(setup_bigip_devices,
             icontroldriver._common_service_handler,
@@ -292,16 +292,16 @@ def test_vcmp_create_listener(
         set(vcmp_uris['vcmp_lb_uris']) | set(vcmp_uris['vcmp_listener_uris']))
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c'
+        [call(port_name='local-{}-ce69e293-56e7-43b8-b51c'
               '-01b91d66af20'.format(
                   pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
-         call(port_name=u'snat-traffic-group-local-only-ce69e293-'
+         call(port_name='snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
     assert rpc.update_listener_status.call_args_list == [
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     ]
     check_host_and_guest_vlans_on_create(vcmp_host[0], bigip)
 
@@ -323,16 +323,16 @@ def test_vcmp_delete_listener(
         set(vcmp_uris['vcmp_lb_uris']) | set(vcmp_uris['vcmp_listener_uris']))
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c-'
+        [call(port_name='local-{}-ce69e293-56e7-43b8-b51c-'
               '01b91d66af20'.format(
                   pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
-         call(port_name=u'snat-traffic-group-local-only-ce69e293-'
+         call(port_name='snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
     assert rpc.update_listener_status.call_args_list == [
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     ]
     # Delete the listener, then delete the loadbalancer
     logcall(setup_bigip_devices,
@@ -378,13 +378,13 @@ def test_vcmp_clustered_guests(
     assert call('VcmpManager::_check_vcmp_host_assignments vCMP host found for'
                 ' Guest {}'.format(pytest.symbols.bigip2_ip)) in \
         mock_log.debug.call_args_list
-    assert call(u'VcmpManager::_init_vcmp_hosts: vCMPHost[{0}] '
+    assert call('VcmpManager::_init_vcmp_hosts: vCMPHost[{0}] '
                 'vCMPGuest[{1}] - mgmt: {2}'.format(
                     pytest.symbols.icontrol_vcmp_host1['host_ip'],
                     pytest.symbols.icontrol_vcmp_host1['guest_name'],
                     pytest.symbols.bigip_ip)) in \
         mock_log.debug.call_args_list
-    assert call(u'VcmpManager::_init_vcmp_hosts: vCMPHost[{0}] '
+    assert call('VcmpManager::_init_vcmp_hosts: vCMPHost[{0}] '
                 'vCMPGuest[{1}] - mgmt: {2}'.format(
                     pytest.symbols.icontrol_vcmp_host2['host_ip'],
                     pytest.symbols.icontrol_vcmp_host2['guest_name'],
@@ -499,16 +499,16 @@ def test_vcmp_delete_listener_flat(
         set(vcmp_uris['vcmp_lb_uris']) | set(vcmp_uris['vcmp_listener_uris']))
     rpc = icontroldriver.plugin_rpc
     assert rpc.get_port_by_name.call_args_list == \
-        [call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c-'
+        [call(port_name='local-{}-ce69e293-56e7-43b8-b51c-'
               '01b91d66af20'.format(
                   pytest.symbols.icontrol_vcmp_host1['guest_hostname'])),
-         call(port_name=u'snat-traffic-group-local-only-ce69e293-'
+         call(port_name='snat-traffic-group-local-only-ce69e293-'
               '56e7-43b8-b51c-01b91d66af20_0')]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
     assert rpc.update_listener_status.call_args_list == [
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     ]
     # Delete the listener, then delete the loadbalancer
     logcall(setup_bigip_devices,

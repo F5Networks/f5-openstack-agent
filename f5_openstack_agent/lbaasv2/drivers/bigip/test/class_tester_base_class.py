@@ -16,7 +16,7 @@
 
 import pytest
 
-import mock_builder_base_class
+from . import mock_builder_base_class
 
 """class_tester_base_class.py is a module hosting the ClassTesterBase
 
@@ -68,11 +68,11 @@ TargetMod: {}
 ===============================================================================
 """
         for item in items:
-            print(
+            print((
                 print_fmt.format(
                     item.mock_builder, item.mock_object, item.target_mod,
                     item.target_obj, item.call_cnt, item.expected_args,
-                    item.static))
+                    item.static)))
 
     # fixtures:
     @pytest.fixture

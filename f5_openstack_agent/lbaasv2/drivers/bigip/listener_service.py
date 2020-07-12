@@ -26,7 +26,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ListenerServiceBuilder(object):
-    u"""Create LBaaS v2 Listener on BIG-IPs.
+    """Create LBaaS v2 Listener on BIG-IPs.
 
     Handles requests to create, update, delete LBaaS v2 listener
     objects on one or more BIG-IP systems. Maps LBaaS listener
@@ -43,7 +43,7 @@ class ListenerServiceBuilder(object):
                   parent_ssl_profile)
 
     def create_listener(self, service, bigips, esd=None):
-        u"""Create listener on set of BIG-IPs.
+        """Create listener on set of BIG-IPs.
 
         Create a BIG-IP virtual server to represent an LBaaS
         Listener object.
@@ -99,7 +99,7 @@ class ListenerServiceBuilder(object):
         return error
 
     def get_listener(self, service, bigip):
-        u"""Retrieve BIG-IP virtual from a single BIG-IP system.
+        """Retrieve BIG-IP virtual from a single BIG-IP system.
 
         :param service: Dictionary which contains a both a listener
         and load balancer definition.
@@ -112,7 +112,7 @@ class ListenerServiceBuilder(object):
         return obj
 
     def delete_listener(self, service, bigips):
-        u"""Delete Listener from a set of BIG-IP systems.
+        """Delete Listener from a set of BIG-IP systems.
 
         Delete virtual server that represents a Listener object.
 

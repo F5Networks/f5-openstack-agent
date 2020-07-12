@@ -61,8 +61,8 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     class ConfFake(object):
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
+            for k, v in list(self.__dict__.items()):
+                if isinstance(v, str):
                     self.__dict__[k] = v.encode('utf-8')
 
         def __repr__(self):
@@ -84,48 +84,48 @@ def test_single_pool(track_bigip_cfg, bigip, services, icd_config,
     validator = ResourceValidator(bigip, env_prefix)
 
     # create loadbalancer on lb_subnet (membes will be on different subnet)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
     assert bigip.folder_exists(folder)
 
     # create listener
-    service = service_iter.next()
+    service = next(service_iter)
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
 
     # create pool
-    service = service_iter.next()
+    service = next(service_iter)
     pool = service['pools'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool, folder)
 
     # create member on member_subnet (different subnet than LB)
-    service = service_iter.next()
+    service = next(service_iter)
     member = service['members'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_member_valid(pool, member, folder)
 
     # create second member on member_subnet
-    service = service_iter.next()
+    service = next(service_iter)
     member = service['members'][1]
     icontrol_driver._common_service_handler(service)
     validator.assert_member_valid(pool, member, folder)
 
     # delete pool without first deleting members
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_deleted(pool, member, folder)
 
     # delete listener
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_deleted(listener, folder)
 
     # delete loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
 
     # if folder still exists, agent failed to fully clean up network objects

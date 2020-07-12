@@ -71,8 +71,8 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     class ConfFake(object):
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
+            for k, v in list(self.__dict__.items()):
+                if isinstance(v, str):
                     self.__dict__[k] = v.encode('utf-8')
 
         def __repr__(self):
@@ -117,8 +117,7 @@ def test_tenant(track_bigip_cfg, bigip, services, icd_config,
         snat_pool_folder = folder
         lb_snat_name = '/Common/snat-traffic-group-local-only-{0}_0'
         # we expect to a member as a snat-traffic-group-local-only for each sub
-        expected_members = map(lambda x: (lb_snat_name.format(x)),
-                               bigip_handler.state['subnets'].keys())
+        expected_members = [(lb_snat_name.format(x)) for x in list(bigip_handler.state['subnets'].keys())]
         validator.assert_snatpool_valid(
             snat_pool_name, snat_pool_folder, expected_members)
 
@@ -138,8 +137,7 @@ def test_tenant(track_bigip_cfg, bigip, services, icd_config,
         # Test member:
         member = bigip_handler.state['members'][0]
         validator.assert_member_valid(pool, member, folder)
-        expected_members = map(lambda x: (lb_snat_name.format(x)),
-                               bigip_handler.state['subnets'].keys())
+        expected_members = [(lb_snat_name.format(x)) for x in list(bigip_handler.state['subnets'].keys())]
         validator.assert_snatpool_valid(snat_pool_name, snat_pool_folder,
                                         expected_members)
 

@@ -212,21 +212,21 @@ class LogicalServiceCache(object):
 
     def get_loadbalancer_ids(self):
         """Return a list of cached loadbalancer ids."""
-        return self.services.keys()
+        return list(self.services.keys())
 
     def get_tenant_ids(self):
         """Return a list of tenant ids in the service cache."""
         tenant_ids = {}
         for service in self.services:
             tenant_ids[service.tenant_id] = 1
-        return tenant_ids.keys()
+        return list(tenant_ids.keys())
 
     def get_agent_hosts(self):
         """Return a list of agent ids stored in the service cache."""
         agent_hosts = {}
         for service in self.services:
             agent_hosts[service.agent_host] = 1
-        return agent_hosts.keys()
+        return list(agent_hosts.keys())
 
 
 class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
@@ -636,7 +636,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def _all_vs_known_services(self):
         all_services = set()
         known_services = set()
-        for lb_id, service in self.cache.services.iteritems():
+        for lb_id, service in self.cache.services.items():
             all_services.add(lb_id)
             if self.agent_host == service.agent_host:
                 known_services.add(lb_id)
@@ -745,7 +745,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 for item in obj:
                     if len(item) == 1:
                         # {'networks': [{'id': {<network_obj>}}]}
-                        item = item[item.keys()[0]]
+                        item = item[list(item.keys())[0]]
                     error_status = handle_error(error_status, item)
         if error_status:
             loadbalancer['provisioning_status'] = constants_v2.F5_ERROR
@@ -913,7 +913,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             policies_used.add(policy)
         has_l7policies = \
             self.plugin_rpc.validate_l7policys_state_by_listener(
-                listeners.keys())
+                list(listeners.keys()))
         # Ask Neutron for the status of all deployed l7_policys
         for policy_key in policies:
             policy = policies.get(policy_key)
@@ -947,7 +947,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             list(pools.keys()))
 
         tenant_members = dict()
-        for pool_id, pool in pools.iteritems():
+        for pool_id, pool in pools.items():
             tenant_id = pool['tenant_id']
             members = pools_members.get(pool_id, list())
 

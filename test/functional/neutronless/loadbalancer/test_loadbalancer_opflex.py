@@ -43,7 +43,7 @@ def test_create_delete_basic_lb(
         track_bigip_cfg, bigip, services, icd_config, icontrol_driver):
 
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
@@ -90,7 +90,7 @@ def test_create_delete_basic_lb(
     assert not bigip.resource_exists(ResourceType.virtual_address,
                                      virtual_addr_name)
 
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     lb_reader = LoadbalancerReader(service)
@@ -136,7 +136,7 @@ def test_create_delete_basic_lb(
     assert snatpool
 
     # Delete the loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True,
                                             delete_event=True)
     assert not bigip.folder_exists(folder)
@@ -145,7 +145,7 @@ def test_create_delete_basic_lb(
 def test_featureoff_create_delete_basic_lb(track_bigip_cfg, bigip, services,
                                            icd_config, icontrol_driver):
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
@@ -194,7 +194,7 @@ def test_featureoff_create_delete_basic_lb(track_bigip_cfg, bigip, services,
                                      virtual_addr_name)
 
     # Create the VLAN
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
     lb_reader = LoadbalancerReader(service)
 
@@ -239,7 +239,7 @@ def test_featureoff_create_delete_basic_lb(track_bigip_cfg, bigip, services,
     assert snatpool
 
     # Delete the loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True,
                                             delete_event=True)
     assert not bigip.folder_exists(folder)

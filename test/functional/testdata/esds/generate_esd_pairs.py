@@ -12,7 +12,7 @@ def load_full_demo_esd():
 
 eight_tag_esd = load_full_demo_esd()
 
-print(eight_tag_esd.keys())
+print((list(eight_tag_esd.keys())))
 
 def create_demo_subset_esd(*args):
     subset_esd = {}
@@ -29,7 +29,7 @@ def create_pairs_esd(tags):
                                    ntag: eight_tag_esd[ntag]}
     return pairs_esd
 
-pairs_esd = create_pairs_esd(eight_tag_esd.keys())
+pairs_esd = create_pairs_esd(list(eight_tag_esd.keys()))
 pp(pairs_esd)
-print(len(pairs_esd))
+print((len(pairs_esd)))
 json.dump(pairs_esd, open(DIRNAME+"/esd_pairs.json", 'w'), indent=4)

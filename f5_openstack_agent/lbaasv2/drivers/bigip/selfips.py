@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import constants_v2 as const
+from . import constants_v2 as const
 import netaddr
 from oslo_log import log as logging
 
@@ -82,7 +82,7 @@ class BigipSelfIpManager(object):
         return created
 
     def assure_bigip_selfip(self, bigip, service, subnetinfo):
-        u"""Ensure the BigIP has a selfip address on the tenant subnet."""
+        """Ensure the BigIP has a selfip address on the tenant subnet."""
 
         network = None
         subnet = None
@@ -140,7 +140,7 @@ class BigipSelfIpManager(object):
                                          ip_address=selfip_address)
 
     def _get_bigip_selfip_address(self, bigip, subnet, device_id):
-        u"""Ensure a selfip address is allocated on Neutron network."""
+        """Ensure a selfip address is allocated on Neutron network."""
         # check it later
         # Get ip address for selfip to use on BIG-IP.
         if self.driver.conf.unlegacy_setting_placeholder:

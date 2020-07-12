@@ -73,7 +73,7 @@ def test_cert_manager():
     # create Barbican container with cert and key
     container_ref = create_container('server', FAKE_CERT, FAKE_KEY, conf)
 
-    print "\n\nContainer Reference: " + container_ref + "\n"
+    print("\n\nContainer Reference: " + container_ref + "\n")
 
     # test retrieving cert and key from container
     cert_manager = barbican_cert.BarbicanCertManager(Config())

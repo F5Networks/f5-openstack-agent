@@ -36,9 +36,9 @@ def test_device_name(mgmt_root):
 def test_devices(mgmt_root, symbols):
     devices = cm.devices(mgmt_root)
     assert len(devices) == 1
-    for k, v in symbols.__dict__.items():
-        print('key: {}'.format(k))
-        print('value: {}'.format(v))
+    for k, v in list(symbols.__dict__.items()):
+        print(('key: {}'.format(k)))
+        print(('value: {}'.format(v)))
     # for 13.0.0, mgmt IP will always be 192.168.1.245
     assert (devices[0].managementIp == symbols.bigip_mgmt_ips[0] or
             devices[0].managementIp == '192.168.1.245')

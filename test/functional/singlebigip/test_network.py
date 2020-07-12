@@ -43,7 +43,7 @@ default_partition = 'test'
 
 def log_test_call(func):
     def wrapper(func, *args, **kwargs):
-        print("\nRunning %s" % func.func_name)
+        print(("\nRunning %s" % func.__name__))
         return func(*args, **kwargs)
     return decorator.decorator(wrapper, func)
 
@@ -102,7 +102,7 @@ def test_gre_profile(setup):
     p_obj = te.mgmt_root.tm.net.tunnels.gres.gre
     p = p_obj.load(name=name, partition=te.partition)
     payload = NetworkHelper.l2gre_multipoint_profile_defaults
-    for k in payload.keys():
+    for k in list(payload.keys()):
         if k == 'partition':
             continue
         assert(p.__dict__[k] == profile.__dict__[k])
@@ -125,7 +125,7 @@ def test_vxlan_profile(setup):
     p_obj = te.mgmt_root.tm.net.tunnels.vxlans.vxlan
     p = p_obj.load(name=name, partition=te.partition)
     payload = NetworkHelper.vxlan_multipoint_profile_defaults
-    for k in payload.keys():
+    for k in list(payload.keys()):
         if k == 'partition':
             continue
         assert(p.__dict__[k] == profile.__dict__[k])

@@ -22,7 +22,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ResourceType(Enum):
-    u"""Defines supported BIG-IP resource types."""
+    """Defines supported BIG-IP resource types."""
 
     nat = 1
     pool = 2
@@ -66,7 +66,7 @@ class ResourceType(Enum):
 
 
 class BigIPResourceHelper(object):
-    u"""Helper class for creating, updating and deleting BIG-IP resources.
+    """Helper class for creating, updating and deleting BIG-IP resources.
 
     Reduces some of the boilerplate that surrounds using the F5 SDK.
     Example usage:
@@ -84,7 +84,7 @@ class BigIPResourceHelper(object):
         self.resource_type = resource_type
 
     def create(self, bigip, model):
-        u"""Create/update resource (e.g., pool) on a BIG-IP system.
+        """Create/update resource (e.g., pool) on a BIG-IP system.
 
         First checks to see if resource has been created and creates
         it if not.
@@ -105,7 +105,7 @@ class BigIPResourceHelper(object):
         return resource.exists(name=name, partition=partition)
 
     def delete(self, bigip, name=None, partition=None):
-        u"""Delete a resource on a BIG-IP system.
+        """Delete a resource on a BIG-IP system.
 
         Checks if resource exists and deletes it. Returns without error
         if resource does not exist.
@@ -120,7 +120,7 @@ class BigIPResourceHelper(object):
             obj.delete()
 
     def load(self, bigip, name=None, partition=None):
-        u"""Retrieve a BIG-IP resource from a BIG-IP.
+        """Retrieve a BIG-IP resource from a BIG-IP.
 
         Populates a resource object with attributes for instance on a
         BIG-IP system.
@@ -134,7 +134,7 @@ class BigIPResourceHelper(object):
         return resource.load(name=name, partition=partition)
 
     def update(self, bigip, model):
-        u"""Update a resource (e.g., pool) on a BIG-IP system.
+        """Update a resource (e.g., pool) on a BIG-IP system.
 
         Modifies a resource on a BIG-IP system using attributes
         defined in the model object.
@@ -153,7 +153,7 @@ class BigIPResourceHelper(object):
 
     def get_resources(self, bigip, partition=None,
                       expand_subcollections=False):
-        u"""Retrieve a collection BIG-IP of resources from a BIG-IP.
+        """Retrieve a collection BIG-IP of resources from a BIG-IP.
 
         Generates a list of resources objects on a BIG-IP system.
 
@@ -374,7 +374,7 @@ class BigIPResourceHelper(object):
         # in nestedStats. In 11.6, they are directly accessible in entries.
         if stat_keys[0] not in stat_entries:
             # find nestedStats
-            for key in stat_entries.keys():
+            for key in list(stat_entries.keys()):
                 value = stat_entries.get(key, None)
                 if 'nestedStats' in value:
                     stat_entries = value['nestedStats']['entries']

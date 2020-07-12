@@ -16,7 +16,7 @@
 
 import errno
 import inspect
-import service_launcher
+from . import service_launcher
 import sys
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as exceptions

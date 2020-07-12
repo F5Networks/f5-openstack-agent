@@ -17,14 +17,14 @@
 import mock
 import pytest
 
-import conftest
-import test_icontrol_driver
-import test_plugin_rpc
+from . import conftest
+from . import test_icontrol_driver
+from . import test_plugin_rpc
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import agent_manager
 
-import class_tester_base_class
-import mock_builder_base_class
+from . import class_tester_base_class
+from . import mock_builder_base_class
 
 
 @pytest.fixture

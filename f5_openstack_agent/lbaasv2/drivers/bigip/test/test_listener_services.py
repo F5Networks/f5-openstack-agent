@@ -539,9 +539,8 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             return profiles, profiles_ref
 
         def setup_update_attrs(esd, profiles=None):
-            irules = map(lambda x: '/Common/{}'.format(x), esd['lbaas_irule'])
-            policies = map(lambda x: dict(name=x, partition='Common'),
-                           esd['lbaas_policy'])
+            irules = ['/Common/{}'.format(x) for x in esd['lbaas_irule']]
+            policies = [dict(name=x, partition='Common') for x in esd['lbaas_policy']]
             update_attrs = {'persist': [dict(name=esd['lbaas_persist'])],
                             'fallbackPersistence':
                             esd['lbaas_fallback_persist'],
@@ -568,7 +567,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             target.service_adapter.get_virtual_name.return_value = dict()
             svc['listener']['protocol'] = 'TCP'
             expected_profiles, profiles_ref = setup_profiles(esd)
-            map(lambda x: esd.pop(x), ['lbaas_stcp', 'lbaas_ctcp'])
+            list(map(lambda x: esd.pop(x), ['lbaas_stcp', 'lbaas_ctcp']))
             expected_profiles.remove(profiles_ref['lbaas_stcp'])
             profiles_ref['lbaas_ctcp']['name'] = 'tcp'
             profiles_ref['lbaas_ctcp']['context'] = 'all'

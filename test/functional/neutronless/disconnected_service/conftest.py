@@ -71,10 +71,10 @@ def remove_elements(bigip):
 
     We wish to remove all objects off of the bigip.
     """
-    ignore_names = [u'/', u'Common', u'Drafts', u'http-tunnel',
-                    u'socks-tunnel', u'selfip.internal', u'selfip.external',
-                    u'selfip.tunnel', u'selfip.ha', u'vxlan', u'vxlan-gpe',
-                    u'vxlan-ovsdb', u'gre', u'nvgre', u'0', u'']
+    ignore_names = ['/', 'Common', 'Drafts', 'http-tunnel',
+                    'socks-tunnel', 'selfip.internal', 'selfip.external',
+                    'selfip.tunnel', 'selfip.ha', 'vxlan', 'vxlan-gpe',
+                    'vxlan-ovsdb', 'gre', 'nvgre', '0', '']
 
     def remove_all_fdbs():
         for t in bigip.tm.net.fdb.tunnels.get_collection():
@@ -131,8 +131,8 @@ def configure_icd():
         '''minimal fake config object to replace oslo with controlled params'''
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
+            for k, v in list(self.__dict__.items()):
+                if isinstance(v, str):
                     self.__dict__[k] = v.encode('utf-8')
 
         def __repr__(self):

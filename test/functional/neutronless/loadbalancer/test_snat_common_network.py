@@ -57,8 +57,8 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     class ConfFake(object):
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
+            for k, v in list(self.__dict__.items()):
+                if isinstance(v, str):
                     self.__dict__[k] = v.encode('utf-8')
 
         def __repr__(self):
@@ -96,7 +96,7 @@ def test_snat_common_network(track_bigip_cfg, bigip, services, icd_config,
     validator = ResourceValidator(bigip, env_prefix)
 
     # create loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
@@ -114,19 +114,19 @@ def test_snat_common_network(track_bigip_cfg, bigip, services, icd_config,
         snat_pool_name, snat_pool_folder, expected_members)
 
     # create listener
-    service = service_iter.next()
+    service = next(service_iter)
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
 
     # create pool
-    service = service_iter.next()
+    service = next(service_iter)
     pool = service['pools'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool, folder)
 
     # create member
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     # validate that SNAT pool now has two SNAT members, one for LB and one for
@@ -140,7 +140,7 @@ def test_snat_common_network(track_bigip_cfg, bigip, services, icd_config,
         snat_pool_name, snat_pool_folder, expected_members)
 
     # delete member
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     # validate that SNAT pool now only has one member for LB
@@ -149,24 +149,24 @@ def test_snat_common_network(track_bigip_cfg, bigip, services, icd_config,
         snat_pool_name, snat_pool_folder, expected_members)
 
     # delete pool
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_deleted(pool, None, folder)
 
     # delete listener
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_deleted(listener, folder)
 
     # delete loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
 
     # validate everything (including SNAT ppols) removed
     assert not bigip.folder_exists(folder)
 
     # cleanup...
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)

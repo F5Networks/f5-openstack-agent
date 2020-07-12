@@ -41,7 +41,7 @@ def test_lbaas_service_one_opflex_member(
         icontrol_driver):
     env_prefix = icd_config['environment_prefix']
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     fake_rpc = icontrol_driver.plugin_rpc
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
@@ -53,14 +53,14 @@ def test_lbaas_service_one_opflex_member(
     assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
 
     # create member, node
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(service)
     assert lb_pending
     # Assert that update loadbalancer status was called once
     assert fake_rpc.get_call_count('update_loadbalancer_status') == 1
 
     # create member, node
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
     # Assert that update loadbalancer status was called once

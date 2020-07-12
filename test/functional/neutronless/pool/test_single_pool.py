@@ -61,52 +61,52 @@ def test_single_pool(track_bigip_cfg, bigip, services, icd_config,
     validator = ResourceValidator(bigip, env_prefix)
 
     # create loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
     assert bigip.folder_exists(folder)
 
     # create listener
-    service = service_iter.next()
+    service = next(service_iter)
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
 
     # create pool
-    service = service_iter.next()
+    service = next(service_iter)
     pool = service['pools'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool, folder)
 
     # create health monitor
-    service = service_iter.next()
+    service = next(service_iter)
     monitor = service['healthmonitors'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_healthmonitor_valid(monitor, folder)
 
     # create member, node
-    service = service_iter.next()
+    service = next(service_iter)
     member = service['members'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_member_valid(pool, member, folder)
 
     # delete health monitor
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_healthmonitor_deleted(monitor, folder)
 
     # delete pool (and member, node)
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_deleted(pool, member, folder)
 
     # delete listener
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_deleted(listener, folder)
 
     # delete loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)

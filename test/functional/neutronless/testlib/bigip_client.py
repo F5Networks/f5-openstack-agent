@@ -15,7 +15,7 @@
 
 
 import re
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip import cluster_manager
@@ -50,7 +50,7 @@ class BigIpClient(object):
 
         # for folder in folders:
         for folder in folders:
-            print ("\nDeleting folder on test exit: %s" % folder)
+            print(("\nDeleting folder on test exit: %s" % folder))
             self.delete_folder(folder)
 
     def folder_exists(self, folder):
@@ -75,7 +75,7 @@ class BigIpClient(object):
 
     def node_exists(self, node_name, partition):
         return self.bigip.tm.ltm.nodes.node.exists(
-            name=urllib.quote(node_name), partition=partition)
+            name=urllib.parse.quote(node_name), partition=partition)
 
     def member_exists(self, pool_name, member_name, partition=None):
         helper = resource_helper.BigIPResourceHelper(
@@ -83,7 +83,7 @@ class BigIpClient(object):
         if helper.exists(self.bigip, pool_name, partition=partition):
             p = helper.load(self.bigip, name=pool_name, partition=partition)
             m = p.members_s.members
-            return m.exists(name=urllib.quote(member_name),
+            return m.exists(name=urllib.parse.quote(member_name),
                             partition=partition)
 
         return False

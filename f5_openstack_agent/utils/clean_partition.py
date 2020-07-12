@@ -15,7 +15,7 @@
 #
 
 import argparse
-import ConfigParser
+import configparser
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip import system_helper
 import requests
@@ -48,7 +48,7 @@ def parse_args():
 
 
 def parse_config(config_file):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.readfp(open(config_file))
 
     bigips = []
@@ -56,8 +56,8 @@ def parse_config(config_file):
         config_addrs = config.get("DEFAULT", 'icontrol_hostname')
         config_user = config.get("DEFAULT", 'icontrol_username')
         config_pass = config.get("DEFAULT", 'icontrol_password')
-    except ConfigParser.NoOptionError as err:
-        print(err.message)
+    except configparser.NoOptionError as err:
+        print((err.message))
         return bigips
 
     for config_addr in config_addrs.split(','):
@@ -77,7 +77,7 @@ def main(args):
         try:
             clean_partition(bigip, args.partition)
         except Exception as err:
-            print(err.message)
+            print((err.message))
 
 
 if __name__ == "__main__":

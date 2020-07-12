@@ -28,10 +28,10 @@ def main(args):
     try:
         d = yaml.load(s)
     except Exception as err:
-        print "Failed to load as yaml: "
-        print err.message
+        print("Failed to load as yaml: ")
+        print(err.message)
 
-    print json.dumps(d, indent=4)
+    print(json.dumps(d, indent=4))
 
 if __name__ == '__main__':
     main(sys.argv)

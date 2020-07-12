@@ -62,9 +62,9 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'F5 Agent for OpenStack Neutron'
-copyright = u'2018 F5 Networks'
-author = u'F5 Networks'
+project = 'F5 Agent for OpenStack Neutron'
+copyright = '2018 F5 Networks'
+author = 'F5 Networks'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -157,7 +157,7 @@ html_theme_options = {
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
-html_title = u'F5 Agent for OpenStack Neutron'
+html_title = 'F5 Agent for OpenStack Neutron'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #html_short_title = None
@@ -261,8 +261,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'F5Agent-OpenStackNeutron.tex', u'F5 Agent for OpenStack Neutron Documentation',
-     u'F5 Networks', 'manual'),
+    (master_doc, 'F5Agent-OpenStackNeutron.tex', 'F5 Agent for OpenStack Neutron Documentation',
+     'F5 Networks', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -293,7 +293,7 @@ latex_documents = [
 man_pages = [
     (master_doc,
      'f5-openstack-agent',
-     u'F5 Agent for OpenStack Neutron Documentation',
+     'F5 Agent for OpenStack Neutron Documentation',
      [author],
      1)
 ]
@@ -309,7 +309,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'f5-openstack-agent',
-     u'F5 Agent for OpenStack Neutron Documentation',
+     'F5 Agent for OpenStack Neutron Documentation',
      [author],
      'f5-openstack-agent',
      'manual'),

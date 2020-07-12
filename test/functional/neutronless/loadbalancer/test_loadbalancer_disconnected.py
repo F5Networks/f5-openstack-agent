@@ -57,7 +57,7 @@ def test_featureoff_nosegid_lb(
         icontrol_driver):
 
     service_iter = iter(disconnected_service_no_seg)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
@@ -107,7 +107,7 @@ def test_featureoff_nosegid_lb(
                                      virtual_addr_name)
 
     # Delete the loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(
         service, delete_partition=True, delete_event=True)
 
@@ -124,7 +124,7 @@ def test_featureon_nosegid_to_segid_lb(track_bigip_cfg, bigip, services,
                                        icd_config, icontrol_driver):
 
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
@@ -174,7 +174,7 @@ def test_featureon_nosegid_to_segid_lb(track_bigip_cfg, bigip, services,
                                      virtual_addr_name)
 
     # Create the loadbalancer with VLAN
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
     lb_reader = LoadbalancerReader(service)
@@ -223,7 +223,7 @@ def test_featureon_nosegid_to_segid_lb(track_bigip_cfg, bigip, services,
     assert snatpool
 
     # Delete the loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     lb_pending = icontrol_driver._common_service_handler(service)
     assert not lb_pending
 

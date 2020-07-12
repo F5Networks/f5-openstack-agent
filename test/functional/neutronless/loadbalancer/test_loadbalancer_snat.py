@@ -43,7 +43,7 @@ def services():
 def test_create_delete_lb_autosnat(track_bigip_cfg, bigip, services,
                                    icd_config, icontrol_driver):
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
@@ -123,7 +123,7 @@ def test_create_delete_lb_autosnat(track_bigip_cfg, bigip, services,
     assert virtual_addr.autoDelete == "false"
 
     # Delete the loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)
 
@@ -131,7 +131,7 @@ def test_create_delete_lb_autosnat(track_bigip_cfg, bigip, services,
 def test_create_delete_lb_multisnat(track_bigip_cfg, bigip, services,
                                     icd_config, icontrol_driver):
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
@@ -228,7 +228,7 @@ def test_create_delete_lb_multisnat(track_bigip_cfg, bigip, services,
     assert virtual_addr.autoDelete == "false"
 
     # Delete the loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)
 
@@ -236,7 +236,7 @@ def test_create_delete_lb_multisnat(track_bigip_cfg, bigip, services,
 def test_create_delete_lb_snatoff(track_bigip_cfg, bigip, services, icd_config,
                                   icontrol_driver):
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
@@ -317,6 +317,6 @@ def test_create_delete_lb_snatoff(track_bigip_cfg, bigip, services, icd_config,
     assert virtual_addr.autoDelete == "false"
 
     # Delete the loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)

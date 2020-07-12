@@ -298,7 +298,7 @@ class LBaaSBuilder(object):
             pool_to_member_map[pool_id].append(member)
 
         # Assure members by pool
-        for pool_id, pool_members in pool_to_member_map.iteritems():
+        for pool_id, pool_members in pool_to_member_map.items():
             pool = self.get_pool_by_id(service, pool_id)
             svc = {"loadbalancer": loadbalancer,
                    "members": pool_members,
@@ -451,7 +451,7 @@ class LBaaSBuilder(object):
                 listener_policy_map[listener_id] = \
                     self.l7service.build_policy(l7policy, lbaas_service)
 
-        for listener_id, policy in listener_policy_map.items():
+        for listener_id, policy in list(listener_policy_map.items()):
             error = False
             if policy['f5_policy'].get('rules', list()):
                 error = self.l7service.create_l7policy(
@@ -513,7 +513,7 @@ class LBaaSBuilder(object):
             LOG.error("Failed to remove wrapper policy: %s",
                       err.message)
 
-        for _, policy in listener_policy_map.items():
+        for _, policy in list(listener_policy_map.items()):
             error = False
             if not policy['f5_policy'].get('rules', list()):
                 error = self.l7service.delete_l7policy(

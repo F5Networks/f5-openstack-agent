@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from __future__ import print_function
+
 
 import errno
 import getopt
@@ -156,7 +156,7 @@ def _construct_file(setup_cfg, setup, fmt, start):
         print(setup + " does not exist or is not readable")
         exit_cleanly(error_number=errno.ENOSYS)
     contents = _read_in_cfgs(setup_cfg)
-    parsed_reqs = map(lambda x: (x.req), p_reqs(setup, session="pkg"))
+    parsed_reqs = [(x.req) for x in p_reqs(setup, session="pkg")]
     if not parsed_reqs:
         print("Nothing to do!\n%s\nDoes not contain any reqs parsable!" %
               setup)
@@ -301,8 +301,7 @@ interprets their meaning before returning such content.
     expected = ['working_directory', 'operating_system', 'version']
     possible = ['json'] + expected
     try:
-        opts, args = getopt.getopt(sys.argv[1:], '', map(lambda x: ('%s=' % x),
-                                   possible))
+        opts, args = getopt.getopt(sys.argv[1:], '', [('%s=' % x) for x in possible])
     except getopt.GetoptError as err:
         print(str(err))
         exit_cleanly(error_number=errno.EINVAL)

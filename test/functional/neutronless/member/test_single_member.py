@@ -20,7 +20,7 @@ import logging
 import os
 import pytest
 import requests
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 from ..testlib.resource_validator import ResourceValidator
 from ..testlib.service_reader import LoadbalancerReader
@@ -61,7 +61,7 @@ def get_service_info(service, env_prefix):
 def get_member_created(bigip, pool_name, member_name, folder):
     p = bigip.get_resource(ResourceType.pool, pool_name, partition=folder)
     m = p.members_s.members
-    m = m.load(name=urllib.quote(member_name), partition=folder)
+    m = m.load(name=urllib.parse.quote(member_name), partition=folder)
     return m
 
 
@@ -90,7 +90,7 @@ def test_create_single_member_down_up(track_bigip_cfg,
     service_iter = iter(service_create_member_down_up)
 
     # create single member down
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     pool_name, member_name, node_name, folder = get_service_info(service,
@@ -104,7 +104,7 @@ def test_create_single_member_down_up(track_bigip_cfg,
     check_member_down(m)
 
     # bring member up
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     m = get_member_created(bigip, pool_name, member_name, folder)
     check_member_up(m)
@@ -121,7 +121,7 @@ def test_create_single_member_up_down(track_bigip_cfg, bigip, icd_config,
     service_iter = iter(service_create_member_up_down)
 
     # create single member up
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     pool_name, member_name, node_name, folder = get_service_info(service,
@@ -135,7 +135,7 @@ def test_create_single_member_up_down(track_bigip_cfg, bigip, icd_config,
     check_member_up(m)
 
     # bring member down
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     m = get_member_created(bigip, pool_name, member_name, folder)
     check_member_down(m)

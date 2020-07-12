@@ -53,8 +53,8 @@ def get_icontrol_driver(icd_config, fake_plugin_rpc, esd, bigip):
     class ConfFake(object):
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
+            for k, v in list(self.__dict__.items()):
+                if isinstance(v, str):
                     self.__dict__[k] = v.encode('utf-8')
 
         def __repr__(self):
@@ -125,7 +125,7 @@ def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
 
     # create loadbalancer
     # lbaas-loadbalancer-create --name lb1 mgmt_v4_subnet
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
@@ -134,7 +134,7 @@ def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
     # create listener
     # lbaas-listener-create --name l1 --loadbalancer lb1 --protocol HTTP
     # --protocol-port 80
-    service = service_iter.next()
+    service = next(service_iter)
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
@@ -142,7 +142,7 @@ def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
     # create pool with session persistence
     # lbaas-pool-create --name p1 --listener l1 --protocol HTTP
     # --lb-algorithm ROUND_ROBIN --session-persistence type=SOURCE_IP
-    service = service_iter.next()
+    service = next(service_iter)
     pool = service['pools'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool, folder)
@@ -150,13 +150,13 @@ def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
     # apply ESD
     # lbaas-l7policy-create --name esd_demo_1 --listener l1 --action REJECT
     # --description "Override pool session persistence"
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_applied(esd_json['esd_demo_1'], listener, folder)
 
     # delete pool
     # lbaas-pool-delete p1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_deleted(pool, None, folder)
     # deleting pool should NOT remove ESD
@@ -164,13 +164,13 @@ def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
 
     # delete ESD
     # lbaas-l7policy-delete esd_demo_1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_removed(esd_json['esd_demo_1'], listener, folder)
 
     # create new ESD
     # lbaas-l7policy-create --name esd_demo_1 --listener l1 --action REJECT
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_applied(esd_json['esd_demo_1'], listener, folder)
 
@@ -178,7 +178,7 @@ def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
     # lbaas-pool-create --name p1 --listener l1 --protocol HTTP
     # --lb-algorithm ROUND_ROBIN --session-persistence type=SOURCE_IP
     # --description "Should not override ESD session persistence"
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     pool = service['pools'][0]
     validator.assert_pool_valid(pool, folder)
@@ -187,25 +187,25 @@ def test_esd_pools(track_bigip_cfg, bigip, icd_config, demo_policy, esd,
 
     # delete pool
     # lbaas-pool-delete p1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_deleted(pool, None, folder)
 
     # delete ESD
     # lbaas-l7policy-delete esd_demo_1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_removed(esd_json['esd_demo_1'], listener, folder)
 
     # delete listener
     # lbaas-listener-delete l1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_deleted(listener, folder)
 
     # delete loadbalancer
     # neutron lbaas-loadbalancer-delete lb1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)
 
@@ -223,7 +223,7 @@ def test_multiple_esd_add_remove(track_bigip_cfg, bigip, icd_config, demo_policy
 
     # create loadbalancer
     # lbaas-loadbalancer-create --name lb1 admin_subnet
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
@@ -232,19 +232,19 @@ def test_multiple_esd_add_remove(track_bigip_cfg, bigip, icd_config, demo_policy
     # create listener
     # lbaas-listener-create --name listener1 --loadbalancer lb1 --protocol HTTP
     # --protocol-port 80
-    service = service_iter.next()
+    service = next(service_iter)
     listener = service['listeners'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_valid(listener, folder)
 
     # apply ESD1
     # lbaas-l7policy-create --name esd_demo_1 --listener listener1 --action REJECT
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     # apply ESD2
     # lbaas-l7policy-create --name esd_demo_2 --listener listener1 --action REJECT
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     # validate ESD1 applied
@@ -252,25 +252,25 @@ def test_multiple_esd_add_remove(track_bigip_cfg, bigip, icd_config, demo_policy
 
     # delete ESD1 and check if ESD2 is still applied
     # lbaas-l7policy-delete esd_demo_1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_applied(esd_json['esd_demo_2'], listener, folder)
 
     # delete ESD2
     # lbaas-l7policy-delete esd_demo_1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_esd_removed(esd_json['esd_demo_1'], listener, folder)
     validator.assert_esd_removed(esd_json['esd_demo_2'], listener, folder)
 
     # delete listener
     # lbaas-listener-delete listener1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_virtual_deleted(listener, folder)
 
     # delete loadbalancer
     # neutron lbaas-loadbalancer-delete lb1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)

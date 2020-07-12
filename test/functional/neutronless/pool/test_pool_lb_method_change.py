@@ -47,18 +47,18 @@ def test_pool_lb_change_ratio(track_bigip_cfg, bigip, services, icd_config,
     validator = ResourceValidator(bigip, env_prefix)
 
     # create lb
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     folder = '{0}_{1}'.format(env_prefix, lb_reader.tenant_id())
     icontrol_driver._common_service_handler(service)
     assert bigip.folder_exists(folder)
 
     # create listener
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     # create pool with round-robin, no members
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     pool_srvc = service['pools'][0]
     pool_name = '{0}_{1}'.format(env_prefix, pool_srvc['id'])
@@ -67,7 +67,7 @@ def test_pool_lb_change_ratio(track_bigip_cfg, bigip, services, icd_config,
     assert pool.loadBalancingMode == 'round-robin'
 
     # create member with weight = 1
-    service = service_iter.next()
+    service = next(service_iter)
     member = service['members'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_member_valid(pool_srvc, member, folder)
@@ -75,7 +75,7 @@ def test_pool_lb_change_ratio(track_bigip_cfg, bigip, services, icd_config,
     assert pool.loadBalancingMode == 'round-robin'
 
     # create member with weight > 1
-    service = service_iter.next()
+    service = next(service_iter)
     member = service['members'][1]
     icontrol_driver._common_service_handler(service)
     validator.assert_member_valid(pool_srvc, member, folder)
@@ -83,7 +83,7 @@ def test_pool_lb_change_ratio(track_bigip_cfg, bigip, services, icd_config,
     assert pool.loadBalancingMode == 'ratio-member'
 
     # create member with weight = 1
-    service = service_iter.next()
+    service = next(service_iter)
     member = service['members'][2]
     icontrol_driver._common_service_handler(service)
     validator.assert_member_valid(pool_srvc, member, folder)
@@ -91,21 +91,21 @@ def test_pool_lb_change_ratio(track_bigip_cfg, bigip, services, icd_config,
     assert pool.loadBalancingMode == 'ratio-member'
 
     # delete pool member with weight > 1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool_srvc, folder)
     pool.refresh()
     assert pool.loadBalancingMode == 'round-robin'
 
     # update pool to have lb method least connections
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool_srvc, folder)
     pool.refresh()
     assert pool.loadBalancingMode == 'least-connections-member'
 
     # create member with weight > 1
-    service = service_iter.next()
+    service = next(service_iter)
     member = service['members'][2]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool_srvc, folder)
@@ -114,28 +114,28 @@ def test_pool_lb_change_ratio(track_bigip_cfg, bigip, services, icd_config,
     assert pool.loadBalancingMode == 'ratio-least-connections-member'
 
     # delete member with weight > 1
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool_srvc, folder)
     pool.refresh()
     assert pool.loadBalancingMode == 'least-connections-member'
 
     # delete second member
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool_srvc, folder)
     pool.refresh()
     assert pool.loadBalancingMode == 'least-connections-member'
 
     # set lb method to SOURCE_IP for pool
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool_srvc, folder)
     pool.refresh()
     assert pool.loadBalancingMode == 'least-connections-node'
 
     # update member to have weight > 1
-    service = service_iter.next()
+    service = next(service_iter)
     member = service['members'][0]
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool_srvc, folder)
@@ -144,22 +144,22 @@ def test_pool_lb_change_ratio(track_bigip_cfg, bigip, services, icd_config,
     assert pool.loadBalancingMode == 'least-connections-node'
 
     # delete remaining member
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     validator.assert_pool_valid(pool_srvc, folder)
     pool.refresh()
     assert pool.loadBalancingMode == 'least-connections-node'
 
     # delete pool
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
     assert not bigip.resource_exists(
         ResourceType.pool, pool_name, partition=folder)
 
     # delete listener
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     # delete lb
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)

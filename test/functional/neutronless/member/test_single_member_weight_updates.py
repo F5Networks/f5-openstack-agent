@@ -20,7 +20,7 @@ import logging
 import os
 import pytest
 import requests
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 requests.packages.urllib3.disable_warnings()
 
@@ -84,7 +84,7 @@ def services():
 
 def get_next_member(service_iterator, icontrol_driver, bigip, env_prefix):
 
-    service = service_iterator.next()
+    service = next(service_iterator)
     member = service['members'][0]
     pool = service['pools'][0]
     folder = '{0}_{1}'.format(env_prefix, pool['tenant_id'])
@@ -96,7 +96,7 @@ def get_next_member(service_iterator, icontrol_driver, bigip, env_prefix):
 
     p = bigip.get_resource(ResourceType.pool, pool_name, partition=folder)
     m = p.members_s.members
-    m = m.load(name=urllib.quote(member_name), partition=folder)
+    m = m.load(name=urllib.parse.quote(member_name), partition=folder)
 
     return m
 
@@ -126,7 +126,7 @@ def test_single_member_weight_updates(
     service_iter = iter(services)
 
     # create loadbalancer with pool
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     # Create a member
@@ -165,22 +165,22 @@ def test_single_member_weight_updates(
     assert m.session == "user-enabled"
 
     # Delete the member
-    service = service_iter.next()
+    service = next(service_iter)
     (member_name, pool_name, node_name, folder) = \
         get_names_from_service(service, env_prefix)
     icontrol_driver._common_service_handler(service)
     p = bigip.get_resource(ResourceType.pool, pool_name, partition=folder)
     m = p.members_s.members
-    assert not m.exists(name=urllib.quote(member_name), partition=folder)
+    assert not m.exists(name=urllib.parse.quote(member_name), partition=folder)
 
     # Delete the rest of the objects, pool, listener, loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
 
     assert not bigip.folder_exists(folder)

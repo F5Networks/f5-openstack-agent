@@ -140,7 +140,7 @@ class StatHelper(object):
             since = None
             for line in lines:
                 if len(line) > 2:
-                    for this_section in sr.keys():
+                    for this_section in list(sr.keys()):
                         if str(line).startswith(this_section):
                             if sec:
                                 if not (sec == this_section):
@@ -149,7 +149,7 @@ class StatHelper(object):
                             else:
                                 sec = this_section
                     if sec:
-                        for division in sr[sec].keys():
+                        for division in list(sr[sec].keys()):
                             if str(line).startswith(division):
                                 try:
                                     since_idx = line.index('since')
@@ -160,7 +160,7 @@ class StatHelper(object):
                                     pass
                                 div = division
                     if div:
-                        for fields in sr[sec][div].keys():
+                        for fields in list(sr[sec][div].keys()):
                             for field in fields:
                                 if str(line).startswith(field):
                                     values = re.split(r'\s{2,}', line)

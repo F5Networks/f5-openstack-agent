@@ -60,7 +60,7 @@ def icd_config():
 def my_test_create_delete_basic_lb_no_namespace(bigip, services, icd_config, icontrol_driver):
 
     service_iter = iter(services)
-    service = service_iter.next()
+    service = next(service_iter)
     lb_reader = LoadbalancerReader(service)
     env_prefix = icd_config['environment_prefix']
     fake_rpc = icontrol_driver.plugin_rpc
@@ -160,6 +160,6 @@ def my_test_create_delete_basic_lb_no_namespace(bigip, services, icd_config, ico
     assert virtual_addr.autoDelete == "false"
 
     # Delete the loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
     assert not bigip.folder_exists(folder)

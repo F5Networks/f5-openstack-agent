@@ -25,8 +25,8 @@ import oslo_messaging as messaging
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as constants
 import f5_openstack_agent.lbaasv2.drivers.bigip.plugin_rpc as target_mod
 
-import class_tester_base_class
-import mock_builder_base_class
+from . import class_tester_base_class
+from . import mock_builder_base_class
 
 
 class TestPluginRpcMockBuilder(mock_builder_base_class.MockBuilderBase):
@@ -200,12 +200,12 @@ class TestPluginRpc(TestPluginRpcConstructor,
         def positive_case_default_topic(self, target):
             assert target.topic == constants.TOPIC_PROCESS_ON_HOST_V2
 
-        positive_case_fully_populated(self, target, self.payload.keys())
+        positive_case_fully_populated(self, target, list(self.payload.keys()))
         positive_case_default_topic(self, topic_less_target)
 
     def test_get_loadbalancers_by_network(self, target, get_uuid, mock_logger):
         populated_payload = self.payload.copy()
-        map(lambda x: populated_payload.pop(x), ['topic', 'context'])
+        list(map(lambda x: populated_payload.pop(x), ['topic', 'context']))
         empty_payload = dict()
         target._make_msg = Mock()
         target._call = Mock()

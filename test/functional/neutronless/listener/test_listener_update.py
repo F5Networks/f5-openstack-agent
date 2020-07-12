@@ -39,7 +39,7 @@ def services():
 
 def get_next_listener(service_iterator, icontrol_driver, bigip, env_prefix):
 
-    service = service_iterator.next()
+    service = next(service_iterator)
     listener = service['listeners'][0]
     folder = '{0}_{1}'.format(env_prefix, listener['tenant_id'])
     icontrol_driver._common_service_handler(service)
@@ -64,7 +64,7 @@ def test_listener_update(
     service_iter = iter(services)
 
     # Create loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service)
 
     # Create listener (no name, description)
@@ -103,12 +103,12 @@ def test_listener_update(
     assert l.disabled
 
     # Delete listener
-    service = service_iter.next()
+    service = next(service_iter)
     folder = get_folder_name(service, env_prefix)
     icontrol_driver._common_service_handler(service)
 
     # Delete loadbalancer
-    service = service_iter.next()
+    service = next(service_iter)
     icontrol_driver._common_service_handler(service, delete_partition=True)
 
     # All objects deleted

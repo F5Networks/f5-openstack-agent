@@ -24,7 +24,7 @@ LOG = logging.getLogger(__name__)
 
 
 class VirtualAddress(object):
-    u"""Class to translate LBaaS loadbalancer objects to BIG-IP virtual address.
+    """Class to translate LBaaS loadbalancer objects to BIG-IP virtual address.
 
     Creates BIG-IP virtual address objects given an LBaaS service object.
     """

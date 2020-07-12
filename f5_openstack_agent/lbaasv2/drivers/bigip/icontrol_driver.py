@@ -20,7 +20,7 @@ import hashlib
 import json
 import logging as std_logging
 import os
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 from eventlet import greenthread
 from time import strftime
@@ -762,7 +762,7 @@ class iControlDriver(LBaaSBaseDriver):
                 bigip.device_group_name = device_group_name
 
             if self.network_builder:
-                for network in self.conf.common_network_ids.values():
+                for network in list(self.conf.common_network_ids.values()):
                     if not self.network_builder.vlan_exists(bigip,
                                                             network,
                                                             folder='Common'):
@@ -831,7 +831,7 @@ class iControlDriver(LBaaSBaseDriver):
 
             # hostbigip = self.__bigips[ic_host]
             mac_addrs = [mac_addr for interface, mac_addr in
-                         hostbigip.device_interfaces.items()
+                         list(hostbigip.device_interfaces.items())
                          if interface != "mgmt"]
             ports = self.plugin_rpc.get_ports_for_mac_addresses(
                 mac_addresses=mac_addrs)
@@ -866,7 +866,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         LOG.debug('ESD details here after process_esd(): ')
         LOG.debug(self.esd_processor)
-        self.esd_names = self.esd_processor.esd_dict.keys() or []
+        self.esd_names = list(self.esd_processor.esd_dict.keys()) or []
         LOG.debug('self.esd_names obtainded here:')
         LOG.debug(self.esd_names)
 
@@ -1207,7 +1207,7 @@ class iControlDriver(LBaaSBaseDriver):
             resource_helper.ResourceType.node)
         node_dict = dict()
         for bigip in self.get_all_bigips():
-            for tenant_id, members in tenant_members.iteritems():
+            for tenant_id, members in tenant_members.items():
                 partition = self.service_adapter.prefix + tenant_id
                 nodes = node_helper.get_resources(bigip, partition=partition)
                 for n in nodes:
@@ -1219,9 +1219,9 @@ class iControlDriver(LBaaSBaseDriver):
                     node_name = "{}%{}".format(member['address'], rd)
                     node_dict.pop(node_name, None)
 
-                for node_name, node in node_dict.iteritems():
+                for node_name, node in node_dict.items():
                     try:
-                        node_helper.delete(bigip, name=urllib.quote(node_name),
+                        node_helper.delete(bigip, name=urllib.parse.quote(node_name),
                                            partition=partition)
                     except HTTPError as error:
                         if error.response.status_code == 400:
@@ -1289,7 +1289,7 @@ class iControlDriver(LBaaSBaseDriver):
                         node_name = member.address
                         try:
                             node_helper.delete(bigip,
-                                               name=urllib.quote(node_name),
+                                               name=urllib.parse.quote(node_name),
                                                partition=partition)
                         except HTTPError as e:
                             if e.response.status_code == 404:
@@ -1319,10 +1319,8 @@ class iControlDriver(LBaaSBaseDriver):
             for folder in folders:
                 tenant_id = folder[len(adapter_prefix):]
                 if str(folder).startswith(adapter_prefix):
-                    resources = map(
-                        lambda x: resource_helper.BigIPResourceHelper(
-                            getattr(resource_helper.ResourceType, x)),
-                        monitor_types)
+                    resources = [resource_helper.BigIPResourceHelper(
+                            getattr(resource_helper.ResourceType, x)) for x in monitor_types]
                     for resource in resources:
                         deployed_monitors = resource.get_resources(
                             bigip, folder)

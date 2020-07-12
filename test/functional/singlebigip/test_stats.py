@@ -55,55 +55,55 @@ class TestStats:
     def test_get_active_connection_count(self, mgmt_root, stats_helper):
         score = stats_helper.get_active_connection_count(mgmt_root)
         assert score >= 0
-        print "Active Connection Count: " + str(score)
+        print("Active Connection Count: " + str(score))
 
     def test_get_active_SSL_TPS(self, mgmt_root, stats_helper):
         score = stats_helper.get_active_SSL_TPS(mgmt_root)
         assert score >= 0
-        print "Active SSL TPS: " + str(score)
+        print("Active SSL TPS: " + str(score))
 
     def test_get_inbound_throughput(self, mgmt_root, stats_helper):
         score = stats_helper.get_inbound_throughput(mgmt_root)
         assert score >= 0
-        print "Inbound Throughtput: " + str(score)
+        print("Inbound Throughtput: " + str(score))
 
     def test_get_outbound_throughput(self, mgmt_root, stats_helper):
         score = stats_helper.get_outbound_throughput(mgmt_root)
         assert score >= 0
-        print "Outbound Throughtput: " + str(score)
+        print("Outbound Throughtput: " + str(score))
 
     def test_get_throughput(self, mgmt_root, stats_helper):
         score = stats_helper.get_throughput(mgmt_root)
         assert score >= 0
-        print "Throughput: " + str(score)
+        print("Throughput: " + str(score))
 
     def test_get_node_count(self, mgmt_root):
         count = len(mgmt_root.tm.ltm.nodes.get_collection())
         assert count == 0
-        print "Node Count: " + str(count)
+        print("Node Count: " + str(count))
 
     def test_get_clientssl_profile_count(self, mgmt_root):
         count = ssl_profile.SSLProfileHelper.get_client_ssl_profile_count(mgmt_root)
         assert count > 0
-        print "SSL Profile Count: " + str(count)
+        print("SSL Profile Count: " + str(count))
 
     def test_get_tenant_count(self, mgmt_root, system_helper):
         count = system_helper.get_tenant_folder_count(mgmt_root)
         assert count == 1
-        print "Tenant Count: " + str(count)
+        print("Tenant Count: " + str(count))
 
     def test_get_tunnel_count(self, mgmt_root, network_helper):
         count = network_helper.get_tunnel_count(mgmt_root)
         assert count == 0
-        print "Tunnel Count: " + str(count)
+        print("Tunnel Count: " + str(count))
 
 
     def test_get_vlan_count(self, mgmt_root, network_helper):
         count = network_helper.get_vlan_count(mgmt_root)
         assert count == 4
-        print "VLAN Count: " + str(count)
+        print("VLAN Count: " + str(count))
 
     def test_get_route_domain_count(self, mgmt_root, network_helper):
         count = network_helper.get_route_domain_count(mgmt_root)
         assert count == 0
-        print "Route Domain Count: " + str(count)
+        print("Route Domain Count: " + str(count))

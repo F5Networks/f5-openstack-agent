@@ -52,7 +52,7 @@ def test_create_listener(bigip):
             # validate
             l = listener_builder.get_listener(svc, bigips[0])
             assert l.name == listener["name"]
-            print "Created listener: " + l.name
+            print("Created listener: " + l.name)
 
             # delete
             listener_builder.delete_listener(svc, bigips)

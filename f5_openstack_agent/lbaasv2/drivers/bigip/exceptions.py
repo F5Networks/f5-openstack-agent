@@ -440,7 +440,7 @@ class F5MissingDependencies(F5AgentException):
             if 'f5-openstack-agent.ini' in item:
                 with open(item, 'r') as fh:
                     line = fh.readline()
-                    print('line', line)
+                    print(('line', line))
                     debug_re = \
                         re.compile(r'debug\s*=\s*([Tt]rue|[Ff]alse|[01])')
                     while line:
@@ -522,7 +522,7 @@ class F5NeutronException(F5AgentException):
 
     if six.PY2:
         def __unicode__(self):
-            return unicode(self.msg)
+            return str(self.msg)
 
     def __str__(self):
         return self.msg

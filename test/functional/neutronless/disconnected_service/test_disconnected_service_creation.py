@@ -82,20 +82,20 @@ NOSEGID_CREATELISTENER = NEUTRON_SERVICES["create_disconnected_listener"]
 class UrlNames():
     """A convenient label library that provides common URL names"""
     # Neutron-based names used...
-    tenant_id = u'128a63ef33bc4cf891d684fad58e7f2d'
-    loadbalancer_id = u'50c5d54a-5a9e-4a80-9e74-8400a461a077'
-    listener_id = u'105a227a-cdbf-4ce3-844c-9ebedec849e9'
-    vip_port = u'ce69e293-56e7-43b8-b51c-01b91d66af20'
+    tenant_id = '128a63ef33bc4cf891d684fad58e7f2d'
+    loadbalancer_id = '50c5d54a-5a9e-4a80-9e74-8400a461a077'
+    listener_id = '105a227a-cdbf-4ce3-844c-9ebedec849e9'
+    vip_port = 'ce69e293-56e7-43b8-b51c-01b91d66af20'
     # Translation names, shortcuts and handles...
-    prefix = u'TEST_'
-    partition = u'{}{}'.format(prefix, tenant_id)
-    virtual_address = u'{}{}'.format(prefix, loadbalancer_id)
-    virtual = u'{}{}'.format(prefix, listener_id)
-    common = u'Common'
-    base = u'https://localhost/mgmt/tm'
-    snat_trans_spec = u'snat-traffic-group-local-only'
-    selfip = u'local-{}'.format(icontrol_fqdn)
-    tunnel_name = u'tunnel-vxlan-46'
+    prefix = 'TEST_'
+    partition = '{}{}'.format(prefix, tenant_id)
+    virtual_address = '{}{}'.format(prefix, loadbalancer_id)
+    virtual = '{}{}'.format(prefix, listener_id)
+    common = 'Common'
+    base = 'https://localhost/mgmt/tm'
+    snat_trans_spec = 'snat-traffic-group-local-only'
+    selfip = 'local-{}'.format(icontrol_fqdn)
+    tunnel_name = 'tunnel-vxlan-46'
 
 
 class UrlSnips():
@@ -121,74 +121,74 @@ class UrlSnips():
         ~sidsn
     """
     version_strip = re.compile('\?ver=[\d\.]+')  # we know what bigip version
-    tunnels = u'{u.base}/net/tunnels'.format(u=UrlNames)
-    vxlan_profile = u'{}/vxlan/~Common~vxlan_ovs'.format(tunnels)
-    gre_profile = u'{}/gre/~Common~gre_ovs'.format(tunnels)
+    tunnels = '{u.base}/net/tunnels'.format(u=UrlNames)
+    vxlan_profile = '{}/vxlan/~Common~vxlan_ovs'.format(tunnels)
+    gre_profile = '{}/gre/~Common~gre_ovs'.format(tunnels)
     # u'https://localhost/mgmt/tm/sys/folder/'
     # u'~TEST_128a63ef33bc4cf891d684fad58e7f2d'
-    folder = u'{u.base}/sys/folder/~{u.partition}'.format(u=UrlNames)
+    folder = '{u.base}/sys/folder/~{u.partition}'.format(u=UrlNames)
     # u'https://localhost/mgmt/tm/net/route-domain/'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     route_domain = \
-        u'{u.base}/net/route-domain/~{u.partition}~{u.partition}'.format(
+        '{u.base}/net/route-domain/~{u.partition}~{u.partition}'.format(
             u=UrlNames)
     # u'https://localhost/mgmt/tm/ltm/snat-translation/'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     # '~snat-traffic-group-local-only'
     # '-ce69e293-56e7-43b8-b51c-01b91d66af20_0'
     snat_translation_address = \
-        unicode('{u.base}/ltm/snat-translation/~{u.partition}~'
+        str('{u.base}/ltm/snat-translation/~{u.partition}~'
                 '{u.snat_trans_spec}-{u.vip_port}_0').format(u=UrlNames)
     # u'https://localhost/mgmt/tm/ltm/snat-translation/'
     # u'~Common~snat-traffic-group-local-only-'
     # u'ce69e293-56e7-43b8-b51c-01b91d66af20_0'
     common_snat_translation_address = \
-        unicode('{u.base}/ltm/snat-translation/~{u.common}~'
+        str('{u.base}/ltm/snat-translation/~{u.common}~'
                 '{u.snat_trans_spec}-{u.vip_port}_0').format(u=UrlNames)
     # u'https://localhost/mgmt/tm/ltm/snatpool/'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     snatpool = \
-        u'{u.base}/ltm/snatpool/~{u.partition}~{u.partition}'.format(
+        '{u.base}/ltm/snatpool/~{u.partition}~{u.partition}'.format(
             u=UrlNames)
     # 'https://localhost/mgmt/tm/net/self/~Common~local-{}'
     # '-ce69e293-56e7-43b8-b51c-01b91d66af20'
     common_selfip = \
-        unicode('{u.base}/net/self/~{u.common}~{u.selfip}-'
+        str('{u.base}/net/self/~{u.common}~{u.selfip}-'
                 '{u.vip_port}').format(u=UrlNames)
     # u'https://localhost/mgmt/tm/net/self/'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     # '~local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'
     tenant_selfip = \
-        u'{u.base}/net/self/~{u.partition}~{u.selfip}-{u.vip_port}'.format(
+        '{u.base}/net/self/~{u.partition}~{u.selfip}-{u.vip_port}'.format(
             u=UrlNames)
     # u'https://localhost/mgmt/tm/ltm/virtual-address/'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     # '~TEST_50c5d54a-5a9e-4a80-9e74-8400a461a077'])
     virtual_address = \
-        unicode('{u.base}/ltm/virtual-address/~{u.partition}~'
+        str('{u.base}/ltm/virtual-address/~{u.partition}~'
                 '{u.virtual_address}').format(u=UrlNames)
     # u'https://localhost/mgmt/tm/net/fdb/tunnel/'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d~tunnel-vxlan-46',
     fdb_tunnel = \
-        u'{u.base}/net/fdb/tunnel/~{u.partition}~{u.tunnel_name}'.format(
+        '{u.base}/net/fdb/tunnel/~{u.partition}~{u.tunnel_name}'.format(
             u=UrlNames)
     # u'https://localhost/mgmt/tm/net/tunnels/tunnel/'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     # '~tunnel-vxlan-46',
     partition_tunnel = \
-        u'{}/tunnel/~{u.partition}~{u.tunnel_name}'.format(
+        '{}/tunnel/~{u.partition}~{u.tunnel_name}'.format(
             tunnels, u=UrlNames)
     # u'https://localhost/mgmt/tm/ltm/virtual/'
     # '~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     # '~TEST_105a227a-cdbf-4ce3-844c-9ebedec849e9'
     virtual = \
-        u'{u.base}/ltm/virtual/~{u.partition}~{u.virtual}'.format(u=UrlNames)
+        '{u.base}/ltm/virtual/~{u.partition}~{u.virtual}'.format(u=UrlNames)
     # u'https://localhost/mgmt/tm/auth/partition/'
     # u'~TEST_128a63ef33bc4cf891d684fad58e7f2d'
     partition = \
-        u'{u.base}/auth/partition/{u.partition}'.format(u=UrlNames)
+        '{u.base}/auth/partition/{u.partition}'.format(u=UrlNames)
     url2name = {
         route_domain: 'route_domain', virtual_address: 'virtual_address',
         snat_translation_address: 'snat_translation_address',
@@ -249,8 +249,8 @@ def configure_icd(icd_config, create_mock_rpc):
         '''minimal fake config object to replace oslo with controlled params'''
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
+            for k, v in list(self.__dict__.items()):
+                if isinstance(v, str):
                     self.__dict__[k] = v.encode('utf-8')
 
         def __repr__(self):
@@ -332,13 +332,13 @@ def test_featureoff_withsegid_lb(track_bigip_cfg, setup_l2adjacent_test,
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
-        call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'.format(
+        call(port_name='local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'.format(
                 icontrol_fqdn)),
-        call(port_name=u'snat-traffic-group-local-only-'
+        call(port_name='snat-traffic-group-local-only-'
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
 
 
@@ -358,13 +358,13 @@ def test_withsegid_lb(track_bigip_cfg, setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
-        call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'.format(
+        call(port_name='local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'.format(
             icontrol_fqdn)),
-        call(port_name=u'snat-traffic-group-local-only-'
+        call(port_name='snat-traffic-group-local-only-'
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
 
 
@@ -387,16 +387,16 @@ def test_featureoff_withsegid_listener(track_bigip_cfg, setup_l2adjacent_test,
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
-        call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'.format(
+        call(port_name='local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'.format(
             icontrol_fqdn)),
-        call(port_name=u'snat-traffic-group-local-only-'
+        call(port_name='snat-traffic-group-local-only-'
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
     assert rpc.update_listener_status.call_args_list == [
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     ]
 
 
@@ -415,7 +415,7 @@ def test_featureoff_nosegid_lb(track_bigip_cfg, setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
     ]
 
 
@@ -435,7 +435,7 @@ def test_featureoff_nosegid_listener(track_bigip_cfg, setup_l2adjacent_test,
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
     ]
 
 
@@ -457,16 +457,16 @@ def test_withsegid_listener(track_bigip_cfg, setup_l2adjacent_test, bigip):
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert rpc.get_port_by_name.call_args_list == [
-        call(port_name=u'local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'.format(
+        call(port_name='local-{}-ce69e293-56e7-43b8-b51c-01b91d66af20'.format(
             icontrol_fqdn)),
-        call(port_name=u'snat-traffic-group-local-only-'
+        call(port_name='snat-traffic-group-local-only-'
                        'ce69e293-56e7-43b8-b51c-01b91d66af20_0')
     ]
     assert rpc.update_listener_status.call_args_list == [
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     ]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
 
 
@@ -516,7 +516,7 @@ def test_nosegid_listener_timeout(track_bigip_cfg, setup_l2adjacent_test,
             {'fixed_ips': [{'ip_address': '10.2.2.134'}]}
         ]
         mock_rpc_plugin.get_all_loadbalancers.return_value = [
-            {'lb_id': u'50c5d54a-5a9e-4a80-9e74-8400a461a077'}
+            {'lb_id': '50c5d54a-5a9e-4a80-9e74-8400a461a077'}
         ]
         service = deepcopy(NOSEGID_CREATELISTENER)
         service['loadbalancer']['provisioning_status'] = "ACTIVE"
@@ -563,13 +563,13 @@ def test_nosegid_listener_timeout(track_bigip_cfg, setup_l2adjacent_test,
     assert len(set(one_list)) == 1
     # check for the expected status transitions
     assert rpc.update_listener_status.call_args_list == [
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'OFFLINE'),
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ERROR', 'OFFLINE')
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'OFFLINE'),
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ERROR', 'OFFLINE')
     ]
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE'),
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE'),
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE'),
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'OFFLINE'),
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ERROR', 'OFFLINE')
     ]
 
 
@@ -635,10 +635,10 @@ def test_nosegid_to_segid(track_bigip_cfg, setup_l2adjacent_test, bigip):
     assert ERROR_MSG_MISCONFIG not in open(logfilename).read()
     # check that the last status update takes the object online
     assert list(rpc.update_loadbalancer_status.call_args_list)[-1] == (
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     )
     assert rpc.update_listener_status.call_args_list[-1] == (
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     )
 
 
@@ -649,8 +649,8 @@ def test_featureoff_grm_lb(track_bigip_cfg, setup_l2adjacent_test, bigip):
             {'fixed_ips': [{'ip_address': '10.2.2.134'}]}
         ]
         mock_rpc_plugin.get_all_loadbalancers.return_value = \
-            [{'lb_id': u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-              'tenant_id': u'128a63ef33bc4cf891d684fad58e7f2d'}]
+            [{'lb_id': '50c5d54a-5a9e-4a80-9e74-8400a461a077',
+              'tenant_id': '128a63ef33bc4cf891d684fad58e7f2d'}]
         return mock_rpc_plugin
 
     icontroldriver, start_registry = handle_init_registry(
@@ -694,8 +694,8 @@ def test_featureoff_grm_listener(track_bigip_cfg, setup_l2adjacent_test,
             {'fixed_ips': [{'ip_address': '10.2.2.134'}]}
         ]
         mock_rpc_plugin.get_all_loadbalancers.return_value = \
-            [{'lb_id': u'50c5d54a-5a9e-4a80-9e74-8400a461a077',
-              'tenant_id': u'128a63ef33bc4cf891d684fad58e7f2d'}]
+            [{'lb_id': '50c5d54a-5a9e-4a80-9e74-8400a461a077',
+              'tenant_id': '128a63ef33bc4cf891d684fad58e7f2d'}]
         return mock_rpc_plugin
 
     icontroldriver, start_registry = handle_init_registry(
@@ -737,7 +737,7 @@ def test_featureoff_nosegid_common_lb_net(track_bigip_cfg,
     rpc = icontroldriver.plugin_rpc
     LOG.debug(rpc.method_calls)
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
 
 
@@ -761,8 +761,8 @@ def test_featureoff_nosegid_create_listener_common_lb_net(
     rpc = icontroldriver.plugin_rpc
 
     assert rpc.update_loadbalancer_status.call_args_list == [
-        call(u'50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
+        call('50c5d54a-5a9e-4a80-9e74-8400a461a077', 'ACTIVE', 'ONLINE')
     ]
     assert rpc.update_listener_status.call_args_list == [
-        call(u'105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
+        call('105a227a-cdbf-4ce3-844c-9ebedec849e9', 'ACTIVE', 'ONLINE')
     ]

@@ -144,8 +144,8 @@ class TestConfig(object):
 
             def __init__(self, params):
                 self.__dict__ = params
-                for k, v in self.__dict__.items():
-                    if isinstance(v, unicode):
+                for k, v in list(self.__dict__.items()):
+                    if isinstance(v, str):
                         self.__dict__[k] = v.encode('utf-8')
 
             def __repr__(self):
@@ -245,10 +245,10 @@ class Resource4TestTracker(object):
                 require coming from the input data (service).
         """
         clean_re = re.compile("cleanup(\d+)")
-        found = service.keys()
+        found = list(service.keys())
         expected_chain = expected_chain if expected_chain else \
             self.expected_chain
-        possible = service.keys()
+        possible = list(service.keys())
         cleanup_queue = list()
         for item in expected_chain:
             assert item in found, "{} not in service!".format(item)
@@ -258,7 +258,7 @@ class Resource4TestTracker(object):
             if match:
                 cleanup_queue.append(match)
         cleanup_queue.sort(key=lambda x: int(x.group(1)))
-        self.cleanup_queue = map(lambda x: x.group(0), cleanup_queue)
+        self.cleanup_queue = [x.group(0) for x in cleanup_queue]
         self.expected_chain = expected_chain
         self._set_service(service)
         self.icontrol_driver = icontrol_driver
@@ -289,7 +289,7 @@ class Resource4TestTracker(object):
                     self.__state_reflection(state_name)))
                 self.icontrol_driver._common_service_handler(state)
             except AssertionError as Err:
-                print(str(Err))
+                print((str(Err)))
             except Exception as Error:
                 exceptions.append(Except(str(type(Error)), str(Error),
                                   traceback.format_exc()))
@@ -372,7 +372,7 @@ class Resource4TestTracker(object):
 
     def deploy_next(self):
         """Deploys the next state in the expected_chain """
-        self.__deploy_state(self._steps.next())
+        self.__deploy_state(next(self._steps))
 
     def enter_state(self, state_name):
         """Hard-set the BIG-IP to a given state
@@ -411,8 +411,8 @@ def debug_msg(status):
     caller_levels = dict(troubleshoot_cleaner=1, troubleshoot_obj_call=2,
                          troubleshoot_test=3)
     frame = gfi(gof(cf(caller_levels['troubleshoot_test']))[1][0])
-    print("{} [filename: {}, line: {}]".format(status, frame.filename,
-                                               frame.lineno))
+    print(("{} [filename: {}, line: {}]".format(status, frame.filename,
+                                               frame.lineno)))
 
 
 @pytest.fixture
@@ -428,8 +428,8 @@ def icontrol_driver(icd_config, fake_plugin_rpc):
     class ConfFake(object):
         def __init__(self, params):
             self.__dict__ = params
-            for k, v in self.__dict__.items():
-                if isinstance(v, unicode):
+            for k, v in list(self.__dict__.items()):
+                if isinstance(v, str):
                     self.__dict__[k] = v.encode('utf-8')
 
         def __repr__(self):

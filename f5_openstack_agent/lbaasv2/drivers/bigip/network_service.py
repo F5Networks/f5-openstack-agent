@@ -130,7 +130,7 @@ class NetworkServiceBuilder(object):
         networks = service.get('networks', {})
         supported_net_types = ['vlan', 'vxlan', 'gre', 'opflex']
 
-        for (network_id, network) in networks.iteritems():
+        for (network_id, network) in networks.items():
             if network_id in self.conf.common_network_ids:
                 continue
 
@@ -842,7 +842,7 @@ class NetworkServiceBuilder(object):
         # Clean up any Self IP, SNATs, networks, and folder for
         # services items that we deleted.
         subnets_to_delete = []
-        for subnetinfo in subnet_hints['check_for_delete_subnets'].values():
+        for subnetinfo in list(subnet_hints['check_for_delete_subnets'].values()):
             subnet = self.service_adapter.get_subnet_from_service(
                 service, subnetinfo['subnet_id'])
             subnetinfo['subnet'] = subnet
@@ -877,7 +877,7 @@ class NetworkServiceBuilder(object):
             partition=folder
         )
         for virt_serv in virtual_services:
-            (_, dest) = virt_serv.items()[0]
+            (_, dest) = list(virt_serv.items())[0]
             LOG.debug("            _ips_exist_on_subnet: checking vip %s"
                       % str(dest['address']))
             if len(dest['address'].split('%')) > 1:
@@ -966,4 +966,4 @@ class NetworkServiceBuilder(object):
                                               'subnet': subnet,
                                               'is_for_member': True}
 
-        return networks.values()
+        return list(networks.values())

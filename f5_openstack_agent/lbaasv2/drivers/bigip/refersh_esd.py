@@ -28,4 +28,4 @@ def refresh_esd():
 
     for pid in resp:
         os.kill(int(pid), signal.SIGUSR1)
-        print("Refreshed ESD for f5-oslbaasv2-agent (PID): %s." % pid)
+        print(("Refreshed ESD for f5-oslbaasv2-agent (PID): %s." % pid))

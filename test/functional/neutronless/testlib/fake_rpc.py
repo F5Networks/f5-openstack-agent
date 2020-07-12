@@ -25,13 +25,13 @@ class InvalidArgumentError(ValueError):
 def track_call(func):
     def wrapper(*f_args, **f_kwargs):
 
-        arg_names = func.func_code.co_varnames[:func.func_code.co_argcount]
+        arg_names = func.__code__.co_varnames[:func.__code__.co_argcount]
         args = f_args[:len(arg_names)]
-        zipped_args = zip(arg_names, args)
-        all_args = dict(zipped_args + f_kwargs.items())
+        zipped_args = list(zip(arg_names, args))
+        all_args = dict(zipped_args + list(f_kwargs.items()))
 
         obj = f_args[0]
-        obj.record_call(func.func_name, all_args)
+        obj.record_call(func.__name__, all_args)
 
         return func(*f_args, **f_kwargs)
     return wrapper
@@ -47,7 +47,7 @@ class FakeRPCPlugin(object):
         # two types of service objects.  For back compatibility we need to
         # support services-as-lists.
         if isinstance(services, collections.OrderedDict):
-            self._services = services.values()
+            self._services = list(services.values())
         else:
             self._services = services[:]
         self._current_service = 0
@@ -232,7 +232,7 @@ class FakeRPCPlugin(object):
     @track_call
     def get_all_loadbalancers(self, env=None, group=None, host=None):
         return_value = [
-            {'lb_id': u'50c5d54a-5a9e-4a80-9e74-8400a461a077'}
+            {'lb_id': '50c5d54a-5a9e-4a80-9e74-8400a461a077'}
         ]
         return return_value
 

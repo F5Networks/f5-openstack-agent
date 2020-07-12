@@ -27,10 +27,10 @@ import f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver as target_mod
 import f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper
 import f5_openstack_agent.lbaasv2.drivers.bigip.utils
 
-import class_tester_base_class
-import conftest as ct
-import mock_builder_base_class
-import test_plugin_rpc
+from . import class_tester_base_class
+from . import conftest as ct
+from . import mock_builder_base_class
+from . import test_plugin_rpc
 
 
 class TestiControlDriverMockBuilder(mock_builder_base_class.MockBuilderBase,
@@ -344,7 +344,7 @@ class TestiControlDriverMocker(object):
             called_method = getattr(target.plugin_rpc, test_method)
             args_list = called_method.call_args_list
             assert called_method.call_count == 3
-            all(map(lambda x: constants_v2.F5_ONLINE in x, args_list))
+            all([constants_v2.F5_ONLINE in x for x in args_list])
 
     @pytest.fixture
     def mock_resource_helper(self, request):

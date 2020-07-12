@@ -13,10 +13,10 @@
 # limitations under the License.
 #
 
-import constants_v2 as const
+from . import constants_v2 as const
 import netaddr
 import os
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -583,7 +583,7 @@ class NetworkHelper(object):
                    ip_address,
                    partition=const.DEFAULT_PARTITION):
         if ip_address:
-            address = urllib.quote(self._remove_route_domain_zero(ip_address))
+            address = urllib.parse.quote(self._remove_route_domain_zero(ip_address))
             arp = bigip.tm.net.arps.arp
             try:
                 if arp.exists(name=address, partition=partition):

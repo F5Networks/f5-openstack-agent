@@ -40,7 +40,7 @@ unchanged.
         entropy = glob.glob(config)
         if entropy:
             config = entropy[0]  # we'll just assume it's the first one...
-    print("config", config, 'working', working)
+    print(("config", config, 'working', working))
     config = load_config(config)
     config.update(kvp)
     export_to_json(config)
@@ -80,7 +80,7 @@ exception here as this is mostly meant to be a standalone script.
         stmt = cases[errnum]
     else:
         stmt = default
-    print("%s\n\n%s" % (stmt, help_stmt))
+    print(("%s\n\n%s" % (stmt, help_stmt)))
 
 
 def get_env(working_directory=None):
@@ -99,14 +99,14 @@ the filesystem.
         if match:
             project_name = match.group(1)
         else:
-            print("Unrecognized run location:\n" + working)
+            print(("Unrecognized run location:\n" + working))
             exit_cleanly(errnum=errno.EIO)
     elif '-dist/scripts' in working:
         match = dist_dir_re.search(working)
         if match:
             project_name = match.group(1)
     else:
-        print("Unable to determine the *-dist directory from " + working)
+        print(("Unable to determine the *-dist directory from " + working))
         exit_cleanly(errnum=errno.ENOSYS)
     stdeb_cfg = dist_dir + "/deb_dist/stdeb.cfg"
     setup_cfg = working + "/setup.cfg"
