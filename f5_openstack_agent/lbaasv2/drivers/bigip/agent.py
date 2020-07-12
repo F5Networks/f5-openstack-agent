@@ -34,7 +34,7 @@ except ImportError as CriticalError:
 
 try:
     from neutron.common import config as common_config
-    from neutron.common import rpc as n_rpc
+    from neutron_lib import rpc as n_rpc
     try:
         from neutron.conf.agent import common as config
     except Exception:
