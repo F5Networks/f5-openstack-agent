@@ -2297,7 +2297,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def tenant_to_traffic_group(self, tenant_id):
         # Hash tenant id to index of traffic group
-        hexhash = hashlib.md5(tenant_id).hexdigest()
+        hexhash = hashlib.md5(tenant_id.encode('utf-8')).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
 
@@ -2399,13 +2399,13 @@ class iControlDriver(LBaaSBaseDriver):
     def _validate_bigip_version(self, bigip, hostname):
         # Ensure the BIG-IP has sufficient version
         major_version = self.system_helper.get_major_version(bigip)
-        if major_version < f5const.MIN_TMOS_MAJOR_VERSION:
+        if int(major_version) < f5const.MIN_TMOS_MAJOR_VERSION:
             raise f5ex.MajorVersionValidateFailed(
                 'Device %s must be at least TMOS %s.%s'
                 % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
                    f5const.MIN_TMOS_MINOR_VERSION))
         minor_version = self.system_helper.get_minor_version(bigip)
-        if minor_version < f5const.MIN_TMOS_MINOR_VERSION:
+        if int(minor_version) < f5const.MIN_TMOS_MINOR_VERSION:
             raise f5ex.MinorVersionValidateFailed(
                 'Device %s must be at least TMOS %s.%s'
                 % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
