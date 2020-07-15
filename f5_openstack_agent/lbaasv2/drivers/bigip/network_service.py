@@ -179,7 +179,7 @@ class NetworkServiceBuilder(object):
                           "with route domain ID.")
                 self._annotate_service_route_domains(service)
             except f5_ex.InvalidNetworkType as exc:
-                LOG.warning(exc.message)
+                LOG.warning(exc)
             except Exception as err:
                 LOG.exception(err)
                 raise f5_ex.RouteDomainCreationException(
@@ -214,7 +214,7 @@ class NetworkServiceBuilder(object):
                 try:
                     self._allocate_gw_addr(subnetinfo)
                 except KeyError as err:
-                    raise f5_ex.VirtualServerCreationException(err.message)
+                    raise f5_ex.VirtualServerCreationException(err)
 
                 for assure_bigip in assure_bigips:
                     # If we are not using SNATS, attempt to become
@@ -293,7 +293,7 @@ class NetworkServiceBuilder(object):
             network['route_domain_id'] = route_domain_id
             return
         except f5_ex.RouteDomainCacheMiss as exc:
-            LOG.debug(exc.message)
+            LOG.debug(exc)
 
         LOG.debug("max namespaces: %s" % self.conf.max_namespaces_per_tenant)
         LOG.debug("max namespaces == 1: %s" %
@@ -640,7 +640,7 @@ class NetworkServiceBuilder(object):
                 ermsg = 'Invalid default gateway for subnet %s:%s - %s.' \
                     % (subnet['id'],
                        subnet['gateway_ip'],
-                       exc.message)
+                       exc)
                 ermsg += " SNAT will not function and load balancing"
                 ermsg += " support will likely fail. Enable f5_snat_mode."
                 LOG.exception(ermsg)
@@ -758,7 +758,7 @@ class NetworkServiceBuilder(object):
                           % str(exc.msg))
             except Exception as exc:
                 LOG.error("assure_delete_nets_shared: exception: %s"
-                          % str(exc.message))
+                          % str(exc))
 
         return deleted_names
 
@@ -834,7 +834,7 @@ class NetworkServiceBuilder(object):
                           % str(exc.msg))
             except Exception as exc:
                 LOG.debug("assure_delete_nets_nonshared: exception: %s"
-                          % str(exc.message))
+                          % str(exc))
 
         return deleted_names
 

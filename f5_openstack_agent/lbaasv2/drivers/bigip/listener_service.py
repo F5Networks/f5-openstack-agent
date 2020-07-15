@@ -86,15 +86,15 @@ class ListenerServiceBuilder(object):
 
             except Exception as err:
                 error = f5_ex.VirtualServerCreationException(
-                    err.message)
+                    err)
                 LOG.error("Failed to create virtual server: %s" %
-                          error.message)
+                          error)
 
             if not persist:
                 try:
                     self._remove_cookie_persist_rule(vip, bigip)
                 except HTTPError as err:
-                    LOG.exception(err.message)
+                    LOG.exception(err)
 
         return error
 
@@ -134,13 +134,13 @@ class ListenerServiceBuilder(object):
                                       partition=vip["partition"])
             except HTTPError as err:
                 if err.response.status_code != 404:
-                    error = f5_ex.VirtualServerDeleteException(err.message)
+                    error = f5_ex.VirtualServerDeleteException(err)
                     LOG.error("Virtual server delete error: %s",
-                              error.message)
+                              error)
             except Exception as err:
-                error = f5_ex.VirtualServerDeleteException(err.message)
+                error = f5_ex.VirtualServerDeleteException(err)
                 LOG.error("Virtual server delete error: %s",
-                          error.message)
+                          error)
 
             # delete ssl profiles
             self.remove_ssl_profiles(tls, bigip)
@@ -149,7 +149,7 @@ class ListenerServiceBuilder(object):
             try:
                 self._remove_cookie_persist_rule(vip, bigip)
             except HTTPError as err:
-                LOG.exception(err.message)
+                LOG.exception(err)
 
         return error
 
@@ -189,7 +189,7 @@ class ListenerServiceBuilder(object):
         except HTTPError as err:
             if err.response.status_code != 409:
                 LOG.error("SSL profile creation error: %s" %
-                          err.message)
+                          err)
         finally:
             del key_passphrase
             del cert
@@ -212,7 +212,7 @@ class ListenerServiceBuilder(object):
             try:
                 i = container_ref.rindex("/") + 1
             except ValueError as error:
-                LOG.exception(error.message)
+                LOG.exception(error)
             else:
                 name = self.service_adapter.prefix + container_ref[i:]
                 self._remove_ssl_profile(name, bigip)
@@ -223,7 +223,7 @@ class ListenerServiceBuilder(object):
                 try:
                     i = container_ref.rindex("/") + 1
                 except ValueError as error:
-                    LOG.exception(error.message)
+                    LOG.exception(error)
                 else:
                     name = self.service_adapter.prefix + container_ref[i:]
                     self._remove_ssl_profile(name, bigip)
@@ -245,7 +245,7 @@ class ListenerServiceBuilder(object):
             # by another virtual server.
             LOG.warning(
                 "Unable to delete profile %s. "
-                "Response message: %s." % (name, err.message))
+                "Response message: %s." % (name, err))
 
     def delete_orphaned_listeners(self, service, bigips):
         if 'listeners' not in service:
@@ -389,6 +389,6 @@ class ListenerServiceBuilder(object):
 
             except Exception as e:
                 # log error but continue on
-                LOG.error("Error getting virtual server stats: %s", e.message)
+                LOG.error("Error getting virtual server stats: %s", e)
 
         return collected_stats

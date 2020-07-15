@@ -93,8 +93,8 @@ class SSLProfileHelper(object):
                                       sniDefault=sni_default,
                                       defaultsFrom=parent_profile)
         except Exception as err:
-            LOG.error("Error creating SSL profile: %s" % err.message)
-            raise SSLProfileError(err.message)
+            LOG.error("Error creating SSL profile: %s" % err)
+            raise SSLProfileError(err)
 
     @staticmethod
     def get_client_ssl_profile_count(bigip):

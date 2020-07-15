@@ -166,7 +166,7 @@ class BigIPResourceHelper(object):
         try:
             collection = self._collection(bigip)
         except KeyError as err:
-            LOG.exception(err.message)
+            LOG.exception(err)
             raise err
 
         if collection:

@@ -267,7 +267,7 @@ class L2ServiceBuilder(object):
                      'route_domain_id': network['route_domain_id']}
             self.network_helper.create_vlan(bigip, model)
         except Exception as err:
-            LOG.exception("%s", err.message)
+            LOG.exception("%s", err)
             raise f5_ex.VLANCreationException("Failed to create flat network")
 
         return vlan_name
@@ -319,7 +319,7 @@ class L2ServiceBuilder(object):
                      'route_domain_id': network['route_domain_id']}
             self.network_helper.create_vlan(bigip, model)
         except Exception as err:
-            LOG.exception("%s", err.message)
+            LOG.exception("%s", err)
             raise f5_ex.VLANCreationException(
                 "Failed to create vlan: %s" % vlan_name
             )
@@ -356,7 +356,7 @@ class L2ServiceBuilder(object):
         try:
             self.network_helper.create_multipoint_tunnel(bigip, payload)
         except Exception as err:
-            LOG.exception("%s", err.message)
+            LOG.exception("%s", err)
             raise f5_ex.VXLANCreationException(
                 "Failed to create vxlan tunnel: %s" % tunnel_name
             )
@@ -388,7 +388,7 @@ class L2ServiceBuilder(object):
         try:
             self.network_helper.create_multipoint_tunnel(bigip, payload)
         except Exception as err:
-            LOG.exception("%s", err.message)
+            LOG.exception("%s", err)
             raise f5_ex.VXLANCreationException(
                 "Failed to create gre tunnel: %s" % tunnel_name
             )

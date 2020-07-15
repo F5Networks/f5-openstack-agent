@@ -422,7 +422,7 @@ class LBaaSBuilder(object):
             self.listener_builder.get_listener(service, bigip)
         except HTTPError as err:
             LOG.debug("Virtual service service discovery error, %s." %
-                      err.message)
+                      err)
             return False
 
         return True
@@ -508,10 +508,10 @@ class LBaaSBuilder(object):
         except HTTPError as err:
             if err.response.status_code != 404:
                 LOG.error("Failed to remove wrapper policy: %s",
-                          err.message)
+                          err)
         except Exception as err:
             LOG.error("Failed to remove wrapper policy: %s",
-                      err.message)
+                      err)
 
         for _, policy in list(listener_policy_map.items()):
             error = False

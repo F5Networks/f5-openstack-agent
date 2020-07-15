@@ -84,7 +84,7 @@ class BigipTenantManager(object):
                             folder_name,
                             self.conf.f5_route_domain_strictness)
                     except Exception as err:
-                        LOG.exception(err.message)
+                        LOG.exception(err)
                         raise f5ex.RouteDomainCreationException(
                             "Failed to create route domain for "
                             "tenant in %s" % (folder_name))
@@ -117,7 +117,7 @@ class BigipTenantManager(object):
             except Exception as err:
                 LOG.debug("Failed to delete route domain %s. "
                           "%s. Manual intervention might be required."
-                          % (domain_name, err.message))
+                          % (domain_name, err))
 
         try:
             self.system_helper.delete_folder(bigip, partition)

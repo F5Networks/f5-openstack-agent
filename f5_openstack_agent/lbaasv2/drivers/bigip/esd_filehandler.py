@@ -157,7 +157,7 @@ class EsdTagProcessor(object):
             except f5_ex.esdJSONFileInvalidException as err:
                 LOG.error('Tag {0} failed validation for ESD {1} and was not '
                           'added to ESD. Error: {2}'.
-                          format(tag, name, err.message))
+                          format(tag, name, err))
 
         return valid_esd
 

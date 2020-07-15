@@ -52,15 +52,15 @@ class L7PolicyService(object):
                     try:
                         self.policy_helper.update(bigip, f5_l7policy)
                     except Exception as err:
-                        error = f5_ex.L7PolicyUpdateException(err.message)
+                        error = f5_ex.L7PolicyUpdateException(err)
                 else:
-                    error = f5_ex.L7PolicyCreationException(err.message)
+                    error = f5_ex.L7PolicyCreationException(err)
             except Exception as err:
-                error = f5_ex.L7PolicyCreationException(err.message)
+                error = f5_ex.L7PolicyCreationException(err)
 
             if error:
                 LOG.error("L7 policy creation error: %s" %
-                          error.message)
+                          error)
 
         return error
 
@@ -76,20 +76,20 @@ class L7PolicyService(object):
                 status_code = err.response.status_code
                 if status_code == 404:
                     LOG.warn("Deleting L7 policy failed...not found: %s",
-                             err.message)
+                             err)
                 elif status_code == 400:
                     LOG.debug("Deleting L7 policy failed...unknown "
-                              "client error: %s", err.message)
-                    error = f5_ex.L7PolicyDeleteException(err.message)
+                              "client error: %s", err)
+                    error = f5_ex.L7PolicyDeleteException(err)
                 else:
-                    error = f5_ex.L7PolicyDeleteException(err.message)
+                    error = f5_ex.L7PolicyDeleteException(err)
             except Exception as err:
                 LOG.exception(err)
-                error = f5_ex.L7PolicyDeleteException(err.message)
+                error = f5_ex.L7PolicyDeleteException(err)
 
             if error:
                 LOG.error("L7 Policy deletion error: %s",
-                          error.message)
+                          error)
 
         return error
 
@@ -145,15 +145,15 @@ class L7PolicyService(object):
                         try:
                             self.rule_helper.update(bigip, rule)
                         except Exception as err:
-                            error = f5_ex.L7PolicyUpdateException(err.message)
+                            error = f5_ex.L7PolicyUpdateException(err)
                     else:
-                        error = f5_ex.L7PolicyCreationException(err.message)
+                        error = f5_ex.L7PolicyCreationException(err)
                 except Exception as err:
-                    error = f5_ex.L7PolicyCreationException(err.message)
+                    error = f5_ex.L7PolicyCreationException(err)
 
                 if error:
                     LOG.error("L7 rule (REGEX irule) creation error: %s" %
-                              error.message)
+                              error)
 
         return error
 
@@ -173,24 +173,24 @@ class L7PolicyService(object):
                         LOG.warn(
                             "Deleting L7 policy (iRule) "
                             + "failed...not found: %s",
-                            err.message
+                            err
                         )
                     elif status_code == 400:
                         LOG.debug(
                             "Deleting L7 policy (iRule) failed...unknown "
-                            "client error: %s", err.message
+                            "client error: %s", err
                         )
-                        error = f5_ex.L7PolicyDeleteException(err.message)
+                        error = f5_ex.L7PolicyDeleteException(err)
                     else:
-                        error = f5_ex.L7PolicyDeleteException(err.message)
+                        error = f5_ex.L7PolicyDeleteException(err)
                 except Exception as err:
                     LOG.exception(err)
-                    error = f5_ex.L7PolicyDeleteException(err.message)
+                    error = f5_ex.L7PolicyDeleteException(err)
 
                 if error:
                     LOG.error(
                         "L7 Policy (iRule) deletion error: %s",
-                        error.message
+                        error
                     )
 
         return error

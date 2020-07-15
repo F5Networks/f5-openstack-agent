@@ -327,7 +327,7 @@ class L7PolicyServiceAdapter(ServiceModelAdapter):
         try:
             self._adapt_policy()
         except (PolicyHasNoRules, NoActionFoundForPolicy) as error:
-            LOG.debug(error.message)
+            LOG.debug(error)
             self.policy_dict['rules'] = list()
 
         return self.policy_dict

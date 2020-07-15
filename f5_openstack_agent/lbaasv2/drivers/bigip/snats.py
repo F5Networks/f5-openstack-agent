@@ -198,7 +198,7 @@ class BigipSnatManager(object):
                     snatpool.modify(members=snatpool.members)
 
             except Exception as err:
-                LOG.error("Create SNAT pool failed %s" % err.message)
+                LOG.error("Create SNAT pool failed %s" % err)
                 raise f5_ex.SNATCreationException(
                     "Failed to create SNAT pool")
 
@@ -264,7 +264,7 @@ class BigipSnatManager(object):
                     snat_xlate = self.snat_translation_manager.load(
                         bigip, name=index_snat_name, partition=partition)
                 except HTTPError as err:
-                    LOG.error("Load SNAT xlate failed %s" % err.message)
+                    LOG.error("Load SNAT xlate failed %s" % err)
                 except Exception:
                     LOG.error("Unknown error occurred loading SNAT for unbind")
                 else:
@@ -303,15 +303,15 @@ class BigipSnatManager(object):
                     try:
                         snatpool.delete()
                     except HTTPError as err:
-                        LOG.error("Delete SNAT pool failed %s" % err.message)
+                        LOG.error("Delete SNAT pool failed %s" % err)
                 else:
                     LOG.debug('Snat pool is not empty - update snatpool')
                     try:
                         snatpool.modify(members=snatpool.members)
                     except HTTPError as err:
-                        LOG.error("Update SNAT pool failed %s" % err.message)
+                        LOG.error("Update SNAT pool failed %s" % err)
             except HTTPError as err:
-                LOG.error("Failed to load SNAT pool %s" % err.message)
+                LOG.error("Failed to load SNAT pool %s" % err)
 
             # Check if subnet in use by any tenants/snatpools. If in use,
             # add subnet to hints list of subnets in use.

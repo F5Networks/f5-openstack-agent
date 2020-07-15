@@ -494,12 +494,12 @@ class iControlDriver(LBaaSBaseDriver):
                     self.conf.cert_manager, self.conf)
             except ImportError as import_err:
                 LOG.error('Failed to import CertManager: %s.' %
-                          import_err.message)
+                          import_err)
                 raise
             except Exception as err:
-                LOG.error('Failed to initialize CertManager. %s' % err.message)
+                LOG.error('Failed to initialize CertManager. %s' % err)
                 # re-raise as ImportError to cause agent exit
-                raise ImportError(err.message)
+                raise ImportError(err)
 
         self.service_adapter = ServiceModelAdapter(self.conf)
         self.tenant_manager = BigipTenantManager(self.conf, self)
@@ -624,7 +624,7 @@ class iControlDriver(LBaaSBaseDriver):
                               % (hostname, bigip.status, bigip.status_message))
                     self._set_agent_status(False)
         except Exception as exc:
-            LOG.error('Invalid agent configuration: %s' % exc.message)
+            LOG.error('Invalid agent configuration: %s' % exc)
             raise
         self._set_agent_status(force_resync=True)
 
@@ -683,7 +683,7 @@ class iControlDriver(LBaaSBaseDriver):
             else:
                 LOG.debug('there are no BIG-IPs with error status')
         except Exception as exc:
-            LOG.error('Invalid agent configuration: %s' % exc.message)
+            LOG.error('Invalid agent configuration: %s' % exc)
             raise
 
     def _open_bigip(self, hostname):
@@ -858,11 +858,11 @@ class iControlDriver(LBaaSBaseDriver):
             self.service_adapter.init_esd(self.esd_processor)
 
         except f5ex.esdJSONFileInvalidException as err:
-            LOG.error("unable to initialize ESD. Error: %s.", err.message)
+            LOG.error("unable to initialize ESD. Error: %s.", err)
         except IOError as ioe:
-            LOG.error("unable to process ESD file. Error: %s.", ioe.message)
+            LOG.error("unable to process ESD file. Error: %s.", ioe)
         except Exception as exc:
-            LOG.error("unknown Error happens. Error: %s.", exc.message)
+            LOG.error("unknown Error happens. Error: %s.", exc)
 
         LOG.debug('ESD details here after process_esd(): ')
         LOG.debug(self.esd_processor)
@@ -1032,7 +1032,7 @@ class iControlDriver(LBaaSBaseDriver):
         try:
             self._init_errored_bigips()
         except Exception as exc:
-            LOG.error('Could not recover devices: %s' % exc.message)
+            LOG.error('Could not recover devices: %s' % exc)
 
     def backend_integrity(self):
         if self.operational:
@@ -1651,7 +1651,7 @@ class iControlDriver(LBaaSBaseDriver):
             self.plugin_rpc.update_loadbalancer_stats(
                 loadbalancer['id'], lb_stats)
         except Exception as e:
-            LOG.error("Error getting loadbalancer stats: %s", e.message)
+            LOG.error("Error getting loadbalancer stats: %s", e)
 
         finally:
             return lb_stats
@@ -1953,7 +1953,7 @@ class iControlDriver(LBaaSBaseDriver):
                 self.tenant_manager.assure_tenant_created(service)
             except Exception as e:
                 LOG.error("Tenant folder creation exception: %s",
-                          e.message)
+                          e)
                 if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                     loadbalancer['provisioning_status'] = \
                         f5const.F5_ERROR
@@ -1973,13 +1973,13 @@ class iControlDriver(LBaaSBaseDriver):
                 except f5ex.NetworkNotReady as error:
                     LOG.debug("Network creation deferred until network "
                               "definition is completed: %s",
-                              error.message)
+                              error)
                     if not delete_event:
                         do_service_update = False
                         raise error
                 except Exception as error:
                     LOG.error("Prep-network exception: icontrol_driver: %s",
-                              error.message)
+                              error)
                     if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                         loadbalancer['provisioning_status'] = \
                             f5const.F5_ERROR
@@ -2014,7 +2014,7 @@ class iControlDriver(LBaaSBaseDriver):
                         service, all_subnet_hints)
                 except Exception as error:
                     LOG.error("Post-network exception: icontrol_driver: %s",
-                              error.message)
+                              error)
 
                     if lb_provisioning_status != f5const.F5_PENDING_DELETE:
                         loadbalancer['provisioning_status'] = \
@@ -2260,7 +2260,7 @@ class iControlDriver(LBaaSBaseDriver):
                     self.network_builder._annotate_service_route_domains(
                         service)
                 except f5ex.InvalidNetworkType as exc:
-                    LOG.warning(exc.message)
+                    LOG.warning(exc)
                     return
 
             # get currrent member status

@@ -182,7 +182,7 @@ class NetworkHelper(object):
                       "Repsponse status code: %s. Response "
                       "message: %s." % (name,
                                         err.response.status_code,
-                                        err.message))
+                                        err))
         return None
 
     def _get_route_domain_name(self, name):
@@ -501,7 +501,7 @@ class NetworkHelper(object):
                     i.create(**payload)
                 except TagModeDisallowedForTMOSVersion as e:
                     # Providing the tag-mode is not supported
-                    LOG.warn(e.message)
+                    LOG.warn(e)
                     i.create(**payload)
 
             if not partition == const.DEFAULT_PARTITION:
@@ -594,7 +594,7 @@ class NetworkHelper(object):
                           "Repsponse status code: %s. Response "
                           "message: %s." % (address,
                                             err.response.status_code,
-                                            err.message))
+                                            err))
 
             return True
 
@@ -615,7 +615,7 @@ class NetworkHelper(object):
                 else:
                     network = netaddr.IPNetwork(subnet)
             except Exception as exc:
-                LOG.error('arp_delete_by_subnet', exc.message)
+                LOG.error('arp_delete_by_subnet', exc)
                 return []
         elif not mask:
             return []
@@ -627,7 +627,7 @@ class NetworkHelper(object):
                 else:
                     network = netaddr.IPNetwork(subnet + '/' + mask)
             except Exception as exc:
-                LOG.error('ARP', exc.message)
+                LOG.error('ARP', exc)
                 return []
 
         return self._arp_delete_by_network(bigip, partition, network)
@@ -646,7 +646,7 @@ class NetworkHelper(object):
             LOG.error("Error getting ARPs."
                       "Repsponse status code: %s. Response "
                       "message: %s." % (err.response.status_code,
-                                        err.message))
+                                        err))
             return mac_addresses
 
         for arp in arps:
@@ -665,7 +665,7 @@ class NetworkHelper(object):
                               "Repsponse status code: %s. Response "
                               "message: %s." % (arp.ipAddress,
                                                 err.response.status_code,
-                                                err.message))
+                                                err))
         return mac_addresses
 
     @log_helpers.log_method_call
@@ -762,7 +762,7 @@ class NetworkHelper(object):
                             except Exception as e:
                                 LOG.error('add_fdb_entry',
                                           'could not create static arp: %s'
-                                          % e.message)
+                                          % e)
                                 return False
                 return True
             else:
@@ -772,7 +772,7 @@ class NetworkHelper(object):
                       "Repsponse status code: %s. Response "
                       "message: %s." % (tunnel_name,
                                         err.response.status_code,
-                                        err.message))
+                                        err))
         return False
 
     @log_helpers.log_method_call
@@ -802,7 +802,7 @@ class NetworkHelper(object):
                       "Repsponse status code: %s. Response "
                       "message: %s." % (tunnel_name,
                                         err.response.status_code,
-                                        err.message))
+                                        err))
 
     @log_helpers.log_method_call
     def add_fdb_entries(self, bigip, fdb_entries=None):
@@ -859,7 +859,7 @@ class NetworkHelper(object):
             LOG.error("Error in get_fdb_entry"
                       "Repsponse status code: %s. Response "
                       "message: %s." % (err.response.status_code,
-                                        err.message))
+                                        err))
 
         return []
 
@@ -879,7 +879,7 @@ class NetworkHelper(object):
                       "Repsponse status code: %s. Response "
                       "message: %s." % (tunnel_name,
                                         err.response.status_code,
-                                        err.message))
+                                        err))
 
     @log_helpers.log_method_call
     def delete_tunnel(
@@ -907,7 +907,7 @@ class NetworkHelper(object):
                       "Repsponse status code: %s. Response "
                       "message: %s." % (tunnel_name,
                                         err.response.status_code,
-                                        err.message))
+                                        err))
 
         try:
             ts = bigip.tm.net.tunnels.tunnels.tunnel
@@ -919,7 +919,7 @@ class NetworkHelper(object):
                       "Repsponse status code: %s. Response "
                       "message: %s." % (tunnel_name,
                                         err.response.status_code,
-                                        err.message))
+                                        err))
 
     @log_helpers.log_method_call
     def get_tunnel_folder(self, bigip, tunnel_name=None):

@@ -70,7 +70,7 @@ class ClusterManager(object):
             LOG.error("Error saving config."
                       "Repsponse status code: %s. Response "
                       "message: %s." % (err.response.status_code,
-                                        err.message))
+                                        err))
 
     def get_device_group(self, bigip):
         dgs = bigip.tm.cm.device_groups.get_collection()
@@ -104,7 +104,7 @@ class ClusterManager(object):
                 name=device_name, partition='Common')
             active = act.failoverState.lower() == 'active'
         except Exception as exc:
-            LOG.error("Unable to get device info. %s", exc.message)
+            LOG.error("Unable to get device info. %s", exc)
 
         return active
 

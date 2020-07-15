@@ -76,9 +76,9 @@ class PoolServiceBuilder(object):
                     LOG.debug("Pool does not exist...creating")
                     self.pool_helper.create(bigip, pool)
             except Exception as err:
-                error = f5_ex.PoolCreationException(err.message)
+                error = f5_ex.PoolCreationException(err)
                 LOG.error("Failed to assure pool %s on %s: %s",
-                          pool['name'], bigip, error.message)
+                          pool['name'], bigip, error)
 
         return error
 
@@ -102,13 +102,13 @@ class PoolServiceBuilder(object):
                                         partition=pool["partition"])
             except HTTPError as err:
                 if err.response.status_code != 404:
-                    error = f5_ex.PoolDeleteException(err.message)
+                    error = f5_ex.PoolDeleteException(err)
                     LOG.error("Failed to remove pool %s from %s: %s",
-                              pool['name'], bigip, error.message)
+                              pool['name'], bigip, error)
             except Exception as err:
-                error = f5_ex.PoolDeleteException(err.message)
+                error = f5_ex.PoolDeleteException(err)
                 LOG.error("Failed to remove pool %s from %s: %s",
-                          pool['name'], bigip, error.message)
+                          pool['name'], bigip, error)
 
             for member in members:
                 self._delete_member_node(loadbalancer, member, bigip)
@@ -129,9 +129,9 @@ class PoolServiceBuilder(object):
             try:
                 self.pool_helper.update(bigip, pool)
             except Exception as err:
-                error = f5_ex.PoolUpdateException(err.message)
+                error = f5_ex.PoolUpdateException(err)
                 LOG.error("Failed to update pool %s from %s: %s",
-                          pool['name'], bigip, error.message)
+                          pool['name'], bigip, error)
 
         return error
 
@@ -151,9 +151,9 @@ class PoolServiceBuilder(object):
                     LOG.debug("Health monitor does not exist...creating")
                     hm_helper.create(bigip, hm)
             except Exception as err:
-                error = f5_ex.MonitorCreationException(err.message)
+                error = f5_ex.MonitorCreationException(err)
                 LOG.error("Failed to create monitor %s on %s: %s",
-                          hm['name'], bigip, error.message)
+                          hm['name'], bigip, error)
 
         return error
 
@@ -170,13 +170,13 @@ class PoolServiceBuilder(object):
                     bigip, name=hm["name"], partition=hm["partition"])
             except HTTPError as err:
                 if err.response.status_code != 404:
-                    error = f5_ex.MonitorDeleteException(err.message)
+                    error = f5_ex.MonitorDeleteException(err)
                     LOG.error("Failed to remove monitor %s from %s: %s",
-                              hm['name'], bigip, error.message)
+                              hm['name'], bigip, error)
             except Exception as err:
-                error = f5_ex.MonitorDeleteException(err.message)
+                error = f5_ex.MonitorDeleteException(err)
                 LOG.error("Failed to remove monitor %s from %s: %s",
-                          hm['name'], bigip, error.message)
+                          hm['name'], bigip, error)
 
         return error
 
@@ -220,7 +220,7 @@ class PoolServiceBuilder(object):
                 m = p.members_s.members
             except HTTPError as err:
                 LOG.error("Unabled to load pool %s: %s",
-                          pool["name"], err.message)
+                          pool["name"], err)
                 pool_loaded = False
 
             for member in service.get('members', list()):
@@ -276,7 +276,7 @@ class PoolServiceBuilder(object):
                 return True
         except Exception as e:
             # log error but continue on
-            LOG.error("Error checking member exists: %s", e.message)
+            LOG.error("Error checking member exists: %s", e)
         return False
 
     def get_member_status(self, service, bigip, status_keys):
@@ -312,6 +312,6 @@ class PoolServiceBuilder(object):
 
         except Exception as e:
             # log error but continue on
-            LOG.error("Error getting member status: %s", e.message)
+            LOG.error("Error getting member status: %s", e)
 
         return member_status

@@ -68,15 +68,15 @@ class BigipSelfIpManager(object):
                                       "Response message: %s." % (
                                           model["name"],
                                           err.response.status_code,
-                                          err.message))
+                                          err))
                         raise f5_ex.SelfIPCreationException("selfip")
                 else:
                     LOG.exception("selfip creation error: %s(%s)" %
-                                  (err.message, err.response.status_code))
+                                  (err, err.response.status_code))
                     raise
             except Exception as err:
                 LOG.error("Failed to create selfip")
-                LOG.exception(err.message)
+                LOG.exception(err)
                 raise f5_ex.SelfIPCreationException("selfip creation")
 
         return created
@@ -337,7 +337,7 @@ class BigipSelfIpManager(object):
                           "Repsponse status code: %s. Response "
                           "message: %s." % (name,
                                             err.response.status_code,
-                                            err.message))
+                                            err))
         except Exception as err:
             LOG.exception("Error getting selfip address for %s.",
                           name)
@@ -365,7 +365,7 @@ class BigipSelfIpManager(object):
                           "Response message: %s." % (
                               vlan_name,
                               err.response.status_code,
-                              err.message))
+                              err))
             raise f5_ex.SelfIPQueryException(
                 "Failed to get selfips assigned to vlan")
 
@@ -383,7 +383,7 @@ class BigipSelfIpManager(object):
                           "Response status code: %s. Response "
                           "message: %s." % (name,
                                             err.response.status_code,
-                                            err.message))
+                                            err))
             raise f5_ex.SelfIPDeleteException(
                 "Failed to delete selfip %s." % name)
 

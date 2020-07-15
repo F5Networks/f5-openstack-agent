@@ -124,7 +124,7 @@ class BarbicanCertManager(object):
                 else:
                     raise InvalidBarbicanConfig(
                         "Unable to initialize Barbican client. %s" %
-                        exc.message)
+                        exc)
 
     def get_certificate(self, container_ref):
         """Retrieves certificate from certificate manager.
