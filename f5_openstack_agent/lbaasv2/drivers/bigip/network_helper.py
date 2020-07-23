@@ -335,10 +335,18 @@ class NetworkHelper(object):
         payload['name'] = name
         payload['partition'] = '/' + partition
         payload['id'] = rd_id
-        if len(qos) == 0:
-            payload['bwcPolicy'] = 'None'
-        else:
-            payload['bwcPolicy'] = '/Common/' + qos
+
+        if qos.strip():
+	    bwc_profile = '/Common/' + qos
+ 	elif hasattr(self, 'conf') and self.conf.bwc_profile:
+	    bwc_profile = '/Common/' + self.conf.bwc_profile
+            LOG.debug(" bwc profile from configure file %s " % bwc_profile)
+	else:
+ 	    bwc_profile = 'None'
+
+        LOG.debug(" bwc profile is %s " % bwc_profile)
+        payload['bwcPolicy'] = bwc_profile
+        
         if strictness:
             payload['strict'] = 'enabled'
         else:

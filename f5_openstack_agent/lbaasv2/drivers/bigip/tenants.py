@@ -98,10 +98,18 @@ class BigipTenantManager(object):
                         payload = self.network_helper.route_domain_update
                         payload['name'] = folder_name
                         payload['partition'] = folder_name
-                        if service['qos'] == '':
-                            payload['bwcPolicy'] = 'None'
-                        else:
-                            payload['bwcPolicy'] = '/Common/' + service['qos']
+			
+			qos = service['qos']
+        		if qos.strip():
+	    		    bwc_profile = '/Common/' + qos
+ 			elif hasattr(self, 'conf') and self.conf.bwc_profile:
+	    		    bwc_profile = '/Common/' + self.conf.bwc_profile
+                            LOG.debug(" bwc profile from configure file %s " % bwc_profile)
+			else:
+ 	    		    bwc_profile = 'None'
+        		
+			LOG.debug(" bwc profile is %s " % bwc_profile)
+                        payload['bwcPolicy'] = bwc_profile
                         self.rd_helper.update(bigip, payload)
                     except Exception as err:
                         LOG.exception(err.message)

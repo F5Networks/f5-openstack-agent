@@ -149,6 +149,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='driver class for binding vlans to device ports'
     ),
     cfg.StrOpt(
+        'bwc_profile',
+        default=None,
+        help='bwc_profile name which is configured in bigip side'
+    ),
+    cfg.StrOpt(
         'interface_port_static_mappings',
         default=None,
         help='JSON encoded static mapping of'
@@ -1603,6 +1608,10 @@ class iControlDriver(LBaaSBaseDriver):
     def create_health_monitor(self, health_monitor, service):
         """Create pool health monitor."""
         LOG.debug("Creating health monitor")
+        monitors = service.get("healthmonitors", list())
+        for mn in monitors:
+            if mn.get("name") == "diameter":
+                mn["type"] = "DIAMETER"
         return self._common_service_handler(service)
 
     @serialized('update_health_monitor')
@@ -1611,6 +1620,10 @@ class iControlDriver(LBaaSBaseDriver):
                               health_monitor, service):
         """Update pool health monitor."""
         LOG.debug("Updating health monitor")
+        monitors = service.get("healthmonitors", list())
+        for mn in monitors:
+            if mn.get("name") == "diameter":
+                mn["type"] = "DIAMETER"
         return self._common_service_handler(service)
 
     @serialized('delete_health_monitor')
@@ -1618,6 +1631,10 @@ class iControlDriver(LBaaSBaseDriver):
     def delete_health_monitor(self, health_monitor, service):
         """Delete pool health monitor."""
         LOG.debug("Deleting health monitor")
+        monitors = service.get("healthmonitors", list())
+        for mn in monitors:
+            if mn.get("name") == "diameter":
+                mn["type"] = "DIAMETER"
         return self._common_service_handler(service)
 
     @is_operational
