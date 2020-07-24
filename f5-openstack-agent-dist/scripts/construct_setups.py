@@ -65,10 +65,22 @@ not suggested to use this function if you intend to get control back again.
 
 def _construct_cfgs_from_json(args):
     Args = namedtuple('Args', 'setup, reqs, fmt, start')
+    print("Args: %s" % Args)
+
     rpm = Args(args['setup_cfg'], args['rpm_setup_requirements'], '%s %s',
                'requires = ')
+    print("rpm.setup: %s" % rpm.setup)
+    print("rpm.reqs: %s" % rpm.reqs)
+    print("rpm.fmt: %s" % rpm.fmt)
+    print("rpm.start: %s" % rpm.start)
+
     deb = Args(args['stdeb_cfg'], args['deb_setup_requirements'], '%s (%s), ',
                'Depends:\n    ')
+    print("deb.setup: %s" % deb.setup)
+    print("deb.reqs: %s" % deb.reqs)
+    print("deb.fmt: %s" % deb.fmt)
+    print("deb.start: %s" % deb.start)
+
     _construct_file(rpm.setup, rpm.reqs, rpm.fmt, rpm.start)
     _construct_file(deb.setup, deb.reqs, deb.fmt, deb.start)
     print("Successfully constructed %s and\n%s" %
@@ -156,7 +168,7 @@ def _construct_file(setup_cfg, setup, fmt, start):
         print(setup + " does not exist or is not readable")
         exit_cleanly(error_number=errno.ENOSYS)
     contents = _read_in_cfgs(setup_cfg)
-    parsed_reqs = map(lambda x: (x.req), p_reqs(setup, session="pkg"))
+    parsed_reqs = map(lambda x: (x.requirement), p_reqs(setup, session="pkg"))
     if not parsed_reqs:
         print("Nothing to do!\n%s\nDoes not contain any reqs parsable!" %
               setup)
@@ -175,15 +187,20 @@ def _construct_file(setup_cfg, setup, fmt, start):
                 while contents:
                     fh.write(contents.popleft())
             fh.write(start)
+            print("this is parsed_reqs: %s" % parsed_reqs)
             for count in range(len(parsed_reqs)):
+                print("this is count: %s" % count)
                 req = parsed_reqs[count]
+                print("this is req: %s" % req)
                 if 'Depends' in start:
                     # special case for debian...
                     name = str(req.name) if 'python-' in str(req.name) else \
                         'python-' + str(req.name)
                     pkg_type = 'deb'
                 else:
-                    name = str(req.name)
+                    print("this is req: %s" % req)
+                    name = str(req)
+                    print("this is name: %s" % name)
                     pkg_type = 'rpm'
                 specifier = str(req.specifier)
                 if '==' in specifier:
