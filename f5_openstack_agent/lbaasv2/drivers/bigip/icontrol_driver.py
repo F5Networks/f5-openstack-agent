@@ -303,6 +303,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'report_esd_names_in_agent',
         default=False,
         help='whether or not to add valid esd names during report.'
+    ),
+    cfg.StrOpt(
+        'bwc_profile',
+        default=None,
+        help='bwc_profile name which is configured in bigip side'
     )
 ]
 
