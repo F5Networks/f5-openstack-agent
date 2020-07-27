@@ -455,6 +455,7 @@ class LBaaSBuilder(object):
                         policy_state = l7policy.get('provisioning_status')
                         bwc_position = listener.get('bwcPosition', None)
                         if policy_state == "PENDING_CREATE" or \
+                           policy_state == "PENDING_UPDATE" or \
                            policy_state == "ACTIVE":
                             # Only bwc l7 policy with the highest priority
                             # can take effect. Skip rest of bwc l7 policies
