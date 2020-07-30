@@ -21,7 +21,8 @@ def runCommand(cmd):
                              )
         (output) = p.communicate()[0]
     except OSError as e:
-        print("Execution failed:", e, file=sys.stderr)
+        # print("Execution failed:", e, file=sys.stderr)
+        print("Execution failed:", e)
 
     return (output, p.returncode)
 
@@ -51,7 +52,8 @@ def main(args):
         (output, status) = runCommand('git describe --tags')
         if status == 0:
 
-            m = gitDescribeRe.match(output)
+            # TypeError: cannot use a string pattern on a bytes-like object
+            m = gitDescribeRe.match(output.decode("utf-8"))
             if m:
                 version = m.group(1)
                 release = m.group(2)

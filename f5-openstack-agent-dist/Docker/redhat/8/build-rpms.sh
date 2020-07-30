@@ -11,8 +11,8 @@ PRE_INSTALL_SCRIPT=${DIST_DIR}/rpms/scripts/f5-openstack-agent-preinstall.sh
 
 # The version is embedded in the package.
 pushd ${SRC_DIR}
-PKG_VERSION=$(python -c "import f5_openstack_agent; print(f5_openstack_agent.__version__)")
-PKG_RELEASE=$(python ./f5-openstack-agent-dist/scripts/get-version-release.py --release)
+PKG_VERSION=$(python3 -c "import f5_openstack_agent; print(f5_openstack_agent.__version__)")
+PKG_RELEASE=$(python3 ./f5-openstack-agent-dist/scripts/get-version-release.py --release)
 popd
 
 echo "Building ${PKG_NAME} RPM packages..."

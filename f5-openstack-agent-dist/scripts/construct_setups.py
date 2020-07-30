@@ -278,7 +278,9 @@ assures more consistent error handling within the script.
         <working_directory>/*-dist/Docker/<operating_system>/<version>
     Directory, then this script will exit cleanly reporting it as an error.
             """ % sys.argv[0])
-    print("(%d) %s" % (error_number, stmt), file=sys.stderr)
+    print("error_number: %d" % error_number)
+    print("stmt: %s" % stmt)
+    # print("(%d) %s" % (error_number, stmt), file=sys.stderr)
     sys.exit(error_number)
 
 
