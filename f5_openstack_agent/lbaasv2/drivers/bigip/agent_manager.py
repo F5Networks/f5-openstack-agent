@@ -1145,11 +1145,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("delete_pool: Exception: %s" % exc.message)
 
     @log_helpers.log_method_call
-    def create_member(self, context, member, service):
+    def create_member(
+        self, context, member, service, the_port_id=None
+    ):
         """Handle RPC cast from plugin to create_member."""
         try:
             service_pending = \
-                self.lbdriver.create_member(member, service)
+                self.lbdriver.create_member(member, service, the_port_id)
             self.cache.put(service, self.agent_host)
             if service_pending:
                 self.needs_resync = True
