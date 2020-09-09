@@ -1584,10 +1584,10 @@ class iControlDriver(LBaaSBaseDriver):
 
     @serialized('create_member')
     @is_operational
-    def create_member(self, member, service):
+    def create_member(self, member, service, the_port_id=None):
         """Create pool member."""
         LOG.debug("Creating member")
-        return self._common_service_handler(service)
+        return self._common_service_handler(service, the_port_id=the_port_id)
 
     @serialized('update_member')
     @is_operational
@@ -1943,7 +1943,8 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _common_service_handler(self, service,
                                 delete_partition=False,
-                                delete_event=False):
+                                delete_event=False,
+                                the_port_id=None):
 
         # Assure that the service is configured on bigip(s)
         start_time = time()
@@ -2056,6 +2057,10 @@ class iControlDriver(LBaaSBaseDriver):
             lb_pending = \
                 (lb_provisioning_status == f5const.F5_PENDING_CREATE or
                  lb_provisioning_status == f5const.F5_PENDING_UPDATE)
+
+            if the_port_id:
+                LOG.debug(the_port_id)
+                self.plugin_rpc.delete_port(port_id=the_port_id)
 
         return lb_pending
 
