@@ -8,7 +8,7 @@ Glossary
 
    segmentation ID
    segmentation id
-      `VLAN tag <https://support.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-12-0-0/5.html>`_
+      `VLAN tag <https://techdocs.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/tmos-routing-administration-13-0-0/4.html>`_
 
    device
       `BIG-IP`_ hardware or virtual edition (VE).
