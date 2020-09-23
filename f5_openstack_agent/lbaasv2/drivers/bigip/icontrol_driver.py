@@ -2212,6 +2212,7 @@ class iControlDriver(LBaaSBaseDriver):
     def _update_loadbalancer_status(self, service, timed_out=False):
         """Update loadbalancer status in OpenStack."""
         loadbalancer = service.get('loadbalancer', {})
+        lb_name = loadbalancer.get('name', None)
         provisioning_status = loadbalancer.get('provisioning_status',
                                                f5const.F5_ERROR)
 
@@ -2232,7 +2233,8 @@ class iControlDriver(LBaaSBaseDriver):
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 loadbalancer['provisioning_status'],
-                operating_status)
+                operating_status,
+                lb_name)
 
         elif provisioning_status == f5const.F5_PENDING_DELETE:
             self.plugin_rpc.loadbalancer_destroyed(
@@ -2241,7 +2243,8 @@ class iControlDriver(LBaaSBaseDriver):
             self.plugin_rpc.update_loadbalancer_status(
                 loadbalancer['id'],
                 provisioning_status,
-                f5const.F5_OFFLINE)
+                f5const.F5_OFFLINE,
+                lb_name)
         elif provisioning_status == f5const.F5_ACTIVE:
             LOG.debug('Loadbalancer provisioning status is active')
         else:
