@@ -95,7 +95,7 @@ OPTS = [
     ),
     cfg.IntOpt(
         'service_resync_interval',
-        default=300,
+        default=3600,
         help=('Number of seconds between service refresh checks')
     ),
     cfg.StrOpt(

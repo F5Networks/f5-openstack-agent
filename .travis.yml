@@ -19,6 +19,7 @@ before_install:
     - git config --global user.name "Travis F5 Openstack"
     - docker pull f5devcentral/containthedocs:latest
 install:
+    - python -m pip install pip==19.0.3
     - pip install tox
     - pip install -r requirements.style.txt
 script:
