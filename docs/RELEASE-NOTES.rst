@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.14 (Mitaka, Newton, Ocata, Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent is best used with H3C Pike Openstack releases.
+
+Added Functionality
+```````````````````
+* Add UDP and snat transparent
+* Pass loadbalancer name to driver
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+
 v9.8.4 (Mitaka, Newton, Ocata, Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Mitaka, Newton, Ocata, Pike and Queens Openstack releases.

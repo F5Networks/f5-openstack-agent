@@ -90,14 +90,16 @@ class LBaaSv2PluginRPC(object):
     def update_loadbalancer_status(self,
                                    lb_id,
                                    provisioning_status=None,
-                                   operating_status=None):
+                                   operating_status=None,
+                                   lb_name=None):
         """Update the database with loadbalancer status."""
         return self._cast(
             self.context,
             self._make_msg('update_loadbalancer_status',
                            loadbalancer_id=lb_id,
                            status=provisioning_status,
-                           operating_status=operating_status),
+                           operating_status=operating_status,
+                           lb_name=lb_name),
             topic=self.topic
         )
 
