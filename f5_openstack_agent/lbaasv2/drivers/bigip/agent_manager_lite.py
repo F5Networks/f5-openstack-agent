@@ -1,6 +1,6 @@
-"""Agent manager to handle plugin to agent RPC and periodic tasks."""
+"""Agent manager lite to handle plugin to agent RPC and periodic tasks."""
 # coding=utf-8
-# Copyright (c) 2016-2018, F5 Networks, Inc.
+# Copyright (c) 2020, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import datetime
 import sys
 import uuid
 
-from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging
@@ -39,118 +38,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 
 LOG = logging.getLogger(__name__)
-
-# XXX OPTS is used in (at least) agent.py Maybe move/rename to agent.py
-OPTS = [
-    cfg.StrOpt(
-        'f5_agent_mode',
-        default='normal',
-        help='Select agent mode between normal and lite'
-    ),
-    cfg.IntOpt(
-        'periodic_interval',
-        default=10,
-        help='Seconds between periodic task runs'
-    ),
-    cfg.BoolOpt(
-        'start_agent_admin_state_up',
-        default=True,
-        help='Should the agent force its admin_state_up to True on boot'
-    ),
-    cfg.StrOpt(  # XXX should we use this with internal classes?
-        'f5_bigip_lbaas_device_driver',  # XXX maybe remove "device" and "f5"?
-        default=('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
-                 'iControlDriver'),
-        help=('The driver used to provision BigIPs')
-    ),
-    cfg.BoolOpt(
-        'l2_population',
-        default=False,
-        help=('Use L2 Populate service for fdb entries on the BIG-IP')
-    ),
-    cfg.BoolOpt(
-        'f5_global_routed_mode',
-        default=True,
-        help=('Disable all L2 and L3 integration in favor of global routing')
-    ),
-    cfg.BoolOpt(
-        'use_namespaces',
-        default=True,
-        help=('Allow overlapping IP addresses for tenants')
-    ),
-    cfg.BoolOpt(
-        'f5_snat_mode',
-        default=True,
-        help=('use SNATs, not direct routed mode')
-    ),
-    cfg.IntOpt(
-        'f5_snat_addresses_per_subnet',
-        default=1,
-        help=('Interface and VLAN for the VTEP overlay network')
-    ),
-    cfg.StrOpt(
-        'provider_name',
-        default='f5networks',
-        help=('provider_name for snat pool addresses')
-    ),
-    cfg.StrOpt(
-        'agent_id',
-        default=None,
-        help=('static agent ID to use with Neutron')
-    ),
-    cfg.StrOpt(
-        'static_agent_configuration_data',
-        default=None,
-        help=('static name:value entries to add to the agent configurations')
-    ),
-    cfg.IntOpt(
-        'service_resync_interval',
-        default=300,
-        help=('Number of seconds between service refresh checks')
-    ),
-    cfg.StrOpt(
-        'environment_prefix',
-        default='Project',
-        help=('The object name prefix for this environment')
-    ),
-    cfg.BoolOpt(
-        'environment_specific_plugin',
-        default=True,
-        help=('Use environment specific plugin topic')
-    ),
-    cfg.IntOpt(
-        'environment_group_number',
-        default=1,
-        help=('Agent group number for the environment')
-    ),
-    cfg.DictOpt(
-        'capacity_policy',
-        default={},
-        help=('Metrics to measure capacity and their limits')
-    ),
-    cfg.IntOpt(
-        'f5_pending_services_timeout',
-        default=60,
-        help=(
-            'Amount of time to wait for a pending service to become active')
-    ),
-    cfg.IntOpt(
-        'f5_errored_services_timeout',
-        default=60,
-        help=(
-            'Amount of time to wait for a errored service to become active')
-    ),
-    cfg.BoolOpt(
-        'password_cipher_mode',
-        default=False,
-        help='The flag indicating the password is plain text or not.'
-    ),
-    cfg.BoolOpt(
-        'esd_auto_refresh',
-        default=True,
-        help='Enable ESD file periodic refresh'
-    )
-]
 
 PERIODIC_TASK_INTERVAL = 10
 
