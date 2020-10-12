@@ -917,17 +917,25 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def update_loadbalancer(self, context, old_loadbalancer,
                             loadbalancer, service):
         """Handle RPC cast from plugin to update_loadbalancer."""
+        id = loadbalancer['id']
         try:
-            service_pending = self.lbdriver.update_loadbalancer(
-                old_loadbalancer,
-                loadbalancer, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update loadbalancer %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update loadbalancer %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_loadbalancer_status(
+                    id, provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of loadbalancer %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of loadbalancer %s "
+                              "Exception: %s" % ex.message)
 
     @log_helpers.log_method_call
     def delete_loadbalancer(self, context, loadbalancer, service):
@@ -957,174 +965,333 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def create_listener(self, context, listener, service):
         """Handle RPC cast from plugin to create_listener."""
+        loadbalancer = service['loadbalancer']
+        id = listener['id']
         try:
-            service_pending = \
-                self.lbdriver.create_listener(listener, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create listener %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create listener %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_listener_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of listener %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of listener %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_listener(self, context, old_listener, listener, service):
         """Handle RPC cast from plugin to update_listener."""
+        loadbalancer = service['loadbalancer']
+        id = listener['id']
         try:
-            service_pending = \
-                self.lbdriver.update_listener(old_listener, listener, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update listener %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update listener %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_listener_status(
+                    id, provision_status,
+                    listener['operating_status']
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of listener %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of listener %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_listener(self, context, listener, service):
         """Handle RPC cast from plugin to delete_listener."""
+        loadbalancer = service['loadbalancer']
+        id = listener['id']
         try:
-            service_pending = \
-                self.lbdriver.delete_listener(listener, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_listener: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_listener: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete listener %s", id)
+        except Exception as ex:
+            LOG.exception("Finish to delete listener %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.listener_destroyed(id)
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of listener %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to delete listener %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def create_pool(self, context, pool, service):
         """Handle RPC cast from plugin to create_pool."""
+        loadbalancer = service['loadbalancer']
+        id = pool['id']
         try:
-            service_pending = self.lbdriver.create_pool(pool, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create pool %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create pool %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_pool_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of pool %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of pool %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_pool(self, context, old_pool, pool, service):
         """Handle RPC cast from plugin to update_pool."""
+        loadbalancer = service['loadbalancer']
+        id = pool['id']
         try:
-            service_pending = \
-                self.lbdriver.update_pool(old_pool, pool, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update pool %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to uppdate pool %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_pool_status(
+                    id, provision_status,
+                    pool['operating_status']
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of pool %s", id)
+            except Exception as ex:
+                LOG.error("Fail to update status of pool %s "
+                          "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_pool(self, context, pool, service):
         """Handle RPC cast from plugin to delete_pool."""
+        loadbalancer = service['loadbalancer']
+        id = pool['id']
         try:
-            service_pending = self.lbdriver.delete_pool(pool, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_pool: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_pool: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete pool %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete pool %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.pool_destroyed(id)
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of pool %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of pool %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def create_member(
         self, context, member, service, the_port_id=None
     ):
         """Handle RPC cast from plugin to create_member."""
+        loadbalancer = service['loadbalancer']
+        id = member['id']
         try:
-            service_pending = \
-                self.lbdriver.create_member(member, service, the_port_id)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("create_member: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("create_member: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.exception("Finish to create member %s", id)
+        except Exception as ex:
+            LOG.error("Fail to create member %s Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_member_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of member %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of member %s "
+                              "Exception: %s" % ex.message)
 
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
         """Handle RPC cast from plugin to update_member."""
+        loadbalancer = service['loadbalancer']
+        id = member['id']
         try:
-            service_pending = \
-                self.lbdriver.update_member(old_member, member, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("update_member: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("update_member: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update member %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update member %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_member_status(
+                    id, provision_status,
+                    member['operating_status']
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of member %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of member %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_member(self, context, member, service):
         """Handle RPC cast from plugin to delete_member."""
+        loadbalancer = service['loadbalancer']
+        id = member['id']
         try:
-            service_pending = self.lbdriver.delete_member(member, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_member: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_member: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete member %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete member %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.member_destroyed(id)
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of member %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of member %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def create_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to create_pool_health_monitor."""
+        loadbalancer = service['loadbalancer']
+        id = health_monitor['id']
         try:
-            service_pending = \
-                self.lbdriver.create_health_monitor(health_monitor, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("create_pool_health_monitor: NeutronException: %s"
-                      % exc.msg)
-        except Exception as exc:
-            LOG.error("create_pool_health_monitor: Exception: %s"
-                      % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create monitor %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create monitor %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_health_monitor_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of health_monitor %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of health_monitor %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_health_monitor(self, context, old_health_monitor,
                               health_monitor, service):
         """Handle RPC cast from plugin to update_health_monitor."""
+        loadbalancer = service['loadbalancer']
+        id = health_monitor['id']
         try:
-            service_pending = \
-                self.lbdriver.update_health_monitor(old_health_monitor,
-                                                    health_monitor,
-                                                    service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("update_health_monitor: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("update_health_monitor: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to update health_monitor %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update health_monitor %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_health_monitor_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of health_monitor %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of health_monitor %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to delete_health_monitor."""
+        loadbalancer = service['loadbalancer']
+        id = health_monitor['id']
         try:
-            service_pending = \
-                self.lbdriver.delete_health_monitor(health_monitor, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_health_monitor: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_health_monitor: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete health_monitor %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete health_monitor %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.health_monitor_destroyed(id)
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of health_monitor %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of health_monitor %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def agent_updated(self, context, payload):
@@ -1196,65 +1363,164 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def create_l7policy(self, context, l7policy, service):
         """Handle RPC cast from plugin to create_l7policy."""
+        loadbalancer = service['loadbalancer']
+        id = l7policy['id']
         try:
-            self.lbdriver.create_l7policy(l7policy, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create l7policy %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create l7policy %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_l7policy_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7policy %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7policy %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_l7policy(self, context, old_l7policy, l7policy, service):
         """Handle RPC cast from plugin to update_l7policy."""
+        loadbalancer = service['loadbalancer']
+        id = l7policy['id']
         try:
-            self.lbdriver.update_l7policy(old_l7policy, l7policy, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to update l7policy %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update l7policy %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_l7policy_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7policy %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7policy %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_l7policy(self, context, l7policy, service):
         """Handle RPC cast from plugin to delete_l7policy."""
+        loadbalancer = service['loadbalancer']
+        id = l7policy['id']
         try:
-            self.lbdriver.delete_l7policy(l7policy, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_l7policy: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_l7policy: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete l7policy %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete l7policy %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.l7policy_destroyed(id)
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7policy %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7policy %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def create_l7rule(self, context, l7rule, service):
         """Handle RPC cast from plugin to create_l7rule."""
+        loadbalancer = service['loadbalancer']
+        id = l7rule['id']
         try:
-            self.lbdriver.create_l7rule(l7rule, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create l7rule %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create l7rule %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_l7rule_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7rule %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7rule %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_l7rule(self, context, old_l7rule, l7rule, service):
         """Handle RPC cast from plugin to update_l7rule."""
+        loadbalancer = service['loadbalancer']
+        id = l7rule['id']
         try:
-            self.lbdriver.update_l7rule(old_l7rule, l7rule, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to update l7rule %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update l7rule %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_l7rule_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7rule %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7 rule %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_l7rule(self, context, l7rule, service):
         """Handle RPC cast from plugin to delete_l7rule."""
+        loadbalancer = service['loadbalancer']
+        id = l7rule['id']
         try:
-            self.lbdriver.delete_l7rule(l7rule, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_l7rule: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_l7rule: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete l7rule %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete l7rule %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.l7rule_destroyed(id)
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7rule %s", id)
+            except Exception as ex:
+                LOG.exception("Failt to updte status of l7rule %s "
+                              "Exception: %s", id, ex.message)
