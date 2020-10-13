@@ -36,6 +36,7 @@ except ImportError:
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
 
 LOG = logging.getLogger(__name__)
 
@@ -968,7 +969,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = listener['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.create(listener, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create listener %s", id)
@@ -1025,7 +1027,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = listener['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.delete(listener, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete listener %s", id)
         except Exception as ex:
