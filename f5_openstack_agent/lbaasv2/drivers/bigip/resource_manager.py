@@ -134,6 +134,10 @@ class ListenerManager(ResourceManager):
                             listener['id'], service)
 
     def _create_payload(self, listener, service):
+        # Do not support TERMINATED_HTTPS
+        if listener['protocol'] == "TERMINATED_HTTPS":
+            raise Exception("Do not support TERMINATED_HTTPS protocol")
+
         self._search_listener(listener, service)
         return self.driver.service_adapter.get_virtual(service)
 
