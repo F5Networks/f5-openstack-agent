@@ -554,9 +554,9 @@ class ServiceModelAdapter(object):
                           (listener_id, descript))
                 LOG.error("exception is %s" % exc)
                 LOG.error(
-                    "CAUTION: listener will show on neutron lbaas " +
+                    "CAUTION: description will show on neutron lbaas " +
                     "table, BUT it will not be configure on BIGIP device")
-                raise exc
+                extra_opts = {}
         return extra_opts
 
     def _add_profiles_session_persistence(self, listener, pool, vip):
