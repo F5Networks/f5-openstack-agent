@@ -20,12 +20,13 @@ from oslo_log import log as logging
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 
 LOG = logging.getLogger(__name__)
-
+    
 
 class ResourceManager(object):
 
     def __init__(self, driver):
         self.driver = driver
+        self.mutable_props = {}        
 
     def _create_payload(self, resource, service):
         return {}
@@ -112,3 +113,92 @@ class ListenerManager(ResourceManager):
         network_id = loadbalancer.get('network_id', "")
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
+
+class PoolManager(ResourceManager):
+
+    def __init__(self, driver):
+        super(PoolManager, self).__init__(driver)
+        self._resource = "pool"
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.pool)
+        self.mutable_props = {
+            "name": "description",
+            "description": "description",
+            "lb_algorithm": "loadbalancer method"
+        }
+
+    def _create_payload(self, pool, service):
+        for element in service['pools']:
+            if element['id'] == pool['id']:
+                service['pool'] = element
+                break
+        if not service.get('pool'):
+            raise Exception("Invalid input: pool %s "
+                            "is not in service payload %s",
+                            pool['id'], service)
+
+        return self.driver.service_adapter.get_pool(service)
+
+    def _create(self, bigip, poolpayload, pool, service):
+        
+        super(PoolManager, self)._create(bigip, poolpayload, pool, service)
+        for listener in service['listeners']:
+            if listener['default_pool_id'] == pool['id']:
+               service['listener'] =listener 
+               LOG.error("Jikui related listener %s " % element)
+               break
+
+        """Update the listener's default pool id if needed"""
+        if service.get('listener'):
+            mgr = ListenerManager(self.driver)
+            old_listener = listener
+            old_listener['default_pool_id'] = ''
+            LOG.debug("Jikui old listener is %s" old_listener)
+            LOG.debug("Jikui new listener is %s" listener)
+            mgr.update(element,service)
+           
+
+class MointorManager(ResourceManager):
+
+    def __init__(self, driver):
+        super(MonitorManager, self).__init__(driver)
+        self._resource = "pool"
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.pool)
+        self.mutable_props = {
+            "name": "description",
+            "description": "description",
+            "lb_algorithm": "loadbalancer method"
+        }
+
+    def _create_payload(self, pool, service):
+        for element in service['pools']:
+            if element['id'] == pool['id']:
+                service['pool'] = element
+                break
+        if not service.get('pool'):
+            raise Exception("Invalid input: pool %s "
+                            "is not in service payload %s",
+                            pool['id'], service)
+
+        return self.driver.service_adapter.get_pool(service)
+
+    def _create(self, bigip, poolpayload, pool, service):
+        
+        super(PoolManager, self)._create(bigip, poolpayload, pool, service)
+        for listener in service['listeners']:
+            if listener['default_pool_id'] == pool['id']:
+               service['listener'] =listener 
+               LOG.error("Jikui related listener %s " % element)
+               break
+
+        """Update the listener's default pool id if needed"""
+        if service.get('listener'):
+            mgr = ListenerManager(self.driver)
+            old_listener = listener
+            old_listener['default_pool_id'] = ''
+            LOG.debug("Jikui old listener is %s" old_listener)
+            LOG.debug("Jikui new listener is %s" listener)
+            mgr.update(element,service)
+           
+
