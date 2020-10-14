@@ -475,8 +475,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if self.tunnel_sync():
                 self.needs_resync = True
             # synchronize LBaaS objects from controller
-            if self.sync_state():
-                self.needs_resync = True
+            # Agent lite does not sync LBaaS objects
+            # if self.sync_state():
+            #     self.needs_resync = True
             # clean any objects orphaned on devices and persist configs
             if self.clean_orphaned_objects_and_save_device_config():
                 self.needs_resync = True
