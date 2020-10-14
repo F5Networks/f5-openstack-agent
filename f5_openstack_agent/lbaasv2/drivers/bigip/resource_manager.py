@@ -167,3 +167,60 @@ class ListenerManager(ResourceManager):
         self._search_listener(listener, service)
         payload = self.driver.service_adapter.get_virtual_name(service)
         super(ListenerManager, self).delete(listener, service, payload=payload)
+
+
+class PoolManager(ResourceManager):
+
+    def __init__(self, driver):
+        super(PoolManager, self).__init__(driver)
+        self._resource = "pool"
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.pool)
+        self.mutable_props = {
+            "name": "description",
+            "description": "description",
+            "lb_algorithm": "loadBalancingMode"
+        }
+
+    def _create_payload(self, pool, service):
+        for element in service['pools']:
+            if element['id'] == pool['id']:
+                service['pool'] = element
+                break
+
+        if not service.get('pool'):
+            raise Exception("Invalid input: pool %s "
+                            "is not in service payload %s",
+                            pool['id'], service)
+
+        return self.driver.service_adapter.get_pool(service)
+
+    def _create(self, bigip, poolpayload, pool, service):
+        super(PoolManager, self)._create(bigip, poolpayload, pool, service)
+
+        """ create the pool at first"""
+        for listener in service['listeners']:
+            if listener['default_pool_id'] == pool['id']:
+                service['listener'] = listener
+                break
+
+        """Update the listener's default pool id if needed"""
+        if service.get('listener'):
+            LOG.debug("Find a listener %s for create pool", listener)
+            mgr = ListenerManager(self.driver)
+            old_listener = {}
+            old_listener['admin_state_up'] = listener['admin_state_up']
+            mgr.update(old_listener, listener, service)
+
+    def _delete(self, bigip, poolpayload, pool, service):
+
+        mgr = ListenerManager(self.driver)
+        for listener in service['listeners']:
+            if listener['default_pool_id'] == pool['id']:
+                service['listener'] = listener
+                old_listener = {}
+                old_listener['admin_state_up'] = listener['admin_state_up']
+                """ unmap the pool id and the listener"""
+                mgr.update(old_listener, listener, service)
+
+        super(PoolManager, self)._delete(bigip, poolpayload, pool, service)
