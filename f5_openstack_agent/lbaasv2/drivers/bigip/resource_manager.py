@@ -100,8 +100,9 @@ class ResourceManager(object):
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
 
     @log_helpers.log_method_call
-    def delete(self, resource, service):
-        payload = self._create_payload(resource, service)
+    def delete(self, resource, service, **kwargs):
+        payload = kwargs.get("payload",
+                             self._create_payload(resource, service))
         LOG.debug("%s payload is %s", self._resource, payload)
         bigips = self.driver.get_config_bigips()
         for bigip in bigips:
@@ -122,7 +123,7 @@ class ListenerManager(ResourceManager):
             "connection_limit": "connectionLimit"
         }
 
-    def _create_payload(self, listener, service):
+    def _search_listener(self, listener, service):
         for element in service['listeners']:
             if element['id'] == listener['id']:
                 service['listener'] = element
@@ -131,6 +132,9 @@ class ListenerManager(ResourceManager):
             raise Exception("Invalid input: listener %s "
                             "is not in service payload %s",
                             listener['id'], service)
+
+    def _create_payload(self, listener, service):
+        self._search_listener(listener, service)
         return self.driver.service_adapter.get_virtual(service)
 
     def _update_payload(self, old_listener, listener, service, **kwargs):
@@ -153,3 +157,9 @@ class ListenerManager(ResourceManager):
         network_id = loadbalancer.get('network_id', "")
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
+
+    @log_helpers.log_method_call
+    def delete(self, listener, service, **kwargs):
+        self._search_listener(listener, service)
+        payload = self.driver.service_adapter.get_virtual_name(service)
+        super(ListenerManager, self).delete(listener, service, payload=payload)
