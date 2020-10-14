@@ -999,7 +999,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = listener['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.update(old_listener, listener, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update listener %s", id)
         except Exception as ex:
@@ -1086,7 +1087,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             # TODO(qzhao): Deploy config to BIG-IP
             mgr = resource_manager.PoolManager(self.lbdriver)
-            mgr.update(pool, service)
+            mgr.update(old_pool,pool,service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update pool %s", id)
         except Exception as ex:

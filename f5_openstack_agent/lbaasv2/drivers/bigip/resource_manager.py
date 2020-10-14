@@ -26,13 +26,28 @@ class ResourceManager(object):
 
     def __init__(self, driver):
         self.driver = driver
-        self.mutable_props = {}        
+        self.mutable_props = {}
 
     def _create_payload(self, resource, service):
         return {}
 
-    def _update_payload(self, old_resource, resource, service):
-        return {}
+    def _update_payload(self, old_resource, resource, service, **kwargs):
+        payload = kwargs.get('payload', {})
+        create_payload = kwargs.get('create_payload',
+                                    self._create_payload(resource, service))
+
+        for key in self.mutable_props.keys():
+            old = old_resource.get(key)
+            new = resource.get(key)
+            if old != new:
+                prop = self.mutable_props[key]
+                payload[prop] = create_payload[prop]
+
+        if len(payload.keys()) > 0:
+            payload['name'] = create_payload['name']
+            payload['partition'] = create_payload['partition']
+
+        return payload
 
     def _create(self, bigip, payload, resource, service):
         if self.resource_helper.exists(bigip, name=payload['name'],
@@ -73,6 +88,11 @@ class ResourceManager(object):
         payload = kwargs.get("payload",
                              self._update_payload(old_resource, resource,
                                                   service))
+
+        if not payload or len(payload.keys()) == 0:
+            LOG.debug("Do not need to update %s", self._resource)
+            return
+
         LOG.debug("%s payload is %s", self._resource, payload)
         bigips = self.driver.get_config_bigips()
         for bigip in bigips:
@@ -96,6 +116,11 @@ class ListenerManager(ResourceManager):
         self._resource = "virtual server"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
+        self.mutable_props = {
+            "name": "description",
+            "default_pool_id": "pool",
+            "connection_limit": "connectionLimit"
+        }
 
     def _create_payload(self, listener, service):
         for element in service['listeners']:
@@ -107,6 +132,21 @@ class ListenerManager(ResourceManager):
                             "is not in service payload %s",
                             listener['id'], service)
         return self.driver.service_adapter.get_virtual(service)
+
+    def _update_payload(self, old_listener, listener, service, **kwargs):
+        payload = {}
+        create_payload = self._create_payload(listener, service)
+
+        if old_listener['admin_state_up'] != listener['admin_state_up']:
+            if listener['admin_state_up']:
+                payload['enabled'] = True
+            else:
+                payload['disabled'] = True
+
+        return super(ListenerManager, self)._update_payload(
+            old_listener, listener, service,
+            payload=payload, create_payload=create_payload
+        )
 
     def _create(self, bigip, vs, listener, service):
         loadbalancer = service.get('loadbalancer', dict())
@@ -124,7 +164,7 @@ class PoolManager(ResourceManager):
         self.mutable_props = {
             "name": "description",
             "description": "description",
-            "lb_algorithm": "loadbalancer method"
+            "lb_algorithm": "loadBalancingMode"
         }
 
     def _create_payload(self, pool, service):
@@ -140,65 +180,44 @@ class PoolManager(ResourceManager):
         return self.driver.service_adapter.get_pool(service)
 
     def _create(self, bigip, poolpayload, pool, service):
-        
+        """ create the pool at first"""
+    
         super(PoolManager, self)._create(bigip, poolpayload, pool, service)
+        
         for listener in service['listeners']:
             if listener['default_pool_id'] == pool['id']:
                service['listener'] =listener 
-               LOG.error("Jikui related listener %s " % element)
                break
 
         """Update the listener's default pool id if needed"""
         if service.get('listener'):
+            LOG.debug("Find a listener %s for create pool",listener)
             mgr = ListenerManager(self.driver)
-            old_listener = listener
+            old_listener = {
+            }
             old_listener['default_pool_id'] = ''
-            LOG.debug("Jikui old listener is %s" old_listener)
-            LOG.debug("Jikui new listener is %s" listener)
-            mgr.update(element,service)
-           
+            old_listener['id'] = pool['id']
+            old_listener['admin_state_up'] = listener['admin_state_up']
+            mgr.update(old_listener,listener,service)
 
-class MointorManager(ResourceManager):
 
-    def __init__(self, driver):
-        super(MonitorManager, self).__init__(driver)
-        self._resource = "pool"
-        self.resource_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.pool)
-        self.mutable_props = {
-            "name": "description",
-            "description": "description",
-            "lb_algorithm": "loadbalancer method"
-        }
+    def _delete(self,bigip,poolpayload,pool,service):
 
-    def _create_payload(self, pool, service):
-        for element in service['pools']:
-            if element['id'] == pool['id']:
-                service['pool'] = element
-                break
-        if not service.get('pool'):
-            raise Exception("Invalid input: pool %s "
-                            "is not in service payload %s",
-                            pool['id'], service)
-
-        return self.driver.service_adapter.get_pool(service)
-
-    def _create(self, bigip, poolpayload, pool, service):
-        
-        super(PoolManager, self)._create(bigip, poolpayload, pool, service)
         for listener in service['listeners']:
             if listener['default_pool_id'] == pool['id']:
                service['listener'] =listener 
-               LOG.error("Jikui related listener %s " % element)
                break
 
         """Update the listener's default pool id if needed"""
-        if service.get('listener'):
-            mgr = ListenerManager(self.driver)
-            old_listener = listener
-            old_listener['default_pool_id'] = ''
-            LOG.debug("Jikui old listener is %s" old_listener)
-            LOG.debug("Jikui new listener is %s" listener)
-            mgr.update(element,service)
-           
 
+        if service.get('listener'):
+            LOG.debug("Find a listener %s for delete pool",listener)
+            mgr = ListenerManager(self.driver)
+            new_listener = {
+            }
+            new_listener['default_pool_id'] = ''
+            new_listener['id'] = pool['id']
+            new_listener['admin_state_up'] = listener['admin_state_up']
+            mgr.update(listener,new_listener,service)
+
+        super(PoolManager, self)._delete(bigip,poolpayload,pool,service)
