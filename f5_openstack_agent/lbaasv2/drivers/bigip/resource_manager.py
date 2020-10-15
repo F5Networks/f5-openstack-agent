@@ -18,6 +18,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
 
 LOG = logging.getLogger(__name__)
 
@@ -108,6 +109,35 @@ class ResourceManager(object):
         for bigip in bigips:
             self._delete(bigip, payload, resource, service)
         LOG.debug("Finish to delete %s %s", self._resource, payload['name'])
+
+
+class LoadBalancerManager(ResourceManager):
+
+    def __init__(self, driver):
+        super(LoadBalancerManager, self).__init__(driver)
+        self._resource = "virtual address"
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual_address)
+        self.mutable_props = {
+            "name": "description",
+            "description": "description",
+            "admin_state_up": "enabled"
+        }
+
+    def _create_payload(self, loadbalancer, service):
+        vip = virtual_address.VirtualAddress(self.driver.service_adapter,
+                                             loadbalancer)
+        return vip.model()
+
+    @log_helpers.log_method_call
+    def create(self, loadbalancer, service, **kwargs):
+        # TODO(qzhao): Future work
+        pass
+
+    @log_helpers.log_method_call
+    def delete(self, loadbalancer, service, **kwargs):
+        # TODO(qzhao): Future work
+        pass
 
 
 class ListenerManager(ResourceManager):
