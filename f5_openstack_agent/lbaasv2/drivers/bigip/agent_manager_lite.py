@@ -1055,7 +1055,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = pool['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.PoolManager(self.lbdriver)
+            mgr.create(pool, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create pool %s", id)
@@ -1085,6 +1086,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = pool['id']
         try:
             # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.PoolManager(self.lbdriver)
+            mgr.update(old_pool, pool, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update pool %s", id)
         except Exception as ex:
@@ -1113,6 +1116,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = pool['id']
         try:
             # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.PoolManager(self.lbdriver)
+            mgr.delete(pool, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete pool %s", id)
         except Exception as ex:
