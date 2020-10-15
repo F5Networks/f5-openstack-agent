@@ -921,7 +921,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to update_loadbalancer."""
         id = loadbalancer['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.LoadBalancerManager(self.lbdriver)
+            mgr.update(old_loadbalancer, loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update loadbalancer %s", id)
         except Exception as ex:
