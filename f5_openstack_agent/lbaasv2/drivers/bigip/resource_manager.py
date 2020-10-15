@@ -78,6 +78,16 @@ class ResourceManager(object):
     def create(self, resource, service, **kwargs):
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
+
+        if not payload or len(payload.keys()) == 0:
+            LOG.info("Do not need to create %s", self._resource)
+            return
+
+        if not payload.get("name") or not payload.get("partition"):
+            create_payload = self._create_payload(resource, service)
+            payload['name'] = create_payload['name']
+            payload['partition'] = create_payload['partition']
+
         LOG.debug("%s payload is %s", self._resource, payload)
         bigips = self.driver.get_config_bigips()
         for bigip in bigips:
@@ -93,6 +103,11 @@ class ResourceManager(object):
         if not payload or len(payload.keys()) == 0:
             LOG.debug("Do not need to update %s", self._resource)
             return
+
+        if not payload.get("name") or not payload.get("partition"):
+            create_payload = self._create_payload(resource, service)
+            payload['name'] = create_payload['name']
+            payload['partition'] = create_payload['partition']
 
         LOG.debug("%s payload is %s", self._resource, payload)
         bigips = self.driver.get_config_bigips()
