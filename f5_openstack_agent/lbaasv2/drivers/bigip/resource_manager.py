@@ -24,9 +24,29 @@ LOG = logging.getLogger(__name__)
 
 class ResourceManager(object):
 
+    _collection_key = 'baseResources'
+    _key = 'baseResource'
+
     def __init__(self, driver):
         self.driver = driver
         self.mutable_props = {}
+
+    def _shrink_payload(self, payload, **kwargs):
+        keys_to_keep = kwargs.get('keys_to_keep', [])
+        for key in payload.keys():
+            if key not in keys_to_keep:
+                del payload[key]
+
+    def _search_element(self, resource, service):
+        for element in service[self._collection_key]:
+            if element['id'] == resource['id']:
+                service[self._key] = element
+                break
+
+        if not service.get(self._key):
+            raise Exception("Invalid input: %s %s "
+                            "is not in service payload %s",
+                            self._key, resource['id'], service)
 
     def _create_payload(self, resource, service):
         return {}
@@ -75,6 +95,7 @@ class ResourceManager(object):
 
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
+        self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
         LOG.debug("%s payload is %s", self._resource, payload)
@@ -85,6 +106,7 @@ class ResourceManager(object):
 
     @log_helpers.log_method_call
     def update(self, old_resource, resource, service, **kwargs):
+        self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._update_payload(old_resource, resource,
                                                   service))
@@ -101,6 +123,7 @@ class ResourceManager(object):
 
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
+        self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
         LOG.debug("%s payload is %s", self._resource, payload)
@@ -111,6 +134,9 @@ class ResourceManager(object):
 
 
 class ListenerManager(ResourceManager):
+
+    _collection_key = 'listeners'
+    _key = 'listener'
 
     def __init__(self, driver):
         super(ListenerManager, self).__init__(driver)
@@ -171,6 +197,9 @@ class ListenerManager(ResourceManager):
 
 class PoolManager(ResourceManager):
 
+    _collection_key = 'pools'
+    _key = 'pool'
+
     def __init__(self, driver):
         super(PoolManager, self).__init__(driver)
         self._resource = "pool"
@@ -179,20 +208,11 @@ class PoolManager(ResourceManager):
         self.mutable_props = {
             "name": "description",
             "description": "description",
-            "lb_algorithm": "loadBalancingMode"
+            "lb_algorithm": "loadBalancingMode",
+            "healthmonitor_id": "monitor"
         }
 
     def _create_payload(self, pool, service):
-        for element in service['pools']:
-            if element['id'] == pool['id']:
-                service['pool'] = element
-                break
-
-        if not service.get('pool'):
-            raise Exception("Invalid input: pool %s "
-                            "is not in service payload %s",
-                            pool['id'], service)
-
         return self.driver.service_adapter.get_pool(service)
 
     def _create(self, bigip, poolpayload, pool, service):
@@ -212,7 +232,7 @@ class PoolManager(ResourceManager):
             old_listener['admin_state_up'] = listener['admin_state_up']
             mgr.update(old_listener, listener, service)
 
-    def _delete(self, bigip, poolpayload, pool, service):
+    def _delete(self, bigip, payload, pool, service):
 
         mgr = ListenerManager(self.driver)
         for listener in service['listeners']:
@@ -223,4 +243,88 @@ class PoolManager(ResourceManager):
                 """ unmap the pool id and the listener"""
                 mgr.update(old_listener, listener, service)
 
-        super(PoolManager, self)._delete(bigip, poolpayload, pool, service)
+        super(PoolManager, self)._delete(bigip, payload, pool, service)
+
+
+class MonitorManager(ResourceManager):
+
+    _collection_key = 'healthmonitors'
+    _key = 'healthmonitor'
+
+    def __init__(self, driver, **kwargs):
+        super(MonitorManager, self).__init__(driver)
+
+        subtype = kwargs.get('type', '')
+
+        if subtype == 'HTTP':
+            monitor_type = resource_helper.ResourceType.http_monitor
+            self._resource = 'http_monitor'
+        elif subtype == 'HTTPS':
+            monitor_type = resource_helper.ResourceType.https_monitor
+            self._resource = 'https_monitor'
+        elif subtype == 'PING':
+            monitor_type = resource_helper.ResourceType.ping_monitor
+            self._resource = 'ping_monitor'
+        elif subtype == 'TCP':
+            monitor_type = resource_helper.ResourceType.tcp_monitor
+            self._resource = 'tcp_monitor'
+        else:
+            raise Exception("Invalid monitor type %s", subtype)
+
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            monitor_type
+        )
+        self.mutable_props = {
+            "name": "description",
+            "description": "description",
+            "timeout": "timeout",
+            "max_retries": "timeout",
+            "url_path": "send",
+            "http_method": "send",
+            "url_path": "send",
+            "delay": "interval",
+            "expected_codes": "recv"
+        }
+
+    def _create_payload(self, healthmonitor, service):
+        return self.driver.service_adapter.get_healthmonitor(service)
+
+    def _create(self, bigip, payload, healthmonitor, service):
+
+        super(MonitorManager, self)._create(
+            bigip, payload, healthmonitor, service
+        )
+
+        """ update the pool  """
+        healthmonitor = service['healthmonitor']
+        mgr = PoolManager(self.driver)
+        pool = {}
+        pool['id'] = healthmonitor['pool_id']
+        mgr._search_element(pool, service)
+        pool_payload = mgr._create_payload(pool, service)
+
+        self._shrink_payload(
+            pool_payload,
+            keys_to_keep=['partition', 'name', 'monitor']
+        )
+        mgr._update(bigip, pool_payload, None, None, service)
+
+    def _delete(self, bigip, payload, healthmonitor, service):
+
+        mgr = PoolManager(self.driver)
+        monitor = service['healthmonitor']
+        pool = {}
+        pool['id'] = monitor['pool_id']
+        mgr._search_element(pool, service)
+        pool_payload = mgr._create_payload(pool, service)
+        self._shrink_payload(
+            pool_payload,
+            keys_to_keep=['partition', 'name', 'monitor']
+        )
+        pool_payload['monitor'] = ''
+        """ update the pool  """
+        mgr._update(bigip, pool_payload, None, None, service)
+
+        super(MonitorManager, self)._delete(
+            bigip, payload, healthmonitor, service
+        )

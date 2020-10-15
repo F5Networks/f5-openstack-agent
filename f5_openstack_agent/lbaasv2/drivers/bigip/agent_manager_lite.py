@@ -1114,7 +1114,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = pool['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
             mgr = resource_manager.PoolManager(self.lbdriver)
             mgr.delete(pool, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1224,7 +1223,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = health_monitor['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.MonitorManager(
+                self.lbdriver, type=health_monitor['type']
+            )
+            mgr.create(health_monitor, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create monitor %s", id)
@@ -1254,7 +1256,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = health_monitor['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.MonitorManager(
+                self.lbdriver, type=health_monitor['type']
+            )
+            mgr.update(old_health_monitor, health_monitor, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update health_monitor %s", id)
@@ -1283,7 +1288,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = health_monitor['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.MonitorManager(
+                self.lbdriver, type=health_monitor['type']
+            )
+            mgr.delete(health_monitor, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete health_monitor %s", id)
         except Exception as ex:
