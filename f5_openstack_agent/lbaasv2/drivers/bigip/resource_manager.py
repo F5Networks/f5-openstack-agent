@@ -96,7 +96,8 @@ class ResourceManager(object):
 
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
-        self._search_element(resource, service)
+        if not service.get(self._key):
+            self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
 
@@ -117,7 +118,8 @@ class ResourceManager(object):
 
     @log_helpers.log_method_call
     def update(self, old_resource, resource, service, **kwargs):
-        self._search_element(resource, service)
+        if not service.get(self._key):
+            self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._update_payload(old_resource, resource,
                                                   service))
@@ -139,7 +141,8 @@ class ResourceManager(object):
 
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
-        self._search_element(resource, service)
+        if not service.get(self._key):
+            self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
         LOG.debug("%s payload is %s", self._resource, payload)
@@ -150,6 +153,9 @@ class ResourceManager(object):
 
 
 class LoadBalancerManager(ResourceManager):
+
+    _collection_key = 'no_collection_key'
+    _key = 'loadbalancer'
 
     def __init__(self, driver):
         super(LoadBalancerManager, self).__init__(driver)
@@ -194,22 +200,11 @@ class ListenerManager(ResourceManager):
             "connection_limit": "connectionLimit"
         }
 
-    def _search_listener(self, listener, service):
-        for element in service['listeners']:
-            if element['id'] == listener['id']:
-                service['listener'] = element
-                break
-        if not service.get('listener'):
-            raise Exception("Invalid input: listener %s "
-                            "is not in service payload %s",
-                            listener['id'], service)
-
     def _create_payload(self, listener, service):
         # Do not support TERMINATED_HTTPS
         if listener['protocol'] == "TERMINATED_HTTPS":
             raise Exception("Do not support TERMINATED_HTTPS protocol")
 
-        self._search_listener(listener, service)
         return self.driver.service_adapter.get_virtual(service)
 
     def _update_payload(self, old_listener, listener, service, **kwargs):
@@ -235,7 +230,7 @@ class ListenerManager(ResourceManager):
 
     @log_helpers.log_method_call
     def delete(self, listener, service, **kwargs):
-        self._search_listener(listener, service)
+        self._search_element(listener, service)
         payload = self.driver.service_adapter.get_virtual_name(service)
         super(ListenerManager, self).delete(listener, service, payload=payload)
 
