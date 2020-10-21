@@ -1144,10 +1144,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = member['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.MemberManager(self.lbdriver)
+            mgr.create(member, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
-            LOG.exception("Finish to create member %s", id)
+            LOG.debug("Finish to create member %s", id)
         except Exception as ex:
             LOG.error("Fail to create member %s Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
@@ -1172,7 +1173,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = member['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.MemberManager(self.lbdriver)
+            mgr.update(old_member, member, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update member %s", id)
         except Exception as ex:
@@ -1200,7 +1202,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = member['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.MemberManager(self.lbdriver)
+            mgr.delete(member, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete member %s", id)
         except Exception as ex:
