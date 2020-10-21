@@ -319,7 +319,6 @@ class PoolManager(ResourceManager):
                 )
                 listener_payload['pool'] = ''
                 mgr._update(bigip, listener_payload, None, None, service)
-
         super(PoolManager, self)._delete(bigip, payload, pool, service)
 
         """ try to delete the node which is only used by the pool """
@@ -411,3 +410,69 @@ class MonitorManager(ResourceManager):
         super(MonitorManager, self)._delete(
             bigip, payload, healthmonitor, service
         )
+
+
+class MemberManager(ResourceManager):
+
+    _collection_key = 'members'
+    _key = 'member'
+
+    def __init__(self, driver):
+        super(MemberManager, self).__init__(driver)
+        self._resource = "member"
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.member)
+        self.mutable_props = {
+            "name": "description",
+            "description": "description",
+            "weight": "ratio",
+            "admin_state_up": "state"
+        }
+
+    def _create_payload(self, member, service):
+        return self.driver.service_adapter.get_member(service)
+
+    def _create(self, bigip, payload, member, service):
+        mgr = PoolManager(self.driver)
+        pool = {}
+        pool['id'] = member['pool_id']
+        mgr._search_element(pool, service)
+        pool_payload = mgr._create_payload(pool, service)
+        pool_resource = bigip.tm.ltm.pools.pool.load(
+            name=pool_payload['name'],
+            partition=pool_payload['partition']
+        )
+        pool_resource.members_s.members.create(**payload)
+
+    def _delete(self, bigip, payload, member, service):
+        mgr = PoolManager(self.driver)
+        pool = {}
+        pool['id'] = member['pool_id']
+        mgr._search_element(pool, service)
+        pool_payload = mgr._create_payload(pool, service)
+        pool_resource = bigip.tm.ltm.pools.pool.load(
+            name=pool_payload['name'],
+            partition=pool_payload['partition']
+        )
+        member_resource = pool_resource.members_s.members.load(
+            name=payload['name'],
+            partition=payload['partition']
+        )
+        member_resource.delete()
+
+    def _update(self, bigip, payload, old_member, member, service):
+        mgr = PoolManager(self.driver)
+        pool = {}
+        pool['id'] = member['pool_id']
+        mgr._search_element(pool, service)
+        pool_payload = mgr._create_payload(pool, service)
+        pool_resource = bigip.tm.ltm.pools.pool.load(
+            name=pool_payload['name'],
+            partition=pool_payload['partition']
+        )
+        member_resource = pool_resource.members_s.members.load(
+            name=payload['name'],
+            partition=payload['partition']
+        )
+        payload = self._update_payload(old_member, member, service)
+        member_resource.update(**payload)
