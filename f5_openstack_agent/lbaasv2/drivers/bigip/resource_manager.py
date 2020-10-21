@@ -259,7 +259,7 @@ class ListenerManager(ResourceManager):
 
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
-        self._delete_persist_profile(bigip, vs, listener, service)
+        self._delete_persist_profile(bigip, vs)
 
     @log_helpers.log_method_call
     def delete(self, listener, service, **kwargs):
@@ -333,7 +333,7 @@ class PoolManager(ResourceManager):
                         keys_to_keep=['partition', 'name', 'persist']
                     )
                     mgr._update(bigip, listener_payload, None, None, service)
-        del payload['session_persistence']
+            del payload['session_persistence']
         # Pool has other props to upate
         for key in payload.keys():
             if key != "name" and key != "partition":
