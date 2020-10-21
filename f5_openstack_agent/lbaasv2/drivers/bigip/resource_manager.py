@@ -222,16 +222,49 @@ class ListenerManager(ResourceManager):
             else:
                 payload['disabled'] = True
 
+        if old_listener['default_pool_id'] != listener['default_pool_id']:
+            payload['persist'] = create_payload['persist']
+
         return super(ListenerManager, self)._update_payload(
             old_listener, listener, service,
             payload=payload, create_payload=create_payload
         )
 
+    def _create_persist_profile(self, bigip, vs, persist):
+        listener_builder = self.driver.lbaas_builder.listener_builder
+        listener_builder._add_cookie_persist_rule(vs, persist, bigip)
+
+    def _delete_persist_profile(self, bigip, vs):
+        listener_builder = self.driver.lbaas_builder.listener_builder
+        listener_builder._remove_cookie_persist_rule(vs, bigip)
+
     def _create(self, bigip, vs, listener, service):
+        persist = service[self._key].get('session_persistence')
+        if persist and persist.get('type', "") == "APP_COOKIE":
+            self._create_persist_profile(bigip, vs, persist)
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
+
+    def _update(self, bigip, vs, old_listener, listener, service):
+        persist = None
+        if vs.get('persist'):
+            persist = service[self._key]['session_persistence']
+        if persist and persist.get('type', "") == "APP_COOKIE":
+            LOG.debug("Need to create or updte persist profile for %s %s",
+                      self._resource, vs['name'])
+            self._create_persist_profile(bigip, vs, persist)
+        super(ListenerManager, self)._update(bigip, vs, old_listener, listener,
+                                             service)
+        if persist and persist.get('type', "") != "APP_COOKIE":
+            LOG.debug("Need to remove obsolete persist profile for %s %s",
+                      self._resource, vs['name'])
+            self._delete_persist_profile(bigip, vs)
+
+    def _delete(self, bigip, vs, listener, service):
+        super(ListenerManager, self)._delete(bigip, vs, listener, service)
+        self._delete_persist_profile(bigip, vs, listener, service)
 
     @log_helpers.log_method_call
     def delete(self, listener, service, **kwargs):
@@ -285,6 +318,19 @@ class PoolManager(ResourceManager):
     def _create_payload(self, pool, service):
         return self.driver.service_adapter.get_pool(service)
 
+    def _update_payload(self, old_pool, pool, service, **kwargs):
+        payload = {}
+        create_payload = self._create_payload(pool, service)
+
+        persist = service[self._key].get('session_persistence')
+        if persist:
+            payload['session_persistence'] = persist
+
+        return super(PoolManager, self)._update_payload(
+            old_pool, pool, service,
+            payload=payload, create_payload=create_payload
+        )
+
     def _create(self, bigip, poolpayload, pool, service):
         super(PoolManager, self)._create(bigip, poolpayload, pool, service)
 
@@ -301,9 +347,30 @@ class PoolManager(ResourceManager):
             listener_payload = mgr._create_payload(listener, service)
             self._shrink_payload(
                 listener_payload,
-                keys_to_keep=['partition', 'name', 'pool']
+                keys_to_keep=['partition', 'name', 'pool', 'persist']
             )
-            mgr._update(bigip, listener_payload, None, None, service)
+            mgr._update(bigip, listener_payload, None, listener, service)
+
+    def _update(self, bigip, payload, old_pool, pool, service):
+        # Update listener session persistency if necessary
+        if payload.get("session_persistence"):
+            mgr = ListenerManager(self.driver)
+            for listener in service['listeners']:
+                if listener['default_pool_id'] == pool['id']:
+                    service['listener'] = listener
+                    listener_payload = mgr._create_payload(listener, service)
+                    self._shrink_payload(
+                        listener_payload,
+                        keys_to_keep=['partition', 'name', 'persist']
+                    )
+                    mgr._update(bigip, listener_payload, None, None, service)
+        del payload['session_persistence']
+        # Pool has other props to upate
+        for key in payload.keys():
+            if key != "name" and key != "partition":
+                super(PoolManager, self)._update(bigip, payload, old_pool,
+                                                 pool, service)
+                break
 
     def _delete(self, bigip, payload, pool, service):
 
@@ -315,7 +382,7 @@ class PoolManager(ResourceManager):
                 listener_payload = mgr._create_payload(listener, service)
                 self._shrink_payload(
                     listener_payload,
-                    keys_to_keep=['partition', 'name', 'pool']
+                    keys_to_keep=['partition', 'name', 'pool', 'persist']
                 )
                 listener_payload['pool'] = ''
                 mgr._update(bigip, listener_payload, None, None, service)

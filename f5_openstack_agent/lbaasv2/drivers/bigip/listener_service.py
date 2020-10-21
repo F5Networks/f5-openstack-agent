@@ -303,6 +303,16 @@ class ListenerServiceBuilder(object):
                 LOG.debug("Created rule %s" % rule_name)
             except Exception as err:
                 LOG.error("Failed to create rule %s", rule_name)
+                LOG.exception(err)
+        else:
+            try:
+                r_obj = r.load(name=rule_name,
+                               partition=vip["partition"])
+                r_obj.modify(apiAnonymous=rule_def)
+                LOG.debug("Updated rule %s" % rule_name)
+            except Exception as err:
+                LOG.error("Failed to update rule %s", rule_name)
+                LOG.exception(err)
 
         u = bigip.tm.ltm.persistence.universals.universal
         if not u.exists(name=rule_name, partition=vip["partition"]):
@@ -313,6 +323,16 @@ class ListenerServiceBuilder(object):
                 LOG.debug("Created persistence universal %s" % rule_name)
             except Exception as err:
                 LOG.error("Failed to create persistence universal %s" %
+                          rule_name)
+                LOG.exception(err)
+        else:
+            try:
+                u_obj = u.load(name=rule_name,
+                               partition=vip["partition"])
+                u_obj.modify(rule=rule_name)
+                LOG.debug("Updated persistence universal %s" % rule_name)
+            except Exception as err:
+                LOG.error("Failed to update persistence universal %s" %
                           rule_name)
                 LOG.exception(err)
 
