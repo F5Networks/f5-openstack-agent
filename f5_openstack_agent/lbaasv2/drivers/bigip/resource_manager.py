@@ -285,12 +285,15 @@ class PoolManager(ResourceManager):
             resource_helper.ResourceType.pool)
         self.node_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.node)
+        self.pool_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.pool)
         self.mutable_props = {
             "name": "description",
             "description": "description",
             "lb_algorithm": "loadBalancingMode"
         }
 
+    """ commonly used by pool and member """
     def _delete_member_node(self, loadbalancer, member, bigip):
         error = None
         svc = {'loadbalancer': loadbalancer,
@@ -390,6 +393,7 @@ class PoolManager(ResourceManager):
 
         """ try to delete the node which is only used by the pool """
         loadbalancer = service.get('loadbalancer')
+        self.driver.annotate_service_members(service)
         members = service.get('members', list())
         for member in members:
             self._delete_member_node(loadbalancer, member, bigip)
@@ -428,7 +432,6 @@ class MonitorManager(ResourceManager):
             "description": "description",
             "timeout": "timeout",
             "max_retries": "timeout",
-            "url_path": "send",
             "http_method": "send",
             "url_path": "send",
             "delay": "interval",
@@ -490,56 +493,125 @@ class MemberManager(ResourceManager):
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.member)
         self.mutable_props = {
-            "name": "description",
-            "description": "description",
             "weight": "ratio",
-            "admin_state_up": "state"
+            "admin_state_up": "session",
         }
 
     def _create_payload(self, member, service):
         return self.driver.service_adapter.get_member(service)
 
-    def _create(self, bigip, payload, member, service):
-        mgr = PoolManager(self.driver)
-        pool = {}
-        pool['id'] = member['pool_id']
-        mgr._search_element(pool, service)
-        pool_payload = mgr._create_payload(pool, service)
-        pool_resource = bigip.tm.ltm.pools.pool.load(
-            name=pool_payload['name'],
-            partition=pool_payload['partition']
-        )
-        pool_resource.members_s.members.create(**payload)
+    @log_helpers.log_method_call
+    def create(self, resource, service, **kwargs):
 
-    def _delete(self, bigip, payload, member, service):
-        mgr = PoolManager(self.driver)
-        pool = {}
-        pool['id'] = member['pool_id']
-        mgr._search_element(pool, service)
-        pool_payload = mgr._create_payload(pool, service)
-        pool_resource = bigip.tm.ltm.pools.pool.load(
-            name=pool_payload['name'],
-            partition=pool_payload['partition']
-        )
-        member_resource = pool_resource.members_s.members.load(
-            name=payload['name'],
-            partition=payload['partition']
-        )
-        member_resource.delete()
+        net_resource_create = True
+        if 'members' in service:
+            for item in service['members']:
+                if item['id'] != resource['id'] and \
+                   item['subnet_id'] == resource['subnet_id']:
+                    net_resource_create = False
+                    break
 
-    def _update(self, bigip, payload, old_member, member, service):
+        if net_resource_create is True:
+            self.driver.prepare_network_for_member(service)
+        else:
+            self.driver.annotate_service_members(service)
+
+        if not service.get(self._key):
+            self._search_element(resource, service)
+        LOG.debug("Begin to create %s %s", self._resource, resource['id'])
+        member = service.get('member')
         mgr = PoolManager(self.driver)
         pool = {}
         pool['id'] = member['pool_id']
         mgr._search_element(pool, service)
         pool_payload = mgr._create_payload(pool, service)
-        pool_resource = bigip.tm.ltm.pools.pool.load(
-            name=pool_payload['name'],
-            partition=pool_payload['partition']
-        )
-        member_resource = pool_resource.members_s.members.load(
-            name=payload['name'],
-            partition=payload['partition']
-        )
+
+        payload = self._create_payload(member, service)
+        bigips = self.driver.get_config_bigips()
+        for bigip in bigips:
+            pool_resource = mgr.pool_helper.load(
+                bigip,
+                name=urllib.quote(pool_payload['name']),
+                partition=pool_payload['partition']
+            )
+            pool_resource.members_s.members.create(**payload)
+        LOG.debug("Finish to create %s %s", self._resource, resource['id'])
+
+    @log_helpers.log_method_call
+    def delete(self, resource, service, **kwargs):
+
+        self.driver.annotate_service_members(service)
+        if not service.get(self._key):
+            self._search_element(resource, service)
+
+        LOG.debug("Begin to delete %s %s", self._resource, resource['id'])
+        member = service['member']
+        payload = self._create_payload(member, service)
+
+        mgr = PoolManager(self.driver)
+        pool = {}
+        pool['id'] = member['pool_id']
+        mgr._search_element(pool, service)
+        pool_payload = mgr._create_payload(pool, service)
+
+        bigips = self.driver.get_config_bigips()
+        loadbalancer = service.get('loadbalancer')
+        for bigip in bigips:
+            pool_resource = mgr.pool_helper.load(
+                bigip,
+                name=urllib.quote(pool_payload['name']),
+                partition=pool_payload['partition']
+            )
+            member_resource = pool_resource.members_s.members.load(
+                name=urllib.quote(payload['name']),
+                partition=payload['partition']
+            )
+            member_resource.delete()
+            mgr._delete_member_node(loadbalancer, member, bigip)
+
+        LOG.debug("Finish to delete %s %s", self._resource, resource['id'])
+
+    @log_helpers.log_method_call
+    def update(self, old_resource, resource, service, **kwargs):
+        self.driver.annotate_service_members(service)
+        if not service.get(self._key):
+            self._search_element(resource, service)
+
+        LOG.debug("Begin to update %s %s", self._resource, resource['name'])
+        member = service['member']
+        old_member = old_resource
+
+        mgr = PoolManager(self.driver)
+        pool = {}
+        pool['id'] = member['pool_id']
+        mgr._search_element(pool, service)
+        pool_payload = mgr._create_payload(pool, service)
+
         payload = self._update_payload(old_member, member, service)
-        member_resource.update(**payload)
+        if member['weight'] == 0:
+            payload['session'] = 'user-disabled'
+
+        self._shrink_payload(
+            payload,
+            keys_to_keep=['partition', 'name', 'ratio', 'session']
+        )
+
+        if not payload or len(payload.keys()) == 0:
+            LOG.debug("Do not need to update %s", self._resource)
+            return
+
+        bigips = self.driver.get_config_bigips()
+        for bigip in bigips:
+            pool_resource = mgr.pool_helper.load(
+                bigip,
+                name=urllib.quote(pool_payload['name']),
+                partition=pool_payload['partition']
+            )
+
+            member_resource = pool_resource.members_s.members.load(
+                name=urllib.quote(payload['name']),
+                partition=payload['partition']
+            )
+
+            member_resource.update(**payload)
+        LOG.debug("Finish to update %s %s", self._resource, payload['name'])
