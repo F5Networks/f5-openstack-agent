@@ -14,11 +14,16 @@
 # limitations under the License.
 #
 
+import urllib
+
+from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
+
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
-from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
+from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -245,11 +250,37 @@ class PoolManager(ResourceManager):
         self._resource = "pool"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
+        self.node_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.node)
         self.mutable_props = {
             "name": "description",
             "description": "description",
             "lb_algorithm": "loadBalancingMode"
         }
+
+    def _delete_member_node(self, loadbalancer, member, bigip):
+        error = None
+        svc = {'loadbalancer': loadbalancer,
+               'member': member}
+        node = self.driver.service_adapter.get_member_node(svc)
+        try:
+            self.node_helper.delete(bigip,
+                                    name=urllib.quote(node['name']),
+                                    partition=node['partition'])
+        except HTTPError as err:
+            # Possilbe error if node is shared with another member.
+            # If so, ignore the error.
+            if err.response.status_code == 400:
+                LOG.debug(str(err))
+            elif err.response.status_code == 404:
+                LOG.debug(str(err))
+            else:
+                LOG.error("Unexpected node deletion error: %s",
+                          urllib.quote(node['name']))
+                error = f5_ex.NodeDeleteException(
+                    "Unable to delete node {}".format(
+                        urllib.quote(node['name'])))
+        return error
 
     def _create_payload(self, pool, service):
         return self.driver.service_adapter.get_pool(service)
@@ -288,7 +319,14 @@ class PoolManager(ResourceManager):
                 )
                 listener_payload['pool'] = ''
                 mgr._update(bigip, listener_payload, None, None, service)
+
         super(PoolManager, self)._delete(bigip, payload, pool, service)
+
+        """ try to delete the node which is only used by the pool """
+        loadbalancer = service.get('loadbalancer')
+        members = service.get('members', list())
+        for member in members:
+            self._delete_member_node(loadbalancer, member, bigip)
 
 
 class MonitorManager(ResourceManager):
