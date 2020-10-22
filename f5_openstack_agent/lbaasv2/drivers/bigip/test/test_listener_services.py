@@ -96,6 +96,7 @@ class TestListenerServiceBuilderBuilder(TestListenerServiceBuilderConstructor):
     def target(self, mock_logger):
         resource_bigip = Mock()
         resource_type = Mock()
+        conf = Mock()
         self.freeze_resource_bigip = \
             f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper.\
             BigIPResourceHelper
@@ -114,8 +115,7 @@ class TestListenerServiceBuilderBuilder(TestListenerServiceBuilderConstructor):
         parent_ssl_profile = Mock()
         parent_ssl_profile.__str__ = Mock(return_value='parent_ssl_profile')
         target = listener_service.ListenerServiceBuilder(
-            service_adapter, cert_maanger,
-            parent_ssl_profile=parent_ssl_profile)
+            conf, service_adapter, cert_maanger)
         return target
 
 
