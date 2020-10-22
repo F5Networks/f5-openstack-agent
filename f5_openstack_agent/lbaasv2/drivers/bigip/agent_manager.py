@@ -44,7 +44,7 @@ LOG = logging.getLogger(__name__)
 OPTS = [
     cfg.IntOpt(
         'periodic_interval',
-        default=10,
+        default=600,
         help='Seconds between periodic task runs'
     ),
     cfg.BoolOpt(
@@ -100,7 +100,7 @@ OPTS = [
     ),
     cfg.IntOpt(
         'service_resync_interval',
-        default=300,
+        default=86400,
         help=('Number of seconds between service refresh checks')
     ),
     cfg.StrOpt(

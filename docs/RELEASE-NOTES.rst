@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.16 (Mitaka, Newton, Ocata, Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Mitaka, Newton, Ocata, Pike and Queens Openstack releases.
+NOTE: This version is probably best used with RJ in Pike.
+
+Added Functionality
+```````````````````
+
+Bug Fixes
+`````````
+* Route domain and partition deleted while deleting loadbalancer.
+
+Limitations
+```````````
+
 v9.8.6 (Mitaka, Newton, Ocata, Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Mitaka, Newton, Ocata, Pike and Queens Openstack releases.
