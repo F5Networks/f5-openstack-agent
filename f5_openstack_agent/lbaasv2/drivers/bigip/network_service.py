@@ -55,7 +55,7 @@ class NetworkServiceBuilder(object):
         self.service_adapter = self.driver.service_adapter
 
     def post_init(self):
-        # Run and Post Initialization Tasks """
+        # Run and Post Initialization Tasks
         # run any post initialized tasks, now that the agent
         # is fully connected
         self.l2_service.post_init()
@@ -64,11 +64,11 @@ class NetworkServiceBuilder(object):
         self.l2_service.tunnel_sync(tunnel_ips)
 
     def set_tunnel_rpc(self, tunnel_rpc):
-        # Provide FDB Connector with ML2 RPC access """
+        # Provide FDB Connector with ML2 RPC access
         self.l2_service.set_tunnel_rpc(tunnel_rpc)
 
     def set_l2pop_rpc(self, l2pop_rpc):
-        # Provide FDB Connector with ML2 RPC access """
+        # Provide FDB Connector with ML2 RPC access
         self.l2_service.set_l2pop_rpc(l2pop_rpc)
 
     def initialize_vcmp(self):
@@ -867,6 +867,7 @@ class NetworkServiceBuilder(object):
         return subnets_to_delete
 
     def _ips_exist_on_subnet(self, bigip, service, subnet, route_domain):
+        # pzhang: check vip and nodes on bigips
         # Does the big-ip have any IP addresses on this subnet?
         LOG.debug("_ips_exist_on_subnet entry %s rd %s"
                   % (str(subnet['cidr']), route_domain))
@@ -877,23 +878,23 @@ class NetworkServiceBuilder(object):
         folder = self.service_adapter.get_folder_name(
             service['loadbalancer']['tenant_id']
         )
-        virtual_services = self.network_helper.get_virtual_service_insertion(
-            bigip,
-            partition=folder
-        )
-        for virt_serv in virtual_services:
-            (_, dest) = virt_serv.items()[0]
-            LOG.debug("            _ips_exist_on_subnet: checking vip %s"
-                      % str(dest['address']))
-            if len(dest['address'].split('%')) > 1:
-                vip_route_domain = dest['address'].split('%')[1]
+        va_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual_address)
+        virtual_addresses = va_helper.get_resources(bigip, partition=folder)
+
+        for vip in virtual_addresses:
+            dest = vip.address
+            LOG.debug("ANY VIP EXISTS: _ips_exist_on_subnet: checking vip %s"
+                      % dest)
+            if len(dest.split('%')) > 1:
+                vip_route_domain = dest.split('%')[1]
             else:
                 vip_route_domain = '0'
             if vip_route_domain != route_domain:
                 continue
-            vip_addr = strip_domain_address(dest['address'])
+            vip_addr = strip_domain_address(dest)
             if netaddr.IPAddress(vip_addr) in ipsubnet:
-                LOG.debug("            _ips_exist_on_subnet: found")
+                LOG.debug("FOUND VIP EXIST _ips_exist_on_subnet: found")
                 return True
 
         # If there aren't any virtual addresses, are there
@@ -903,8 +904,9 @@ class NetworkServiceBuilder(object):
             partition=folder
         )
         for node in nodes:
-            LOG.debug("            _ips_exist_on_subnet: checking node %s"
-                      % str(node))
+            LOG.debug(
+                "ANY NODES IP EXISTS _ips_exist_on_subnet: checking node %s"
+                % str(node))
             if len(node.split('%')) > 1:
                 node_route_domain = node.split('%')[1]
             else:
@@ -913,10 +915,10 @@ class NetworkServiceBuilder(object):
                 continue
             node_addr = strip_domain_address(node)
             if netaddr.IPAddress(node_addr) in ipsubnet:
-                LOG.debug("        _ips_exist_on_subnet: found")
+                LOG.debug("FOUND NODES IP EXIST _ips_exist_on_subnet: found")
                 return True
 
-        LOG.debug("            _ips_exist_on_subnet exit %s"
+        LOG.debug("_ips_exist_on_subnet exit %s"
                   % str(subnet['cidr']))
         # nothing found
         return False
