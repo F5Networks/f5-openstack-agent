@@ -17,8 +17,10 @@
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
+from f5_openstack_agent.lbaasv2.drivers.bigip import tenants
 
 LOG = logging.getLogger(__name__)
 
@@ -162,27 +164,102 @@ class LoadBalancerManager(ResourceManager):
         self._resource = "virtual address"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual_address)
+        self.tenant_manager = tenants.BigipTenantManager(self.driver.conf,
+                                                         self.driver)
         self.mutable_props = {
             "name": "description",
             "description": "description",
             "admin_state_up": "enabled"
         }
+        self.all_subnet_hints = {}
 
-    def _create_payload(self, loadbalancer, service):
+    def _create_vip(self, loadbalancer, service):
         vip = virtual_address.VirtualAddress(self.driver.service_adapter,
                                              loadbalancer)
-        return vip.model()
+        return vip
 
     @log_helpers.log_method_call
     def create(self, loadbalancer, service, **kwargs):
-        # TODO(qzhao): Future work
-        pass
+        self._pre_create(service)
+        self._create_lb(service)
+        self._post_create(service)
+
+    def _post_create(self, service):
+        # create fdb for vxlan tunnel
+        if not self.driver.conf.f5_global_routed_mode:
+            self.driver.network_builder.update_bigip_l2(service)
+
+    def _create_lb(self, service):
+        bigips = self.driver.get_config_bigips()
+        loadbalancer = service["loadbalancer"]
+        vip = self._create_vip(loadbalancer, service)
+
+        for bigip in bigips:
+            vip.assure(bigip)
+
+        # allow address pair
+        if self.driver.l3_binding:
+            loadbalancer = service["loadbalancer"]
+            self.driver.l3_binding.bind_address(
+                subnet_id=loadbalancer["vip_subnet_id"],
+                ip_address=loadbalancer["vip_address"])
+
+    def _pre_create(self, service):
+        loadbalancer = service["loadbalancer"]
+        self.tenant_manager.assure_tenant_created(service)
+        traffic_group = self.driver.service_to_traffic_group(service)
+        loadbalancer['traffic_group'] = traffic_group
+
+        if not self.driver.conf.f5_global_routed_mode:
+            self.driver.network_builder.prep_service_networking(
+                service, traffic_group)
 
     @log_helpers.log_method_call
     def delete(self, loadbalancer, service, **kwargs):
-        # TODO(qzhao): Future work
-        pass
+        self._pre_delete(service)
+        self._delete_lb(service)
+        self._post_delete(service)
 
+    def _pre_delete(self, service):
+        # assign neutron network object in service
+        # with route domain first
+        self.driver.network_builder._annotate_service_route_domains(
+            service)
+
+        bigips = self.driver.get_config_bigips()
+        loadbalancer = service["loadbalancer"]
+
+        for bigip in bigips:
+            self.all_subnet_hints[bigip.device_name] = \
+                {'check_for_delete_subnets': {},
+                 'do_not_delete_subnets': []}
+        self.driver.lbaas_builder._update_subnet_hints(
+            loadbalancer["provisioning_status"],
+            loadbalancer["vip_subnet_id"],
+            loadbalancer["network_id"],
+            self.all_subnet_hints,
+            False
+        )
+
+    def _delete_lb(self, service):
+        loadbalancer = service["loadbalancer"]
+        bigips = self.driver.get_config_bigips()
+        vip = self._create_vip(loadbalancer, service)
+
+        if self.driver.l3_binding:
+            self.driver.l3_binding.unbind_address(
+                subnet_id=loadbalancer["vip_subnet_id"],
+                ip_address=loadbalancer["vip_address"])
+
+        for bigip in bigips:
+            vip.assure(bigip, delete=True)
+
+    def _post_delete(self, service):
+        if self.driver.network_builder:
+            self.driver.network_builder.post_service_networking(
+                service, self.all_subnet_hints)
+        self.tenant_manager.assure_tenant_cleanup(
+            service, self.all_subnet_hints)
 
 class ListenerManager(ResourceManager):
 

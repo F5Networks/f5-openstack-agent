@@ -37,6 +37,8 @@ class BigipTenantManager(object):
         self.service_adapter = self.driver.service_adapter
         self.rd_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.route_domain)
+        self.va_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual_address)
 
     def assure_tenant_created(self, service):
         """Create tenant partition.
@@ -122,7 +124,7 @@ class BigipTenantManager(object):
     # otherwise called once
     def _assure_bigip_tenant_cleanup(self, bigip, service, subnet_hints):
         tenant_id = service['loadbalancer']['tenant_id']
-
+        #pzhang: check any vip left on this partition
         self._remove_tenant_replication_mode(bigip, tenant_id)
 
     def _remove_tenant_replication_mode(self, bigip, tenant_id):
@@ -130,6 +132,12 @@ class BigipTenantManager(object):
         partition = self.service_adapter.get_folder_name(tenant_id)
         domain_names = self.network_helper.get_route_domain_names(bigip,
                                                                   partition)
+
+        if not self._partition_empty(bigip, partition):
+            LOG.debug("Partition: %s still exists VIPs and Nodes" % partition)
+            return
+
+        LOG.info("Delete empty partition: %s" % partition)
         for domain_name in domain_names:
             try:
                 self.network_helper.delete_route_domain(bigip,
@@ -146,3 +154,11 @@ class BigipTenantManager(object):
             LOG.debug(
                 "Folder deletion exception for tenant partition %s occurred. "
                 "Manual cleanup might be required." % (tenant_id))
+
+    def _partition_empty(self, bigip, partition):
+        virtual_addresses = self.va_helper.get_resources(bigip, partition=partition)
+        nodes = bigip.tm.ltm.nodes.get_collection(partition=partition)
+
+        if not nodes and not virtual_addresses:
+            return True
+        return False
