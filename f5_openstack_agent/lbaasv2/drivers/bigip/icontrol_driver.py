@@ -303,6 +303,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         default=False,
         help='whether or not to add valid esd names during report.'
     ),
+    cfg.IntOpt(
+        'persistence_timeout',
+        default=1800,
+        help='Default timeout of session persistionce profile'
+    ),
     cfg.StrOpt(
         'bwc_profile',
         default=None,

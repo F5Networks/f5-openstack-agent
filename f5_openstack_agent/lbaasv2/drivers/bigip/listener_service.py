@@ -33,14 +33,15 @@ class ListenerServiceBuilder(object):
     defined in service object to a BIG-IP virtual server.
     """
 
-    def __init__(self, service_adapter, cert_manager, parent_ssl_profile=None):
+    def __init__(self, conf, service_adapter, cert_manager):
+        self.conf = conf
         self.cert_manager = cert_manager
-        self.parent_ssl_profile = parent_ssl_profile
+        self.parent_ssl_profile = self.conf.f5_parent_ssl_profile
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
         self.service_adapter = service_adapter
         LOG.debug("ListenerServiceBuilder: using parent_ssl_profile %s ",
-                  parent_ssl_profile)
+                  self.parent_ssl_profile)
 
     def create_listener(self, service, bigips, esd=None):
         u"""Create listener on set of BIG-IPs.
@@ -314,11 +315,13 @@ class ListenerServiceBuilder(object):
                 LOG.error("Failed to update rule %s", rule_name)
                 LOG.exception(err)
 
+        timeout = str(self.conf.persistence_timeout)
         u = bigip.tm.ltm.persistence.universals.universal
         if not u.exists(name=rule_name, partition=vip["partition"]):
             try:
                 u.create(name=rule_name,
                          rule=rule_name,
+                         timeout=timeout,
                          partition=vip["partition"])
                 LOG.debug("Created persistence universal %s" % rule_name)
             except Exception as err:
@@ -329,7 +332,7 @@ class ListenerServiceBuilder(object):
             try:
                 u_obj = u.load(name=rule_name,
                                partition=vip["partition"])
-                u_obj.modify(rule=rule_name)
+                u_obj.modify(rule=rule_name, timeout=timeout)
                 LOG.debug("Updated persistence universal %s" % rule_name)
             except Exception as err:
                 LOG.error("Failed to update persistence universal %s" %
