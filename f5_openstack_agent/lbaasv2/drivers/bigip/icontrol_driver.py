@@ -1111,7 +1111,7 @@ class iControlDriver(LBaaSBaseDriver):
                     else:
                         # delay to assure we are not in the tenant creation
                         # process before a virtual address is created.
-                        greenthread.sleep(10)
+                        greenthread.sleep(40)
                         deployed_lbs = resource.get_resources(bigip, folder)
                         if deployed_lbs:
                             for lb in deployed_lbs:

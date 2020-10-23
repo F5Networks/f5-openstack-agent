@@ -361,6 +361,15 @@ class ServiceModelAdapter(object):
 
         pool["description"] = self.get_resource_description(pool)
 
+        LOG.info('lbaas_pool is:')
+        LOG.info(lbaas_pool)
+
+        if lbaas_pool.get('priority_group_least_member'):
+            LOG.info('setting to priority_group_least_member')
+            pool['minActiveMembers'] = lbaas_pool['priority_group_least_member']
+        else:
+            pool['minActiveMembers'] = 0
+
         if "lb_algorithm" in lbaas_pool:
             lbaas_lb_method = lbaas_pool['lb_algorithm'].upper()
             pool['loadBalancingMode'] = \
@@ -664,6 +673,14 @@ class ServiceModelAdapter(object):
             member['name'] = ip_address + ':' + str(port)
         member["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
         member["address"] = ip_address
+
+        LOG.info('lbaas_member is:')
+        LOG.info(lbaas_member)
+        if lbaas_member.get('priority'):
+            LOG.info('setting to priority')
+            member['priorityGroup'] = lbaas_member['priority']
+        else:
+            member['priorityGroup'] = 0
         return member
 
     def _map_node(self, loadbalancer, lbaas_member):
