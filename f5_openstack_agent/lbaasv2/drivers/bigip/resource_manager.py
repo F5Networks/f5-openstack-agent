@@ -504,10 +504,18 @@ class MemberManager(ResourceManager):
     def create(self, resource, service, **kwargs):
 
         net_resource_create = True
-        if 'members' in service:
+
+        if 'loadbalancer' in service:
+            loadbalancer = service['loadbalancer']
+            if loadbalancer['vip_subnet_id'] == resource['subnet_id']:
+                LOG.debug("Loadbalancer's subnet is the same as member's")
+                net_resource_create = False
+
+        if net_resource_create is True and 'members' in service:
             for item in service['members']:
                 if item['id'] != resource['id'] and \
                    item['subnet_id'] == resource['subnet_id']:
+                    LOG.debug("member %s has the same subnet", item['name'])
                     net_resource_create = False
                     break
 
