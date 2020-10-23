@@ -1975,19 +1975,20 @@ class iControlDriver(LBaaSBaseDriver):
                 self.network_builder.prep_service_networking(
                     service, traffic_group)
             except f5ex.NetworkNotReady as error:
-                LOG.debug("Network creation deferred until network "
-                          "definition is completed: %s",
+                LOG.debug("Network creation for member deferred until "
+                          "network definition is completed: %s",
                           error.message)
                 if not delete_event:
                     raise error
             except Exception as error:
-                LOG.error("Prep-network exception: icontrol_driver: %s",
+                LOG.error("Prep-network for member exception: "
+                          "icontrol_driver: %s",
                           error.message)
                 if not delete_event:
                     raise error
             finally:
                 if time() - start_time > .001:
-                    LOG.debug("   _prep_service_networking "
+                    LOG.debug(" For member prep_service_networking "
                               "took %.5f secs" % (time() - start_time))
         return True
 
