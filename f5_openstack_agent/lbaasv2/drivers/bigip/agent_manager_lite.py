@@ -1163,6 +1163,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     loadbalancer['operating_status']
                 )
                 LOG.debug("Finish to update status of member %s", id)
+
+                if the_port_id:
+                    LOG.debug("deleting the port %s", the_port_id)
+                    self.plugin_rpc.delete_port(port_id=the_port_id)
+
             except Exception as ex:
                 LOG.exception("Fail to update status of member %s "
                               "Exception: %s" % ex.message)
