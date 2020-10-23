@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
@@ -492,6 +491,7 @@ class MemberManager(ResourceManager):
         self._resource = "member"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.member)
+        self._pool_mgr = PoolManager(self.driver)
         self.mutable_props = {
             "weight": "ratio",
             "admin_state_up": "session",
@@ -500,8 +500,81 @@ class MemberManager(ResourceManager):
     def _create_payload(self, member, service):
         return self.driver.service_adapter.get_member(service)
 
+    def _merge_members(self, lbaas_members, bigip_members, service):
+        members_payload = []
+        name_list = []
+
+        """ old members from bigip """
+        for item in bigip_members:
+            fqdn = item.fqdn
+            content = item.to_dict()
+            del content['_meta_data']
+            del content['fqdn']
+            """ after to_dict the content's fqdn becomes a list somehow"""
+            content['fqdn'] = fqdn
+
+            if content['session'] == 'monitor-enabled':
+                del content['session']
+                del content['state']
+            elif content['session'] == 'user-disabled':
+                if content['state'] != 'user-down':
+                    del content['state']
+            else:
+                LOG.debug("Default case %s %s",
+                          content['session'], content['state'])
+                del content['session']
+                del content['state']
+
+            members_payload.append(content)
+            name_list.append(content['name'])
+
+        """ new members from bigip """
+        for item in lbaas_members:
+            if item['name'] not in name_list:
+                content = self._create_payload(item, service)
+                members_payload.append(content)
+
+        return members_payload
+
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
+
+        self.driver.prepare_network_for_member(service)
+        LOG.debug("Begin to create in batch %s %s",
+                  self._resource, resource['name'])
+        if not service.get(self._key):
+            self._search_element(resource, service)
+        member = service.get('member')
+        pool = {}
+        pool['id'] = member['pool_id']
+        self._pool_mgr._search_element(pool, service)
+        pool_payload = self._pool_mgr._create_payload(pool, service)
+
+        if 'members' not in pool_payload:
+            LOG.error("None members in pool")
+            return
+        lbaas_members = pool_payload['members']
+        bigips = self.driver.get_config_bigips()
+        for bigip in bigips:
+            pool_resource = self._pool_mgr.pool_helper.load(
+                bigip,
+                name=urllib.quote(pool_payload['name']),
+                partition=pool_payload['partition']
+            )
+            bigip_members = pool_resource.members_s.get_collection()
+
+            del pool_payload['members']
+            new_payload = self._merge_members(
+                lbaas_members, bigip_members, service)
+            pool_payload['members'] = new_payload
+            self._shrink_payload(pool_payload,
+                                 keys_to_keep=['partition', 'name', 'members'])
+            self._pool_mgr._update(bigip, pool_payload, None, None, service)
+        LOG.debug("Finish to create in batch %s %s",
+                  self._resource, resource['name'])
+
+    @log_helpers.log_method_call
+    def create_single(self, resource, service, **kwargs):
 
         net_resource_create = True
 
@@ -528,16 +601,15 @@ class MemberManager(ResourceManager):
             self._search_element(resource, service)
         LOG.debug("Begin to create %s %s", self._resource, resource['id'])
         member = service.get('member')
-        mgr = PoolManager(self.driver)
         pool = {}
         pool['id'] = member['pool_id']
-        mgr._search_element(pool, service)
-        pool_payload = mgr._create_payload(pool, service)
+        self._pool_mgr._search_element(pool, service)
+        pool_payload = self._pool_mgr._create_payload(pool, service)
 
         payload = self._create_payload(member, service)
         bigips = self.driver.get_config_bigips()
         for bigip in bigips:
-            pool_resource = mgr.pool_helper.load(
+            pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
                 name=urllib.quote(pool_payload['name']),
                 partition=pool_payload['partition']
@@ -556,16 +628,15 @@ class MemberManager(ResourceManager):
         member = service['member']
         payload = self._create_payload(member, service)
 
-        mgr = PoolManager(self.driver)
         pool = {}
         pool['id'] = member['pool_id']
-        mgr._search_element(pool, service)
-        pool_payload = mgr._create_payload(pool, service)
+        self._pool_mgr._search_element(pool, service)
+        pool_payload = self._pool_mgr._create_payload(pool, service)
 
         bigips = self.driver.get_config_bigips()
         loadbalancer = service.get('loadbalancer')
         for bigip in bigips:
-            pool_resource = mgr.pool_helper.load(
+            pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
                 name=urllib.quote(pool_payload['name']),
                 partition=pool_payload['partition']
@@ -575,7 +646,7 @@ class MemberManager(ResourceManager):
                 partition=payload['partition']
             )
             member_resource.delete()
-            mgr._delete_member_node(loadbalancer, member, bigip)
+            self._pool_mgr._delete_member_node(loadbalancer, member, bigip)
 
         LOG.debug("Finish to delete %s %s", self._resource, resource['id'])
 
@@ -589,11 +660,10 @@ class MemberManager(ResourceManager):
         member = service['member']
         old_member = old_resource
 
-        mgr = PoolManager(self.driver)
         pool = {}
         pool['id'] = member['pool_id']
-        mgr._search_element(pool, service)
-        pool_payload = mgr._create_payload(pool, service)
+        self._pool_mgr._search_element(pool, service)
+        pool_payload = self._pool_mgr._create_payload(pool, service)
 
         payload = self._update_payload(old_member, member, service)
         if member['weight'] == 0:
@@ -610,7 +680,7 @@ class MemberManager(ResourceManager):
 
         bigips = self.driver.get_config_bigips()
         for bigip in bigips:
-            pool_resource = mgr.pool_helper.load(
+            pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
                 name=urllib.quote(pool_payload['name']),
                 partition=pool_payload['partition']
