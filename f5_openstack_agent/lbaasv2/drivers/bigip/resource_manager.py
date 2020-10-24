@@ -17,6 +17,7 @@ import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
 
 from oslo_log import helpers as log_helpers
@@ -34,6 +35,7 @@ class ResourceManager(object):
 
     def __init__(self, driver):
         self.driver = driver
+        self.service_queue = driver.service_queue
         self.mutable_props = {}
 
     def _shrink_payload(self, payload, **kwargs):
@@ -98,6 +100,7 @@ class ResourceManager(object):
         self.resource_helper.delete(
             bigip, name=payload['name'], partition=payload['partition'])
 
+    @serialized('ResourceManager.create')
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
         if not service.get(self._key):
@@ -120,6 +123,7 @@ class ResourceManager(object):
             self._create(bigip, payload, resource, service)
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
 
+    @serialized('ResourceManager.update')
     @log_helpers.log_method_call
     def update(self, old_resource, resource, service, **kwargs):
         if not service.get(self._key):
@@ -143,6 +147,7 @@ class ResourceManager(object):
             self._update(bigip, payload, old_resource, resource, service)
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
 
+    @serialized('ResourceManager.delete')
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
         if not service.get(self._key):
@@ -177,11 +182,13 @@ class LoadBalancerManager(ResourceManager):
                                              loadbalancer)
         return vip.model()
 
+    @serialized('LoadBalancerManager.create')
     @log_helpers.log_method_call
     def create(self, loadbalancer, service, **kwargs):
         # TODO(qzhao): Future work
         pass
 
+    @serialized('LoadBalancerManager.delete')
     @log_helpers.log_method_call
     def delete(self, loadbalancer, service, **kwargs):
         # TODO(qzhao): Future work
@@ -367,7 +374,7 @@ class PoolManager(ResourceManager):
                     )
                     mgr._update(bigip, listener_payload, None, None, service)
             del payload['session_persistence']
-        # Pool has other props to upate
+        # Pool has other props to update
         for key in payload.keys():
             if key != "name" and key != "partition":
                 super(PoolManager, self)._update(bigip, payload, old_pool,
@@ -536,6 +543,7 @@ class MemberManager(ResourceManager):
 
         return members_payload
 
+    @serialized('MemberManager.create')
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
 
@@ -617,6 +625,7 @@ class MemberManager(ResourceManager):
             pool_resource.members_s.members.create(**payload)
         LOG.debug("Finish to create %s %s", self._resource, resource['id'])
 
+    @serialized('MemberManager.delete')
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
 
@@ -650,6 +659,7 @@ class MemberManager(ResourceManager):
 
         LOG.debug("Finish to delete %s %s", self._resource, resource['id'])
 
+    @serialized('MemberManager.update')
     @log_helpers.log_method_call
     def update(self, old_resource, resource, service, **kwargs):
         self.driver.annotate_service_members(service)
