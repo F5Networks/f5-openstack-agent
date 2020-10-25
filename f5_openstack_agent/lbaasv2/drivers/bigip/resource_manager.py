@@ -24,6 +24,8 @@ from oslo_log import log as logging
 
 from requests import HTTPError
 
+from time import time
+
 LOG = logging.getLogger(__name__)
 
 
@@ -504,22 +506,25 @@ class MemberManager(ResourceManager):
         members_payload = []
         name_list = []
 
+        start_time = time()
         """ old members from bigip """
         for item in bigip_members:
             fqdn = item.fqdn
+            del item._meta_data
             content = item.to_dict()
-            del content['_meta_data']
             del content['fqdn']
             """ after to_dict the content's fqdn becomes a list somehow"""
             content['fqdn'] = fqdn
 
-            if content['session'] == 'monitor-enabled':
-                del content['session']
-                del content['state']
-            elif content['session'] == 'user-disabled':
+            if content['session'] == 'user-disabled':
+                """ disable case"""
                 if content['state'] != 'user-down':
                     del content['state']
+                """ else case for force offline. Need to keep both
+                    session and state """
             else:
+                """ otherwise than user-disabled delete both session
+                    and state"""
                 LOG.debug("Default case %s %s",
                           content['session'], content['state'])
                 del content['session']
@@ -533,6 +538,10 @@ class MemberManager(ResourceManager):
             if item['name'] not in name_list:
                 content = self._create_payload(item, service)
                 members_payload.append(content)
+
+        if time() - start_time > .001:
+            LOG.debug("For merge_members took %.5f secs" %
+                      (time() - start_time))
 
         return members_payload
 
