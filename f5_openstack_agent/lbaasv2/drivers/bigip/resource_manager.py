@@ -103,7 +103,6 @@ class ResourceManager(object):
         self.resource_helper.delete(
             bigip, name=payload['name'], partition=payload['partition'])
 
-    @serialized('ResourceManager.create')
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
         if not service.get(self._key):
@@ -126,7 +125,6 @@ class ResourceManager(object):
             self._create(bigip, payload, resource, service)
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
 
-    @serialized('ResourceManager.update')
     @log_helpers.log_method_call
     def update(self, old_resource, resource, service, **kwargs):
         if not service.get(self._key):
@@ -150,7 +148,6 @@ class ResourceManager(object):
             self._update(bigip, payload, old_resource, resource, service)
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
 
-    @serialized('ResourceManager.delete')
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
         if not service.get(self._key):
@@ -216,6 +213,12 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
+
+    @serialized('LoadBalancerManager.update')
+    @log_helpers.log_method_call
+    def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
+        super(LoadBalancerManager, self).update(
+            old_loadbalancer, loadbalancer, service)
 
     @serialized('LoadBalancerManager.delete')
     @log_helpers.log_method_call
@@ -335,6 +338,18 @@ class ListenerManager(ResourceManager):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
         self._delete_persist_profile(bigip, vs)
 
+    @serialized('ListenerManager.create')
+    @log_helpers.log_method_call
+    def create(self, listener, service, **kwargs):
+        super(ListenerManager.create, self).create(listener, service)
+
+    @serialized('ListenerManager.update')
+    @log_helpers.log_method_call
+    def update(self, old_listener, listener, service, **kwargs):
+        super(ListenerManager.update, self).update(
+            old_listener, listener, service)
+
+    @serialized('ListenerManager.delete')
     @log_helpers.log_method_call
     def delete(self, listener, service, **kwargs):
         self._search_element(listener, service)
@@ -467,6 +482,21 @@ class PoolManager(ResourceManager):
         for member in members:
             self._delete_member_node(loadbalancer, member, bigip)
 
+    @serialized('PoolManager.create')
+    @log_helpers.log_method_call
+    def create(self, pool, service, **kwargs):
+        super(PoolManager.create, self).create(pool, service)
+
+    @serialized('PoolManager.update')
+    @log_helpers.log_method_call
+    def update(self, old_pool, pool, service, **kwargs):
+        super(PoolManager.update, self).update(old_pool, pool, service)
+
+    @serialized('PoolManager.delete')
+    @log_helpers.log_method_call
+    def delete(self, pool, service, **kwargs):
+        super(PoolManager, self).delete(pool, service)
+
 
 class MonitorManager(ResourceManager):
 
@@ -549,6 +579,22 @@ class MonitorManager(ResourceManager):
         super(MonitorManager, self)._delete(
             bigip, payload, healthmonitor, service
         )
+
+    @serialized('MonitorManager.create')
+    @log_helpers.log_method_call
+    def create(self, monitor, service, **kwargs):
+        super(MonitorManager.create, self).create(monitor, service)
+
+    @serialized('MonitorManager.update')
+    @log_helpers.log_method_call
+    def update(self, old_monitor, monitor, service, **kwargs):
+        super(MonitorManager.update, self).update(
+            old_monitor, monitor, service)
+
+    @serialized('MonitorManager.delete')
+    @log_helpers.log_method_call
+    def delete(self, monitor, service, **kwargs):
+        super(MonitorManager, self).delete(monitor, service)
 
 
 class MemberManager(ResourceManager):
