@@ -91,7 +91,8 @@ class ServiceModelAdapter(object):
         name = self.prefix + pool["id"] if pool else ''
 
         return {"name": name,
-                "partition": partition}
+                "partition": partition,
+                "description": pool["description"]}
 
     def get_resource_description(self, resource):
         if not isinstance(resource, dict):
