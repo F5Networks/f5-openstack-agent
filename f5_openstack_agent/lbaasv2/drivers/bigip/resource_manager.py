@@ -616,6 +616,17 @@ class MemberManager(ResourceManager):
     @serialized('MemberManager.create')
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
+        create_in_bulk = False
+        if 'multiple' in service:
+            create_in_bulk = service.get('multiple')
+
+        if create_in_bulk is True:
+            self._create_multiple(resource, service, **kwargs)
+        else:
+            self._create_single(resource, service, **kwargs)
+        return
+
+    def _create_multiple(self, resource, service, **kwargs):
 
         self.driver.prepare_network_for_member(service)
         LOG.debug("Begin to create in batch %s %s",
@@ -651,8 +662,7 @@ class MemberManager(ResourceManager):
         LOG.debug("Finish to create in batch %s %s",
                   self._resource, resource['name'])
 
-    @log_helpers.log_method_call
-    def create_single(self, resource, service, **kwargs):
+    def _create_single(self, resource, service, **kwargs):
 
         net_resource_create = True
 
