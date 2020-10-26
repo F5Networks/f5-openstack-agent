@@ -341,12 +341,12 @@ class ListenerManager(ResourceManager):
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
     def create(self, listener, service, **kwargs):
-        super(ListenerManager.create, self).create(listener, service)
+        super(ListenerManager, self).create(listener, service)
 
     @serialized('ListenerManager.update')
     @log_helpers.log_method_call
     def update(self, old_listener, listener, service, **kwargs):
-        super(ListenerManager.update, self).update(
+        super(ListenerManager, self).update(
             old_listener, listener, service)
 
     @serialized('ListenerManager.delete')
@@ -485,12 +485,12 @@ class PoolManager(ResourceManager):
     @serialized('PoolManager.create')
     @log_helpers.log_method_call
     def create(self, pool, service, **kwargs):
-        super(PoolManager.create, self).create(pool, service)
+        super(PoolManager, self).create(pool, service)
 
     @serialized('PoolManager.update')
     @log_helpers.log_method_call
     def update(self, old_pool, pool, service, **kwargs):
-        super(PoolManager.update, self).update(old_pool, pool, service)
+        super(PoolManager, self).update(old_pool, pool, service)
 
     @serialized('PoolManager.delete')
     @log_helpers.log_method_call
@@ -583,12 +583,12 @@ class MonitorManager(ResourceManager):
     @serialized('MonitorManager.create')
     @log_helpers.log_method_call
     def create(self, monitor, service, **kwargs):
-        super(MonitorManager.create, self).create(monitor, service)
+        super(MonitorManager, self).create(monitor, service)
 
     @serialized('MonitorManager.update')
     @log_helpers.log_method_call
     def update(self, old_monitor, monitor, service, **kwargs):
-        super(MonitorManager.update, self).update(
+        super(MonitorManager, self).update(
             old_monitor, monitor, service)
 
     @serialized('MonitorManager.delete')
