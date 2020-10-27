@@ -907,17 +907,18 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.create(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.debug("Finish to create loadbalancer %s", id)
+        except Exception as ex:
+            LOG.error("Fail to create loadbalancer %s "
+                      "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
         finally:
             try:
                 self.plugin_rpc.update_loadbalancer_status(
                     id, provision_status,
                     loadbalancer['operating_status']
                 )
-                LOG.debug("Finish creating loadbalancer %s", id)
+                LOG.debug("Finish to update status of loadbalancer %s", id)
             except Exception as ex:
                 LOG.exception("Fail to update status of loadbalancer %s "
                               "Exception: %s", id, ex.message)
@@ -955,10 +956,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.delete(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.debug("Finish to delete loadbalancer %s", id)
+        except Exception as ex:
+            LOG.error("Fail to delete loadbalancer %s "
+                      "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
         finally:
             try:
                 self.plugin_rpc.loadbalancer_destroyed(id)
