@@ -1800,6 +1800,10 @@ class iControlDriver(LBaaSBaseDriver):
                 if not l_name:
                     svc = {"loadbalancer": loadbalancer,
                            "listener": listener}
+                    # pzhang: teardown put bigip ManagerRoot here
+                    # when we teardown something, we do not delete
+                    # its corresponding profiles such as ftp and tls
+                    # vip = self.service_adapter.get_virtual(svc, bigip)
                     vip = self.service_adapter.get_virtual(svc)
                     l_name = vip['name']
                 if v.exists(name=l_name, partition=folder_name):

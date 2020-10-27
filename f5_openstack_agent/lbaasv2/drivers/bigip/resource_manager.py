@@ -319,6 +319,7 @@ class ListenerManager(ResourceManager):
             self._create_persist_profile(bigip, vs, persist)
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
+        # pzhang: we may also change here for ftp
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
@@ -339,6 +340,7 @@ class ListenerManager(ResourceManager):
 
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
+        # pzhang: we may also change here for ftp
         self._delete_persist_profile(bigip, vs)
 
     @serialized('ListenerManager.create')

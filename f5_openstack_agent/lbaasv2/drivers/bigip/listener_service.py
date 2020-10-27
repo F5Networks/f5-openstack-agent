@@ -69,6 +69,7 @@ class ListenerServiceBuilder(object):
 
             self.service_adapter.get_vlan(vip, bigip, network_id)
 
+            # pzhang: refer to this here
             if tls:
                 self.add_ssl_profile(tls, vip, bigip)
 
@@ -143,6 +144,7 @@ class ListenerServiceBuilder(object):
                 LOG.error("Virtual server delete error: %s",
                           error.message)
 
+            # pzhang: refer here to remove ftp profile
             # delete ssl profiles
             self.remove_ssl_profiles(tls, bigip)
 
@@ -263,6 +265,9 @@ class ListenerServiceBuilder(object):
             for listener in listeners:
                 svc = {"loadbalancer": service["loadbalancer"],
                        "listener": listener}
+                # pzhang: we when delete orphaned listener,
+                # we do not delete its corresponding profiles
+                # such as tls and ftp
                 vip = self.service_adapter.get_virtual(svc)
                 for bigip in bigips:
                     vses = bigip.tm.ltm.virtuals.get_collection()
