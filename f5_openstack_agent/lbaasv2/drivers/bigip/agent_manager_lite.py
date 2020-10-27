@@ -920,7 +920,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Finish creating loadbalancer %s", id)
             except Exception as ex:
                 LOG.exception("Fail to update status of loadbalancer %s "
-                              "Exception: %s" % ex.message)
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_loadbalancer(self, context, old_loadbalancer,
@@ -945,7 +945,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Finish to update status of loadbalancer %s", id)
             except Exception as ex:
                 LOG.exception("Fail to update status of loadbalancer %s "
-                              "Exception: %s" % ex.message)
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_loadbalancer(self, context, loadbalancer, service):
@@ -969,7 +969,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Finish to update status of loadbalancer %s", id)
             except Exception as ex:
                 LOG.exception("Fail to update status of loadbalancer %s "
-                              "Exception: %s" % ex.message)
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_loadbalancer_stats(self, context, loadbalancer, service):
