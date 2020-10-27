@@ -230,8 +230,10 @@ class LoadBalancerManager(ResourceManager):
     def _pre_delete(self, service):
         # assign neutron network object in service
         # with route domain first
-        self.driver.network_builder._annotate_service_route_domains(
-            service)
+        # self.driver.network_builder is None in global routed mode
+        if self.driver.network_builder:
+            self.driver.network_builder._annotate_service_route_domains(
+                service)
 
         bigips = self.driver.get_config_bigips()
         loadbalancer = service["loadbalancer"]
@@ -254,6 +256,7 @@ class LoadBalancerManager(ResourceManager):
                 ip_address=loadbalancer["vip_address"])
 
     def _post_delete(self, service):
+        # self.driver.network_builder is None in global routed mode
         if self.driver.network_builder:
             self.driver.network_builder.post_service_networking(
                 service, self.all_subnet_hints)
