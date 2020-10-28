@@ -1198,7 +1198,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Finish to update status of member %s", id)
             except Exception as ex:
                 LOG.exception("Fail to update status of member %s "
-                              "Exception: %s" % ex.message)
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
