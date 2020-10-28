@@ -963,11 +963,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             provision_status = constants_v2.F5_ERROR
         finally:
             try:
-                self.plugin_rpc.loadbalancer_destroyed(id)
-                self.plugin_rpc.update_loadbalancer_status(
-                    id, provision_status,
-                    loadbalancer['operating_status']
-                )
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.loadbalancer_destroyed(id)
+                else:
+                    self.plugin_rpc.update_loadbalancer_status(
+                        id, provision_status,
+                        loadbalancer['operating_status']
+                    )
                 LOG.debug("Finish to update status of loadbalancer %s", id)
             except Exception as ex:
                 LOG.exception("Fail to update status of loadbalancer %s "
@@ -1059,7 +1061,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             provision_status = constants_v2.F5_ERROR
         finally:
             try:
-                self.plugin_rpc.listener_destroyed(id)
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.listener_destroyed(id)
+                else:
+                    self.plugin_rpc.update_listener_status(
+                        id, provision_status,
+                        listener['operating_status']
+                    )
                 self.plugin_rpc.update_loadbalancer_status(
                     loadbalancer['id'], provision_status,
                     loadbalancer['operating_status']
@@ -1145,7 +1153,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             provision_status = constants_v2.F5_ERROR
         finally:
             try:
-                self.plugin_rpc.pool_destroyed(id)
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.pool_destroyed(id)
+                else:
+                    self.plugin_rpc.update_pool_status(
+                        id, provision_status,
+                        pool['operating_status']
+                    )
                 self.plugin_rpc.update_loadbalancer_status(
                     loadbalancer['id'], provision_status,
                     loadbalancer['operating_status']
@@ -1231,7 +1245,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             provision_status = constants_v2.F5_ERROR
         finally:
             try:
-                self.plugin_rpc.member_destroyed(id)
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.member_destroyed(id)
+                else:
+                    self.plugin_rpc.update_member_status(
+                        id, provision_status,
+                        member['operating_status']
+                    )
                 self.plugin_rpc.update_loadbalancer_status(
                     loadbalancer['id'], provision_status,
                     loadbalancer['operating_status']
@@ -1317,14 +1337,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             )
             mgr.delete(health_monitor, service)
             provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete health_monitor %s", id)
         except Exception as ex:
             LOG.exception("Fail to delete health_monitor %s "
                           "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
-                self.plugin_rpc.health_monitor_destroyed(id)
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.health_monitor_destroyed(id)
+                else:
+                    self.plugin_rpc.update_health_monitor_status(
+                        id, provision_status, operating_status
+                    )
                 self.plugin_rpc.update_loadbalancer_status(
                     loadbalancer['id'], provision_status,
                     loadbalancer['operating_status']
@@ -1466,14 +1493,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             # TODO(qzhao): Deploy config to BIG-IP
             provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete l7policy %s", id)
         except Exception as ex:
             LOG.exception("Fail to delete l7policy %s "
                           "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
-                self.plugin_rpc.l7policy_destroyed(id)
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.l7policy_destroyed(id)
+                else:
+                    self.plugin_rpc.update_l7policy_status(
+                        id, provision_status, operating_status
+                    )
                 self.plugin_rpc.update_loadbalancer_status(
                     loadbalancer['id'], provision_status,
                     loadbalancer['operating_status']
@@ -1549,14 +1583,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             # TODO(qzhao): Deploy config to BIG-IP
             provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete l7rule %s", id)
         except Exception as ex:
             LOG.exception("Fail to delete l7rule %s "
                           "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
-                self.plugin_rpc.l7rule_destroyed(id)
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.l7rule_destroyed(id)
+                else:
+                    self.plugin_rpc.update_l7rule_status(
+                        id, provision_status, operating_status
+                    )
                 self.plugin_rpc.update_loadbalancer_status(
                     loadbalancer['id'], provision_status,
                     loadbalancer['operating_status']
