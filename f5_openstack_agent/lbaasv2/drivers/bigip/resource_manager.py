@@ -706,7 +706,9 @@ class MemberManager(ResourceManager):
                 lbaas_members, bigip_members, service)
             pool_payload['members'] = new_payload
             self._shrink_payload(pool_payload,
-                                 keys_to_keep=['partition', 'name', 'members'])
+                                 keys_to_keep=['partition',
+                                               'name', 'members',
+                                               'loadBalancingMode'])
             self._pool_mgr._update(bigip, pool_payload, None, None, service)
         LOG.debug("Finish to create in batch %s %s",
                   self._resource, resource['name'])
@@ -752,6 +754,10 @@ class MemberManager(ResourceManager):
                 partition=pool_payload['partition']
             )
             pool_resource.members_s.members.create(**payload)
+            self._shrink_payload(pool_payload,
+                                 keys_to_keep=['partition',
+                                               'name', 'loadBalancingMode'])
+            self._pool_mgr._update(bigip, pool_payload, None, None, service)
         LOG.debug("Finish to create %s %s", self._resource, resource['id'])
 
     @serialized('MemberManager.delete')
@@ -785,6 +791,10 @@ class MemberManager(ResourceManager):
             )
             member_resource.delete()
             self._pool_mgr._delete_member_node(loadbalancer, member, bigip)
+            self._shrink_payload(pool_payload,
+                                 keys_to_keep=['partition',
+                                               'name', 'loadBalancingMode'])
+            self._pool_mgr._update(bigip, pool_payload, None, None, service)
 
         LOG.debug("Finish to delete %s %s", self._resource, resource['id'])
 
@@ -831,4 +841,8 @@ class MemberManager(ResourceManager):
             )
 
             member_resource.update(**payload)
+            self._shrink_payload(pool_payload,
+                                 keys_to_keep=['partition',
+                                               'name', 'loadBalancingMode'])
+            self._pool_mgr._update(bigip, pool_payload, None, None, service)
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
