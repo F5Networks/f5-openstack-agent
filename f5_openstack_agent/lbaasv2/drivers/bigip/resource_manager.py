@@ -422,6 +422,10 @@ class PoolManager(ResourceManager):
         )
 
     def _create(self, bigip, poolpayload, pool, service):
+        if 'members' in poolpayload:
+            del poolpayload['members']
+        if 'monitor' in poolpayload:
+            del poolpayload['monitor']
         super(PoolManager, self)._create(bigip, poolpayload, pool, service)
 
         """ create the pool at first"""
