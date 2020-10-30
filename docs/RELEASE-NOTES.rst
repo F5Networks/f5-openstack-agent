@@ -5,6 +5,19 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v5.0.5
+------
+
+Added Functionality
+```````````````````
+* Add priority group.
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+
 v5.0.4
 ------
 
