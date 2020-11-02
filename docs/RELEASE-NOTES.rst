@@ -5,6 +5,22 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.18 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Add a 'lite' mode for F5 OpenStack Agent, which can improve the performance to deploy BIG-IP configuration and also tolerate some of the manual configuration changes made by user in BIG-IP.
+
+Bug Fixes
+`````````
+* Route domain and partition deleted while deleting loadbalancer.
+
+Limitations
+```````````
+* Agent lite only works with F5 LBaaS driver whose performance mode is 3.
+
 v9.8.6 (Mitaka, Newton, Ocata, Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Mitaka, Newton, Ocata, Pike and Queens Openstack releases.
