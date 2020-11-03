@@ -257,7 +257,8 @@ class BigIPResourceHelper(object):
             ResourceType.sip_persistence:
                 lambda bigip: bigip.tm.ltm.persistence.sips,
             ResourceType.source_addr_persistence:
-                lambda bigip: bigip.tm.ltm.persistence.source_addr,
+                lambda bigip:
+                    bigip.tm.ltm.persistence.source_addrs.source_addr,
             ResourceType.ssl_persistence:
                 lambda bigip: bigip.tm.ltm.persistence.ssl,
             ResourceType.universal_persistence:

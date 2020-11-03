@@ -79,14 +79,23 @@ class ResourceManager(object):
 
         return payload
 
-    def _create(self, bigip, payload, resource, service):
-        if self.resource_helper.exists(bigip, name=payload['name'],
-                                       partition=payload['partition']):
-            LOG.debug("%s already exists ... updating", self._resource)
-            self.resource_helper.update(bigip, payload)
+    def _create(self, bigip, payload, resource, service, **kwargs):
+        resource_helper = kwargs.get("helper", self.resource_helper)
+        resource_type = kwargs.get("type", self._resource)
+        overwrite = kwargs.get("overwrite", True)
+        if resource_helper.exists(bigip, name=payload['name'],
+                                  partition=payload['partition']):
+            if overwrite:
+                LOG.debug("%s %s already exists ... updating",
+                          resource_type, payload['name'])
+                resource_helper.update(bigip, payload)
+            else:
+                LOG.debug("%s %s already exists, do not update.",
+                          resource_type, payload['name'])
         else:
-            LOG.debug("%s does not exist ... creating", self._resource)
-            self.resource_helper.create(bigip, payload)
+            LOG.debug("%s %s does not exist ... creating",
+                      resource_type, payload['name'])
+            resource_helper.create(bigip, payload)
 
     def _update(self, bigip, payload, old_resource, resource, service):
         if self.resource_helper.exists(bigip, name=payload['name'],
@@ -99,9 +108,10 @@ class ResourceManager(object):
             LOG.debug("%s payload is %s", self._resource, payload)
             self.resource_helper.create(bigip, payload)
 
-    def _delete(self, bigip, payload, resource, service):
-        self.resource_helper.delete(
-            bigip, name=payload['name'], partition=payload['partition'])
+    def _delete(self, bigip, payload, resource, service, **kwargs):
+        resource_helper = kwargs.get("helper", self.resource_helper)
+        resource_helper.delete(bigip, name=payload['name'],
+                               partition=payload['partition'])
 
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
@@ -274,6 +284,10 @@ class ListenerManager(ResourceManager):
         self._resource = "virtual server"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
+        self.http_cookie_persist_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.cookie_persistence)
+        self.source_addr_persist_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.source_addr_persistence)
         self.mutable_props = {
             "name": "description",
             "default_pool_id": "pool",
@@ -306,17 +320,76 @@ class ListenerManager(ResourceManager):
         )
 
     def _create_persist_profile(self, bigip, vs, persist):
+        persist_type = persist.get('type', "")
+        if persist_type == "APP_COOKIE":
+            return self._create_app_cookie_persist_profile(bigip, vs, persist)
+        elif persist_type == "HTTP_COOKIE":
+            return self._create_http_cookie_persist_profile(bigip, vs, persist)
+        elif persist_type == "SOURCE_IP":
+            return self._create_source_addr_persist_profile(bigip, vs, persist)
+
+    def _create_app_cookie_persist_profile(self, bigip, vs, persist):
         listener_builder = self.driver.lbaas_builder.listener_builder
         listener_builder._add_cookie_persist_rule(vs, persist, bigip)
+        return "app_cookie_" + vs['name']
 
-    def _delete_persist_profile(self, bigip, vs):
+    def _create_http_cookie_persist_profile(self, bigip, vs, persist):
+        name = "http_cookie_" + vs['name']
+        payload = {
+            "name": name,
+            "partition": vs['partition'],
+            "timeout": str(self.driver.conf.persistence_timeout)
+        }
+        super(ListenerManager, self)._create(
+            bigip, payload, None, None, type="http-cookie",
+            helper=self.http_cookie_persist_helper, overwrite=False)
+        return name
+
+    def _create_source_addr_persist_profile(self, bigip, vs, persist):
+        name = "source_addr_" + vs['name']
+        payload = {
+            "name": name,
+            "partition": vs['partition'],
+            "timeout": str(self.driver.conf.persistence_timeout)
+        }
+        super(ListenerManager, self)._create(
+            bigip, payload, None, None, type="source-addr",
+            helper=self.source_addr_persist_helper, overwrite=False)
+        return name
+
+    def _delete_app_cookie_persist_profile(self, bigip, vs):
         listener_builder = self.driver.lbaas_builder.listener_builder
         listener_builder._remove_cookie_persist_rule(vs, bigip)
 
+    def _delete_http_cookie_persist_profile(self, bigip, vs):
+        payload = {
+            "name": "http_cookie_" + vs['name'],
+            "partition": vs['partition'],
+        }
+        super(ListenerManager, self)._delete(
+            bigip, payload, None, None,
+            helper=self.http_cookie_persist_helper)
+
+    def _delete_source_addr_persist_profile(self, bigip, vs):
+        payload = {
+            "name": "source_addr_" + vs['name'],
+            "partition": vs['partition'],
+        }
+        super(ListenerManager, self)._delete(
+            bigip, payload, None, None,
+            helper=self.source_addr_persist_helper)
+
+    def _delete_persist_profile(self, bigip, vs):
+        self._delete_app_cookie_persist_profile(bigip, vs)
+        self._delete_http_cookie_persist_profile(bigip, vs)
+        self._delete_source_addr_persist_profile(bigip, vs)
+
     def _create(self, bigip, vs, listener, service):
         persist = service[self._key].get('session_persistence')
-        if persist and persist.get('type', "") == "APP_COOKIE":
-            self._create_persist_profile(bigip, vs, persist)
+        if persist:
+            profile = self._create_persist_profile(bigip, vs, persist)
+            vs['persist'] = [{"name": profile}]
+
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
@@ -326,16 +399,14 @@ class ListenerManager(ResourceManager):
         persist = None
         if vs.get('persist'):
             persist = service[self._key]['session_persistence']
-        if persist and persist.get('type', "") == "APP_COOKIE":
+        if persist:
             LOG.debug("Need to create or updte persist profile for %s %s",
                       self._resource, vs['name'])
-            self._create_persist_profile(bigip, vs, persist)
+            profile = self._create_persist_profile(bigip, vs, persist)
+            vs['persist'] = [{"name": profile}]
+
         super(ListenerManager, self)._update(bigip, vs, old_listener, listener,
                                              service)
-        if persist and persist.get('type', "") != "APP_COOKIE":
-            LOG.debug("Need to remove obsolete persist profile for %s %s",
-                      self._resource, vs['name'])
-            self._delete_persist_profile(bigip, vs)
 
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
