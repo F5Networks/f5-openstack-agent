@@ -332,7 +332,7 @@ class ListenerServiceBuilder(object):
             try:
                 u_obj = u.load(name=rule_name,
                                partition=vip["partition"])
-                u_obj.modify(rule=rule_name, timeout=timeout)
+                u_obj.modify(rule=rule_name)
                 LOG.debug("Updated persistence universal %s" % rule_name)
             except Exception as err:
                 LOG.error("Failed to update persistence universal %s" %
