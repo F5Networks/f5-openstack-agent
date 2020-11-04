@@ -1539,12 +1539,6 @@ class iControlDriver(LBaaSBaseDriver):
         """Delete loadbalancer."""
         LOG.debug("Deleting loadbalancer")
 
-        # if the lb is the last one in partition, 'last_one' will
-        #  be set True, then partition and route domain can be deleted
-        last_lb = {"last_one": loadbalancer["last_one"]}
-        lb = service.get("loadbalancer")
-        lb.update(last_lb)
-
         return self._common_service_handler(
             service,
             delete_partition=True,
@@ -2107,14 +2101,10 @@ class iControlDriver(LBaaSBaseDriver):
         except Exception as err:
             LOG.exception(err)
         finally:
-            # only delete partition if the last loadbalancer
-            # is being deleted
+
             if lb_provisioning_status == f5const.F5_PENDING_DELETE:
-                if loadbalancer.get('last_one'):
-                    self.tenant_manager.assure_tenant_cleanup(
-                        service,
-                        all_subnet_hints
-                    )
+                self.tenant_manager.assure_tenant_cleanup(service,
+                                                          all_subnet_hints)
 
             if do_service_update:
                 self.update_service_status(service)
