@@ -263,6 +263,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.ltm.persistence.ssl,
             ResourceType.universal_persistence:
                 lambda bigip: bigip.tm.ltm.persistence.universal,
+            ResourceType.http_profile:
+                lambda bigip: bigip.tm.ltm.profile.https.http,
             ResourceType.ssl_cert_file:
                 lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert
         }[self.resource_type](bigip)
