@@ -41,7 +41,7 @@ script:
     - f5-openstack-agent-dist/scripts/package_agent.sh "ubuntu" "14.04"
     - sudo chown -R travis:travis ${DIST_REPO}/rpms/build
     - sudo chown -R travis:travis ${DIST_REPO}/deb_dist/*.deb
-    # - f5-openstack-agent-dist/scripts/test_install.sh "redhat" "7" ${PKG_RELEASE_EL7}
+    - f5-openstack-agent-dist/scripts/test_install.sh "redhat" "7" ${PKG_RELEASE_EL7}
     - f5-openstack-agent-dist/scripts/test_install.sh "ubuntu" "14.04" ${PKG_RELEASE_1404}
     - |
       if [[ "$TRAVIS_BRANCH" == *"-stable" ]]; then
