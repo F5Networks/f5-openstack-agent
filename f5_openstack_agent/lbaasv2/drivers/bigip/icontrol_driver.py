@@ -1718,7 +1718,7 @@ class iControlDriver(LBaaSBaseDriver):
             # Get the latest service. It may have changed.
             service = self.plugin_rpc.get_service_by_loadbalancer_id(lb_id)
         if service.get('loadbalancer', None):
-            return self._common_service_handler(service, sync=True)
+            return self._common_service_handler(service)
         else:
             LOG.debug("Attempted sync of deleted pool")
 
@@ -1845,19 +1845,17 @@ class iControlDriver(LBaaSBaseDriver):
             loadbalancer['tenant_id']
         )
 
-        for bigip in self.get_config_bigips():
-            # Does the tenant folder exist?
-            if not self.system_helper.folder_exists(bigip, folder_name):
-                LOG.debug("Folder %s does not exist on bigip: %s" %
-                          (folder_name, bigip.hostname))
-                return False
-
         if self.network_builder:
             # append route domain to member address
             self.network_builder._annotate_service_route_domains(service)
 
         # Foreach bigip in the cluster:
         for bigip in self.get_config_bigips():
+            # Does the tenant folder exist?
+            if not self.system_helper.folder_exists(bigip, folder_name):
+                LOG.debug("Folder %s does not exist on bigip: %s" %
+                          (folder_name, bigip.hostname))
+                return False
 
             # Get the virtual address
             virtual_address = VirtualAddress(self.service_adapter,
@@ -2002,8 +2000,7 @@ class iControlDriver(LBaaSBaseDriver):
     def _common_service_handler(self, service,
                                 delete_partition=False,
                                 delete_event=False,
-                                the_port_id=None,
-                                sync=False):
+                                the_port_id=None):
 
         # Assure that the service is configured on bigip(s)
         start_time = time()
@@ -2023,7 +2020,7 @@ class iControlDriver(LBaaSBaseDriver):
                                                   f5const.F5_ERROR)
         try:
             try:
-                self.tenant_manager.assure_tenant_created(service, sync=sync)
+                self.tenant_manager.assure_tenant_created(service)
             except Exception as e:
                 LOG.error("Tenant folder creation exception: %s",
                           e.message)
