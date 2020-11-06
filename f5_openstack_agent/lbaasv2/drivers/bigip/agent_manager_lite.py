@@ -1487,7 +1487,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = l7policy['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.L7PolicyManager(self.lbdriver)
+            mgr.create(l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create l7policy %s", id)
@@ -1495,6 +1496,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.exception("Fail to create l7policy %s "
                           "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
                 self.plugin_rpc.update_l7policy_status(
@@ -1515,7 +1517,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = l7policy['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.L7PolicyManager(self.lbdriver)
+            mgr.update(old_l7policy, l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update l7policy %s", id)
@@ -1544,7 +1547,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = l7policy['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.L7PolicyManager(self.lbdriver)
+            mgr.delete(l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete l7policy %s", id)
@@ -1576,7 +1580,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = l7rule['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.L7RuleManager(self.lbdriver)
+            mgr.create(l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create l7rule %s", id)
@@ -1605,7 +1610,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         id = l7rule['id']
         try:
-            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.L7RuleManager(self.lbdriver)
+            mgr.update(old_l7rule, l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update l7rule %s", id)
@@ -1635,6 +1641,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7rule['id']
         try:
             # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.L7RuleManager(self.lbdriver)
+            mgr.delete(l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete l7rule %s", id)
