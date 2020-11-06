@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.19 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Create virtual server specific http_cookie and source_addr persistence profile
+
+Bug Fixes
+`````````
+* Improve the performance of route domain and partition cleanup
+
+Limitations
+```````````
+
 v9.8.18 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
