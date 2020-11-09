@@ -299,10 +299,6 @@ class ListenerManager(ResourceManager):
         }
 
     def _create_payload(self, listener, service):
-        # Do not support TERMINATED_HTTPS
-        if listener['protocol'] == "TERMINATED_HTTPS":
-            raise Exception("Do not support TERMINATED_HTTPS protocol")
-
         return self.driver.service_adapter.get_virtual(service)
 
     def _update_payload(self, old_listener, listener, service, **kwargs):
@@ -361,6 +357,12 @@ class ListenerManager(ResourceManager):
             helper=self.source_addr_persist_helper, overwrite=False)
         return name
 
+    def _create_ssl_profile(self, bigip, vs, tls):
+        listener_builder = self.driver.lbaas_builder.listener_builder
+        tls['name'] = vs['name']
+        tls['partition'] = vs['partition']
+        listener_builder.add_ssl_profile(tls, vs, bigip)
+
     def _delete_app_cookie_persist_profile(self, bigip, vs):
         listener_builder = self.driver.lbaas_builder.listener_builder
         listener_builder._remove_cookie_persist_rule(vs, bigip)
@@ -387,6 +389,11 @@ class ListenerManager(ResourceManager):
         self._delete_app_cookie_persist_profile(bigip, vs)
         self._delete_http_cookie_persist_profile(bigip, vs)
         self._delete_source_addr_persist_profile(bigip, vs)
+
+    def _delete_ssl_profiles(self, bigip, vs, service):
+        listener_builder = self.driver.lbaas_builder.listener_builder
+        tls = self.driver.service_adapter.get_tls(service)
+        listener_builder.remove_ssl_profiles(tls, bigip)
 
     def _delete_http_profile(self, bigip, vs):
         payload = {
@@ -454,6 +461,9 @@ class ListenerManager(ResourceManager):
                 helper=self.http_profile_helper, overwrite=False)
 
     def _create(self, bigip, vs, listener, service):
+        tls = self.driver.service_adapter.get_tls(service)
+        if tls:
+            self._create_ssl_profile(bigip, vs, tls)
         persist = service[self._key].get('session_persistence')
         if persist:
             profile = self._create_persist_profile(bigip, vs, persist)
@@ -482,6 +492,7 @@ class ListenerManager(ResourceManager):
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
         self._delete_persist_profile(bigip, vs)
+        self._delete_ssl_profiles(bigip, vs, service)
         self._delete_http_profile(bigip, vs)
 
     @serialized('ListenerManager.create')
