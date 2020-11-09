@@ -149,7 +149,12 @@ OPTS = [
         'esd_auto_refresh',
         default=True,
         help='Enable ESD file periodic refresh'
-    )
+    ),
+    cfg.StrOpt(
+        'f5_extended_profile',
+        default='',
+        help=('The file name of extended profiles definition of a listener')
+    ),
 ]
 
 PERIODIC_TASK_INTERVAL = 10
