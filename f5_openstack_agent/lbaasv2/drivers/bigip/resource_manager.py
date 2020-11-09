@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import json
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
@@ -24,9 +25,10 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from requests import HTTPError
-
+from pathlib import Path
 from time import time
+
+from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -288,6 +290,8 @@ class ListenerManager(ResourceManager):
             resource_helper.ResourceType.cookie_persistence)
         self.source_addr_persist_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.source_addr_persistence)
+        self.http_profile_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.http_profile)
         self.mutable_props = {
             "name": "description",
             "default_pool_id": "pool",
@@ -384,6 +388,71 @@ class ListenerManager(ResourceManager):
         self._delete_http_cookie_persist_profile(bigip, vs)
         self._delete_source_addr_persist_profile(bigip, vs)
 
+    def _delete_http_profile(self, bigip, vs):
+        payload = {
+            "name": "http_profile_" + vs['name'],
+            "partition": vs['partition'],
+        }
+        super(ListenerManager, self)._delete(
+            bigip, payload, None, None,
+            helper=self.http_profile_helper)
+
+    def _create_http_profile(self, bigip, vs):
+        # the logic is, if the http_profile_file is configured
+        # in the ini file, then
+        # 1) check if the configured file exists or not.
+        # 2) parse the content in the file
+        # 3) call the restful api to create the http_profile for the listener
+        # 4) set the http_profile in the profiles.
+        if self.driver.conf.f5_extended_profile:
+            # check if the file exists or not.
+            # check the content of the file content
+            file_name = self.driver.conf.f5_extended_profile
+            LOG.debug("extended profile file configured is %s",
+                      file_name)
+            profile_file = Path(file_name)
+            if not profile_file.exists():
+                LOG.warning("extended profile %s doesn't exist",
+                            file_name)
+                return
+            try:
+                with open(file_name) as fp:
+                    payload = json.load(fp)
+                if 'http_profile' not in payload:
+                    LOG.debug("http profile is not defined in %s",
+                              file_name)
+                    return
+                http_profile = payload['http_profile']
+            except ValueError:
+                LOG.warning("extended profile %s is not a valid json file",
+                            file_name)
+                return
+
+            LOG.debug("http profile content is %s", http_profile)
+
+            # The name and parition items in the file will be overwriten
+
+            if 'name' in http_profile:
+                del http_profile['name']
+            http_profile['name'] = "http_profile_" + vs['name']
+
+            if 'partition' in http_profile:
+                del http_profile['partition']
+            http_profile['partition'] = vs['partition']
+
+            profile_name = '/' + http_profile['partition'] + '/' \
+                           + http_profile['name']
+            profiles = vs.get('profiles', [])
+            # in agent_lite, we will not apply esd so that only
+            # /common/http is possibly set in the profiles.
+            if '/Common/http' in vs['profiles']:
+                profiles.remove('/Common/http')
+            profiles.append(profile_name)
+
+            super(ListenerManager, self)._create(
+                bigip, http_profile, None, None, type="http-profile",
+                helper=self.http_profile_helper, overwrite=False)
+
     def _create(self, bigip, vs, listener, service):
         persist = service[self._key].get('session_persistence')
         if persist:
@@ -393,6 +462,8 @@ class ListenerManager(ResourceManager):
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
+        if listener['protocol'] == "HTTP":
+            self._create_http_profile(bigip, vs)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
     def _update(self, bigip, vs, old_listener, listener, service):
@@ -411,6 +482,7 @@ class ListenerManager(ResourceManager):
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
         self._delete_persist_profile(bigip, vs)
+        self._delete_http_profile(bigip, vs)
 
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call

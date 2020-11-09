@@ -23,6 +23,7 @@ setuptools.setup(
     author="F5 Networks",
     author_email="f5_openstack_agent@f5.com",
     data_files=[('/etc/neutron/services/f5', ['etc/neutron/services/f5/f5-openstack-agent.ini']),
+                ('/etc/neutron/services/f5', ['etc/neutron/services/f5/f5-extended-profile.json']),
                 ('/etc/neutron/services/f5/esd', ['etc/neutron/services/f5/esd/demo.json']),
                 ('/etc/init.d', ['etc/init.d/f5-oslbaasv2-agent']),
                 ('/usr/lib/systemd/system', ['lib/systemd/system/f5-openstack-agent.service']),
