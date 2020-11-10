@@ -20,6 +20,7 @@ import hashlib
 import json
 import logging as std_logging
 import os
+import signal
 import urllib
 
 from eventlet import greenthread
@@ -713,6 +714,8 @@ class iControlDriver(LBaaSBaseDriver):
         except Exception as exc:
             LOG.error('could not communicate with ' +
                       'iControl device: %s' % hostname)
+            # pzhang: reset the signal from icontrol sdk
+            signal.alarm(0)
             # since no bigip object was created, create a dummy object
             # so we can store the status and status_message attributes
             errbigip = type('', (), {})()
