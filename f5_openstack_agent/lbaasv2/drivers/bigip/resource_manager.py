@@ -763,6 +763,9 @@ class MemberManager(ResourceManager):
             "admin_state_up": "session",
         }
 
+    def _create_member_payload(self, loadbalancer, member):
+        return self.driver.service_adapter._map_member(loadbalancer, member)
+
     def _create_payload(self, member, service):
         return self.driver.service_adapter.get_member(service)
 
@@ -798,9 +801,10 @@ class MemberManager(ResourceManager):
             name_list.append(content['name'])
 
         """ new members from bigip """
+        lb = service['loadbalancer']
         for item in lbaas_members:
             if item['name'] not in name_list:
-                content = self._create_payload(item, service)
+                content = self._create_member_payload(lb, item)
                 members_payload.append(content)
 
         if time() - start_time > .001:
@@ -838,7 +842,7 @@ class MemberManager(ResourceManager):
         if 'members' not in pool_payload:
             LOG.error("None members in pool")
             return
-        lbaas_members = pool_payload['members']
+        lbaas_members = service['members']
         bigips = self.driver.get_config_bigips()
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
