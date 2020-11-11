@@ -126,8 +126,8 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
         assert isinstance(target.cert_manager, Mock)
         assert isinstance(target.parent_ssl_profile, Mock)
         assert isinstance(target.parent_ssl_profile, Mock)
-        self.resource_bigip.assert_called_once_with(
-            self.resource_type.virtual)
+        self.resource_bigip.assert_called_with(
+            self.resource_type.ftp_profile)
 
     def test_create_listener(self, target, service_with_loadbalancer,
                              service_with_listener):

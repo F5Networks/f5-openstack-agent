@@ -64,6 +64,7 @@ class ResourceType(Enum):
     udp_monitor = 38
     sip_monitor = 39
     diameter_monitor = 40
+    ftp_profile = 41
 
 
 class BigIPResourceHelper(object):
@@ -266,7 +267,9 @@ class BigIPResourceHelper(object):
             ResourceType.http_profile:
                 lambda bigip: bigip.tm.ltm.profile.https.http,
             ResourceType.ssl_cert_file:
-                lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert
+                lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert,
+            ResourceType.ftp_profile:
+                lambda bigip: bigip.tm.ltm.profile.ftps.ftp
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
