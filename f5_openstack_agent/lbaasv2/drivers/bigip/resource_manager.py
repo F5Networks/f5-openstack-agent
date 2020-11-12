@@ -17,6 +17,8 @@ import json
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
+    import FTPProfileHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import tenants
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
@@ -292,6 +294,7 @@ class ListenerManager(ResourceManager):
             resource_helper.ResourceType.source_addr_persistence)
         self.http_profile_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.http_profile)
+        self.ftp_helper = FTPProfileHelper()
         self.mutable_props = {
             "name": "description",
             "default_pool_id": "pool",
@@ -468,6 +471,9 @@ class ListenerManager(ResourceManager):
         if persist:
             profile = self._create_persist_profile(bigip, vs, persist)
             vs['persist'] = [{"name": profile}]
+        ftp_enable = self.ftp_helper.enable_ftp(service)
+        if ftp_enable:
+            self.ftp_helper.add_profile(service, vs, bigip)
 
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
@@ -494,6 +500,9 @@ class ListenerManager(ResourceManager):
         self._delete_persist_profile(bigip, vs)
         self._delete_ssl_profiles(bigip, vs, service)
         self._delete_http_profile(bigip, vs)
+        ftp_enable = self.ftp_helper.enable_ftp(service)
+        if ftp_enable:
+            self.ftp_helper.remove_profile(service, vs, bigip)
 
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
