@@ -16,6 +16,8 @@
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
+    import FTPProfileHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import ssl_profile
 from requests import HTTPError
@@ -39,6 +41,7 @@ class ListenerServiceBuilder(object):
         self.parent_ssl_profile = self.conf.f5_parent_ssl_profile
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
+        self.ftp_helper = FTPProfileHelper()
         self.service_adapter = service_adapter
         LOG.debug("ListenerServiceBuilder: using parent_ssl_profile %s ",
                   self.parent_ssl_profile)
@@ -64,6 +67,9 @@ class ListenerServiceBuilder(object):
             tls['partition'] = vip['partition']
 
         persist = listener.get("session_persistence", None)
+
+        ftp_enable = self.ftp_helper.enable_ftp(service)
+
         error = None
         for bigip in bigips:
 
@@ -74,6 +80,9 @@ class ListenerServiceBuilder(object):
 
             if persist and persist.get('type', "") == "APP_COOKIE":
                 self._add_cookie_persist_rule(vip, persist, bigip)
+
+            if ftp_enable:
+                self.ftp_helper.add_profile(service, vip, bigip)
 
             try:
                 if self.vs_helper.exists(bigip,
@@ -123,6 +132,8 @@ class ListenerServiceBuilder(object):
         """
         vip = self.service_adapter.get_virtual_name(service)
         tls = self.service_adapter.get_tls(service)
+        ftp_enable = self.ftp_helper.enable_ftp(service)
+
         if tls:
             tls['name'] = vip['name']
             tls['partition'] = vip['partition']
@@ -145,6 +156,15 @@ class ListenerServiceBuilder(object):
 
             # delete ssl profiles
             self.remove_ssl_profiles(tls, bigip)
+
+            if ftp_enable:
+                try:
+                    self.ftp_helper.remove_profile(
+                        service, vip, bigip)
+                except HTTPError as err:
+                    # if we raise here, does it cause
+                    # data inconsistency?
+                    LOG.exception(err.message)
 
             # delete cookie perist rules
             try:

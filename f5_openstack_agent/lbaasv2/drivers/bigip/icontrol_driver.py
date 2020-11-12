@@ -1774,6 +1774,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         return rename_required
 
+    # pzhang: is anyone use this function?
     def service_object_teardown(self, service):
 
         # Returns whether the bigip has a pool for the service

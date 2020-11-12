@@ -562,7 +562,8 @@ class ServiceModelAdapter(object):
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
         protocol = listener.get('protocol', "")
-        if protocol not in ["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS", "UDP"]:
+        if protocol not in ["HTTP", "HTTPS", "TCP", 'FTP',
+                            "TERMINATED_HTTPS", "UDP"]:
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
 
