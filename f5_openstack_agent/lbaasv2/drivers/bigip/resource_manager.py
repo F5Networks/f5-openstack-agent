@@ -19,6 +19,8 @@ import urllib
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
     import FTPProfileHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_adapter \
+    import L7PolicyServiceAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import tenants
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
@@ -63,7 +65,10 @@ class ResourceManager(object):
                             self._key, resource['id'], service)
 
     def _create_payload(self, resource, service):
-        return {}
+        return {
+            "name": "faked",
+            "partition": "faked"
+        }
 
     def _update_payload(self, old_resource, resource, service, **kwargs):
         payload = kwargs.get('payload', {})
@@ -1017,3 +1022,274 @@ class MemberManager(ResourceManager):
                                                'name', 'loadBalancingMode'])
             self._pool_mgr._update(bigip, pool_payload, None, None, service)
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
+
+
+class L7PolicyManager(ResourceManager):
+
+    _collection_key = 'l7policies'
+    _key = 'l7policy'
+
+    def __init__(self, driver):
+        super(L7PolicyManager, self).__init__(driver)
+        self._resource = "l7policy"
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.l7policy)
+        self.irule_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.rule)
+        self.listener_mgr = ListenerManager(driver)
+        self.l7rule_mgr = L7RuleManager(driver, l7policy_manager=self)
+
+    def _get_policy_dict(self, l7policy, service):
+        l7policy_adapter = L7PolicyServiceAdapter(self.driver.conf)
+        policy_dict = {
+            "l7rules": [],
+            "l7policies": [],
+            "f5_policy": {},
+            "iRules": []
+        }
+        # Gather all l7policies and l7rules of this listener
+        listener_id = l7policy['listener_id']
+        for policy in service['l7policies']:
+            if policy['listener_id'] == listener_id:
+                policy_dict['l7policies'].append(policy)
+                for rule in service['l7policy_rules']:
+                    if rule['policy_id'] == policy['id']:
+                        policy_dict['l7rules'].append(rule)
+        policy_dict['f5_policy'] = l7policy_adapter.translate(policy_dict)
+        if getattr(l7policy_adapter, 'iRules', None):
+            policy_dict['iRules'] = l7policy_adapter.iRules
+        self.policy_dict = policy_dict
+        return policy_dict
+
+    def _create_payload(self, l7policy, service):
+        policy_dict = self._get_policy_dict(l7policy, service)
+        return policy_dict['f5_policy']
+
+    def _create_ltm_policy(self, bigip, payload, l7policy, service):
+        # Load the existing virtual server
+        self.listener_mgr._search_element({"id": l7policy['listener_id']},
+                                          service)
+        vs_helper = self.listener_mgr.resource_helper
+        vs_name = self.driver.service_adapter.get_virtual_name(service)
+        vs = vs_helper.load(bigip, name=vs_name['name'],
+                            partition=vs_name['partition'])
+
+        name = payload['name']
+        partition = payload['partition']
+
+        need_to_attach = True
+        if not payload.get('rules', list()):
+            # LTM policy has no rules. Cannot attach it to virtual server
+            need_to_attach = False
+
+        already_attached = vs.policies_s.policies.exists(name=name,
+                                                         partition=partition)
+
+        # Detach and empty policy first, if it has been attached perviously
+        if not need_to_attach and already_attached:
+            LOG.debug("Detach policy %s from virtula server %s", name, vs_name)
+            policy = vs.policies_s.policies.load(name=name,
+                                                 partition=partition)
+            policy.delete()
+            super(L7PolicyManager, self)._delete(bigip, payload, None, None)
+
+        # Do not create an empty policy, which cannot be attached.
+        # Purge job will cleanup all LTM policies, which are not attached
+        if not need_to_attach:
+            return
+
+        # Create or Update LTM policy
+        super(L7PolicyManager, self)._create(bigip, payload, None, None)
+
+        if need_to_attach and not already_attached:
+            # Attach LTM policy to virtual server
+            LOG.debug("Attach policy %s to virtula server %s", name, vs_name)
+            try:
+                vs.policies_s.policies.create(name=name, partition=partition)
+            except HTTPError as ex:
+                if ex.response.status_code == 404:
+                    # iControl API has bug. It may return 404 when attaching
+                    # an LTM policy to virtual server. Need to try again and
+                    # get 409 response to confirm the policy has been attached.
+                    try:
+                        vs.policies_s.policies.create(name=name,
+                                                      partition=partition)
+                    except HTTPError as ex:
+                        if ex.response.status_code == 409:
+                            LOG.debug("LTM policy %s has been attached", name)
+                        else:
+                            LOG.error("Fail to attach LTM policy %s", name)
+                            raise ex
+                    except Exception as ex:
+                        raise ex
+            except Exception as ex:
+                raise ex
+
+    def _create(self, bigip, payload, l7policy, service, **kwargs):
+        # Create or update LTM policy
+        self._create_ltm_policy(bigip, payload, l7policy, service)
+        # Create or update all iRules
+        for irule in self.policy_dict['iRules']:
+            self.l7rule_mgr._create(bigip, irule, None, service)
+
+    def _delete(self, bigip, payload, l7policy, service, **kwargs):
+        # Create or update LTM policy
+        self._create_ltm_policy(bigip, payload, l7policy, service)
+        # Delete all iRules of this l7policy
+        for l7rule in service[self.l7rule_mgr._collection_key]:
+            if l7rule['policy_id'] == l7policy['id'] and \
+               l7rule['compare_type'] == "REGEX":
+                self.l7rule_mgr._delete(bigip, None, l7rule, service)
+
+    @serialized('L7PolicyManager.create')
+    @log_helpers.log_method_call
+    def create(self, l7policy, service, **kwargs):
+        super(L7PolicyManager, self).create(l7policy, service)
+
+    @serialized('L7PolicyManager.update')
+    @log_helpers.log_method_call
+    def update(self, old_l7policy, l7policy, service, **kwargs):
+        super(L7PolicyManager, self).create(l7policy, service)
+
+    @serialized('L7PolicyManager.delete')
+    @log_helpers.log_method_call
+    def delete(self, l7policy, service, **kwargs):
+        super(L7PolicyManager, self).delete(l7policy, service)
+
+
+class L7RuleManager(ResourceManager):
+
+    _collection_key = 'l7policy_rules'
+    _key = 'l7rule'
+
+    def __init__(self, driver, **kwargs):
+        super(L7RuleManager, self).__init__(driver)
+        self._resource = "l7rule"
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.rule)
+        self.l7policy_mgr = kwargs.get("l7policy_manager")
+        if not self.l7policy_mgr:
+            self.l7policy_mgr = L7PolicyManager(driver)
+        self.mutable_props = {
+            "type": "apiAnonymous",
+            "invert": "apiAnonymous",
+            "key": "apiAnonymous",
+            "value": "apiAnonymous",
+            "admin_state_up": "apiAnonymous"
+        }
+
+    def _search_l7policy_and_listener(self, l7rule, service):
+        self.l7policy_mgr._search_element({"id": l7rule['l7policy_id']},
+                                          service)
+        self._l7policy = service[self.l7policy_mgr._key]
+
+        listener_mgr = self.l7policy_mgr.listener_mgr
+        listener_mgr._search_element({"id": self._l7policy['listener_id']},
+                                     service)
+        self._listener = service[listener_mgr._key]
+
+    def _create_payload(self, l7rule, service):
+        policy = self.l7policy_mgr._get_policy_dict(self._l7policy, service)
+        for irule in policy['iRules']:
+            if irule['name'] == "irule_" + l7rule['id']:
+                return irule
+        return super(L7RuleManager, self)._create_payload(l7rule, service)
+
+    def _attach_irule_to_vs(self, bigip, payload, l7rule, service):
+        # Attach iRule to virtual server
+        vs_payload = self.driver.service_adapter.get_virtual_name(service)
+        vs_helper = self.l7policy_mgr.listener_mgr.resource_helper
+        vs = vs_helper.load(bigip, name=vs_payload['name'],
+                            partition=vs_payload['partition'])
+        vs_payload['rules'] = vs.rules
+        # Append iRule to virtual server
+        # iControl API can tolerate duplicated items
+        vs_payload['rules'].append("/" + payload['partition'] +
+                                   "/" + payload['name'])
+        self.l7policy_mgr.listener_mgr._update(bigip, vs_payload,
+                                               None, None, None)
+
+    def _create(self, bigip, payload, l7rule, service, **kwargs):
+        super(L7RuleManager, self)._create(bigip, payload, None, None)
+        self._attach_irule_to_vs(bigip, payload, l7rule, service)
+
+    def _update(self, bigip, payload, old_l7rule, l7rule, service, **kwargs):
+        super(L7RuleManager, self)._update(bigip, payload, None, None)
+        self._attach_irule_to_vs(bigip, payload, l7rule, service)
+
+    def _delete(self, bigip, payload, l7rule, service, **kwargs):
+        # Detach iRule from virtual server and delete it
+        vs_payload = self.driver.service_adapter.get_virtual_name(service)
+        vs_helper = self.l7policy_mgr.listener_mgr.resource_helper
+        vs = vs_helper.load(bigip, name=vs_payload['name'],
+                            partition=vs_payload['partition'])
+        irule = {
+            "name": "irule_" + l7rule['id'],
+            "partition": vs_payload['partition']
+        }
+        irule_path = "/" + irule['partition'] + "/" + irule['name']
+        vs_payload['rules'] = vs.rules
+        # Exclude this REGEX l7rule from virtual server
+        if irule_path in vs_payload['rules']:
+            LOG.debug("Detach iRule %s from virtual server %s",
+                      irule_path, vs_payload['name'])
+            vs_payload['rules'].remove(irule_path)
+            self.l7policy_mgr.listener_mgr._update(bigip, vs_payload,
+                                                   None, None, None)
+        super(L7RuleManager, self)._delete(bigip, irule, None, None)
+
+    @serialized('L7RuleManager._create_irule')
+    @log_helpers.log_method_call
+    def _create_irule(self, l7rule, service, **kwargs):
+        # Just a wrapper to utilize serialized decorator appropriately
+        super(L7RuleManager, self).create(l7rule, service)
+
+    @serialized('L7RuleManager._update_irule')
+    @log_helpers.log_method_call
+    def _update_irule(self, old_l7rule, l7rule, service, **kwargs):
+        # Just a wrapper to utilize serialized decorator appropriately
+        super(L7RuleManager, self).update(old_l7rule, l7rule, service)
+
+    @serialized('L7RuleManager._delete_irule')
+    @log_helpers.log_method_call
+    def _delete_irule(self, l7rule, service, **kwargs):
+        # Just a wrapper to utilize serialized decorator appropriately
+        super(L7RuleManager, self).delete(l7rule, service)
+
+    @log_helpers.log_method_call
+    def _update_ltm_policy(self, l7policy, service):
+        self.l7policy_mgr.create(l7policy, service)
+
+    @log_helpers.log_method_call
+    def create(self, l7rule, service, **kwargs):
+        self._search_l7policy_and_listener(l7rule, service)
+        if l7rule['compare_type'] == "REGEX":
+            # Create iRule
+            self._create_irule(l7rule, service, **kwargs)
+        else:
+            # Update LTM policy
+            self._update_ltm_policy(self._l7policy, service)
+
+    @log_helpers.log_method_call
+    def update(self, old_l7rule, l7rule, service, **kwargs):
+        self._search_l7policy_and_listener(l7rule, service)
+        # Neutron LBaaS may have bugs. The old_l7rule and l7rule are always
+        # identical, so that we are not able to identify the detail infomation.
+        # Have to always update LTM policy and refresh iRule in any cases.
+        self._update_ltm_policy(self._l7policy, service)
+        if l7rule['compare_type'] == "REGEX":
+            # Create iRule
+            self._create_irule(l7rule, service, **kwargs)
+        else:
+            # Delete iRule
+            self._delete_irule(l7rule, service, **kwargs)
+
+    @log_helpers.log_method_call
+    def delete(self, l7rule, service, **kwargs):
+        self._search_l7policy_and_listener(l7rule, service)
+        if l7rule['compare_type'] == "REGEX":
+            # Delete iRule
+            self._delete_irule(l7rule, service, **kwargs)
+        else:
+            # Update LTM policy
+            self._update_ltm_policy(self._l7policy, service)
