@@ -343,10 +343,22 @@ class ListenerManager(ResourceManager):
 
     def _create_http_cookie_persist_profile(self, bigip, vs, persist):
         name = "http_cookie_" + vs['name']
+        timeout = self.driver.conf.persistence_timeout
+        rest = timeout
+        day = str(rest / 86400)
+        rest = rest % 86400
+        hour = str(rest / 3600)
+        rest = rest % 3600
+        minute = str(rest / 60)
+        rest = rest % 60
+        second = str(rest)
+        # expiration format is d:h:m:s
+        expiration = day + ":" + hour + ":" + minute + ":" + second
         payload = {
             "name": name,
             "partition": vs['partition'],
-            "timeout": str(self.driver.conf.persistence_timeout)
+            "expiration": expiration,
+            "timeout": str(timeout)
         }
         super(ListenerManager, self)._create(
             bigip, payload, None, None, type="http-cookie",
