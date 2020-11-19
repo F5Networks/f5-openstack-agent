@@ -806,7 +806,7 @@ class MemberManager(ResourceManager):
     def _create_payload(self, member, service):
         return self.driver.service_adapter.get_member(service)
 
-    def _merge_members(self, lbaas_members, bigip_members, service):
+    def _merge_members(self, lbaas_members, bigip_members, pool_id, service):
         members_payload = []
         name_list = []
 
@@ -840,7 +840,8 @@ class MemberManager(ResourceManager):
         """ new members from bigip """
         lb = service['loadbalancer']
         for item in lbaas_members:
-            if item['name'] not in name_list:
+            if item['name'] not in name_list and \
+               item['pool_id'] == pool_id:
                 content = self._create_member_payload(lb, item)
                 members_payload.append(content)
 
@@ -879,6 +880,7 @@ class MemberManager(ResourceManager):
         if 'members' not in pool_payload:
             LOG.error("None members in pool")
             return
+        pool_id = pool['id']
         lbaas_members = service['members']
         bigips = self.driver.get_config_bigips()
         for bigip in bigips:
@@ -891,7 +893,7 @@ class MemberManager(ResourceManager):
 
             del pool_payload['members']
             new_payload = self._merge_members(
-                lbaas_members, bigip_members, service)
+                lbaas_members, bigip_members, pool_id, service)
             pool_payload['members'] = new_payload
             self._shrink_payload(pool_payload,
                                  keys_to_keep=['partition',
