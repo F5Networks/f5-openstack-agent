@@ -625,6 +625,7 @@ class PoolManager(ResourceManager):
             mgr._update(bigip, listener_payload, None, listener, service)
 
     def _update(self, bigip, payload, old_pool, pool, service):
+        persist = None
         # Update listener session persistency if necessary
         if payload.get("session_persistence"):
             mgr = ListenerManager(self.driver)
