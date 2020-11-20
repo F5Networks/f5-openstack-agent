@@ -637,6 +637,9 @@ class PoolManager(ResourceManager):
                         keys_to_keep=['partition', 'name', 'persist']
                     )
                     mgr._update(bigip, listener_payload, None, None, service)
+            # Exclude session_persistence from pool payload temporarily,
+            # in order to update other properties of pool resource
+            persist = payload['session_persistence']
             del payload['session_persistence']
         # Pool has other props to update
         for key in payload.keys():
@@ -644,6 +647,10 @@ class PoolManager(ResourceManager):
                 super(PoolManager, self)._update(bigip, payload, old_pool,
                                                  pool, service)
                 break
+        # Restore session_persistence, if it used to be there. Other bigips
+        # can continue to utilize this payload to run _update() routine
+        if persist:
+            payload['session_persistence'] = persist
 
     def _delete(self, bigip, payload, pool, service):
 
