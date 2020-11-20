@@ -474,7 +474,9 @@ class ListenerManager(ResourceManager):
             # /common/http is possibly set in the profiles.
             if '/Common/http' in vs['profiles']:
                 profiles.remove('/Common/http')
-            profiles.append(profile_name)
+
+            if profile_name not in vs['profiles']:
+                profiles.append(profile_name)
 
             super(ListenerManager, self)._create(
                 bigip, http_profile, None, None, type="http-profile",
