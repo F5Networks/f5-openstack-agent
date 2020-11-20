@@ -2405,6 +2405,10 @@ class iControlDriver(LBaaSBaseDriver):
             if hasattr(self.__bigips[host], 'status') and \
                self.__bigips[host].status == 'active':
                 return_bigips.append(self.__bigips[host])
+        msg = "Current active bigips are:"
+        for bigip in return_bigips:
+            msg = msg + " " + bigip.hostname
+        LOG.debug(msg)
         return return_bigips
 
     def get_config_bigips(self):
