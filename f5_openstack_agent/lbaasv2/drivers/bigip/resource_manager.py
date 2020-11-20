@@ -307,7 +307,14 @@ class ListenerManager(ResourceManager):
         }
 
     def _create_payload(self, listener, service):
-        return self.driver.service_adapter.get_virtual(service)
+        payload = self.driver.service_adapter.get_virtual(service)
+        profiles = payload.get('profiles', [])
+        if '/Common/http' in profiles:
+            profiles.remove('/Common/http')
+            profile_name = '/' + payload['partition'] + '/' \
+                           + 'http_profile_' + payload['name']
+            profiles.append(profile_name)
+        return payload
 
     def _update_payload(self, old_listener, listener, service, **kwargs):
         payload = {}
@@ -467,15 +474,6 @@ class ListenerManager(ResourceManager):
                 del http_profile['partition']
             http_profile['partition'] = vs['partition']
 
-            profile_name = '/' + http_profile['partition'] + '/' \
-                           + http_profile['name']
-            profiles = vs.get('profiles', [])
-            # in agent_lite, we will not apply esd so that only
-            # /common/http is possibly set in the profiles.
-            if '/Common/http' in vs['profiles']:
-                profiles.remove('/Common/http')
-            profiles.append(profile_name)
-
             super(ListenerManager, self)._create(
                 bigip, http_profile, None, None, type="http-profile",
                 helper=self.http_profile_helper, overwrite=False)
@@ -495,7 +493,8 @@ class ListenerManager(ResourceManager):
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
-        if listener['protocol'] == "HTTP":
+        if listener['protocol'] == "HTTP" or \
+           listener['protocol'] == "TERMINATED_HTTPS":
             self._create_http_profile(bigip, vs)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
