@@ -523,6 +523,14 @@ class ListenerManager(ResourceManager):
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
     def create(self, listener, service, **kwargs):
+        loadbalancer = service.get("loadbalancer", None)
+        traffic_group = self.driver.service_to_traffic_group(service)
+        loadbalancer['traffic_group'] = traffic_group
+
+        # pzhang: add a destination vip with route domain in service
+        if not self.driver.conf.f5_global_routed_mode:
+            self.driver.network_builder.prep_service_networking(
+                service, traffic_group)
         super(ListenerManager, self).create(listener, service)
 
     @serialized('ListenerManager.update')
