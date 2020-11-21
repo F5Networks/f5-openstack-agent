@@ -5,6 +5,23 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.20 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Support L7Policy and L7Rule in Agent lite mode
+* Support FTP and TERMINATED_HTTPS protocol in Agent lite mode
+* Support to create VS specific http profile, cookie persistence profile and source_addr persistence profile
+
+Bug Fixes
+`````````
+* Fix HA sync bug in L2 network mode
+
+Limitations
+```````````
+
 v9.8.19 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
