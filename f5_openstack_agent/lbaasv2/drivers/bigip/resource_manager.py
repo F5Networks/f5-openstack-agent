@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 import json
+import os
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
@@ -29,7 +30,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from pathlib import Path
 from time import time
 
 from requests import HTTPError
@@ -444,8 +444,7 @@ class ListenerManager(ResourceManager):
             file_name = self.driver.conf.f5_extended_profile
             LOG.debug("extended profile file configured is %s",
                       file_name)
-            profile_file = Path(file_name)
-            if not profile_file.exists():
+            if not os.path.exists(file_name):
                 LOG.warning("extended profile %s doesn't exist",
                             file_name)
                 return
