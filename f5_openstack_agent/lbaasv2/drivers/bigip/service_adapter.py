@@ -452,7 +452,7 @@ class ServiceModelAdapter(object):
 
         port = listener.get("protocol_port", None)
         ip_address = loadbalancer.get("vip_address", None)
-        if ip_address and port:
+        if ip_address and port >= 0:
             if str(ip_address).endswith('%0'):
                 ip_address = ip_address[:-2]
 
