@@ -329,6 +329,17 @@ class ListenerManager(ResourceManager):
         if old_listener['default_pool_id'] != listener['default_pool_id']:
             payload['persist'] = create_payload['persist']
 
+        if listener['protocol'] == "TERMINATED_HTTPS":
+            LOG.debug("Finding tls setting  differences.")
+            old_sni = [n['tls_container_id']
+                       for n in old_listener['sni_containers']]
+            sni = [n['tls_container_id']
+                   for n in listener['sni_containers']]
+            if old_listener['default_tls_container_id'] != \
+               listener['default_tls_container_id'] or old_sni != sni:
+                payload['tls'] = "tls change"
+                LOG.debug("tls changes happen")
+
         return super(ListenerManager, self)._update_payload(
             old_listener, listener, service,
             payload=payload, create_payload=create_payload
@@ -498,6 +509,25 @@ class ListenerManager(ResourceManager):
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
     def _update(self, bigip, vs, old_listener, listener, service):
+        # Add conditions here for more update requests via vs['profiles']
+        if 'tls' in vs:
+            vs_manager = resource_helper.BigIPResourceHelper(
+                resource_helper.ResourceType.virtual)
+            l_objs = vs_manager.get_resources(
+                bigip, partition=vs['partition'], expand_subcollections=True)
+            v = filter(lambda x: x.name == vs['name'], l_objs)[0]
+            orig_profiles = v.profilesReference
+
+            if 'profiles' not in vs:
+                vs['profiles'] = list()
+            vs['profiles'] += orig_profiles['items']
+            for n in vs['profiles']:
+                if n['context'] == 'clientside':
+                    vs['profiles'].remove(n)
+            tls = self.driver.service_adapter.get_tls(service)
+            if tls:
+                self._create_ssl_profile(bigip, vs, tls)
+
         persist = None
         if vs.get('persist'):
             persist = service[self._key]['session_persistence']
@@ -509,6 +539,9 @@ class ListenerManager(ResourceManager):
 
         super(ListenerManager, self)._update(bigip, vs, old_listener, listener,
                                              service)
+
+        old_service = {"listener": old_listener}
+        self._delete_ssl_profiles(bigip, vs, old_service)
 
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
