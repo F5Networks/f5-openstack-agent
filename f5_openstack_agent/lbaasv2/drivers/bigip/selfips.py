@@ -159,13 +159,22 @@ class BigipSelfIpManager(object):
         if len(ports) > 0:
             port = ports[0]
         else:
+            host_passed = None
+            if self.driver.conf.separate_host:
+                LOG.info('using separate_host:')
+                LOG.info(bigip.device_name)
+                host_passed = bigip.device_name
+            LOG.info('host_passed here is:')
+            LOG.info(host_passed)
+
             port = self.driver.plugin_rpc.create_port_on_subnet(
                 subnet_id=subnet['id'],
                 mac_address=None,
                 name=selfip_name,
                 fixed_address_count=1,
                 device_id=device_id,
-                vnic_type=vnic_type
+                vnic_type=vnic_type,
+                host_passed=host_passed
             )
 
         if port and 'fixed_ips' in port:
