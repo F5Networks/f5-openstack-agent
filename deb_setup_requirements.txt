@@ -1,5 +1,5 @@
 # this file stores required dependencies of f5 agent for ubuntu
-f5-sdk==3.0.11
+f5-sdk==3.0.11.1
 
 pyasn1-modules>=0.0.3-1
 cryptography>=1.0.1-1ubuntu1~clo
