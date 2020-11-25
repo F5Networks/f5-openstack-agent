@@ -65,6 +65,7 @@ class ResourceType(Enum):
     sip_monitor = 39
     diameter_monitor = 40
     ftp_profile = 41
+    bwc_policy = 42
 
 
 class BigIPResourceHelper(object):
@@ -269,7 +270,9 @@ class BigIPResourceHelper(object):
             ResourceType.ssl_cert_file:
                 lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert,
             ResourceType.ftp_profile:
-                lambda bigip: bigip.tm.ltm.profile.ftps.ftp
+                lambda bigip: bigip.tm.ltm.profile.ftps.ftp,
+            ResourceType.bwc_policy:
+                lambda bigip: bigip.tm.net.bwc.policys.policy
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -339,7 +342,9 @@ class BigIPResourceHelper(object):
             ResourceType.http_profile:
                 lambda bigip: bigip.tm.ltm.profile.https,
             ResourceType.oneconnect:
-                lambda bigip: bigip.tm.ltm.profile.one_connects
+                lambda bigip: bigip.tm.ltm.profile.one_connects,
+            ResourceType.bwc_policy:
+                lambda bigip: bigip.tm.net.bwc.policys
         }
 
         if self.resource_type in collection_map:
