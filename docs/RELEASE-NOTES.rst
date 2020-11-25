@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.30 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Support port number 0
+* Add a placeholder for bulk
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+
 v9.8.21 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
