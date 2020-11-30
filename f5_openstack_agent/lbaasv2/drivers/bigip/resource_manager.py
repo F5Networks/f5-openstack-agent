@@ -520,10 +520,8 @@ class ListenerManager(ResourceManager):
 
             if 'profiles' not in vs:
                 vs['profiles'] = list()
-            vs['profiles'] += orig_profiles['items']
-            for n in vs['profiles']:
-                if n['context'] == 'clientside':
-                    vs['profiles'].remove(n)
+            vs['profiles'] += filter(
+                lambda x: x['context'] != 'clientside', orig_profiles['items'])
             tls = self.driver.service_adapter.get_tls(service)
             if tls:
                 self._create_ssl_profile(bigip, vs, tls)
