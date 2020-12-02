@@ -538,8 +538,9 @@ class ListenerManager(ResourceManager):
         super(ListenerManager, self)._update(bigip, vs, old_listener, listener,
                                              service)
 
-        old_service = {"listener": old_listener}
-        self._delete_ssl_profiles(bigip, vs, old_service)
+        if 'tls' in vs and old_listener:
+            old_service = {"listener": old_listener}
+            self._delete_ssl_profiles(bigip, vs, old_service)
 
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
