@@ -399,7 +399,24 @@ class ListenerManager(ResourceManager):
         listener_builder = self.driver.lbaas_builder.listener_builder
         tls['name'] = vs['name']
         tls['partition'] = vs['partition']
-        listener_builder.add_ssl_profile(tls, vs, bigip)
+
+        # Create default client ssl profile
+        if "default_tls_container_id" in tls:
+            container_ref = tls["default_tls_container_id"]
+            listener_builder._create_ssl_profile(
+                container_ref, bigip, vs, True,
+                profile_name=vs['name'])
+
+        # Create SNI client ssl profile
+        if "sni_containers" in tls and tls["sni_containers"]:
+            for container in tls["sni_containers"]:
+                container_ref = container["tls_container_id"]
+                # SNI profile suffix is the container id of sni cert
+                i = container_ref.rindex("/") + 1
+                name = vs['name'] + "_sni_" + container_ref[i:]
+                listener_builder._create_ssl_profile(
+                    container_ref, bigip, vs, False,
+                    profile_name=name)
 
     def _delete_app_cookie_persist_profile(self, bigip, vs):
         listener_builder = self.driver.lbaas_builder.listener_builder
@@ -431,7 +448,20 @@ class ListenerManager(ResourceManager):
     def _delete_ssl_profiles(self, bigip, vs, service):
         listener_builder = self.driver.lbaas_builder.listener_builder
         tls = self.driver.service_adapter.get_tls(service)
-        listener_builder.remove_ssl_profiles(tls, bigip)
+
+        # Delete default client ssl profile
+        if "default_tls_container_id" in tls and \
+                tls["default_tls_container_id"]:
+            listener_builder._remove_ssl_profile(vs['name'], bigip)
+
+        # Delete sni client ssl profiles
+        if "sni_containers" in tls and tls["sni_containers"]:
+            for container in tls["sni_containers"]:
+                container_ref = container['tls_container_id']
+                # SNI profile suffix is the container id of sni cert
+                i = container_ref.rindex("/") + 1
+                name = vs['name'] + "_sni_" + container_ref[i:]
+                listener_builder._remove_ssl_profile(name, bigip)
 
     def _delete_http_profile(self, bigip, vs):
         payload = {

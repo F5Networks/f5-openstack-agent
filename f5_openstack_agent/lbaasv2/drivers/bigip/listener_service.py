@@ -186,8 +186,8 @@ class ListenerServiceBuilder(object):
                 container_ref = container["tls_container_id"]
                 self._create_ssl_profile(container_ref, bigip, vip, False)
 
-    def _create_ssl_profile(
-            self, container_ref, bigip, vip, sni_default=False):
+    def _create_ssl_profile(self, container_ref, bigip, vip,
+                            sni_default=False, profile_name=None):
         cert = self.cert_manager.get_certificate(container_ref)
         intermediates = self.cert_manager.get_intermediates(container_ref)
         key = self.cert_manager.get_private_key(container_ref)
@@ -200,13 +200,16 @@ class ListenerServiceBuilder(object):
 
         name = self.cert_manager.get_name(container_ref,
                                           self.service_adapter.prefix)
+        if not profile_name:
+            profile_name = name
 
         try:
             # upload cert/key and create SSL profile
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
                 bigip, name, cert, key, key_passphrase=key_passphrase,
                 sni_default=sni_default, intermediates=chain,
-                parent_profile=self.parent_ssl_profile)
+                parent_profile=self.parent_ssl_profile,
+                profile_name=profile_name)
         except HTTPError as err:
             if err.response.status_code != 409:
                 LOG.error("SSL profile creation error: %s" %
@@ -221,7 +224,7 @@ class ListenerServiceBuilder(object):
         if 'profiles' not in vip:
             vip['profiles'] = list()
 
-        client_ssl_profile = {'name': name, 'context': "clientside"}
+        client_ssl_profile = {'name': profile_name, 'context': "clientside"}
         if client_ssl_profile not in vip['profiles']:
             vip['profiles'].append(client_ssl_profile)
 
