@@ -305,12 +305,14 @@ class ListenerManager(ResourceManager):
             "default_pool_id": "pool",
             "connection_limit": "connectionLimit"
         }
+        self.http_profile_created = False
 
     def _create_payload(self, listener, service):
         payload = self.driver.service_adapter.get_virtual(service)
         profiles = payload.get('profiles', [])
-        if '/Common/http' in profiles:
-            profiles.remove('/Common/http')
+        if self.http_profile_created is True:
+            if '/Common/http' in profiles:
+                profiles.remove('/Common/http')
             profile_name = '/' + payload['partition'] + '/' \
                            + 'http_profile_' + payload['name']
             profiles.append(profile_name)
@@ -484,6 +486,7 @@ class ListenerManager(ResourceManager):
                 del http_profile['partition']
             http_profile['partition'] = vs['partition']
 
+            self.http_profile_created = True
             super(ListenerManager, self)._create(
                 bigip, http_profile, None, None, type="http-profile",
                 helper=self.http_profile_helper, overwrite=False)
