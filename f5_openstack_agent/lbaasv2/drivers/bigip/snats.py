@@ -53,7 +53,7 @@ class BigipSnatManager(object):
         return ''
 
     def _get_snat_traffic_group(self, tenant_id):
-        # Get the snat name based on HA type """
+        # Get the snat name based on HA type
         if self.driver.conf.f5_ha_type == 'standalone':
             return 'traffic-group-local-only'
         elif self.driver.conf.f5_ha_type == 'pair':
@@ -67,7 +67,7 @@ class BigipSnatManager(object):
 
     def get_snat_addrs(self, subnetinfo, tenant_id, snat_count, lb_id,
                        provider_name):
-        # Get the ip addresses for snat """
+        # Get the ip addresses for snat
         if self.driver.conf.unlegacy_setting_placeholder:
             LOG.debug('setting vnic_type to normal instead of baremetal')
             vnic_type = "normal"
@@ -224,7 +224,7 @@ class BigipSnatManager(object):
                                         provider_name)
 
     def _remove_assured_tenant_snat_subnet(self, bigip, tenant_id, subnet):
-        # Remove ref for the subnet for this tenant"""
+        # Remove ref for the subnet for this tenant
         if tenant_id in bigip.assured_tenant_snat_subnets:
             tenant_snat_subnets = \
                 bigip.assured_tenant_snat_subnets[tenant_id]
@@ -245,7 +245,7 @@ class BigipSnatManager(object):
                 'bigip.assured_tenant_snat_subnets' % tenant_id)
 
     def _delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
-        # Assure snats deleted in standalone mode """
+        # Assure snats deleted in standalone mode
         subnet = subnetinfo['subnet']
         network = subnetinfo['network']
         if self.l2_service.is_common_network(network):

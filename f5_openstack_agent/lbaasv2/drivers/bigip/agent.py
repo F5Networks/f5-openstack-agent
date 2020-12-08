@@ -97,15 +97,21 @@ def main():
         manager=mgr
     )
 
-    def handler(*args):
+    def esd_handler(*args):
         LOG.info("receive signal to refresh ESD files!")
         if mgr.lbdriver.esd_processor:
             mgr.lbdriver.init_esd()
             LOG.info("ESD has been refreshed")
 
+    def neutron_sync_handler(*args):
+        LOG.info("receive signal to sync data from neutron !")
+        mgr.neutron_db_sync()
+        LOG.info("neutron data has been synced")
+
     service_launch = service_launcher.F5ServiceLauncher(cfg.CONF)
 
-    service_launch.signal_handler.add_handler('SIGUSR1', handler)
+    service_launch.signal_handler.add_handler('SIGUSR1', esd_handler)
+    service_launch.signal_handler.add_handler('SIGUSR2', neutron_sync_handler)
     service_launch.launch_service(svc)
     service_launch.wait()
 

@@ -186,8 +186,9 @@ class L2ServiceBuilder(object):
                       'Attempted to assure a network with no id..skipping.')
             return
 
-        if network['id'] in bigip.assured_networks:
-            return
+        # pzhang: 3.0 and sync do not need cache here
+        # if network['id'] in bigip.assured_networks:
+        #     return
 
         if network['id'] in self.conf.common_network_ids:
             LOG.debug('assure_bigip_network: '
@@ -311,6 +312,7 @@ class L2ServiceBuilder(object):
         if self.vcmp_manager and self.vcmp_manager.get_vcmp_host(bigip):
             interface = None
         try:
+            # pzhang check exist first ?
             model = {'name': vlan_name,
                      'interface': interface,
                      'tag': vlanid,

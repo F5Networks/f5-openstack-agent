@@ -141,7 +141,7 @@ class ResourceManager(object):
         LOG.debug("%s payload is %s", self._resource, payload)
         bigips = self.driver.get_config_bigips()
         for bigip in bigips:
-            self._create(bigip, payload, resource, service)
+            self._create(bigip, payload, resource, service, **kwargs)
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
 
     @log_helpers.log_method_call
@@ -207,9 +207,11 @@ class LoadBalancerManager(ResourceManager):
     @serialized('LoadBalancerManager.create')
     @log_helpers.log_method_call
     def create(self, loadbalancer, service, **kwargs):
-        self._pre_create(service)
+        sync = kwargs.get("sync", False)
+
+        self._pre_create(service, sync)
         super(LoadBalancerManager, self).create(
-            service["loadbalancer"], service)
+            service["loadbalancer"], service, overwrite=False)
         self._post_create(service)
 
     def _post_create(self, service):
@@ -217,7 +219,7 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.update_bigip_l2(service)
 
-    def _pre_create(self, service):
+    def _pre_create(self, service, sync=False):
         loadbalancer = service["loadbalancer"]
         # allow address pair
         if self.driver.l3_binding:
@@ -225,7 +227,7 @@ class LoadBalancerManager(ResourceManager):
                 subnet_id=loadbalancer["vip_subnet_id"],
                 ip_address=loadbalancer["vip_address"])
 
-        self.tenant_manager.assure_tenant_created(service)
+        self.tenant_manager.assure_tenant_created(service, sync)
         traffic_group = self.driver.service_to_traffic_group(service)
         loadbalancer['traffic_group'] = traffic_group
 

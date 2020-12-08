@@ -248,9 +248,11 @@ class NetworkServiceBuilder(object):
                             rd_id = (
                                 '%' + str(member_network['route_domain_id'])
                             )
-                            member['address'] += rd_id
+                            if '%' not in member['address']:
+                                member['address'] += rd_id
                     else:
-                        member['address'] += '%0'
+                        if '%' not in member['address']:
+                            member['address'] += '%0'
         if 'vip_address' in service['loadbalancer']:
             loadbalancer = service['loadbalancer']
             if 'network_id' in loadbalancer:
@@ -261,9 +263,11 @@ class NetworkServiceBuilder(object):
                 self.assign_route_domain(
                     tenant_id, lb_network, vip_subnet, service['qos'])
                 rd_id = '%' + str(lb_network['route_domain_id'])
-                service['loadbalancer']['vip_address'] += rd_id
+                if '%' not in service['loadbalancer']['vip_address']:
+                    service['loadbalancer']['vip_address'] += rd_id
             else:
-                service['loadbalancer']['vip_address'] += '%0'
+                if '%' not in service['loadbalancer']['vip_address']:
+                    service['loadbalancer']['vip_address'] += '%0'
 
     def is_common_network(self, network):
         return self.l2_service.is_common_network(network)
@@ -283,6 +287,7 @@ class NetworkServiceBuilder(object):
         return rd_id
 
     def assign_route_domain(self, tenant_id, network, subnet, qos):
+        # pzhang: this has a bug
         # Assign route domain for a network
         if self.l2_service.is_common_network(network):
             network['route_domain_id'] = 0
@@ -300,7 +305,10 @@ class NetworkServiceBuilder(object):
         LOG.debug("max namespaces == 1: %s" %
                   (self.conf.max_namespaces_per_tenant == 1))
 
+        # pzhang bug ????
         if self.conf.max_namespaces_per_tenant == 1:
+            # pzhang: some bigip machine have route domain,
+            # some may not have route domain
             bigip = self.driver.get_bigip()
             LOG.debug("bigip before get_domain: %s" % bigip)
             partition_id = self.service_adapter.get_folder_name(
@@ -340,6 +348,7 @@ class NetworkServiceBuilder(object):
         if placed_route_domain_id is None:
             if (len(self.rds_cache[tenant_id]) <
                     self.conf.max_namespaces_per_tenant):
+                # pzhang: get a new route_domain here
                 placed_route_domain_id = self._create_aux_rd(tenant_id, qos)
                 self.rds_cache[tenant_id][placed_route_domain_id] = {}
                 LOG.debug("Tenant %s now has %d route domains" %
@@ -587,15 +596,19 @@ class NetworkServiceBuilder(object):
         snats_per_subnet = self.conf.f5_snat_addresses_per_subnet
         lb_id = service['loadbalancer']['id']
 
-        assure_bigips = \
+        temp_bigips = \
             [bigip for bigip in assure_bigips
                 if tenant_id not in bigip.assured_tenant_snat_subnets or
                 subnet['id'] not in
                 bigip.assured_tenant_snat_subnets[tenant_id]]
 
+        assure_bigips = temp_bigips
+
         LOG.debug("_assure_subnet_snats: getting snat addrs for: %s" %
                   subnet['id'])
         if len(assure_bigips):
+            # pzhang get snat ip by name, so there is no redundant creation
+            # pzhang of snat ip.
             snat_addrs = self.bigip_snat_manager.get_snat_addrs(
                 subnetinfo, tenant_id, snats_per_subnet, lb_id,
                 self.conf.provider_name

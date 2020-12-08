@@ -707,11 +707,16 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.status_message = 'requesting iControl endpoint'
             LOG.info('opening iControl connection to %s @ %s' %
                      (self.conf.icontrol_username, hostname))
+#            bigip = ManagementRoot(hostname,
+#                                   self.conf.icontrol_username,
+#                                   self.conf.icontrol_password,
+#                                   timeout=f5const.DEVICE_CONNECTION_TIMEOUT,
+#                                   debug=self.conf.debug)
             bigip = ManagementRoot(hostname,
                                    self.conf.icontrol_username,
                                    self.conf.icontrol_password,
                                    timeout=f5const.DEVICE_CONNECTION_TIMEOUT,
-                                   debug=self.conf.debug)
+                                   debug=False)
             bigip.status = 'connected'
             bigip.status_message = 'connected to BIG-IP'
             self.__bigips[hostname] = bigip
@@ -1113,9 +1118,14 @@ class iControlDriver(LBaaSBaseDriver):
         """Set Agent Report State."""
         self.agent_report_state = report_state_callback
 
+    # pzhang: for agent 3.0
+    def neutron_service_exists(self, service, mgr=None):
+        return self._neutron_service_exists(service, mgr)
+
     def service_exists(self, service):
         return self._service_exists(service)
 
+    # pzhang 3.0 agent may not need these caches
     def flush_cache(self):
         # Remove cached objects so they can be created if necessary
         for bigip in self.get_all_bigips():
@@ -1843,6 +1853,46 @@ class iControlDriver(LBaaSBaseDriver):
                     LOG.warn("Deleting monitor: /%s/%s" % (
                         folder_name, m_name))
                     m_obj.delete()
+
+    # pzhang: for agent 3.0
+    def _neutron_service_exists(self, service, mgr=None):
+        # Returns whether the bigip has the service defined
+        if not service['loadbalancer']:
+            return False
+        loadbalancer = service['loadbalancer']
+
+        folder_name = self.service_adapter.get_folder_name(
+            loadbalancer['tenant_id']
+        )
+
+        for bigip in self.get_config_bigips():
+            # Does the tenant folder exist?
+            if not self.system_helper.folder_exists(bigip, folder_name):
+                LOG.debug("Folder %s does not exist on bigip: %s" %
+                          (folder_name, bigip.hostname))
+                return False
+
+        # if self.network_builder:
+            # append route domain to member address
+        #     self.network_builder._annotate_service_route_domains(service)
+
+        # Foreach bigip in the cluster:
+        for bigip in self.get_config_bigips():
+
+            # Get the virtual address
+            virtual_address = VirtualAddress(self.service_adapter,
+                                             loadbalancer)
+
+            if not virtual_address.exists(bigip):
+                LOG.debug("Virtual address %s(%s) does not "
+                          "exist on bigip: %s" % (virtual_address.name,
+                                                  virtual_address.address,
+                                                  bigip.hostname))
+
+                # pzhang: this will create on both bigips
+                # we need to pass one bigip a time
+                mgr.create_loadbalancer(None, service['loadbalancer'],
+                                        service, sync=True)
 
     def _service_exists(self, service):
         # Returns whether the bigip has the service defined

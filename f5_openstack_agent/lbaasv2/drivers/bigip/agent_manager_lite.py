@@ -482,6 +482,32 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if self.clean_orphaned_objects_and_save_device_config():
                 self.needs_resync = True
 
+    def neutron_db_sync(self):
+        self.sync_neutron()
+
+    # pzhang: for agent 3.0 data sync
+    @log_helpers.log_method_call
+    def sync_neutron(self):
+        resync = False
+
+        if hasattr(self, 'lbdriver'):
+            if not self.lbdriver.backend_integrity():
+                return resync
+
+        try:
+            # pzhang: cost a lot of time
+            all_loadbalancers, all_loadbalancer_ids = \
+                self._get_remote_loadbalancers('get_all_loadbalancers',
+                                               host=self.agent_host)
+
+            self._validate_neutron_services(all_loadbalancer_ids)
+
+        except Exception as e:
+            LOG.exception("Unable to sync state: %s" % e.message)
+            resync = True
+
+        return resync
+
     def tunnel_sync(self):
         """Call into driver to advertise device tunnel endpoints."""
         LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")
@@ -583,10 +609,32 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         lb_ids = [lb['lb_id'] for lb in loadbalancers]
         return tuple(loadbalancers), set(lb_ids)
 
+    # pzhang: for agent 3.0 data sync
+    def _validate_neutron_services(self, lb_ids):
+        for lb_id in lb_ids:
+            # pzhang: sync all service
+            self.validate_neutron_service(lb_id)
+
     def _validate_services(self, lb_ids):
         for lb_id in lb_ids:
             if not self.cache.get_by_loadbalancer_id(lb_id):
                 self.validate_service(lb_id)
+
+    # pzhang: for agent 3.0 data sync
+    @log_helpers.log_method_call
+    def validate_neutron_service(self, lb_id):
+
+        try:
+            service = self.plugin_rpc.get_service_by_loadbalancer_id(
+                lb_id
+            )
+            self.lbdriver.neutron_service_exists(service, self)
+        except f5_ex.InvalidNetworkType as exc:
+            LOG.warning(exc.message)
+        except f5_ex.F5NeutronException as exc:
+            LOG.error("NeutronException: %s" % exc.msg)
+        except Exception as exc:
+            LOG.exception("Service validation error: %s" % exc.message)
 
     @log_helpers.log_method_call
     def validate_service(self, lb_id):
@@ -900,12 +948,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     #
     ######################################################################
     @log_helpers.log_method_call
-    def create_loadbalancer(self, context, loadbalancer, service):
+    def create_loadbalancer(self, context, loadbalancer,
+                            service, sync=False):
         """Handle RPC cast from plugin to create_loadbalancer."""
         id = loadbalancer['id']
         try:
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
-            mgr.create(loadbalancer, service)
+            mgr.create(loadbalancer, service, sync=sync)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create loadbalancer %s", id)

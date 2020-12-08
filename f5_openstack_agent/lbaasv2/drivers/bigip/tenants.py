@@ -60,6 +60,7 @@ class BigipTenantManager(object):
         # create tenant folder
         folder_name = self.service_adapter.get_folder_name(tenant_id)
         LOG.debug("Creating tenant folder %s" % folder_name)
+
         for bigip in self.driver.get_config_bigips():
             if not self.system_helper.folder_exists(bigip, folder_name):
                 folder = self.service_adapter.get_folder(service)
@@ -75,6 +76,8 @@ class BigipTenantManager(object):
                         "Folder creation error for tenant %s" %
                         (tenant_id))
 
+        # pzhang we can sync route domain from one to the other
+        # pzhang but we can not create next route domain when sync data
         if self.conf.use_namespaces and sync \
                 and not self.conf.f5_global_routed_mode:
             # pzhang sync all route domain on an active bigip to all
@@ -120,11 +123,13 @@ class BigipTenantManager(object):
 
             else:
                 LOG.warning(
-                    "Not found any route domain ids \
-                    of partitiion %s in L2 mode",
+                    "Not found any route domain ids"
+                    "of partitiion %s in L2 mode",
                     folder_name
                 )
 
+        # pzhang we can sync route domain from one to the other
+        # pzhang but we can not create next route domain when sync data
         # create tenant route domain
         if self.conf.use_namespaces and not sync:
             bigips = self.driver.get_all_bigips()

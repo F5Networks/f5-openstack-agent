@@ -47,6 +47,7 @@ class BigipSelfIpManager(object):
             created = True
         else:
             try:
+                # pzhang: check exists first ?
                 self.selfip_manager.create(bigip, model)
                 created = True
             except HTTPError as err:
@@ -102,15 +103,19 @@ class BigipSelfIpManager(object):
                       'for network with not id...')
             raise KeyError("network and subnet need to be specified")
 
-        tenant_id = service['loadbalancer']['tenant_id']
+        # tenant_id = service['loadbalancer']['tenant_id']
         lb_id = service['loadbalancer']['id']
 
+        # pzhang for agent 3.0 and sync
+        # pzhang we do not need cache here
+        # pzhang if sync, then the selfip of the same vlan will be different
+        # pzhang on different bigip device
         # If we have already assured this subnet.. return.
         # Note this cache is periodically cleared in order to
         # force assurance that the configuration is present.
-        if tenant_id in bigip.assured_tenant_snat_subnets and \
-                subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
-            return True
+        # if tenant_id in bigip.assured_tenant_snat_subnets and \
+        #         subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
+        #     return True
 
         selfip_address = self._get_bigip_selfip_address(bigip, subnet, lb_id)
         if 'route_domain_id' not in network:
