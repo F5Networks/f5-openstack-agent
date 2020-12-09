@@ -272,7 +272,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Name of physical network to use for discovery of segment ID'
     ),
     cfg.StrOpt(
-        'unlegacy_setting_placeholder', default=None,
+        'unlegacy_setting_placeholder', default='debug',
         help='use this setting to separate legacy with hw/etc on agent side'
     ),
     cfg.IntOpt(
@@ -301,7 +301,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     ),
     cfg.BoolOpt(
         'separate_host',
-        default=False,
+        default=True,
         help='whether to use separate host'
     ),
     cfg.BoolOpt(
