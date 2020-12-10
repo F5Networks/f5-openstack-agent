@@ -431,6 +431,7 @@ class ListenerManager(ResourceManager):
     def _delete_ssl_profiles(self, bigip, vs, service):
         listener_builder = self.driver.lbaas_builder.listener_builder
         tls = self.driver.service_adapter.get_tls(service)
+        tls['name'] = vs['name']
         listener_builder.remove_ssl_profiles(tls, bigip)
 
     def _delete_http_profile(self, bigip, vs):

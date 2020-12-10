@@ -467,7 +467,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
 
             assert target._remove_ssl_profile.call_count == 1
             target._remove_ssl_profile.assert_called_once_with(
-                'pre_6789', bigip)
+                'name_pre_6789', bigip)
 
             tls['default_tls_container_id'] = '123456789'
             target._remove_ssl_profile.reset_mock()
@@ -491,7 +491,7 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
 
             assert target._remove_ssl_profile.call_count == 1
             target._remove_ssl_profile.assert_called_once_with(
-                'pre_45', bigip)
+                'name_pre_45', bigip)
 
             sni_container = dict(tls_container_id="12345")
             tls['sni_containers'] = [sni_container]
