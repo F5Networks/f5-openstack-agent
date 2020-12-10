@@ -907,16 +907,17 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.create(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create loadbalancer %s", id)
         except Exception as ex:
             LOG.error("Fail to create loadbalancer %s "
                       "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
                 self.plugin_rpc.update_loadbalancer_status(
-                    id, provision_status,
-                    loadbalancer['operating_status']
+                    id, provision_status, operating_status
                 )
                 LOG.debug("Finish to update status of loadbalancer %s", id)
             except Exception as ex:
@@ -932,16 +933,17 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.update(old_loadbalancer, loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update loadbalancer %s", id)
         except Exception as ex:
             LOG.exception("Fail to update loadbalancer %s "
                           "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
                 self.plugin_rpc.update_loadbalancer_status(
-                    id, provision_status,
-                    loadbalancer['operating_status']
+                    id, provision_status, operating_status
                 )
                 LOG.debug("Finish to update status of loadbalancer %s", id)
             except Exception as ex:
@@ -953,6 +955,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to delete_loadbalancer."""
         id = loadbalancer['id']
         try:
+            # set ERROR first, to tell delete succeed or not finally
+            provision_status = constants_v2.F5_ERROR
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.delete(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -961,14 +965,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("Fail to delete loadbalancer %s "
                       "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
                 if provision_status == constants_v2.F5_ACTIVE:
                     self.plugin_rpc.loadbalancer_destroyed(id)
                 else:
                     self.plugin_rpc.update_loadbalancer_status(
-                        id, provision_status,
-                        loadbalancer['operating_status']
+                        id, provision_status, operating_status
                     )
                 LOG.debug("Finish to update status of loadbalancer %s", id)
             except Exception as ex:
