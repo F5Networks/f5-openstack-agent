@@ -907,16 +907,18 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.create(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create loadbalancer %s", id)
         except Exception as ex:
             LOG.error("Fail to create loadbalancer %s "
                       "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
                 self.plugin_rpc.update_loadbalancer_status(
                     id, provision_status,
-                    loadbalancer['operating_status']
+                    operating_status
                 )
                 LOG.debug("Finish to update status of loadbalancer %s", id)
             except Exception as ex:
