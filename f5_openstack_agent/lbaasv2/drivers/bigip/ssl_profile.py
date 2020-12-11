@@ -36,6 +36,14 @@ class SSLProfileHelper(object):
         if not profile_name:
             profile_name = name
 
+        peerCertMode = "ignore"
+        client_auth = kwargs.get("client_auth", False)
+        if client_auth:
+            peerCertMode = "require"
+
+        client_ca_cert = kwargs.get("client_ca_cert", None)
+        ca_cert_filename = kwargs.get("ca_cert_filename", None)
+
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
@@ -86,6 +94,16 @@ class SSLProfileHelper(object):
                 '/var/config/rest/downloads/', keyfilename)
             key_registrar.exec_cmd('install', **param_set)
 
+            if client_ca_cert:
+                uploader.upload_bytes(client_ca_cert, ca_cert_filename)
+                # import certificate
+                param_set = {}
+                param_set['name'] = ca_cert_filename
+                param_set['from-local-file'] = os.path.join(
+                    '/var/config/rest/downloads/', ca_cert_filename)
+                cert_registrar.exec_cmd('install', **param_set)
+                ca_cert_filename = '/Common/' + ca_cert_filename
+
             # create ssl-client profile from cert/key pair
             chain = [{'name': name,
                       'cert': '/Common/' + certfilename,
@@ -97,6 +115,8 @@ class SSLProfileHelper(object):
                                       partition='Common',
                                       certKeyChain=chain,
                                       sniDefault=sni_default,
+                                      peerCertMode=peerCertMode,
+                                      caFile=ca_cert_filename,
                                       defaultsFrom=parent_profile)
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
