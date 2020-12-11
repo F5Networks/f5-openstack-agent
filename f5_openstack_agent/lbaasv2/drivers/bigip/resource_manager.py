@@ -431,6 +431,7 @@ class ListenerManager(ResourceManager):
     def _delete_ssl_profiles(self, bigip, vs, service):
         listener_builder = self.driver.lbaas_builder.listener_builder
         tls = self.driver.service_adapter.get_tls(service)
+        tls['name'] = vs['name']
         listener_builder.remove_ssl_profiles(tls, bigip)
 
     def _delete_http_profile(self, bigip, vs):
@@ -443,12 +444,23 @@ class ListenerManager(ResourceManager):
             helper=self.http_profile_helper)
 
     def _create_http_profile(self, bigip, vs):
+
+        http_profile = self.__create_http_profile_content(bigip, vs)
+        http_profile['partition'] = vs['partition']
+        http_profile['name'] = "http_profile_" + vs['name']
+        super(ListenerManager, self)._create(
+            bigip, http_profile, None, None, type="http-profile",
+            helper=self.http_profile_helper, overwrite=False)
+
+    def __create_http_profile_content(self, bigip, vs):
         # the logic is, if the http_profile_file is configured
         # in the ini file, then
         # 1) check if the configured file exists or not.
         # 2) parse the content in the file
         # 3) call the restful api to create the http_profile for the listener
         # 4) set the http_profile in the profiles.
+
+        http_profile = {}
         if self.driver.conf.f5_extended_profile:
             # check if the file exists or not.
             # check the content of the file content
@@ -458,35 +470,30 @@ class ListenerManager(ResourceManager):
             if not os.path.exists(file_name):
                 LOG.warning("extended profile %s doesn't exist",
                             file_name)
-                return
+                return http_profile
             try:
                 with open(file_name) as fp:
                     payload = json.load(fp)
                 if 'http_profile' not in payload:
                     LOG.debug("http profile is not defined in %s",
                               file_name)
-                    return
+                    return http_profile
                 http_profile = payload['http_profile']
             except ValueError:
                 LOG.warning("extended profile %s is not a valid json file",
                             file_name)
-                return
+                return http_profile
 
             LOG.debug("http profile content is %s", http_profile)
 
             # The name and parition items in the file will be overwriten
-
             if 'name' in http_profile:
                 del http_profile['name']
-            http_profile['name'] = "http_profile_" + vs['name']
 
             if 'partition' in http_profile:
                 del http_profile['partition']
-            http_profile['partition'] = vs['partition']
 
-            super(ListenerManager, self)._create(
-                bigip, http_profile, None, None, type="http-profile",
-                helper=self.http_profile_helper, overwrite=False)
+        return http_profile
 
     def _create(self, bigip, vs, listener, service):
         tls = self.driver.service_adapter.get_tls(service)

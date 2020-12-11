@@ -300,6 +300,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='Log service object.'
     ),
     cfg.BoolOpt(
+        'separate_host',
+        default=False,
+        help='whether to use separate host'
+    ),
+    cfg.BoolOpt(
         'report_esd_names_in_agent',
         default=False,
         help='whether or not to add valid esd names during report.'

@@ -200,13 +200,15 @@ class ListenerServiceBuilder(object):
 
         name = self.cert_manager.get_name(container_ref,
                                           self.service_adapter.prefix)
+        profile_name = vip['name'] + "_" + name
 
         try:
             # upload cert/key and create SSL profile
             ssl_profile.SSLProfileHelper.create_client_ssl_profile(
                 bigip, name, cert, key, key_passphrase=key_passphrase,
                 sni_default=sni_default, intermediates=chain,
-                parent_profile=self.parent_ssl_profile)
+                parent_profile=self.parent_ssl_profile,
+                profile_name=profile_name)
         except HTTPError as err:
             if err.response.status_code != 409:
                 LOG.error("SSL profile creation error: %s" %
@@ -221,7 +223,7 @@ class ListenerServiceBuilder(object):
         if 'profiles' not in vip:
             vip['profiles'] = list()
 
-        client_ssl_profile = {'name': name, 'context': "clientside"}
+        client_ssl_profile = {'name': profile_name, 'context': "clientside"}
         if client_ssl_profile not in vip['profiles']:
             vip['profiles'].append(client_ssl_profile)
 
@@ -236,7 +238,8 @@ class ListenerServiceBuilder(object):
                 LOG.exception(error.message)
             else:
                 name = self.service_adapter.prefix + container_ref[i:]
-                self._remove_ssl_profile(name, bigip)
+                profile_name = tls['name'] + "_" + name
+                self._remove_ssl_profile(profile_name, bigip)
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
@@ -247,7 +250,8 @@ class ListenerServiceBuilder(object):
                     LOG.exception(error.message)
                 else:
                     name = self.service_adapter.prefix + container_ref[i:]
-                    self._remove_ssl_profile(name, bigip)
+                    profile_name = tls['name'] + "_" + name
+                    self._remove_ssl_profile(profile_name, bigip)
 
     def _remove_ssl_profile(self, name, bigip):
         """Delete profile.

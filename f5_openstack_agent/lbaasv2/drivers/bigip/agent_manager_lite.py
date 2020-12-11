@@ -1175,7 +1175,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def create_member(
-        self, context, member, service, the_port_id=None
+        self, context, member, service, the_port_id=None,
+        the_port_ids=[]
     ):
         """Handle RPC cast from plugin to create_member."""
         loadbalancer = service['loadbalancer']
@@ -1223,6 +1224,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     LOG.debug("Finish to update status of multiple members")
                 else:
                     LOG.debug("Finish to update status of member %s", id)
+
+                if the_port_id:
+                    LOG.info(the_port_id)
+                    self.plugin_rpc.delete_port(port_id=the_port_id)
+                if the_port_ids:
+                    LOG.info(the_port_ids)
+                    for each in the_port_ids:
+                        self.plugin_rpc.delete_port(port_id=each)
             except Exception as ex:
                 if multiple:
                     LOG.exception("Fail to update status of multiple members "
