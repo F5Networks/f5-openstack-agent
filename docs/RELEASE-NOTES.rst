@@ -4,6 +4,22 @@
 
 Release Notes for F5 Openstack Agent
 ====================================
+v9.8.40 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* protocol 0 support
+* listener tls support
+
+Bug Fixes
+`````````
+* Fix operating status issue
+* fix http profile issue
+
+Limitations
+```````````
 
 v9.8.21 (Pike, Queens)
 --------------------------------------------
