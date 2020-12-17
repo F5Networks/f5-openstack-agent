@@ -44,6 +44,6 @@ setuptools.setup(
             'refresh-esd = f5_openstack_agent.lbaasv2.drivers.bigip.refersh_esd:refresh_esd'
         ]
     },
-    install_requires=['f5-sdk==3.0.11']
+    install_requires=['f5-sdk==3.0.11.1']
 )
 
