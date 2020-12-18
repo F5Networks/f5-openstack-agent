@@ -35,8 +35,6 @@ class BigipTenantManager(object):
         self.system_helper = SystemHelper()
         self.network_helper = NetworkHelper()
         self.service_adapter = self.driver.service_adapter
-        self.rd_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.route_domain)
         self.va_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual_address)
 
@@ -113,7 +111,6 @@ class BigipTenantManager(object):
                             self.network_helper.create_route_domain(
                                 standby_bigip,
                                 rd_id,
-                                service['qos'],
                                 folder_name,
                                 self.conf.f5_route_domain_strictness
                             )
@@ -136,30 +133,12 @@ class BigipTenantManager(object):
                         self.network_helper.create_route_domain(
                             bigip,
                             rd_id,
-                            service['qos'],
                             folder_name,
                             self.conf.f5_route_domain_strictness)
                     except Exception as err:
                         LOG.exception(err.message)
                         raise f5ex.RouteDomainCreationException(
                             "Failed to create route domain for "
-                            "tenant in %s" % (folder_name))
-                else:
-                    LOG.debug("Try to update route domain")
-                    try:
-                        payload = self.network_helper.route_domain_update
-                        payload['name'] = folder_name
-                        payload['partition'] = folder_name
-                        bwc_profile = service['qos']
-                        if not bwc_profile.strip():
-                            bwc_profile = 'None'
-                        LOG.debug(" bwc profile is %s " % bwc_profile)
-                        payload['bwcPolicy'] = bwc_profile
-                        self.rd_helper.update(bigip, payload)
-                    except Exception as err:
-                        LOG.exception(err.message)
-                        raise f5ex.RouteDomainCreationException(
-                            "Failed to update route domain for "
                             "tenant in %s" % (folder_name))
 
     def assure_tenant_cleanup(self, service, all_subnet_hints):

@@ -243,8 +243,7 @@ class NetworkServiceBuilder(object):
                             ))
                         if member_network:
                             self.assign_route_domain(
-                                tenant_id, member_network, member_subnet,
-                                service['qos'])
+                                tenant_id, member_network, member_subnet)
                             rd_id = (
                                 '%' + str(member_network['route_domain_id'])
                             )
@@ -259,7 +258,7 @@ class NetworkServiceBuilder(object):
                 vip_subnet = self.service_adapter.get_subnet_from_service(
                     service, loadbalancer['vip_subnet_id'])
                 self.assign_route_domain(
-                    tenant_id, lb_network, vip_subnet, service['qos'])
+                    tenant_id, lb_network, vip_subnet)
                 rd_id = '%' + str(lb_network['route_domain_id'])
                 service['loadbalancer']['vip_address'] += rd_id
             else:
@@ -282,7 +281,7 @@ class NetworkServiceBuilder(object):
 
         return rd_id
 
-    def assign_route_domain(self, tenant_id, network, subnet, qos):
+    def assign_route_domain(self, tenant_id, network, subnet):
         # Assign route domain for a network
         if self.l2_service.is_common_network(network):
             network['route_domain_id'] = 0
@@ -340,7 +339,7 @@ class NetworkServiceBuilder(object):
         if placed_route_domain_id is None:
             if (len(self.rds_cache[tenant_id]) <
                     self.conf.max_namespaces_per_tenant):
-                placed_route_domain_id = self._create_aux_rd(tenant_id, qos)
+                placed_route_domain_id = self._create_aux_rd(tenant_id)
                 self.rds_cache[tenant_id][placed_route_domain_id] = {}
                 LOG.debug("Tenant %s now has %d route domains" %
                           (tenant_id, len(self.rds_cache[tenant_id])))
@@ -357,7 +356,7 @@ class NetworkServiceBuilder(object):
         net_subnets[subnet['id']] = {'cidr': check_cidr}
         network['route_domain_id'] = placed_route_domain_id
 
-    def _create_aux_rd(self, tenant_id, qos):
+    def _create_aux_rd(self, tenant_id):
         # Create a new route domain
         route_domain_id = None
         bigips = self.driver.get_all_bigips()
@@ -367,7 +366,6 @@ class NetworkServiceBuilder(object):
             bigip_route_domain_id = self.network_helper.create_route_domain(
                 bigip,
                 rd_id,
-                qos,
                 partition=partition_id,
                 strictness=self.conf.f5_route_domain_strictness,
                 is_aux=True)
