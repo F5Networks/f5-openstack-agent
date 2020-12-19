@@ -412,12 +412,12 @@ class TestNetworkServiceBuilder(object):
 
         # shared (common) network always get RD 0
         network['shared'] = True
-        network_service.assign_route_domain(tenant_id, network, subnet, "test")
+        network_service.assign_route_domain(tenant_id, network, subnet)
         assert network['route_domain_id'] == 0
 
         # valid cache entry
         network['shared'] = False
-        network_service.assign_route_domain(tenant_id, network, subnet, "test")
+        network_service.assign_route_domain(tenant_id, network, subnet)
         assert network['route_domain_id'] == 2
 
         with mock.patch('f5_openstack_agent.lbaasv2.drivers.bigip.'
@@ -425,8 +425,7 @@ class TestNetworkServiceBuilder(object):
             # no cache entry, single namespace
             network_service.conf.max_namespaces_per_tenant = 1
             network['provider:segmentation_id'] = 600
-            network_service.assign_route_domain(tenant_id, network, subnet,
-                                                "test")
+            network_service.assign_route_domain(tenant_id, network, subnet)
             assert network['route_domain_id'] == 1234
             assert mock.call('No route domain cache entry for vlan-600') in \
                 mock_log.debug.call_args_list
@@ -435,8 +434,7 @@ class TestNetworkServiceBuilder(object):
 
             # no cache entry, multiple namespaces
             network_service.conf.max_namespaces_per_tenant = 3
-            network_service.assign_route_domain(tenant_id, network, subnet,
-                                                "test")
+            network_service.assign_route_domain(tenant_id, network, subnet)
             assert network['route_domain_id'] == 2
             assert mock.call('max namespaces: 3') in \
                 mock_log.debug.call_args_list
@@ -445,8 +443,7 @@ class TestNetworkServiceBuilder(object):
         with pytest.raises(f5_ex.InvalidNetworkType):
             network['provider:segmentation_id'] = 604
             network['provider:network_type'] = ''
-            network_service.assign_route_domain(tenant_id, network, subnet,
-                                                "test")
+            network_service.assign_route_domain(tenant_id, network, subnet)
 
     def test_get_subnets_to_assure(self, network_service, service):
         net_id = '8f398b94-635e-4a58-9f70-bf4d93f206a6'
