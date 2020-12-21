@@ -49,10 +49,6 @@ class SSLProfileHelper(object):
         key_registrar = bigip.tm.sys.crypto.keys
         ssl_client_profile = bigip.tm.ltm.profile.client_ssls.client_ssl
 
-        # No need to create if it exists
-        if ssl_client_profile.exists(name=profile_name, partition='Common'):
-            return
-
         # Check that parent profile exists; use default if not.
         if parent_profile and not ssl_client_profile.exists(
                 name=parent_profile, partition='Common'):
@@ -111,13 +107,26 @@ class SSLProfileHelper(object):
                       'key': '/Common/' + keyfilename,
                       'passphrase': key_passphrase}]
 
-            ssl_client_profile.create(name=profile_name,
-                                      partition='Common',
-                                      certKeyChain=chain,
-                                      sniDefault=sni_default,
-                                      peerCertMode=peerCertMode,
-                                      caFile=ca_cert_filename,
-                                      defaultsFrom=parent_profile)
+            if ssl_client_profile.exists(name=profile_name,
+                                         partition='Common'):
+                profile = ssl_client_profile.load(name=profile_name,
+                                                  partition='Common')
+                # BIG-IP v14 or higher version support to modify client
+                # authentication settings individually.
+                # See https://cdn.f5.com/product/bugtracker/ID674106.html
+                profile.modify(certKeyChain=chain,
+                               sniDefault=sni_default,
+                               peerCertMode=peerCertMode,
+                               caFile=ca_cert_filename,
+                               defaultsFrom=parent_profile)
+            else:
+                ssl_client_profile.create(name=profile_name,
+                                          partition='Common',
+                                          certKeyChain=chain,
+                                          sniDefault=sni_default,
+                                          peerCertMode=peerCertMode,
+                                          caFile=ca_cert_filename,
+                                          defaultsFrom=parent_profile)
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
             raise SSLProfileError(err.message)
