@@ -482,6 +482,11 @@ class ServiceModelAdapter(object):
         self._add_vlan_and_snat(listener, vip)
         self._add_profiles_session_persistence(listener, pool, vip)
 
+        # Set bandwidth controller from loadbalancer's setting.
+        # applying order:
+        #   loadbalancer's bandwidth field -> l7policy's name(bwc name)
+        self._add_listener_bwcPolicy(loadbalancer, vip)
+
         # Set bandwidth controller
         if 'bwcPolicy' in listener:
             vip['bwcPolicy'] = listener.get("bwcPolicy")
@@ -908,3 +913,23 @@ class ServiceModelAdapter(object):
             for policy in esd['lbaas_policy']:
                 policies.append({'name': policy, 'partition': 'Common'})
             vip['policies'] = policies
+
+    def _add_listener_bwcPolicy(self, loadbalancer, vip):
+        if 'bandwidth' not in loadbalancer.keys() or \
+           not loadbalancer['bandwidth']:
+            return
+
+        bwc_mapping = {
+            200: 'low',
+            500: 'mid',
+            1000: 'high'
+        }
+
+        bwc = loadbalancer.get('bandwidth')
+        if bwc not in bwc_mapping.keys():
+            LOG.warn(
+                "bandwidth value %d cannot be recognized, default to %d",
+                bwc, 200)
+            bwc = 200
+
+        vip['bwcPolicy'] = bwc_mapping[bwc]
