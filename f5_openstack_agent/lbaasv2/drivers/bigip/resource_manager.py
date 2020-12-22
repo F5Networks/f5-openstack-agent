@@ -317,6 +317,7 @@ class LoadBalancerManager(ResourceManager):
 
         if 'listeners' in service.keys():
             irule_name = self.__get_bwc_irule_name(loadbalancer)
+            bwc_policy = self.__get_bwc_policy_name(loadbalancer)
             for listener in service['listeners']:
                 vs_payload = self.driver.service_adapter.\
                     _init_virtual_name(loadbalancer, listener)
@@ -328,9 +329,11 @@ class LoadBalancerManager(ResourceManager):
                 if add is True:
                     if irule_name not in vs_payload['rules']:
                         vs_payload['rules'].append(irule_name)
+                    vs_payload['bwcPolicy'] = bwc_policy
                 else:
                     if irule_name in vs_payload['rules']:
                         vs_payload['rules'].remove(irule_name)
+                    vs_payload['bwcPolicy'] = 'None'
                 self.vs_helper.update(bigip, vs_payload)
         return
 
@@ -459,10 +462,17 @@ class ListenerManager(ResourceManager):
         }
 
     def __get_bwc_irule_name(self, loadbalancer):
-        profile_name = '/' + self.driver.service_adapter.\
+        irule_name = '/' + self.driver.service_adapter.\
             get_folder_name(loadbalancer['tenant_id']) + '/bwc_irule_' + \
             loadbalancer['id']
-        return profile_name
+        return irule_name
+
+    def __get_bwc_policy_name(self, loadbalancer):
+
+        policy_name = '/' + self.driver.service_adapter.\
+            get_folder_name(loadbalancer['tenant_id']) + \
+            '/bwc_policy_' + loadbalancer['id']
+        return policy_name
 
     def _create_payload(self, listener, service):
         payload = self.driver.service_adapter.get_virtual(service)
@@ -676,6 +686,8 @@ class ListenerManager(ResourceManager):
             LOG.debug("bandwidth exists")
             irule_name = self.__get_bwc_irule_name(loadbalancer)
             vs['rules'].append(irule_name)
+            bwc_policy = self.__get_bwc_policy_name(loadbalancer)
+            vs['bwcPolicy'] = bwc_policy
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
     def _update(self, bigip, vs, old_listener, listener, service):
