@@ -36,14 +36,18 @@ class SSLProfileHelper(object):
         if not profile_name:
             profile_name = name
 
+        peerCertMode = "ignore"
+        client_auth = kwargs.get("client_auth", False)
+        if client_auth:
+            peerCertMode = "require"
+
+        client_ca_cert = kwargs.get("client_ca_cert", None)
+        ca_cert_filename = kwargs.get("ca_cert_filename", None)
+
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
         ssl_client_profile = bigip.tm.ltm.profile.client_ssls.client_ssl
-
-        # No need to create if it exists
-        if ssl_client_profile.exists(name=profile_name, partition='Common'):
-            return
 
         # Check that parent profile exists; use default if not.
         if parent_profile and not ssl_client_profile.exists(
@@ -86,6 +90,16 @@ class SSLProfileHelper(object):
                 '/var/config/rest/downloads/', keyfilename)
             key_registrar.exec_cmd('install', **param_set)
 
+            if client_ca_cert:
+                uploader.upload_bytes(client_ca_cert, ca_cert_filename)
+                # import certificate
+                param_set = {}
+                param_set['name'] = ca_cert_filename
+                param_set['from-local-file'] = os.path.join(
+                    '/var/config/rest/downloads/', ca_cert_filename)
+                cert_registrar.exec_cmd('install', **param_set)
+                ca_cert_filename = '/Common/' + ca_cert_filename
+
             # create ssl-client profile from cert/key pair
             chain = [{'name': name,
                       'cert': '/Common/' + certfilename,
@@ -93,11 +107,26 @@ class SSLProfileHelper(object):
                       'key': '/Common/' + keyfilename,
                       'passphrase': key_passphrase}]
 
-            ssl_client_profile.create(name=profile_name,
-                                      partition='Common',
-                                      certKeyChain=chain,
-                                      sniDefault=sni_default,
-                                      defaultsFrom=parent_profile)
+            if ssl_client_profile.exists(name=profile_name,
+                                         partition='Common'):
+                profile = ssl_client_profile.load(name=profile_name,
+                                                  partition='Common')
+                # BIG-IP v14 or higher version support to modify client
+                # authentication settings individually.
+                # See https://cdn.f5.com/product/bugtracker/ID674106.html
+                profile.modify(certKeyChain=chain,
+                               sniDefault=sni_default,
+                               peerCertMode=peerCertMode,
+                               caFile=ca_cert_filename,
+                               defaultsFrom=parent_profile)
+            else:
+                ssl_client_profile.create(name=profile_name,
+                                          partition='Common',
+                                          certKeyChain=chain,
+                                          sniDefault=sni_default,
+                                          peerCertMode=peerCertMode,
+                                          caFile=ca_cert_filename,
+                                          defaultsFrom=parent_profile)
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
             raise SSLProfileError(err.message)

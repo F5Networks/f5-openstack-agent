@@ -741,14 +741,15 @@ class ServiceModelAdapter(object):
         tls = {}
         listener = service['listener']
         if listener['protocol'] == 'TERMINATED_HTTPS':
-            if 'default_tls_container_id' in listener and \
-                    listener['default_tls_container_id']:
-                tls['default_tls_container_id'] = \
-                    listener['default_tls_container_id']
-
-            if 'sni_containers' in listener and listener['sni_containers']:
-                tls['sni_containers'] = listener['sni_containers']
-
+            for tls_key in [
+                'default_tls_container_id',
+                'sni_containers',
+                # China mobile client auth parameters
+                'mutual_authentication_up',
+                'ca_container_id'
+            ]:
+                if tls_key in listener and listener[tls_key]:
+                    tls[tls_key] = listener[tls_key]
         return tls
 
     def get_name(self, uuid):

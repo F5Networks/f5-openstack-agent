@@ -508,6 +508,15 @@ class ListenerManager(ResourceManager):
                 payload['tls'] = "tls change"
                 LOG.debug("tls changes happen")
 
+            # If client authentication setting changes,
+            # also need to update client ssl profile.
+            old_mode = old_listener.get('mutual_authentication_up', False)
+            new_mode = listener.get('mutual_authentication_up', False)
+            old_ca = old_listener.get('ca_container_id', "")
+            new_ca = listener.get('ca_container_id', "")
+            if old_mode != new_mode or old_ca != new_ca:
+                payload['tls'] = "tls change"
+
         return super(ListenerManager, self)._update_payload(
             old_listener, listener, service,
             payload=payload, create_payload=create_payload
