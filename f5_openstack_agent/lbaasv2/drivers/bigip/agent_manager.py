@@ -155,6 +155,18 @@ OPTS = [
         default='',
         help=('The file name of extended profiles definition of a listener')
     ),
+    cfg.IntOpt(
+        'f5_bandwidth_default',
+        default=200,
+        help=(
+            'Default MBtyes value of bandwidht')
+    ),
+    cfg.IntOpt(
+        'f5_bandwidth_max',
+        default=10000,
+        help=(
+            'Maximum MBtyes value of bandwidht')
+    ),
 ]
 
 PERIODIC_TASK_INTERVAL = 10
