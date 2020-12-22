@@ -192,12 +192,6 @@ class LoadBalancerManager(ResourceManager):
             resource_helper.ResourceType.virtual_address)
         self.tenant_manager = tenants.BigipTenantManager(self.driver.conf,
                                                          self.driver)
-        self.irule_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.rule)
-        self.bwc_policy_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.bwc_policy)
-        self.vs_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.virtual)
         self.mutable_props = {
             "name": "description",
             "description": "description",
@@ -217,67 +211,6 @@ class LoadBalancerManager(ResourceManager):
         super(LoadBalancerManager, self).create(
             service["loadbalancer"], service)
         self._post_create(service)
-
-    def _create(self, bigip, payload, loadbalancer, service, **kwargs):
-
-        # create irule
-        if 'bandwidth' in loadbalancer.keys() and \
-           loadbalancer['bandwidth']:
-            self.__add_bwc(bigip, loadbalancer, service, False)
-
-        super(LoadBalancerManager, self)._create(bigip, payload,
-                                                 loadbalancer, service)
-
-    def _delete(self, bigip, payload, loadbalancer, service, **kwargs):
-
-        irule_payload = self._create_bwc_irule_payload(loadbalancer, True)
-        super(LoadBalancerManager, self).\
-            _delete(bigip, irule_payload, None, None,
-                    type="irule",
-                    helper=self.irule_helper)
-
-        bwc_payload = self._create_bwc_payload(loadbalancer, 0)
-        super(LoadBalancerManager, self).\
-            _delete(bigip, bwc_payload, None, None, type="bwc_policy",
-                    helper=self.bwc_policy_helper)
-
-        super(LoadBalancerManager, self)._delete(bigip, payload,
-                                                 loadbalancer, service)
-
-    def _create_bwc_payload(self, loadbalancer, bandwidth):
-
-        bwc_policy = {}
-        bwc_policy['partition'] = self.driver.service_adapter.\
-            get_folder_name(loadbalancer['tenant_id'])
-        bwc_policy['name'] = 'bwc_policy_' + loadbalancer['id']
-        if bandwidth > 0:
-            bwc_policy['maxRate'] = bandwidth * 1000 * 1000
-        return bwc_policy
-
-    def __get_bwc_policy_name(self, loadbalancer):
-
-        policy_name = '/' + self.driver.service_adapter.\
-            get_folder_name(loadbalancer['tenant_id']) + \
-            '/bwc_policy_' + loadbalancer['id']
-        return policy_name
-
-    def __get_bwc_irule_name(self, loadbalancer):
-        irule_name = '/' + self.driver.service_adapter.\
-            get_folder_name(loadbalancer['tenant_id']) + '/bwc_irule_'\
-            + loadbalancer['id']
-        return irule_name
-
-    def _create_bwc_irule_payload(self, loadbalancer, meta_only=False):
-        # create irule profile
-        irule = {}
-        irule['partition'] = self.driver.service_adapter.\
-            get_folder_name(loadbalancer['tenant_id'])
-        irule['name'] = 'bwc_irule_' + loadbalancer['id']
-        if not meta_only:
-            bwc_policy_name = self.__get_bwc_policy_name(loadbalancer)
-            irule['apiAnonymous'] = "when SERVER_CONNECTED {\n\
-                    BWC::policy attach " + bwc_policy_name + "\n}"
-        return irule
 
     def _post_create(self, service):
         # create fdb for vxlan tunnel
@@ -300,94 +233,9 @@ class LoadBalancerManager(ResourceManager):
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
 
-    def __get_update_operation(self, old_loadbalancer, loadbalancer):
-
-        old_value = old_loadbalancer.get('bandwidth', 0)
-        new_value = loadbalancer.get('bandwidth', 0)
-        if old_value == new_value:
-            return 'None'
-        else:
-            if new_value > 0:
-                return 'Add'
-            else:
-                return 'Delete'
-        return 'None'
-
-    def __update_listener_bwc(self, bigip, loadbalancer, service, add=True):
-
-        if 'listeners' in service.keys():
-            irule_name = self.__get_bwc_irule_name(loadbalancer)
-            for listener in service['listeners']:
-                vs_payload = self.driver.service_adapter.\
-                    _init_virtual_name(loadbalancer, listener)
-                # add is True then add irule to vs and otherwise delete irule
-                # from vs
-                vs = self.vs_helper.load(bigip, name=vs_payload['name'],
-                                         partition=vs_payload['partition'])
-                vs_payload['rules'] = vs.rules
-                if add is True:
-                    if irule_name not in vs_payload['rules']:
-                        vs_payload['rules'].append(irule_name)
-                else:
-                    if irule_name in vs_payload['rules']:
-                        vs_payload['rules'].remove(irule_name)
-                self.vs_helper.update(bigip, vs_payload)
-        return
-
-    def __add_bwc(self, bigip, loadbalancer, service, update_listener=True):
-        # The logic is , add the irule bwc policies and go through listeners to
-        # bind the bwc policy.
-        bandwidth = loadbalancer.get('bandwidth')
-        payload = self._create_bwc_payload(loadbalancer, bandwidth)
-        super(LoadBalancerManager, self)._create(
-            bigip, payload, None, None, type="bwc_policy",
-            helper=self.bwc_policy_helper, overwrite=True)
-
-        payload = self._create_bwc_irule_payload(loadbalancer)
-        super(LoadBalancerManager, self)._create(
-            bigip, payload, None, None, type="irule",
-            helper=self.irule_helper, overwrite=True)
-
-        # go through the listeners and update them
-        if update_listener is True:
-            self.__update_listener_bwc(bigip, loadbalancer, service)
-        return
-
-    def __delete_bwc(self, bigip, loadbalancer, service):
-        # The logic is , unbond the listenres' bwc policy and delete the irule
-        # bwc policies and go through listeners to
-
-        # go through the listeners and delete them
-        self.__update_listener_bwc(bigip, loadbalancer, service, False)
-        payload = self._create_bwc_irule_payload(loadbalancer, True)
-        super(LoadBalancerManager, self)._delete(bigip, payload,
-                                                 None, None,
-                                                 type="irule",
-                                                 helper=self.irule_helper)
-
-        payload = self._create_bwc_payload(loadbalancer, 0)
-        super(LoadBalancerManager, self).\
-            _delete(bigip, payload, None, None,
-                    type="bwc_policy", helper=self.bwc_policy_helper)
-        return
-
-    def _update_bwc(self, old_loadbalancer, loadbalancer, service):
-        operate = self.__get_update_operation(old_loadbalancer, loadbalancer)
-        LOG.debug("bwc operation is %s.", operate)
-        bigips = self.driver.get_config_bigips()
-        for bigip in bigips:
-            if operate == 'Add':
-                self.__add_bwc(bigip, loadbalancer, service)
-            elif operate == 'Delete':
-                self.__delete_bwc(bigip, loadbalancer, service)
-            else:
-                LOG.debug("Don't need any update.")
-        return
-
     @serialized('LoadBalancerManager.update')
     @log_helpers.log_method_call
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
-        self._update_bwc(old_loadbalancer, loadbalancer, service)
         super(LoadBalancerManager, self).update(
             old_loadbalancer, loadbalancer, service)
 
@@ -457,12 +305,6 @@ class ListenerManager(ResourceManager):
             "default_pool_id": "pool",
             "connection_limit": "connectionLimit"
         }
-
-    def __get_bwc_irule_name(self, loadbalancer):
-        profile_name = '/' + self.driver.service_adapter.\
-            get_folder_name(loadbalancer['tenant_id']) + '/bwc_irule_' + \
-            loadbalancer['id']
-        return profile_name
 
     def _create_payload(self, listener, service):
         payload = self.driver.service_adapter.get_virtual(service)
@@ -671,11 +513,6 @@ class ListenerManager(ResourceManager):
         if listener['protocol'] == "HTTP" or \
            listener['protocol'] == "TERMINATED_HTTPS":
             self._create_http_profile(bigip, vs)
-        if 'bandwidth' in loadbalancer.keys() and \
-           loadbalancer['bandwidth']:
-            LOG.debug("bandwidth exists")
-            irule_name = self.__get_bwc_irule_name(loadbalancer)
-            vs['rules'].append(irule_name)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
     def _update(self, bigip, vs, old_listener, listener, service):
