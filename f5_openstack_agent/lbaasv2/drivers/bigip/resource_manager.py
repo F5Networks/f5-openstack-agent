@@ -700,19 +700,20 @@ class PoolManager(ResourceManager):
             payload['session_persistence'] = persist
 
     def _delete(self, bigip, payload, pool, service):
-
         mgr = ListenerManager(self.driver)
         for listener in service['listeners']:
             if listener['default_pool_id'] == pool['id']:
                 service['listener'] = listener
                 """ Unmap listener and pool"""
-                listener_payload = mgr._create_payload(listener, service)
-                self._shrink_payload(
-                    listener_payload,
-                    keys_to_keep=['partition', 'name', 'pool', 'persist']
-                )
-                listener_payload['pool'] = ''
-                mgr._update(bigip, listener_payload, None, None, service)
+                vs = self.driver.service_adapter.get_virtual_name(service)
+                vs['pool'] = ""
+                # Need to remove persist profile from virtual server,
+                # if its persist profile is configured by its default pool.
+                # Do not modify persist profile which is manually attached.
+                if "session_persistence" in service['pool']:
+                    vs['persist'] = []
+                    vs['fallbackPersistence'] = ""
+                mgr._update(bigip, vs, None, None, service)
         super(PoolManager, self)._delete(bigip, payload, pool, service)
 
         """ try to delete the node which is only used by the pool """
