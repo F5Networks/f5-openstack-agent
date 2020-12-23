@@ -4,6 +4,23 @@
 
 Release Notes for F5 Openstack Agent
 ====================================
+
+v9.9.0 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+
+Bug Fixes
+`````````
+* Support to create listener with client ca certificate. 
+* Support create/delete/update the irule profile and bwc policy dynamically when creating/deleting a loadbalancer.
+* Remove the previous bwc function.
+
+Limitations
+```````````
+
 v9.8.40 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
