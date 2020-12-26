@@ -52,8 +52,16 @@ class BigipSnatManager(object):
         LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
         return ''
 
+    def _get_index_snat_name(self, snat_name, provider_name, index):
+        if provider_name:
+            index_snat_name = snat_name + "_" + provider_name + "_" + str(
+                index)
+        else:
+            index_snat_name = snat_name + "_" + str(index)
+        return index_snat_name
+
     def _get_snat_traffic_group(self, tenant_id):
-        # Get the snat name based on HA type """
+        # Get the snat name based on HA type
         if self.driver.conf.f5_ha_type == 'standalone':
             return 'traffic-group-local-only'
         elif self.driver.conf.f5_ha_type == 'pair':
@@ -67,7 +75,7 @@ class BigipSnatManager(object):
 
     def get_snat_addrs(self, subnetinfo, tenant_id, snat_count, lb_id,
                        provider_name):
-        # Get the ip addresses for snat """
+        # Get the ip addresses for snat
         if self.driver.conf.unlegacy_setting_placeholder:
             LOG.debug('setting vnic_type to normal instead of baremetal')
             vnic_type = "normal"
@@ -80,7 +88,8 @@ class BigipSnatManager(object):
         snat_name = self._get_snat_name(subnet, tenant_id)
         for i in range(snat_count):
             ip_address = ""
-            index_snat_name = snat_name + "_" + provider_name + "_" + str(i)
+            index_snat_name = self._get_index_snat_name(snat_name,
+                                                        provider_name, i)
             ports = self.driver.plugin_rpc.get_port_by_name(
                 port_name=index_snat_name)
             if len(ports) > 0:
@@ -148,7 +157,8 @@ class BigipSnatManager(object):
         for i, snat_address in enumerate(snat_info['addrs']):
             ip_address = snat_address + \
                 '%' + str(network['route_domain_id'])
-            index_snat_name = snat_name + "_" + provider_name + "_" + str(i)
+            index_snat_name = self._get_index_snat_name(snat_name,
+                                                        provider_name, i)
 
             snat_traffic_group = self._get_snat_traffic_group(tenant_id)
             # snat.create() did  the following in LBaaSv1
@@ -224,7 +234,7 @@ class BigipSnatManager(object):
                                         provider_name)
 
     def _remove_assured_tenant_snat_subnet(self, bigip, tenant_id, subnet):
-        # Remove ref for the subnet for this tenant"""
+        # Remove ref for the subnet for this tenant
         if tenant_id in bigip.assured_tenant_snat_subnets:
             tenant_snat_subnets = \
                 bigip.assured_tenant_snat_subnets[tenant_id]
@@ -245,7 +255,7 @@ class BigipSnatManager(object):
                 'bigip.assured_tenant_snat_subnets' % tenant_id)
 
     def _delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
-        # Assure snats deleted in standalone mode """
+        # Assure snats deleted in standalone mode
         subnet = subnetinfo['subnet']
         network = subnetinfo['network']
         if self.l2_service.is_common_network(network):
@@ -261,7 +271,8 @@ class BigipSnatManager(object):
         # Delete SNATs on traffic-group-local-only
         snat_name = self._get_snat_name(subnet, tenant_id)
         for i in range(self.driver.conf.f5_snat_addresses_per_subnet):
-            index_snat_name = snat_name + "_" + provider_name + "_" + str(i)
+            index_snat_name = self._get_index_snat_name(snat_name,
+                                                        provider_name, i)
             tmos_snat_name = index_snat_name
 
             if self.l3_binding:
