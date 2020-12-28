@@ -56,6 +56,8 @@ class TestSSLProfileHelper(object):
                  'passphrase': None}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom=None,
         )
 
@@ -85,6 +87,8 @@ class TestSSLProfileHelper(object):
                  'passphrase': None}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom=None,
         )
 
@@ -108,6 +112,8 @@ class TestSSLProfileHelper(object):
                  'passphrase': None}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom='parentprofile',
         )
 
@@ -143,6 +149,8 @@ class TestSSLProfileHelper(object):
                  'passphrase': "password"}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom=None,
         )
 
@@ -163,6 +171,8 @@ class TestSSLProfileHelper(object):
                  'passphrase': None}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom=None,
         )
 
@@ -187,6 +197,8 @@ class TestSSLProfileHelper(object):
                  'passphrase': None}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom=None,
         )
 
@@ -208,6 +220,8 @@ class TestSSLProfileHelper(object):
                  'passphrase': None}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom=None,
         )
 
@@ -229,6 +243,8 @@ class TestSSLProfileHelper(object):
                  'passphrase': "password"}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom=None,
         )
 
@@ -254,5 +270,7 @@ class TestSSLProfileHelper(object):
                  'passphrase': 'password'}
             ],
             sniDefault=False,
+            peerCertMode='ignore',
+            caFile=None,
             defaultsFrom=None,
         )
