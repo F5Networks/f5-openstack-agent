@@ -332,6 +332,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help="connection rate limit ratio for listener, setting to 5 means "
         "a listener's connection rate limit will be set to 1/5 of the lb's "
         "upper limit, which is predefined by the flavors 1-7."
+    ),
+    cfg.IntOpt(
+        'tcp_options',
+        default=254,
+        help='Default tcp Options value of server tcp profile'
     )
 ]
 
