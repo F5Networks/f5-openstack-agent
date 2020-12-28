@@ -171,6 +171,7 @@ class iRule(object):
                     irule_list.append(irule_object)
         return irule_list
 
+    # pzhang craete irule content
     def _l7rule_to_irule(self, partition, env_prefix, rule_id):
         irule_object = {}
 

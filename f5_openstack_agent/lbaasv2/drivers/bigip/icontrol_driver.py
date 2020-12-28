@@ -318,6 +318,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'bwc_profile',
         default=None,
         help='bwc_profile name which is configured in bigip side'
+    ),
+    cfg.IntOpt(
+        'tcp_options',
+        default=254,
+        help='Default tcpOptions value of server tcp profile'
     )
 ]
 
