@@ -620,22 +620,22 @@ class ListenerManager(ResourceManager):
             bigip, payload, None, None,
             helper=self.http_profile_helper)
 
-    def _create_http_profile(self, bigip, vs):
+    def _create_http_profile(self, bigip, listener, vs):
 
-        http_profile = self.__create_http_profile_content(bigip, vs)
+        http_profile = self.__create_http_profile_content(bigip, listener, vs)
         http_profile['partition'] = vs['partition']
         http_profile['name'] = "http_profile_" + vs['name']
         super(ListenerManager, self)._create(
             bigip, http_profile, None, None, type="http-profile",
             helper=self.http_profile_helper, overwrite=False)
 
-    def __create_http_profile_content(self, bigip, vs):
-        # the logic is, if the http_profile_file is configured
-        # in the ini file, then
+    def __create_http_profile_content(self, bigip, listener, vs):
+        # If the f5_extended_profile is configured in .ini, then
         # 1) check if the configured file exists or not.
         # 2) parse the content in the file
-        # 3) call the restful api to create the http_profile for the listener
-        # 4) set the http_profile in the profiles.
+        # If customized is provided from cli, then
+        # 1) parse vs['customized'] as json format.
+        # 2) merge existing http_profile dict with parsed 'http_profile'
 
         http_profile = {}
         if self.driver.conf.f5_extended_profile:
@@ -647,29 +647,37 @@ class ListenerManager(ResourceManager):
             if not os.path.exists(file_name):
                 LOG.warning("extended profile %s doesn't exist",
                             file_name)
-                return http_profile
-            try:
-                with open(file_name) as fp:
-                    payload = json.load(fp)
-                if 'http_profile' not in payload:
-                    LOG.debug("http profile is not defined in %s",
+            else:
+                try:
+                    with open(file_name) as fp:
+                        payload = json.load(fp)
+                    if 'http_profile' not in payload:
+                        LOG.debug("http profile is not defined in %s",
+                                  file_name)
+                    else:
+                        http_profile = payload.get('http_profile', {})
+                except ValueError:
+                    LOG.error("extended profile %s is not a valid json file",
                               file_name)
-                    return http_profile
-                http_profile = payload['http_profile']
+
+            LOG.debug("http profile content from file is %s", http_profile)
+
+        if 'customized' in listener and listener['customized'] != '':
+            try:
+                payload = json.loads(listener['customized'])
+                http_profile_arg = payload.get('http_profile', {})
+                http_profile.update(http_profile_arg)
             except ValueError:
-                LOG.warning("extended profile %s is not a valid json file",
-                            file_name)
-                return http_profile
+                LOG.error("Invalid json format: %s", listener['customized'])
 
-            LOG.debug("http profile content is %s", http_profile)
+        # The name and parition items in the file will be overwriten
+        if 'name' in http_profile:
+            del http_profile['name']
 
-            # The name and parition items in the file will be overwriten
-            if 'name' in http_profile:
-                del http_profile['name']
+        if 'partition' in http_profile:
+            del http_profile['partition']
 
-            if 'partition' in http_profile:
-                del http_profile['partition']
-
+        LOG.debug("http profile content merged is %s", http_profile)
         return http_profile
 
     def _create(self, bigip, vs, listener, service):
@@ -689,7 +697,7 @@ class ListenerManager(ResourceManager):
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
         if listener['protocol'] == "HTTP" or \
            listener['protocol'] == "TERMINATED_HTTPS":
-            self._create_http_profile(bigip, vs)
+            self._create_http_profile(bigip, listener, vs)
         if 'bandwidth' in loadbalancer.keys() and \
            loadbalancer['bandwidth']:
             LOG.debug("bandwidth exists")
