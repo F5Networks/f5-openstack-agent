@@ -1058,7 +1058,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete listener %s", id)
         except Exception as ex:
-            LOG.exception("Finish to delete listener %s "
+            LOG.exception("Fail to delete listener %s "
                           "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
         finally:
@@ -1076,7 +1076,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 )
                 LOG.debug("Finish to update status of listener %s", id)
             except Exception as ex:
-                LOG.exception("Fail to delete listener %s "
+                LOG.exception("Fail to update status of listener %s "
                               "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
