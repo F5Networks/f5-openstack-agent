@@ -357,13 +357,14 @@ class ListenerServiceBuilder(object):
                 LOG.error("Failed to update rule %s", rule_name)
                 LOG.exception(err)
 
-        timeout = str(self.conf.persistence_timeout)
+        timeout = persistence.get("persistence_timeout",
+                                  self.conf.persistence_timeout)
         u = bigip.tm.ltm.persistence.universals.universal
         if not u.exists(name=rule_name, partition=vip["partition"]):
             try:
                 u.create(name=rule_name,
                          rule=rule_name,
-                         timeout=timeout,
+                         timeout=str(timeout),
                          partition=vip["partition"])
                 LOG.debug("Created persistence universal %s" % rule_name)
             except Exception as err:
