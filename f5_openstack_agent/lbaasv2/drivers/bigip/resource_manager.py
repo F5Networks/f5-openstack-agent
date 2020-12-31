@@ -1048,16 +1048,27 @@ class MemberManager(ResourceManager):
         bigips = self.driver.get_config_bigips()
         loadbalancer = service.get('loadbalancer')
         for bigip in bigips:
-            pool_resource = self._pool_mgr.pool_helper.load(
-                bigip,
-                name=urllib.quote(pool_payload['name']),
-                partition=pool_payload['partition']
-            )
-            member_resource = pool_resource.members_s.members.load(
-                name=urllib.quote(payload['name']),
-                partition=payload['partition']
-            )
-            member_resource.delete()
+            try:
+                pool_resource = self._pool_mgr.pool_helper.load(
+                    bigip,
+                    name=urllib.quote(pool_payload['name']),
+                    partition=pool_payload['partition']
+                )
+                member_resource = pool_resource.members_s.members.load(
+                    name=urllib.quote(payload['name']),
+                    partition=payload['partition']
+                )
+                member_resource.delete()
+            except HTTPError as err:
+                if err.response.status_code == 404:
+                    LOG.warning("the member not found, am ignoring")
+                    LOG.warning(str(err))
+                else:
+                    LOG.error("unknow member deletion error")
+                    LOG.error(str(err))
+                    # maybe not raise at all?
+                    # raise err
+
             self._pool_mgr._delete_member_node(loadbalancer, member, bigip)
             self._shrink_payload(pool_payload,
                                  keys_to_keep=['partition',
