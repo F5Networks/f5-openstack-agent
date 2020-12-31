@@ -334,8 +334,12 @@ class ListenerServiceBuilder(object):
         if not cookie_name:
             return
 
+        timeout = persistence.get("persistence_timeout", 0)
+        if timeout <= 0:
+            timeout = self.conf.persistence_timeout
+
         rule_name = 'app_cookie_' + vip['name']
-        rule_def = self._create_app_cookie_persist_rule(cookie_name)
+        rule_def = self._create_app_cookie_persist_rule(cookie_name, timeout)
 
         r = bigip.tm.ltm.rules.rule
         if not r.exists(name=rule_name, partition=vip["partition"]):
@@ -356,10 +360,6 @@ class ListenerServiceBuilder(object):
             except Exception as err:
                 LOG.error("Failed to update rule %s", rule_name)
                 LOG.exception(err)
-
-        timeout = persistence.get("persistence_timeout", 0)
-        if timeout <= 0:
-            timeout = self.conf.persistence_timeout
 
         u = bigip.tm.ltm.persistence.universals.universal
         if not u.exists(name=rule_name, partition=vip["partition"]):
@@ -384,7 +384,7 @@ class ListenerServiceBuilder(object):
                           rule_name)
                 LOG.exception(err)
 
-    def _create_app_cookie_persist_rule(self, cookiename):
+    def _create_app_cookie_persist_rule(self, cookiename, timeout):
         """Create cookie persistence rule.
 
         :param cookiename: Name to substitute in rule.
@@ -393,14 +393,14 @@ class ListenerServiceBuilder(object):
         rule_text += " if { [HTTP::cookie " + str(cookiename)
         rule_text += "] ne \"\" }{\n"
         rule_text += "     persist uie [string tolower [HTTP::cookie \""
-        rule_text += cookiename + "\"]] 3600\n"
+        rule_text += cookiename + "\"]] " + str(timeout) + "\n"
         rule_text += " }\n"
         rule_text += "}\n\n"
         rule_text += "when HTTP_RESPONSE {\n"
         rule_text += " if { [HTTP::cookie \"" + str(cookiename)
         rule_text += "\"] ne \"\" }{\n"
         rule_text += "     persist add uie [string tolower [HTTP::cookie \""
-        rule_text += cookiename + "\"]] 3600\n"
+        rule_text += cookiename + "\"]] " + str(timeout) + "\n"
         rule_text += " }\n"
         rule_text += "}\n\n"
         return rule_text
