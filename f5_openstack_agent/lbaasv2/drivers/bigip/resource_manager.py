@@ -370,7 +370,8 @@ class ListenerManager(ResourceManager):
 
     def _create_http_cookie_persist_profile(self, bigip, vs, persist):
         name = "http_cookie_" + vs['name']
-        timeout = self.driver.conf.persistence_timeout
+        timeout = persist.get("persistence_timeout",
+                              self.driver.conf.persistence_timeout)
         rest = timeout
         day = str(rest / 86400)
         rest = rest % 86400
@@ -394,10 +395,12 @@ class ListenerManager(ResourceManager):
 
     def _create_source_addr_persist_profile(self, bigip, vs, persist):
         name = "source_addr_" + vs['name']
+        timeout = persist.get("persistence_timeout",
+                              self.driver.conf.persistence_timeout)
         payload = {
             "name": name,
             "partition": vs['partition'],
-            "timeout": str(self.driver.conf.persistence_timeout)
+            "timeout": str(timeout)
         }
         super(ListenerManager, self)._create(
             bigip, payload, None, None, type="source-addr",
