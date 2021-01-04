@@ -97,9 +97,9 @@ def main():
         cfg.CONF.f5_bandwidth_default = 200
 
     if cfg.CONF.f5_bandwidth_max < 0:
-        LOG.info("set max bandwidth from %d to 1000MB",
+        LOG.info("set max bandwidth from %d to 10000MB",
                  cfg.CONF.f5_bandwidth_max)
-        cfg.CONF.f5_bandwidth_max = 1000
+        cfg.CONF.f5_bandwidth_max = 10000
 
     if cfg.CONF.f5_bandwidth_default > cfg.CONF.f5_bandwidth_max:
         LOG.info("set default bandwidth %dMB to max bandwidth %dMB",
