@@ -221,9 +221,9 @@ class LoadBalancerManager(ResourceManager):
     def _create(self, bigip, payload, loadbalancer, service, **kwargs):
 
         # create irule
-        if 'bandwidth' in loadbalancer.keys() and \
-           loadbalancer['bandwidth']:
-            self.__add_bwc(bigip, loadbalancer, service, False)
+        bandwidth = self.get_bandwidth_value(self.driver.conf, loadbalancer)
+        if bandwidth > 0:
+            self.__add_bwc(bigip, loadbalancer, bandwidth, service, False)
 
         super(LoadBalancerManager, self)._create(bigip, payload,
                                                  loadbalancer, service)
@@ -254,18 +254,33 @@ class LoadBalancerManager(ResourceManager):
             bwc_policy['maxRate'] = bandwidth * 1000 * 1000
         return bwc_policy
 
-    def __get_bwc_policy_name(self, loadbalancer):
+    @staticmethod
+    def get_bwc_policy_name(adapter, loadbalancer):
 
-        policy_name = '/' + self.driver.service_adapter.\
+        policy_name = '/' + adapter.\
             get_folder_name(loadbalancer['tenant_id']) + \
             '/bwc_policy_' + loadbalancer['id']
         return policy_name
 
-    def __get_bwc_irule_name(self, loadbalancer):
-        irule_name = '/' + self.driver.service_adapter.\
+    @staticmethod
+    def get_bwc_irule_name(adapter, loadbalancer):
+        irule_name = '/' + adapter.\
             get_folder_name(loadbalancer['tenant_id']) + '/bwc_irule_'\
             + loadbalancer['id']
         return irule_name
+
+    @staticmethod
+    def get_bandwidth_value(conf, loadbalancer):
+
+        if 'bandwidth' not in loadbalancer.keys():
+            bandwidth = conf.f5_bandwidth_default
+        else:
+            bandwidth = loadbalancer.get('bandwidth', -1)
+
+        if bandwidth < 0 or bandwidth > conf.f5_bandwidth_max:
+            raise Exception("Invalid bandwidth value %d", bandwidth)
+
+        return bandwidth
 
     def _create_bwc_irule_payload(self, loadbalancer, meta_only=False):
         # create irule profile
@@ -274,7 +289,9 @@ class LoadBalancerManager(ResourceManager):
             get_folder_name(loadbalancer['tenant_id'])
         irule['name'] = 'bwc_irule_' + loadbalancer['id']
         if not meta_only:
-            bwc_policy_name = self.__get_bwc_policy_name(loadbalancer)
+            bwc_policy_name = self.get_bwc_policy_name(
+                self.driver.service_adapter,
+                loadbalancer)
             irule['apiAnonymous'] = "when SERVER_CONNECTED {\n\
                     BWC::policy attach " + bwc_policy_name + "\n}"
         return irule
@@ -302,8 +319,10 @@ class LoadBalancerManager(ResourceManager):
 
     def __get_update_operation(self, old_loadbalancer, loadbalancer):
 
-        old_value = old_loadbalancer.get('bandwidth', 0)
-        new_value = loadbalancer.get('bandwidth', 0)
+        old_value = self.get_bandwidth_value(self.driver.conf,
+                                             old_loadbalancer)
+        new_value = self.get_bandwidth_value(self.driver.conf,
+                                             loadbalancer)
         if old_value == new_value:
             return 'None'
         else:
@@ -316,8 +335,10 @@ class LoadBalancerManager(ResourceManager):
     def __update_listener_bwc(self, bigip, loadbalancer, service, add=True):
 
         if 'listeners' in service.keys():
-            irule_name = self.__get_bwc_irule_name(loadbalancer)
-            bwc_policy = self.__get_bwc_policy_name(loadbalancer)
+            irule_name = self.get_bwc_irule_name(
+                self.driver.service_adapter, loadbalancer)
+            bwc_policy = self.get_bwc_policy_name(
+                self.driver.service_adapter, loadbalancer)
             for listener in service['listeners']:
                 vs_payload = self.driver.service_adapter.\
                     _init_virtual_name(loadbalancer, listener)
@@ -337,10 +358,10 @@ class LoadBalancerManager(ResourceManager):
                 self.vs_helper.update(bigip, vs_payload)
         return
 
-    def __add_bwc(self, bigip, loadbalancer, service, update_listener=True):
+    def __add_bwc(self, bigip, loadbalancer, bandwidth, service,
+                  update_listener=True):
         # The logic is , add the irule bwc policies and go through listeners to
         # bind the bwc policy.
-        bandwidth = loadbalancer.get('bandwidth')
         payload = self._create_bwc_payload(loadbalancer, bandwidth)
         super(LoadBalancerManager, self)._create(
             bigip, payload, None, None, type="bwc_policy",
@@ -378,9 +399,10 @@ class LoadBalancerManager(ResourceManager):
         operate = self.__get_update_operation(old_loadbalancer, loadbalancer)
         LOG.debug("bwc operation is %s.", operate)
         bigips = self.driver.get_config_bigips()
+        bandwidth = self.get_bandwidth_value(self.driver.conf, loadbalancer)
         for bigip in bigips:
             if operate == 'Add':
-                self.__add_bwc(bigip, loadbalancer, service)
+                self.__add_bwc(bigip, loadbalancer, bandwidth, service)
             elif operate == 'Delete':
                 self.__delete_bwc(bigip, loadbalancer, service)
             else:
@@ -460,19 +482,6 @@ class ListenerManager(ResourceManager):
             "default_pool_id": "pool",
             "connection_limit": "connectionLimit"
         }
-
-    def __get_bwc_irule_name(self, loadbalancer):
-        irule_name = '/' + self.driver.service_adapter.\
-            get_folder_name(loadbalancer['tenant_id']) + '/bwc_irule_' + \
-            loadbalancer['id']
-        return irule_name
-
-    def __get_bwc_policy_name(self, loadbalancer):
-
-        policy_name = '/' + self.driver.service_adapter.\
-            get_folder_name(loadbalancer['tenant_id']) + \
-            '/bwc_policy_' + loadbalancer['id']
-        return policy_name
 
     def _create_payload(self, listener, service):
         payload = self.driver.service_adapter.get_virtual(service)
@@ -697,12 +706,16 @@ class ListenerManager(ResourceManager):
         if listener['protocol'] == "HTTP" or \
            listener['protocol'] == "TERMINATED_HTTPS":
             self._create_http_profile(bigip, vs)
-        if 'bandwidth' in loadbalancer.keys() and \
-           loadbalancer['bandwidth']:
+
+        bandwidth = LoadBalancerManager.get_bandwidth_value(
+            self.driver.conf, loadbalancer)
+        if bandwidth > 0:
             LOG.debug("bandwidth exists")
-            irule_name = self.__get_bwc_irule_name(loadbalancer)
+            irule_name = LoadBalancerManager.get_bwc_irule_name(
+                self.driver.service_adapter, loadbalancer)
             vs['rules'].append(irule_name)
-            bwc_policy = self.__get_bwc_policy_name(loadbalancer)
+            bwc_policy = LoadBalancerManager.get_bwc_policy_name(
+                self.driver.service_adapter, loadbalancer)
             vs['bwcPolicy'] = bwc_policy
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 

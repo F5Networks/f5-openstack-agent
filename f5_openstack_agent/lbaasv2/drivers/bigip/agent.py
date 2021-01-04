@@ -91,6 +91,21 @@ def main():
     else:
         mgr = manager.LbaasAgentManager(cfg.CONF)
 
+    if cfg.CONF.f5_bandwidth_default < 0:
+        LOG.info("set default bandwidth from %d to 200MB",
+                 cfg.CONF.f5_bandwidth_default)
+        cfg.CONF.f5_bandwidth_default = 200
+
+    if cfg.CONF.f5_bandwidth_max < 0:
+        LOG.info("set max bandwidth from %d to 1000MB",
+                 cfg.CONF.f5_bandwidth_max)
+        cfg.CONF.f5_bandwidth_max = 1000
+
+    if cfg.CONF.f5_bandwidth_default > cfg.CONF.f5_bandwidth_max:
+        LOG.info("set default bandwidth %dMB to max bandwidth %dMB",
+                 cfg.CONF.f5_bandwidth_default, cfg.CONF.f5_bandwidth_max)
+        cfg.CONF.f5_bandwidth_default = cfg.CONF.f5_bandwidth_max
+
     svc = F5AgentService(
         host=mgr.agent_host,
         topic=f5constants.TOPIC_LOADBALANCER_AGENT_V2,
