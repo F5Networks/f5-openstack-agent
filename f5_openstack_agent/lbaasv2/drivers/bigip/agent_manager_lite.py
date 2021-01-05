@@ -228,8 +228,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Start state reporting of agent to Neutron
         report_interval = self.conf.AGENT.report_interval
         if report_interval:
-            heartbeat = loopingcall.FixedIntervalLoopingCall(
+            reportbeat = loopingcall.FixedIntervalLoopingCall(
                 self._report_state)
+            heartbeat = loopingcall.FixedIntervalLoopingCall(
+                self.connect_driver)
+            reportbeat.start(interval=report_interval)
             heartbeat.start(interval=report_interval)
 
         if self.lbdriver:
@@ -394,8 +397,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         started_by.conn.create_consumer(
             node_topic, endpoints, fanout=False)
 
-    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
-    def connect_driver(self, context):
+    def connect_driver(self):
         """Trigger driver connect attempts to all devices."""
         if self.lbdriver:
             self.lbdriver.connect()
