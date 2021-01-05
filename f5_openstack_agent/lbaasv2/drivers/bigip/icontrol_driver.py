@@ -2401,7 +2401,7 @@ class iControlDriver(LBaaSBaseDriver):
                 return_hosts.append(host)
         return sorted(return_hosts)
 
-    def get_all_bigips(self):
+    def get_all_bigips(self, **kwargs):
         return_bigips = []
         for host in list(self.__bigips):
             if hasattr(self.__bigips[host], 'status') and \
@@ -2411,10 +2411,15 @@ class iControlDriver(LBaaSBaseDriver):
         for bigip in return_bigips:
             msg = msg + " " + bigip.hostname
         LOG.debug(msg)
+
+        if len(return_bigips) == 0 and \
+           kwargs.get('no_bigip_exception') is True:
+            raise Exception("No active bigips!")
+
         return return_bigips
 
-    def get_config_bigips(self):
-        return self.get_all_bigips()
+    def get_config_bigips(self, **kwargs):
+        return self.get_all_bigips(**kwargs)
 
     # these are the refactored methods
     def get_active_bigips(self):
