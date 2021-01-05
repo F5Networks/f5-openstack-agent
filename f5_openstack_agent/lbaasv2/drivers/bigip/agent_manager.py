@@ -90,7 +90,7 @@ OPTS = [
     ),
     cfg.StrOpt(
         'provider_name',
-        default='f5networks',
+        default=None,
         help=('provider_name for snat pool addresses')
     ),
     cfg.StrOpt(
