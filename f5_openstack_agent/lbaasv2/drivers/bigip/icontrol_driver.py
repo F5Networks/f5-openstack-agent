@@ -463,7 +463,7 @@ class iControlDriver(LBaaSBaseDriver):
             self._set_agent_status(False)
 
     def connect(self):
-        # initialize communications wiht BIG-IP via iControl
+        # initialize communications with BIG-IP via iControl
         try:
             self._init_bigips()
         except Exception as exc:
@@ -571,9 +571,6 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _init_bigips(self):
         # Connect to all BIG-IPs
-        if self.operational:
-            LOG.debug('iControl driver reports connection is operational')
-            return
         LOG.debug('initializing communications to BIG-IPs')
         try:
             # setup logging options
