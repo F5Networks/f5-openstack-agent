@@ -139,7 +139,7 @@ class ResourceManager(object):
             payload['partition'] = create_payload['partition']
 
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips()
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
             self._create(bigip, payload, resource, service)
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
@@ -162,7 +162,7 @@ class ResourceManager(object):
             payload['partition'] = create_payload['partition']
 
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips()
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
             self._update(bigip, payload, old_resource, resource, service)
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
@@ -174,7 +174,7 @@ class ResourceManager(object):
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips()
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
             self._delete(bigip, payload, resource, service)
         LOG.debug("Finish to delete %s %s", self._resource, payload['name'])
@@ -431,9 +431,9 @@ class LoadBalancerManager(ResourceManager):
             self.driver.network_builder._annotate_service_route_domains(
                 service)
 
-        bigips = self.driver.get_config_bigips()
         loadbalancer = service["loadbalancer"]
 
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
             self.all_subnet_hints[bigip.device_name] = \
                 {'check_for_delete_subnets': {},
@@ -1148,7 +1148,7 @@ class MemberManager(ResourceManager):
             return
         pool_id = pool['id']
         lbaas_members = service['members']
-        bigips = self.driver.get_config_bigips()
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
@@ -1202,7 +1202,7 @@ class MemberManager(ResourceManager):
         pool_payload = self._pool_mgr._create_payload(pool, service)
 
         payload = self._create_payload(member, service)
-        bigips = self.driver.get_config_bigips()
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
@@ -1233,8 +1233,8 @@ class MemberManager(ResourceManager):
         self._pool_mgr._search_element(pool, service)
         pool_payload = self._pool_mgr._create_payload(pool, service)
 
-        bigips = self.driver.get_config_bigips()
         loadbalancer = service.get('loadbalancer')
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
             try:
                 pool_resource = self._pool_mgr.pool_helper.load(
@@ -1294,7 +1294,7 @@ class MemberManager(ResourceManager):
             LOG.debug("Do not need to update %s", self._resource)
             return
 
-        bigips = self.driver.get_config_bigips()
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
