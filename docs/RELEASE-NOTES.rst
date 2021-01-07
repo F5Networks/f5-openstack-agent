@@ -5,6 +5,31 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.43 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Support to modify client ca certificate
+* Support client authentication
+* Add '--customized' support for listener creation.
+* Support session persistence timeout parameter in API
+* Customerised timeout value in persistence iRule and tolerate negative or None value of persistence_timeout
+* Change icontrol heartbeat interval as same as _report_state.
+* Support to modify lb operating_status accordingly
+
+Bug Fixes
+`````````
+* Fix listener exception log
+* Fix member batch deletion breakdown
+* Remove obsolete bwc code
+* Throw exception if no active bigips
+* FIX backwards compatibility problem of SNAT pool member name.
+
+Limitations
+```````````
+
 v9.8.42 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
