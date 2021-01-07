@@ -5,18 +5,43 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.1 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Support session persistence timeout parameter in API
+* Customerised timeout value in persistence iRule and tolerate negative or None value of persistence_timeout
+* Add '--customized' support for listener creation
+* Add to configure options for sanity check for bwc
+* Add the max bandwidth is 10000MB instead of 1000MB for bwc
+* Change icontrol heartbeat interval as same as _report_state
+* Support to modify lb operating_status accordingly
+
+Bug Fixes
+`````````
+* Do not detach user defined persist profile when removing pool
+* Fix listener exception log
+* Fix member batch deletion breakdown
+* Throw exception if no active bigips
+* Fix backwards compatibility problem of SNAT pool member name
+
+Limitations
+```````````
+
 v9.9.0 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
 
 Added Functionality
 ```````````````````
+* Support to create listener with client ca certificate.
+* Support create/delete/update the irule profile and bwc policy dynamically when creating/deleting a loadbalancer.
+* Remove the previous bwc function.
 
 Bug Fixes
 `````````
-* Support to create listener with client ca certificate. 
-* Support create/delete/update the irule profile and bwc policy dynamically when creating/deleting a loadbalancer.
-* Remove the previous bwc function.
 
 Limitations
 ```````````
