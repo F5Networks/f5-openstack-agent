@@ -94,6 +94,11 @@ OPTS = [
         help=('provider_name for snat pool addresses')
     ),
     cfg.StrOpt(
+        'availability_zone',
+        default=None,
+        help=('availability_zone for agent reporting')
+    ),
+    cfg.StrOpt(
         'agent_id',
         default=None,
         help=('static agent ID to use with Neutron')
@@ -328,7 +333,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             'agent_type': constants_v2.F5_AGENT_TYPE_LOADBALANCERV2,
             'l2_population': self.conf.l2_population,
             'start_flag': True,
-            'configurations': agent_configurations
+            'configurations': agent_configurations,
+            'availability_zone': self.conf.availability_zone
         }
 
         # Setup RPC for communications to and from controller
