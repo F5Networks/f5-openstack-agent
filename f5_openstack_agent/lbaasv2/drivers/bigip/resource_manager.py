@@ -678,7 +678,7 @@ class ListenerManager(ResourceManager):
 
             LOG.debug("http profile content from file is %s", http_profile)
 
-        if 'customized' in listener and listener['customized'] != '':
+        if 'customized' in listener and listener['customized']:
             try:
                 payload = json.loads(listener['customized'])
                 http_profile_arg = payload.get('http_profile', {})
