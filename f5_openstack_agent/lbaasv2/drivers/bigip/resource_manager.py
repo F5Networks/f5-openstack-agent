@@ -349,6 +349,13 @@ class ListenerManager(ResourceManager):
             if old_mode != new_mode or old_ca != new_ca:
                 payload['tls'] = "tls change"
 
+        if listener['protocol'] == "HTTP" or \
+           listener['protocol'] == "TERMINATED_HTTPS":
+            old_customized = old_listener.get('customized', None)
+            new_customized = listener.get('customized', None)
+            if old_customized != new_customized:
+                payload['customized'] = 'customized change'
+
         return super(ListenerManager, self)._update_payload(
             old_listener, listener, service,
             payload=payload, create_payload=create_payload
@@ -466,7 +473,7 @@ class ListenerManager(ResourceManager):
         http_profile['name'] = "http_profile_" + vs['name']
         super(ListenerManager, self)._create(
             bigip, http_profile, None, None, type="http-profile",
-            helper=self.http_profile_helper, overwrite=False)
+            helper=self.http_profile_helper, overwrite=True)
 
     def __create_http_profile_content(self, bigip, listener, vs):
         # If the f5_extended_profile is configured in .ini, then
@@ -565,6 +572,12 @@ class ListenerManager(ResourceManager):
                       self._resource, vs['name'])
             profile = self._create_persist_profile(bigip, vs, persist)
             vs['persist'] = [{"name": profile}]
+
+        if vs.get('customized', None):
+            self._create_http_profile(bigip, listener, vs)
+
+        # at least one attribute in vs' patch body as icontrol patch
+        vs['description'] = listener.get('name', '')
 
         super(ListenerManager, self)._update(bigip, vs, old_listener, listener,
                                              service)
