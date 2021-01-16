@@ -370,7 +370,13 @@ class ListenerManager(ResourceManager):
 
     def _create_http_cookie_persist_profile(self, bigip, vs, persist):
         name = "http_cookie_" + vs['name']
-        timeout = persist.get("persistence_timeout", 0)
+
+        # China Mobile may input persistence_timeout as a string
+        try:
+            timeout = int(persist.get("persistence_timeout") or 0)
+        except ValueError as ex:
+            LOG.warning(ex.message)
+            timeout = 0
         if timeout <= 0:
             timeout = self.driver.conf.persistence_timeout
 
@@ -397,7 +403,13 @@ class ListenerManager(ResourceManager):
 
     def _create_source_addr_persist_profile(self, bigip, vs, persist):
         name = "source_addr_" + vs['name']
-        timeout = persist.get("persistence_timeout", 0)
+
+        # China Mobile may input persistence_timeout as a string
+        try:
+            timeout = int(persist.get("persistence_timeout") or 0)
+        except ValueError as ex:
+            LOG.warning(ex.message)
+            timeout = 0
         if timeout <= 0:
             timeout = self.driver.conf.persistence_timeout
 
