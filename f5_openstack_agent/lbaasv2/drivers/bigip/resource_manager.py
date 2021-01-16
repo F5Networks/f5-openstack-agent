@@ -392,7 +392,7 @@ class ListenerManager(ResourceManager):
         }
         super(ListenerManager, self)._create(
             bigip, payload, None, None, type="http-cookie",
-            helper=self.http_cookie_persist_helper, overwrite=False)
+            helper=self.http_cookie_persist_helper)
         return name
 
     def _create_source_addr_persist_profile(self, bigip, vs, persist):
@@ -408,7 +408,7 @@ class ListenerManager(ResourceManager):
         }
         super(ListenerManager, self)._create(
             bigip, payload, None, None, type="source-addr",
-            helper=self.source_addr_persist_helper, overwrite=False)
+            helper=self.source_addr_persist_helper)
         return name
 
     def _create_ssl_profile(self, bigip, vs, tls):
