@@ -334,7 +334,12 @@ class ListenerServiceBuilder(object):
         if not cookie_name:
             return
 
-        timeout = persistence.get("persistence_timeout", 0)
+        # China Mobile may input persistence_timeout as a string
+        try:
+            timeout = int(persistence.get("persistence_timeout") or 0)
+        except ValueError as ex:
+            LOG.warning(ex.message)
+            timeout = 0
         if timeout <= 0:
             timeout = self.conf.persistence_timeout
 
