@@ -587,9 +587,12 @@ class ListenerManager(ResourceManager):
 
         if vs.get('customized', None):
             self._create_http_profile(bigip, listener, vs)
+            del vs['customized']
 
-        # at least one attribute in vs' patch body as icontrol patch
-        vs['description'] = listener.get('name', '')
+        # If no vs property to update, do not call icontrol patch api.
+        # This happens, when vs payload only contains 'customized'.
+        if sorted(vs.keys()) == ['name', 'partition']:
+            return
 
         super(ListenerManager, self)._update(bigip, vs, old_listener, listener,
                                              service)
