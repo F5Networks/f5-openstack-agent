@@ -590,6 +590,9 @@ class iControlDriver(LBaaSBaseDriver):
             for hostname in self.hostnames:
                 # connect to each BIG-IP and set it status
                 bigip = self._open_bigip(hostname)
+                if bigip.status == 'active':
+                    continue
+
                 if bigip.status == 'connected':
                     # set the status down until we assure initialized
                     bigip.status = 'initializing'
