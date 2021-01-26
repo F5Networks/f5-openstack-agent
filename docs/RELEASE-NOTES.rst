@@ -5,6 +5,26 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.44 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Add lbaas-listener-update --customized support.
+* Add avaliability_zone configuration for agenting state reporting
+* Ensure to overwrite persistence profile
+* Tolerate persistence timeout in string type
+
+Bug Fixes
+`````````
+* Fix customized bug of vs == None
+* Handle both None and '' situations for listener['customized']
+* Fix 'error opening BIG-IP - active:BIG-IP ready for provisioning'
+
+Limitations
+```````````
+
 v9.8.43 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
