@@ -654,7 +654,7 @@ class TestServiceAdapter(object):
         srvc = copy.deepcopy(pool_member_service)
         srvc['pool']['lb_algorithm'] = 'SOURCE_IP'
         pool = adapter.get_pool(srvc)
-        assert pool['loadBalancingMode'] == 'least-connections-node'
+        assert pool['loadBalancingMode'] == 'least-connections-member'
 
     def test_pool_member_weight_bad_lb_method(self, pool_member_service):
         '''If lb method is bad and member has weight, lb is changed
@@ -713,7 +713,7 @@ class TestServiceAdapter(object):
         del srvc['members']
         srvc['pool']['lb_algorithm'] = 'SOURCE_IP'
         pool = adapter.get_pool(srvc)
-        assert pool['loadBalancingMode'] == 'least-connections-node'
+        assert pool['loadBalancingMode'] == 'least-connections-member'
 
     def test_get_pool_monitor_no_monitor(self, basic_service):
         adapter = ServiceModelAdapter(mock.MagicMock())
