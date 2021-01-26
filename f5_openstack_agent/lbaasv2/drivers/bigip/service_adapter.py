@@ -422,7 +422,7 @@ class ServiceModelAdapter(object):
         elif lb_method == 'RATIO_LEAST_CONNECTIONS':
             return 'ratio-least-connections-member'
         elif lb_method == 'SOURCE_IP':
-            return 'least-connections-member'
+            return 'least-connections-node'
         elif lb_method == 'OBSERVED_MEMBER':
             return 'observed-member'
         elif lb_method == 'PREDICTIVE_MEMBER':
