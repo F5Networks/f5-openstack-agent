@@ -286,13 +286,27 @@ class ServiceModelAdapter(object):
             if (lbaas_healthmonitor["type"] == "HTTP" or
                     lbaas_healthmonitor["type"] == "HTTPS"):
 
+                # http_method
+                if lbaas_healthmonitor.get('http_method') == 'HEAD':
+                    http_method = 'HEAD'
+                    LOG.info('using http_method HEAD')
+                else:
+                    http_method = 'GET'
+                    LOG.info('using http_method GET')
+
                 # url path
                 if "url_path" in lbaas_healthmonitor:
-                    healthmonitor["send"] = ("GET " +
+                    healthmonitor["send"] = (http_method + " " +
                                              lbaas_healthmonitor["url_path"] +
                                              " HTTP/1.0\\r\\n\\r\\n")
+                    LOG.debug('healthmonitor["send"] is ')
+                    LOG.debug(healthmonitor["send"])
                 else:
-                    healthmonitor["send"] = "GET / HTTP/1.0\\r\\n\\r\\n"
+                    healthmonitor["send"] = (
+                        http_method + " / HTTP/1.0\\r\\n\\r\\n"
+                    )
+                    LOG.debug('healthmonitor["send"] is ')
+                    LOG.debug(healthmonitor["send"])
 
                 # expected codes
                 healthmonitor["recv"] = self._get_recv_text(
