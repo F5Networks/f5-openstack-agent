@@ -746,16 +746,21 @@ class ListenerManager(ResourceManager):
             vs['bwcPolicy'] = bwc_policy
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
+    def __get_profiles_from_bigip(self, bigip, vs):
+        # load profiles from bigip
+        vs_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual)
+        l_objs = vs_manager.get_resources(
+            bigip, partition=vs['partition'], expand_subcollections=True)
+        v = filter(lambda x: x.name == vs['name'], l_objs)[0]
+        profiles = v.profilesReference
+        return profiles
+
     def _update(self, bigip, vs, old_listener, listener, service):
         # Add conditions here for more update requests via vs['profiles']
+        orig_profiles = []
         if 'tls' in vs:
-            vs_manager = resource_helper.BigIPResourceHelper(
-                resource_helper.ResourceType.virtual)
-            l_objs = vs_manager.get_resources(
-                bigip, partition=vs['partition'], expand_subcollections=True)
-            v = filter(lambda x: x.name == vs['name'], l_objs)[0]
-            orig_profiles = v.profilesReference
-
+            orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
             if 'profiles' not in vs:
                 vs['profiles'] = list()
             vs['profiles'] += filter(
@@ -775,6 +780,20 @@ class ListenerManager(ResourceManager):
 
         if vs.get('customized', None):
             self._create_http_profile(bigip, listener, vs)
+            profile_name = '/' + vs['partition'] + '/' \
+                           + 'http_profile_' + vs['name']
+            if 'profiles' not in vs:
+                if not orig_profile:
+                    orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
+                vs['profiles'] = orig_profiles
+
+            profiles = vs.get('profiles', [])
+            if '/Common/http' in profiles:
+                profiles.remove('/Common/http')
+
+            if profile_name not in profiles:
+                profiles.append(profile_name)
+
             del vs['customized']
 
         # If no vs property to update, do not call icontrol patch api.
