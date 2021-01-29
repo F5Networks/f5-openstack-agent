@@ -15,6 +15,7 @@
 #
 import json
 import os
+import re
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
@@ -746,16 +747,21 @@ class ListenerManager(ResourceManager):
             vs['bwcPolicy'] = bwc_policy
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
+    def __get_profiles_from_bigip(self, bigip, vs):
+        # load profiles from bigip
+        vs_manager = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.virtual)
+        l_objs = vs_manager.get_resources(
+            bigip, partition=vs['partition'], expand_subcollections=True)
+        v = filter(lambda x: x.name == vs['name'], l_objs)[0]
+        profiles = v.profilesReference
+        return profiles
+
     def _update(self, bigip, vs, old_listener, listener, service):
         # Add conditions here for more update requests via vs['profiles']
+        orig_profiles = []
         if 'tls' in vs:
-            vs_manager = resource_helper.BigIPResourceHelper(
-                resource_helper.ResourceType.virtual)
-            l_objs = vs_manager.get_resources(
-                bigip, partition=vs['partition'], expand_subcollections=True)
-            v = filter(lambda x: x.name == vs['name'], l_objs)[0]
-            orig_profiles = v.profilesReference
-
+            orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
             if 'profiles' not in vs:
                 vs['profiles'] = list()
             vs['profiles'] += filter(
@@ -778,6 +784,39 @@ class ListenerManager(ResourceManager):
 
         if vs.get('customized', None):
             self._create_http_profile(bigip, listener, vs)
+            # load the porfiles from bigip if needed
+            if not orig_profiles:
+                orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
+
+            # build the profiles property for the update payload
+            profiles = list()
+            profile_exists = False
+            profile_name = '/' + vs['partition'] + '/' \
+                           + 'http_profile_' + vs['name']
+            http_pattern = "https://localhost/mgmt/tm/ltm/profile/http/"
+            profiles.append(profile_name)
+
+            for profile in orig_profiles['items']:
+                # check if the new http profile is already there.
+                # if yes, don't do anything
+                if profile['fullPath'] == profile_name:
+                    LOG.debug("The http profile is already bound to vs.")
+                    profile_exists = True
+                    break
+
+                link = profile['nameReference']['link']
+                if not re.search(http_pattern, link):
+                    profiles.append(profile['fullPath'])
+
+            # only build the profiles body if needed
+            if profile_exists is False:
+                if 'profiles' not in vs:
+                    vs['profiles'] = list()
+                # add the profile which is from above profiles list and
+                # doesn't exist in origin vs[profiles']
+                vs['profiles'] += filter(
+                    lambda x: x not in vs['profiles'], profiles)
+
             del vs['customized']
 
         # If no vs property to update, do not call icontrol patch api.
