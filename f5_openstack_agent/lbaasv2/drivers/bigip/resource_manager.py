@@ -764,11 +764,14 @@ class ListenerManager(ResourceManager):
             if tls:
                 self._create_ssl_profile(bigip, vs, tls)
 
+        if vs.get("persist") == []:
+            LOG.debug("Need to remove persist profile from vs %s", vs['name'])
+
         persist = None
         if vs.get('persist'):
             persist = service[self._key]['session_persistence']
         if persist:
-            LOG.debug("Need to create or updte persist profile for %s %s",
+            LOG.debug("Need to create or update persist profile for %s %s",
                       self._resource, vs['name'])
             profile = self._create_persist_profile(bigip, vs, persist)
             vs['persist'] = [{"name": profile}]
@@ -880,6 +883,11 @@ class PoolManager(ResourceManager):
         persist = service[self._key].get('session_persistence')
         if persist:
             payload['session_persistence'] = persist
+        elif old_pool.get('session_persistence', None):
+            # If persistence is removed from pool, and this
+            # pool is the default pool of a listener, need
+            # to remove persist property from VS.
+            payload['session_persistence'] = "remove"
 
         return super(PoolManager, self)._update_payload(
             old_pool, pool, service,
@@ -923,6 +931,9 @@ class PoolManager(ResourceManager):
                         listener_payload,
                         keys_to_keep=['partition', 'name', 'persist']
                     )
+                    if payload['session_persistence'] == "remove":
+                        # Remove persist from VS
+                        listener_payload['persist'] = []
                     mgr._update(bigip, listener_payload, None, None, service)
             # Exclude session_persistence from pool payload temporarily,
             # in order to update other properties of pool resource
