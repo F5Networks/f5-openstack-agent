@@ -629,8 +629,6 @@ class ListenerManager(ResourceManager):
                 vs['profiles'] += filter(
                     lambda x: x not in vs['profiles'], profiles)
 
-            del vs['customized']
-
         # If no vs property to update, do not call icontrol patch api.
         # This happens, when vs payload only contains 'customized'.
         if sorted(vs.keys()) == ['name', 'partition']:
