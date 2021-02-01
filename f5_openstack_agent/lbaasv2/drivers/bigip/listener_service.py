@@ -328,7 +328,7 @@ class ListenerServiceBuilder(object):
         :param persistence: Persistence definition.
         :param bigip: Single BigIP instances to update.
         """
-        LOG.error("SP_DEBUG: adding cookie persist: %s -- %s",
+        LOG.debug("SP_DEBUG: adding cookie persist: %s -- %s",
                   persistence, vip)
         cookie_name = persistence.get('cookie_name', None)
         if not cookie_name:
