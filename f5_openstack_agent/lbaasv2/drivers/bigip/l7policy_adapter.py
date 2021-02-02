@@ -38,6 +38,8 @@ class Action(object):
                                      partition, env_prefix, action_val)},
             'REDIRECT_TO_URL': {
                 'redirect': True, 'location': action_val, 'httpReply': True},
+            'REDIRECT_TO_HOST': {
+                'redirect': True, 'location': action_val, 'httpReply': True},
             'REJECT': {'reset': True, 'forward': True}
         }
         self.request = True
@@ -95,6 +97,11 @@ class iRule(object):
                 HTTP::redirect "%s"
             }
         }''',
+        "REDIRECT_TO_HOST": '''when HTTP_REQUEST {
+            if {[HTTP::%s] matches_regex "%s"} {
+                HTTP::redirect "%s[HTTP::uri]"
+            }
+        }''',
         "REJECT": '''when HTTP_REQUEST {
             if {[HTTP::%s] matches_regex "%s"} {
                 drop
@@ -111,6 +118,11 @@ class iRule(object):
         "REDIRECT_TO_URL": '''when HTTP_REQUEST {
             if {[HTTP::%s] ends_with "%s"} {
                 HTTP::redirect "%s"
+            }
+        }''',
+        "REDIRECT_TO_HOST": '''when HTTP_REQUEST {
+            if {[HTTP::%s] ends_with "%s"} {
+                HTTP::redirect "%s[HTTP::uri]"
             }
         }''',
         "REJECT": '''when HTTP_REQUEST {
@@ -181,6 +193,10 @@ class iRule(object):
                                                  self.value,
                                                  pool_name)
         if self.action == "REDIRECT_TO_URL":
+            self.apiAnonymous = self.template % (self.type,
+                                                 self.value,
+                                                 self.action_uri)
+        if self.action == "REDIRECT_TO_HOST":
             self.apiAnonymous = self.template % (self.type,
                                                  self.value,
                                                  self.action_uri)
@@ -261,6 +277,8 @@ class Rule(object):
                     action_val = pol['redirect_pool_id']
                 if action == 'REDIRECT_TO_URL':
                     action_val = pol['redirect_url']
+                if action == 'REDIRECT_TO_HOST':
+                    action_val = 'tcl:' + pol['redirect_url'] + '[HTTP::uri]'
                 return action, action_val
         msg = "Could not find action for the following policy id: {}".format(
             policy_id)
