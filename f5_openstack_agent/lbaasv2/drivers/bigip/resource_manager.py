@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 import json
+import netaddr
 import os
 import re
 import urllib
@@ -21,9 +22,13 @@ import urllib
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
     import FTPProfileHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.irule \
+    import iRuleHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_adapter \
     import L7PolicyServiceAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip.tcp_profile \
+    import TCPProfileHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import tenants
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
@@ -306,6 +311,8 @@ class ListenerManager(ResourceManager):
         self.http_profile_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.http_profile)
         self.ftp_helper = FTPProfileHelper()
+        self.tcp_helper = TCPProfileHelper()
+        self.tcp_irule_helper = iRuleHelper()
         self.mutable_props = {
             "name": "description",
             "default_pool_id": "pool",
@@ -379,7 +386,10 @@ class ListenerManager(ResourceManager):
         if not payload or len(payload.keys()) == 0:
             if self._check_customized_changed(old_listener, listener) \
                is False and \
-               self._check_tls_changed(old_listener, listener) is False:
+               self._check_tls_changed(old_listener, listener) \
+               is False and \
+               self.tcp_helper.need_update_tcp(old_listener, listener) \
+               is False:
                 return False
         return True
 
@@ -578,6 +588,27 @@ class ListenerManager(ResourceManager):
         if listener['protocol'] == "HTTP" or \
            listener['protocol'] == "TERMINATED_HTTPS":
             self._create_http_profile(bigip, listener, vs)
+
+        # pzhang: we only consider to adding sctp profile so far.
+        # notice the order of adding profiles, this will remove
+        # fastL4 profile
+        tcp_ip_enable = self.tcp_helper.enable_tcp(service)
+        if tcp_ip_enable:
+            ip_address = loadbalancer.get("vip_address", None)
+            pure_ip_address = ip_address.split("%")[0]
+            ip_version = netaddr.IPAddress(pure_ip_address).version
+
+            self.tcp_helper.add_profile(
+                service, vs, bigip,
+                side="server",
+                tcp_options=self.driver.conf.tcp_options
+            )
+            self.tcp_irule_helper.create_iRule(
+                service, vs, bigip,
+                tcp_options=self.driver.conf.tcp_options,
+                ip_version=ip_version
+            )
+
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
     def __get_profiles_from_bigip(self, bigip, vs):
@@ -650,6 +681,26 @@ class ListenerManager(ResourceManager):
                 vs['profiles'] += filter(
                     lambda x: x not in vs['profiles'], profiles)
 
+        # pzhang: use need_update_tcp to check old_listener and
+        # listener avoid tedious _update_payload function
+        tcp_ip_update = self.tcp_helper.need_update_tcp(old_listener, listener)
+        if tcp_ip_update:
+            loadbalancer = service.get('loadbalancer', dict())
+            ip_address = loadbalancer.get("vip_address", None)
+            pure_ip_address = ip_address.split("%")[0]
+            ip_version = netaddr.IPAddress(pure_ip_address).version
+
+            self.tcp_helper.update_profile(
+                service, vs, bigip,
+                side="server",
+                tcp_options=self.driver.conf.tcp_options
+            )
+            self.tcp_irule_helper.update_iRule(
+                service, vs, bigip,
+                tcp_options=self.driver.conf.tcp_options,
+                ip_version=ip_version
+            )
+
         # If no vs property to update, do not call icontrol patch api.
         # This happens, when vs payload only contains 'customized'.
         if sorted(vs.keys()) == ['name', 'partition']:
@@ -663,6 +714,16 @@ class ListenerManager(ResourceManager):
             old_service = {"listener": old_listener}
             self._delete_ssl_profiles(bigip, vs, old_service)
 
+        if tcp_ip_update:
+            if self.tcp_helper.delete_profile is True:
+                self.tcp_helper.remove_profile(
+                    service, vs, bigip, side="server"
+                )
+            if self.tcp_irule_helper.delete_iRule is True:
+                self.tcp_irule_helper.remove_iRule(
+                    service, vs, bigip
+                )
+
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
         self._delete_persist_profile(bigip, vs)
@@ -671,6 +732,15 @@ class ListenerManager(ResourceManager):
         ftp_enable = self.ftp_helper.enable_ftp(service)
         if ftp_enable:
             self.ftp_helper.remove_profile(service, vs, bigip)
+        tcp_ip_enable = self.tcp_helper.enable_tcp(service)
+        if tcp_ip_enable:
+            self.tcp_helper.remove_profile(
+                service, vs, bigip,
+                side="server"
+            )
+            self.tcp_irule_helper.remove_iRule(
+                service, vs, bigip
+            )
 
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
