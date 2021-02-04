@@ -5,6 +5,31 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.2 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Login docker hub with an id under f5devcentral org
+* Handle both None and '' situations for listener['customized']
+* Ensure to overwrite persistence profile
+* Tolerate persistence timeout in string type
+* Change the algorithm from least-connection-node to least-connection-member for source_ip algorithm in neutorn
+* Use HEAD or GET for monitor
+* Remove persist profile from vs, if its default pool remove persistence
+* When update listener with customized paramater then bind the new http profile to the listener
+* Will not del the vs customized property. It will be used when configuring the other bigips in cluster mode.
+* use a new way to check if tls and customized properties are changed.
+
+Bug Fixes
+`````````
+* Fix customized bug
+* Fix 'error opening BIG-IP - active:BIG-IP ready for provisioning'
+
+Limitations
+```````````
+
 v9.9.1 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
