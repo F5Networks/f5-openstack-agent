@@ -37,6 +37,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
+from icontrol.exceptions import iControlUnexpectedHTTPError
+import re
 
 LOG = logging.getLogger(__name__)
 
@@ -481,6 +483,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # if self.sync_state():
             #     self.needs_resync = True
             # clean any objects orphaned on devices and persist configs
+            LOG.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
             if self.clean_orphaned_objects_and_save_device_config():
                 self.needs_resync = True
 
@@ -963,6 +966,22 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr.delete(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete loadbalancer %s", id)
+        except iControlUnexpectedHTTPError as ex:
+            fd_matched = re.search(
+                "The requested folder (.*) was not found.",
+                ex.response.content
+            )
+            rd_matched = re.search(
+                "The requested route domain (.*) was not found.",
+                ex.response.content
+            )
+            LOG.error("Fail to delete loadbalancer %s "
+                      "Exception: %s", id, ex.response.content)
+            provision_status = constants_v2.F5_ERROR
+            if ex.response.status_code == 400 and fd_matched:
+                provision_status = constants_v2.F5_ACTIVE
+            if ex.response.status_code == 404 and rd_matched:
+                provision_status = constants_v2.F5_ACTIVE
         except Exception as ex:
             LOG.error("Fail to delete loadbalancer %s "
                       "Exception: %s", id, ex.message)
