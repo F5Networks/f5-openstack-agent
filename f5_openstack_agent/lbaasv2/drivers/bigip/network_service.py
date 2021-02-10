@@ -358,27 +358,38 @@ class NetworkServiceBuilder(object):
 
     def _create_aux_rd(self, tenant_id):
         # Create a new route domain
-        route_domain_id = None
         bigips = self.driver.get_all_bigips()
-        rd_id = self.network_helper.get_next_domain_id(bigips)
-        for bigip in bigips:
-            partition_id = self.service_adapter.get_folder_name(tenant_id)
-            bigip_route_domain_id = self.network_helper.create_route_domain(
-                bigip,
-                rd_id,
-                partition=partition_id,
-                strictness=self.conf.f5_route_domain_strictness,
-                is_aux=True)
-            if route_domain_id is None:
-                route_domain_id = bigip_route_domain_id.id
-            elif bigip_route_domain_id.id != route_domain_id:
-                # FixME error
-                LOG.debug(
-                    "Bigips allocated two different route domains!: %s %s"
-                    % (bigip_route_domain_id, route_domain_id))
-        LOG.debug("Allocated route domain %s for tenant %s"
-                  % (route_domain_id, tenant_id))
-        return route_domain_id
+        retries = 5
+        rd_id = None
+        while retries > 0:
+            retries -= 1
+            try:
+                rd_id = self.network_helper.get_next_domain_id(bigips)
+                for bigip in bigips:
+                    partition_id = self.service_adapter.get_folder_name(
+                                    tenant_id)
+                    self.network_helper.create_route_domain(
+                        bigip,
+                        rd_id,
+                        partition=partition_id,
+                        strictness=self.conf.f5_route_domain_strictness,
+                        is_aux=True)
+                LOG.debug("Allocated route domain %s for tenant %s"
+                          % (rd_id, tenant_id))
+                break
+            except f5_ex.RouteDomainCreationException as err:
+                if retries == 0:
+                    raise f5_ex.RouteDomainCreationException(
+                        "Failed to create route domain for "
+                        "tenant %s: %s" % (tenant_id, err.message))
+                else:
+                    LOG.info("Failed to create route domain for tenant"
+                             " %s: %s, retrying." % (tenant_id, err.message))
+        else:
+            LOG.error("Failed to create route domain for max retries")
+            raise f5_ex.RouteDomainCreationException(
+                        "Failed to create route domain: %s" % tenant_id)
+        return rd_id
 
     # The purpose of the route domain subnet cache is to
     # determine whether there is an existing bigip
