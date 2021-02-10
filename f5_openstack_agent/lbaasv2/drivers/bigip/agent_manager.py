@@ -19,12 +19,12 @@ import datetime
 import sys
 import uuid
 
+from neutron.openstack.common import loopingcall
+from neutron.openstack.common import periodic_task
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging
-from oslo_service import loopingcall
-from oslo_service import periodic_task
 from oslo_utils import importutils
 
 from neutron.agent import rpc as agent_rpc
@@ -228,7 +228,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     def __init__(self, conf):
         """Initialize LbaasAgentManager."""
-        super(LbaasAgentManager, self).__init__(conf)
+        super(LbaasAgentManager, self).__init__()
         LOG.debug("Initializing LbaasAgentManager")
         LOG.debug("runtime environment: %s" % sys.version)
 

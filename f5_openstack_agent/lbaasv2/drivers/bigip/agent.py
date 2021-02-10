@@ -21,9 +21,9 @@ import sys
 import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as exceptions
 
 try:
+    from neutron.openstack.common import service
     from oslo_config import cfg
     from oslo_log import log as oslo_logging
-    from oslo_service import service
 except ImportError as CriticalError:
     frame = inspect.getframeinfo(inspect.currentframe())
     CriticalError = \
@@ -87,7 +87,7 @@ def main():
         topic=f5constants.TOPIC_LOADBALANCER_AGENT_V2,
         manager=mgr
     )
-    service.launch(cfg.CONF, svc).wait()
+    service.launch(svc).wait()
 
 
 if __name__ == '__main__':
