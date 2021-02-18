@@ -2083,11 +2083,11 @@ class iControlDriver(LBaaSBaseDriver):
                     {'check_for_delete_subnets': {},
                      'do_not_delete_subnets': []}
 
-            LOG.debug("XXXXXXXXX: Pre assure service")
+            LOG.debug("Pre assure service")
             self.lbaas_builder.assure_service(service,
                                               traffic_group,
                                               all_subnet_hints)
-            LOG.debug("XXXXXXXXX: Post assure service")
+            LOG.debug("Post assure service")
 
             if self.network_builder:
                 start_time = time()
