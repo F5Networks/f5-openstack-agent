@@ -483,7 +483,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # if self.sync_state():
             #     self.needs_resync = True
             # clean any objects orphaned on devices and persist configs
-            LOG.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+            LOG.info("start to clear orphaned objects")
             if self.clean_orphaned_objects_and_save_device_config():
                 self.needs_resync = True
 
@@ -975,12 +975,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 "The requested route domain (.*) was not found.",
                 ex.response.content
             )
-            LOG.error("Fail to delete loadbalancer %s "
-                      "Exception: %s", id, ex.response.content)
             provision_status = constants_v2.F5_ERROR
             if ex.response.status_code == 400 and fd_matched:
+                LOG.warning("Not Found Exception to delete loadbalancer %s "
+                            "by exception: %s, delete loadbalancer in Neutron",
+                            id, ex.response.content)
                 provision_status = constants_v2.F5_ACTIVE
             if ex.response.status_code == 404 and rd_matched:
+                LOG.warning("Not Found Exception to delete loadbalancer %s "
+                            "by exception: %s, delete loadbalancer in Neutron",
+                            id, ex.response.content)
                 provision_status = constants_v2.F5_ACTIVE
         except Exception as ex:
             LOG.error("Fail to delete loadbalancer %s "
