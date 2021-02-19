@@ -281,8 +281,9 @@ class LoadBalancerManager(ResourceManager):
         if 'bandwidth' not in loadbalancer.keys():
             bandwidth = conf.f5_bandwidth_default
         else:
-            bandwidth = loadbalancer.get('bandwidth', -1)
+            bandwidth = loadbalancer.get('bandwidth', '-1')
 
+        bandwidth = int(bandwidth)
         if bandwidth < 0 or bandwidth > conf.f5_bandwidth_max:
             raise Exception("Invalid bandwidth value %d", bandwidth)
 
