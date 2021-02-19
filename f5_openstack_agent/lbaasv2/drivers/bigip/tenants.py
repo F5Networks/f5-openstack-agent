@@ -67,8 +67,8 @@ class BigipTenantManager(object):
                     self.system_helper.create_folder(bigip, folder)
                 except Exception as err:
                     # XXX Maybe we can make this more specific?
-                    LOG.exception("Error creating folder %s" %
-                                  (folder))
+                    LOG.exception("Error creating folder %s: %s" %
+                                  (folder, err.message))
                     raise f5ex.SystemCreationException(
                         "Folder creation error for tenant %s" %
                         (tenant_id))
@@ -125,21 +125,33 @@ class BigipTenantManager(object):
         # create tenant route domain
         if self.conf.use_namespaces and not sync:
             bigips = self.driver.get_all_bigips()
-            rd_id = self.network_helper.get_next_domain_id(bigips)
-            for bigip in bigips:
-                if not self.network_helper.route_domain_exists(bigip,
-                                                               folder_name):
-                    try:
-                        self.network_helper.create_route_domain(
-                            bigip,
-                            rd_id,
-                            folder_name,
-                            self.conf.f5_route_domain_strictness)
-                    except Exception as err:
-                        LOG.exception(err.message)
+            retries = 5
+            while retries > 0:
+                retries -= 1
+                try:
+                    rd_id = self.network_helper.get_next_domain_id(bigips)
+                    for bigip in bigips:
+                        if not self.network_helper.route_domain_exists(bigip,
+                           folder_name):
+                            self.network_helper.create_route_domain(
+                                bigip,
+                                rd_id,
+                                folder_name,
+                                self.conf.f5_route_domain_strictness)
+                    break
+                except f5ex.RouteDomainCreationException as err:
+                    if retries == 0:
                         raise f5ex.RouteDomainCreationException(
                             "Failed to create route domain for "
-                            "tenant in %s" % (folder_name))
+                            "tenant in %s: %s" % (folder_name, err.message))
+                    else:
+                        LOG.info("Failed to create route domain(%d)"
+                                 " for tenant: %s, %s, retrying."
+                                 % (rd_id, tenant_id, err.message))
+            else:
+                LOG.error("Failed to create route domain for max retries.")
+                raise f5ex.RouteDomainCreationException(
+                        "Failed to create route domain: %s" % tenant_id)
 
     def assure_tenant_cleanup(self, service, all_subnet_hints):
         """Delete tenant partition."""
