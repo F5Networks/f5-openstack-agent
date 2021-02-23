@@ -5,6 +5,28 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.45 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Change the algorithm from least-connection-node to least-connection-member for source_ip algorithm in neutorn
+* Use HEAD or GET for monitor
+* Remove persist profile from vs, if its default pool remove persistence
+* When update listener with customized paramater then bind the new http profile to the listener
+
+Bug Fixes
+`````````
+* Error loadbalancer cannot be deleted because of no partition
+* Fix the issue of route domain issue: id already exists.
+* Fix some logs
+* Fix log type
+* Will not del the vs customized property. It will be used when configuring the other bigips in cluster mode
+* The extra items such as customized, tls in payload will cause error for updating operation
+
+Limitations
+
 v9.8.44 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
