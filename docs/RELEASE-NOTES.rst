@@ -18,11 +18,11 @@ Added Functionality
 
 Bug Fixes
 `````````
-* Error loadbalancer cannot be deleted because of no partition
+* Error loadbalancer cannot delete, cause of no partition
 * Fix the issue of route domain issue: id already exists.
 * Fix some logs
 * Fix log type
-* Will not del the vs customized property. It will be used when configuring the other bigips in cluster mode
+* Will not del the vs customized property. It will use when configuring the other bigips in cluster mode
 * The extra items such as customized, tls in payload will cause error for updating operation
 
 Limitations
