@@ -150,6 +150,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
+        self.last_member_update = self.last_resync
         self.needs_resync = False
         self.plugin_rpc = None
         self.tunnel_rpc = None
@@ -161,6 +162,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.service_resync_interval)
 
+        self.member_update_interval = conf.member_update_interval
+        LOG.debug('setting member update intervl to %d seconds' %
+                  self.member_update_interval)
         # Load the driver.
         self._load_driver(conf)
 
@@ -432,8 +436,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def update_operating_status(self, context):
         """Update pool member operational status from devices to controller."""
         if not self.plugin_rpc:
+            LOG.debug("update member status exits.")
             return
 
+        if self.member_update_interval == 0:
+            LOG.debug("update member status is disabled.")
+            return
+
+        now = datetime.datetime.now()
+        if (now - self.last_member_update).seconds < \
+           self.member_update_interval:
+            LOG.debug("update member status interval is not met.")
+            return
+
+        LOG.debug("Perform update member status at %s." % now)
+        self.last_member_update = datetime.datetime.now()
         active_loadbalancers = \
             self.plugin_rpc.get_active_loadbalancers(host=self.agent_host)
         for loadbalancer in active_loadbalancers:
