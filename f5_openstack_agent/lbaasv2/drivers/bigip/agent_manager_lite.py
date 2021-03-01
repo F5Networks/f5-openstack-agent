@@ -41,6 +41,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
 LOG = logging.getLogger(__name__)
 
 PERIODIC_TASK_INTERVAL = 10
+PERIODIC_MEMBER_UPDATE_INTERVAL = 30
 
 
 class LogicalServiceCache(object):
@@ -147,10 +148,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         global PERIODIC_TASK_INTERVAL
         PERIODIC_TASK_INTERVAL = self.conf.periodic_interval
 
+        global PERIODIC_MEMBER_UPDATE_INTERVAL
+        PERIODIC_MEMBER_UPDATE_INTERVAL = self.conf.member_update_interval
+
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
         self.needs_resync = False
+        self.needs_member_update = True
         self.plugin_rpc = None
         self.tunnel_rpc = None
         self.l2_pop_rpc = None
@@ -160,6 +165,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.service_resync_interval = conf.service_resync_interval
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.service_resync_interval)
+
+        LOG.debug('setting member update intervl to %d seconds' %
+                  PERIODIC_MEMBER_UPDATE_INTERVAL)
 
         # Load the driver.
         self._load_driver(conf)
@@ -428,12 +436,20 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                                           self.conf.environment_group_number)
 
     @periodic_task.periodic_task(
-        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
+        spacing=PERIODIC_MEMBER_UPDATE_INTERVAL)
     def update_operating_status(self, context):
         """Update pool member operational status from devices to controller."""
         if not self.plugin_rpc:
+            LOG.debug("update member status exits.")
             return
 
+        if not self.needs_member_update:
+            LOG.debug("The previous task is still running.")
+            return
+
+        now = datetime.datetime.now()
+        LOG.debug("Perform update member status at %s." % now)
+        self.needs_member_update = False
         active_loadbalancers = \
             self.plugin_rpc.get_active_loadbalancers(host=self.agent_host)
         for loadbalancer in active_loadbalancers:
@@ -447,7 +463,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     self.lbdriver.update_operating_status(svc)
 
                 except Exception as e:
+                    self.needs_member_update = True
                     LOG.exception('Error updating status %s.', e.message)
+
+        self.needs_member_update = True
 
     # setup a period task to decide if it is time empty the local service
     # cache and resync service definitions form the controller
