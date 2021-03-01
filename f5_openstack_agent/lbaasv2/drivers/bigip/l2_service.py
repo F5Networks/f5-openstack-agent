@@ -225,7 +225,8 @@ class L2ServiceBuilder(object):
                             ' Cannot setup network.'
             LOG.error(error_message)
             raise f5_ex.InvalidNetworkType(error_message)
-        bigip.assured_networks[network['id']] = network_name
+        # bigip.assured_networks[network['id']] = network_name
+        LOG.debug("assured_network: %s" % network_name)
 
         if time() - start_time > .001:
             LOG.debug("        assure bigip network took %.5f secs" %

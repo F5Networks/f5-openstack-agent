@@ -220,7 +220,7 @@ class BigipSnatManager(object):
                 self.l3_binding.bind_address(subnet_id=subnet['id'],
                                              ip_address=ip_address)
 
-        bigip.assured_tenant_snat_subnets[tenant_id].append(subnet['id'])
+        # bigip.assured_tenant_snat_subnets[tenant_id].append(subnet['id'])
 
     def delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
         # Assure shared snat configuration (which syncs) is deleted.
