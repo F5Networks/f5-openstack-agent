@@ -281,7 +281,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
+        self.last_member_update = datetime.datetime.now()
         self.needs_resync = False
+        self.needs_member_update = True
         self.plugin_rpc = None
         self.tunnel_rpc = None
         self.l2_pop_rpc = None
@@ -292,6 +294,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.service_resync_interval)
 
+        if PERIODIC_MEMBER_UPDATE_INTERVAL == 0:
+            PERIODIC_MEMBER_UPDATE_INTERVAL = 60
         LOG.debug('setting member update intervl to %d seconds' %
                   PERIODIC_MEMBER_UPDATE_INTERVAL)
 
@@ -572,8 +576,19 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug("The previous task is still running.")
             return
 
+        if PERIODIC_MEMBER_UPDATE_INTERVAL < 0:
+            LOG.debug('The interval is negative %d' %
+                      PERIODIC_MEMBER_UPDATE_INTERVAL)
+            return
+
         now = datetime.datetime.now()
+        if (now - self.last_member_update).seconds < \
+           PERIODIC_MEMBER_UPDATE_INTERVAL:
+            LOG.debug('The interval value is not met yet.')
+            return
+
         LOG.debug("Perform update member status at %s." % now)
+        self.last_member_update = now
         self.needs_member_update = False
         active_loadbalancers = \
             self.plugin_rpc.get_active_loadbalancers(host=self.agent_host)
