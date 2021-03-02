@@ -268,7 +268,7 @@ class BigipSelfIpManager(object):
                 "Failed to add virtual address to traffic group %s",
                 traffic_group)
 
-        bigip.assured_gateway_subnets.append(subnet['id'])
+        # bigip.assured_gateway_subnets.append(subnet['id'])
 
     def delete_gateway_on_subnet(self, bigip, subnetinfo):
         network = None
