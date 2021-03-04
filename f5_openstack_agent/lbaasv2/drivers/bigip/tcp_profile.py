@@ -49,7 +49,10 @@ class TCPProfileHelper(object):
         if old_listener is None or listener is None:
             return False
 
-        return listener.get('transparent')
+        if old_listener['transparent'] != listener['transparent']:
+            return True
+
+        return False
 
     def add_profile(self, service, vip, bigip, **kwargs):
         side = kwargs.get("side")
@@ -137,6 +140,8 @@ class TCPProfileHelper(object):
     def update_profile(self, service, vip, bigip, **kwargs):
         side = kwargs.get("side")
         tcp_options = kwargs.get("tcp_options")
+        new_listener = service.get('listener')
+        transparent = new_listener.get('transparent')
 
         if tcp_options:
             first_option = tcp_options
@@ -153,22 +158,23 @@ class TCPProfileHelper(object):
             partition=partition
         )
 
-        if not profile_exists:
-            # pzhang: if not exist, we create tcp_options
-            # be caution we change fastl4 to standard,
-            # since original TCP is fastl4 mode
-            payload = dict(
-                name=profile_name,
-                partition=partition,
-                tcpOptions=tcp_options
-            )
-            LOG.info(
-                "Updating to create a non-exist customized TCP profile: {}"
-                " for BIGIP: {} ".format(
-                    profile, bigip.hostname
+        if transparent:
+            if not profile_exists:
+                # pzhang: if not exist, we create tcp_options
+                # be caution we change fastl4 to standard,
+                # since original TCP is fastl4 mode
+                payload = dict(
+                    name=profile_name,
+                    partition=partition,
+                    tcpOptions=tcp_options
                 )
-            )
-            self.tcp_helper.create(bigip, payload)
+                LOG.info(
+                    "Updating to create a non-exist customized TCP profile: {}"
+                    " for BIGIP: {} ".format(
+                        profile, bigip.hostname
+                    )
+                )
+                self.tcp_helper.create(bigip, payload)
 
             if side == "client":
                 # pzhang: coustomerized clientside, serverside is /common/tcp
