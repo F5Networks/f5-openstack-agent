@@ -145,6 +145,9 @@ class iRuleHelper(object):
 
         tcp_options = kwargs.get("tcp_options")
         ip_version = kwargs.get("ip_version")
+        new_listener = service.get("listener")
+        transparent = new_listener.get("transparent")
+
         payload = {}
 
         if ip_version == 4:
@@ -168,20 +171,21 @@ class iRuleHelper(object):
         vs = self.vs_helper.load(bigip, name=vs_name,
                                  partition=irule_partition)
 
-        if not irule_exists:
-            payload = dict(
-                name=irule_name,
-                partition=irule_partition,
-                apiAnonymous=irule_apiAnonymous
-            )
-
-            LOG.info(
-                "Updating to create TOA iRule: {} for "
-                "BIGIP: {} ".format(
-                    irule_fullPath, bigip.hostname
+        if transparent:
+            if not irule_exists:
+                payload = dict(
+                    name=irule_name,
+                    partition=irule_partition,
+                    apiAnonymous=irule_apiAnonymous
                 )
-            )
-            self.irule_helper.create(bigip, payload)
+
+                LOG.info(
+                    "Updating to create TOA iRule: {} for "
+                    "BIGIP: {} ".format(
+                        irule_fullPath, bigip.hostname
+                    )
+                )
+                self.irule_helper.create(bigip, payload)
 
             vip_rules = [irule_fullPath]
             vip_rules += vs.rules if vs.rules is not None else list()
