@@ -5,6 +5,24 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v3.0.0 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Support l7policy REDIRECT_TO_HOST action
+* Add server/client tcp profile  
+* Patch TOA update for transparent option  
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+Release Notes for F5 Openstack Agent
+====================================
+
 v9.8.44 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
