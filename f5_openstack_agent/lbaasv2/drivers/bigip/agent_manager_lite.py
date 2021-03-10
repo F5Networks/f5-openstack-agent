@@ -36,7 +36,10 @@ except ImportError:
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
+
+from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -157,6 +160,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.last_member_update = datetime.datetime.now()
         self.needs_resync = False
         self.needs_member_update = True
+        self.member_update_mode = self.conf.member_update_mode
         self.plugin_rpc = None
         self.tunnel_rpc = None
         self.l2_pop_rpc = None
@@ -438,10 +442,140 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.plugin_rpc.scrub_dead_agents(self.conf.environment_prefix,
                                           self.conf.environment_group_number)
 
+    @log_helpers.log_method_call
+    def update_member_status_per_pool(self, pool_id, tenant_id,
+                                      hostnames=list()):
+        """update the members' status in one pool """
+        all_member_status = list()
+        # further discussions are needed
+        try:
+            for bigip in self.lbdriver.get_active_bigips():
+                if bigip.hostname in hostnames:
+                    pool_name = self.conf.environment_prefix + '_' + pool_id
+                    partition = self.conf.environment_prefix + '_' + tenant_id
+                    pool = resource_helper.BigIPResourceHelper(
+                        resource_helper.ResourceType.pool).load(
+                            bigip, name=pool_name, partition=partition)
+                    members = pool.members_s.get_collection()
+                # figure out the members in this pool and send
+                # the members and their statuses to driver in batch
+                    for member in members:
+                        '''
+                        fqdn = member.fqdn
+                        del member._meta_data
+                        content = member.to_dict()
+                        del content['fqdn']
+                        """fqdn becomes a list somehow"""
+                        content['fqdn'] = fqdn'''
+
+                        """TODO create the member list with status"""
+                        """At the same time, we need to consider the multiple"""
+                        """bigip hosts cases."""
+                        # TODO check if the member's description
+                        # follows the <prefix>-<id> rule
+                        description = member.get('description',None)
+                        if description:
+                            member_parts = description.split('_', 1)
+                            if len(member_parts) == 2:
+                                member_prefix = member_parts[0]
+                                member_id = member_parts[1]
+                            else:
+                                LOG.debug("member description forma is wrong %s."
+                                           % description)
+                                continue
+
+                        else:
+                            LOG.debug("membe description is None.")
+                            continue
+
+                        member_status = {}
+                        # member_status['id'] = member.description[len(self.conf.environment_prefix)+1:]
+                        member_status['id'] = member_id
+                        # member_status['state'] = member.state
+                        member_status['state'] = constants_v2.F5_ONLINE
+                        LOG.debug("append member %s with statue %s", member_id, member.state)
+                        all_member_status.append(member_status)
+            # send the members in one pool to driver
+            self.plugin_rpc.update_member_status_in_batch(all_member_status)
+
+        except HTTPError as err:
+            if err.response.status_code == 404:
+                LOG.debug('pool %s not on BIG-IP %s.'
+                          % (pool_id, bigip.hostname))
+        except Exception as exc:
+            LOG.exception('Exception get members %s' % str(exc))
+
+        return
+
+    @log_helpers.log_method_call
+    def update_all_member_status_by_pools(self, pools):
+        """update the members in all pools """
+        for pool_id in pools:
+            LOG.debug("The pool_id is %s." % pool_id)
+            pool = pools.get(pool_id,None)
+            if pool:
+                tenant_id = pool.get('tenant_id', 'None')
+                hostnames = pool.get('hostnames', list())
+                pool_id = pool.get('id', 'None')
+                self.update_member_status_per_pool(
+                    pool_id, tenant_id, hostnames)
+        return
+
+    @periodic_task.periodic_task(
+        spacing=PERIODIC_MEMBER_UPDATE_INTERVAL)
+    def update_member_status_task(self, context):
+        """Update pool member operational status from devices to controller."""
+
+        if not self.conf.member_update_mode:
+            LOG.debug("Using the traditional way to update.")
+            return
+
+        if not self.plugin_rpc:
+            LOG.debug("update member status exits.")
+            return
+
+        if PERIODIC_MEMBER_UPDATE_INTERVAL < 0:
+            LOG.debug('The interval is negative %d' %
+                      PERIODIC_MEMBER_UPDATE_INTERVAL)
+            return
+
+        now = datetime.datetime.now()
+        if (now - self.last_member_update).seconds < \
+           PERIODIC_MEMBER_UPDATE_INTERVAL:
+            LOG.debug('The interval value is not met yet.')
+            return
+
+        LOG.debug("Perform update member status at %s." % now)
+        self.last_member_update = now
+
+        # the logic is, we retrieve all the members from bigip directly
+        # and update the neutron server in batch with the members' status
+        # TODO  further optimize,
+        # 1) get_active_loadbalancer from neutron which will get all the active
+        # and agent specific lbs.
+        # 2) For the above lbs, get the members and update their status.
+
+        try:
+            pools = self.lbdriver.get_all_deployed_pools()
+            if pools:
+                LOG.debug("jikui pools found: {}".format(pools))
+                self.update_all_member_status_by_pools(pools)
+            else:
+                LOG.debug("no vailable pools")
+        except Exception as e:
+            LOG.error("Unable to update member state: %s" % e.message)
+
+        return
+
     @periodic_task.periodic_task(
         spacing=PERIODIC_MEMBER_UPDATE_INTERVAL)
     def update_operating_status(self, context):
         """Update pool member operational status from devices to controller."""
+
+        if self.conf.member_update_mode:
+            LOG.debug("Using the optimized way to update.")
+            return
+
         if not self.plugin_rpc:
             LOG.debug("update member status exits.")
             return

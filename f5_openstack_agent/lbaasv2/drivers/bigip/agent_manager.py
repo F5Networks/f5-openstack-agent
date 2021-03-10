@@ -118,6 +118,11 @@ OPTS = [
         default=30,
         help=('Number of seconds between member status update')
     ),
+    cfg.IntOpt(
+        'member_update_mode',
+        default=0,
+        help=('Mode of the member status update')
+    ),
     cfg.StrOpt(
         'environment_prefix',
         default='Project',

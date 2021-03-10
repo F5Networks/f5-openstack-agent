@@ -716,6 +716,7 @@ class ServiceModelAdapter(object):
         member = {}
         port = lbaas_member["protocol_port"]
         ip_address = lbaas_member["address"]
+        id_des = str(lbaas_member["id"])
 
         if lbaas_member["admin_state_up"]:
             member["session"] = "user-enabled"
@@ -734,6 +735,8 @@ class ServiceModelAdapter(object):
             member['name'] = ip_address + ':' + str(port)
         member["partition"] = self.get_folder_name(loadbalancer["tenant_id"])
         member["address"] = ip_address
+        member["description"] = self.prefix + id_des
+
         return member
 
     def _map_node(self, loadbalancer, lbaas_member):
