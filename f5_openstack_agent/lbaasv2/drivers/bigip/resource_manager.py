@@ -342,6 +342,28 @@ class ListenerManager(ResourceManager):
         if old_listener['default_pool_id'] != listener['default_pool_id']:
             payload['persist'] = create_payload['persist']
 
+        snat_enable_or_not = self._check_snat_changed(old_listener, listener)
+
+        LOG.debug('the create_payload:')
+        LOG.debug(create_payload)
+        if snat_enable_or_not == 'enable':
+            LOG.debug('inside enable')
+            payload['sourceAddressTranslation'] = {}
+            if "sourceAddressTranslation" in create_payload and \
+               create_payload['sourceAddressTranslation'].get('type'):
+                payload['sourceAddressTranslation']['type'] = \
+                    create_payload['sourceAddressTranslation'].get('type')
+
+            if "sourceAddressTranslation" in create_payload and \
+               create_payload['sourceAddressTranslation'].get('pool'):
+                payload['sourceAddressTranslation']['pool'] = \
+                    create_payload['sourceAddressTranslation'].get('pool')
+        elif snat_enable_or_not == 'disable':
+            LOG.debug('inside disable')
+            payload['sourceAddressTranslation'] = {}
+            payload['sourceAddressTranslation']['type'] = None
+            payload['sourceAddressTranslation']['pool'] = None
+
         return super(ListenerManager, self)._update_payload(
             old_listener, listener, service,
             payload=payload, create_payload=create_payload
@@ -382,6 +404,40 @@ class ListenerManager(ResourceManager):
                 return True
         return False
 
+    def _check_snat_changed(self, old_listener, listener):
+        if not old_listener:
+            return ''
+
+        if 'customized' in listener and listener['customized']:
+            try:
+                new_customized_json = json.loads(listener['customized'])
+                new_enable_snat = new_customized_json.get('enable_snat')
+            except ValueError:
+                LOG.error('Invalid json.')
+                LOG.error('Due to the error, not handle snat at all.')
+                return ''
+
+        # might want to modify and compare with old one
+        # if 'customized' in old_listener and old_listener['customized']:
+        #     try:
+        #         old_customized_json = json.loads(old_listener['customized'])
+        #         old_enable_snat = old_customized_json.get('enable_snat')
+        #     except ValueError:
+        #         LOG.error('Invalid json.')
+        #         LOG.error('Due to the error, not handle snat at all.')
+
+        # might want to test agaist other values as well, if needed.
+        # seems using 'in' has to consider None, might not want to use it
+        if new_enable_snat == 'True' or new_enable_snat == 'true':
+            LOG.info('enable snat')
+            return 'enable'
+        elif new_enable_snat == 'False' or new_enable_snat == 'false':
+            LOG.info('disable snat')
+            return 'disable'
+        else:
+            LOG.info('seems nothing at all')
+            return ''
+
     def _check_update_needed(self, payload, old_listener, listener):
         if not payload or len(payload.keys()) == 0:
             if self._check_customized_changed(old_listener, listener) \
@@ -389,7 +445,9 @@ class ListenerManager(ResourceManager):
                self._check_tls_changed(old_listener, listener) \
                is False and \
                self.tcp_helper.need_update_tcp(old_listener, listener) \
-               is False:
+               is False and \
+               not self._check_snat_changed(old_listener, listener):
+                LOG.info('seems not needed to update')
                 return False
         return True
 
