@@ -5,6 +5,23 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v3.0.1 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Enable or disable snat
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+
+Release Notes for F5 Openstack Agent
+====================================
+
 v3.0.0 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
