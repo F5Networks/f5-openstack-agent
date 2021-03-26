@@ -777,7 +777,7 @@ class ServiceModelAdapter(object):
             for tls_key in [
                 'default_tls_container_id',
                 'sni_containers',
-                # China mobile client auth parameters
+                # client auth parameters
                 'mutual_authentication_up',
                 'ca_container_id'
             ]:

@@ -468,7 +468,7 @@ class ListenerManager(ResourceManager):
     def _create_http_cookie_persist_profile(self, bigip, vs, persist):
         name = "http_cookie_" + vs['name']
 
-        # China Mobile may input persistence_timeout as a string
+        # persistence_timeout might be a string
         try:
             timeout = int(persist.get("persistence_timeout") or 0)
         except ValueError as ex:
@@ -501,7 +501,7 @@ class ListenerManager(ResourceManager):
     def _create_source_addr_persist_profile(self, bigip, vs, persist):
         name = "source_addr_" + vs['name']
 
-        # China Mobile may input persistence_timeout as a string
+        # persistence_timeout might be a string
         try:
             timeout = int(persist.get("persistence_timeout") or 0)
         except ValueError as ex:
