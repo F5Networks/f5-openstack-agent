@@ -334,7 +334,7 @@ class ListenerServiceBuilder(object):
         if not cookie_name:
             return
 
-        # China Mobile may input persistence_timeout as a string
+        # persistence_timeout might be a string
         try:
             timeout = int(persistence.get("persistence_timeout") or 0)
         except ValueError as ex:
