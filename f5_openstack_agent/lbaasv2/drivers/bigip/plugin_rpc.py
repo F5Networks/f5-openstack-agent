@@ -714,3 +714,87 @@ class LBaaSv2PluginRPC(object):
                       "validate_l7policys_state_by_listener")
 
         return l7policy_status
+
+    @log_helpers.log_method_call
+    def get_subnet_by_id(self, subnet_id):
+        try:
+            subnet = self._call(
+                self.context,
+                self._make_msg('get_subnet_by_id',
+                               subnet_id=subnet_id),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_subnet_by_id")
+        return subnet
+
+    @log_helpers.log_method_call
+    def get_network_by_id(self, network_id):
+        try:
+            network = self._call(
+                self.context,
+                self._make_msg('get_network_by_id',
+                               network_id=network_id),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_network_by_id")
+        return network
+
+    @log_helpers.log_method_call
+    def get_pool_by_id(self, pool_id):
+        try:
+            pool = self._call(
+                self.context,
+                self._make_msg('get_pool_by_id',
+                               pool_id=pool_id),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_pool_by_id")
+        return pool
+
+    @log_helpers.log_method_call
+    def get_healthmonitor_by_id(self, healthmonitor_id):
+        try:
+            monitor = self._call(
+                self.context,
+                self._make_msg('get_healthmonitor_by_id',
+                               healthmonitor_id=healthmonitor_id),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_healthmonitor_by_id")
+        return monitor
+
+    @log_helpers.log_method_call
+    def get_member_by_id(self, member_id):
+        try:
+            member = self._call(
+                self.context,
+                self._make_msg('get_member_by_id',
+                               member_id=member_id),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_member_by_id")
+        return member
+
+    @log_helpers.log_method_call
+    def get_pool_members(self, filters):
+        try:
+            members = self._call(
+                self.context,
+                self._make_msg('get_pool_members',
+                               filters=filters),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_pool_members")
+        return members
