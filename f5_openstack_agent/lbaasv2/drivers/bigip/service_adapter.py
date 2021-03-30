@@ -15,6 +15,7 @@
 #
 
 import ast
+import json
 
 import hashlib
 import netaddr
@@ -116,6 +117,24 @@ class ServiceModelAdapter(object):
 
         listener["use_snat"] = self.snat_mode() and not listener.get(
             "transparent")
+
+        if 'customized' in listener and listener['customized']:
+            enable_snat_arg = None
+            try:
+                cust = json.loads(listener['customized'])
+                enable_snat_arg = cust.get('enable_snat')
+                LOG.info(enable_snat_arg)
+            except ValueError:
+                LOG.error("Skipped. Invalid json: %s", listener['customized'])
+
+            # better to do more checks agaist value, 0,1,true,false,str,etc
+            if enable_snat_arg == 'True':
+                listener["use_snat"] = True
+            elif enable_snat_arg == 'False':
+                listener["use_snat"] = False
+            else:
+                LOG.debug('nothing, skip.')
+
         if listener["use_snat"] and self.snat_count() > 0:
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
