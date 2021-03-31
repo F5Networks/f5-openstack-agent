@@ -19,6 +19,7 @@ import datetime
 import sys
 import uuid
 
+from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging
@@ -40,7 +41,12 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
 
 LOG = logging.getLogger(__name__)
 
-PERIODIC_TASK_INTERVAL = 10
+OPTS = [
+
+]
+
+cfg.CONF.register_opts(OPTS)
+
 PERIODIC_MEMBER_UPDATE_INTERVAL = 30
 
 
@@ -144,9 +150,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.conf = conf
         self.context = ncontext.get_admin_context_without_session()
         self.serializer = None
-
-        global PERIODIC_TASK_INTERVAL
-        PERIODIC_TASK_INTERVAL = self.conf.periodic_interval
 
         global PERIODIC_MEMBER_UPDATE_INTERVAL
         PERIODIC_MEMBER_UPDATE_INTERVAL = self.conf.member_update_interval
@@ -414,7 +417,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if self.lbdriver:
             self.lbdriver.connect()
 
-    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
+    @periodic_task.periodic_task(spacing=cfg.CONF.periodic_interval)
     def refresh_esd(self, context):
         """Refresh ESD files."""
         if self.lbdriver.esd_processor and self.conf.esd_auto_refresh:
@@ -483,7 +486,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     # setup a period task to decide if it is time empty the local service
     # cache and resync service definitions form the controller
-    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
+    @periodic_task.periodic_task(spacing=cfg.CONF.periodic_interval)
     def periodic_resync(self, context):
         """Determine if it is time to resync services from controller."""
         now = datetime.datetime.now()
