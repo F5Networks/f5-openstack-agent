@@ -50,7 +50,7 @@ except ImportError as Error:
     pass
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as manager
-import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager_lite as lite
+# import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager_lite as lite
 import f5_openstack_agent.lbaasv2.drivers.bigip.constants_v2 as f5constants
 
 LOG = oslo_logging.getLogger(__name__)
@@ -85,6 +85,10 @@ def main():
 
     common_config.init(sys.argv[1:])
     config.setup_logging()
+
+    # importing at the beginning seems complaining about cfg.CONF
+    # adding it after register.
+    import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager_lite as lite
 
     if cfg.CONF.f5_agent_mode == "lite":
         mgr = lite.LbaasAgentManager(cfg.CONF)
