@@ -486,9 +486,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     # setup a period task to decide if it is time empty the local service
     # cache and resync service definitions form the controller
-    @periodic_task.periodic_task(spacing=cfg.CONF.periodic_interval)
+    @periodic_task.periodic_task(spacing=cfg.CONF.resync_interval)
     def periodic_resync(self, context):
         """Determine if it is time to resync services from controller."""
+        LOG.debug("periodic resync task is running.")
         now = datetime.datetime.now()
 
         # check if a resync has not been requested by the driver
