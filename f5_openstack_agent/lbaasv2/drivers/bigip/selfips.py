@@ -75,7 +75,7 @@ class BigipSelfIpManager(object):
                     LOG.error("selfip creation error message: %s" %
                               err.message)
                     LOG.error("selfip creation error status: %s" %
-                              err.reponse.status_code)
+                              err.response.status_code)
                     LOG.error("selfip creation error text: %s" %
                               err.response.text)
                     raise
