@@ -52,6 +52,11 @@ OPTS = [
         default=600,
         help='Seconds between periodic task runs'
     ),
+    cfg.IntOpt(
+        'resync_interval',
+        default=-1,
+        help='Seconds interval for resync task'
+    ),
     cfg.BoolOpt(
         'start_agent_admin_state_up',
         default=True,
