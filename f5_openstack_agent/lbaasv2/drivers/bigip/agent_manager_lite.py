@@ -487,8 +487,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                         status, session)
         return member_status
 
-    @log_helpers.log_method_call
-    def append_one_member(self, member, all_members):
+    def append_one_member_by_description(self, pool_id, member, all_members):
         """append one member """
         if not member:
             LOG.debug("member is empty.")
@@ -497,7 +496,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if 'description' in member:
             description = member['description']
             if not description:
-                LOG.debug("member description is empty.")
+                LOG.debug("member's description is empty.")
                 return
             member_parts = description.split('_', 1)
             if len(member_parts) == 2:
@@ -520,31 +519,63 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       member_info['state'])
             all_members.append(member_info)
         else:
-            LOG.debug("member %s doesn't contain description.", member.name)
+            LOG.debug("neither description nor name exists.")
 
         return
 
-    @log_helpers.log_method_call
+    def append_one_member(self, member, pool_id, all_members):
+        """append one member """
+        if not member:
+            LOG.debug("member is empty.")
+            return
+
+        if 'name' in member:
+            name = member['name']
+            if not name:
+                LOG.debug("member's name is empty.")
+                return
+            if ":" not in name:
+                LOG.debug("member's name %s isn't in right format.", name)
+                return
+
+            parts = name.split(":")
+            address = parts[0]
+            port = parts[1]
+            if "%" in address:
+                address = address.split("%")[0]
+            member_info = {}
+            member_info['pool_id'] = pool_id
+            member_info['address'] = address
+            member_info['protocol_port'] = int(port)
+            member_info['state'] = \
+                self.calculate_member_status(member)
+            all_members.append(member_info)
+        else:
+            LOG.debug("member name doesn't exist.")
+        return
+
     def append_members_one_pool(self, bigip, pool, all_members):
         """update the members' status in one pool """
+        if not bigip:
+            LOG.debug("bigip is empty.")
+            return
+
         try:
-            if bigip:
-                tenant_id = pool.get('tenant_id', 'None')
-                pool_id = pool.get('id', 'None')
-                pool_name = self.conf.environment_prefix + '_' + pool_id
-                partition = self.conf.environment_prefix + '_' + tenant_id
-                pool = resource_helper.BigIPResourceHelper(
-                    resource_helper.ResourceType.pool).load(
-                        bigip, name=pool_name, partition=partition)
-                members = pool.members_s.get_collection()
-                # figure out the members in this pool and send
-                # the members and their statuses to driver in batch
-                LOG.debug("The member length is %d for pool %s.",
-                          len(members), pool_name)
-                for member in members:
-                    # check if the member's description
-                    # follows the <prefix>-<id> rule
-                    self.append_one_member(member.__dict__, all_members)
+            tenant_id = pool['tenant_id']
+            pool_id = pool['id']
+            pool_name = self.conf.environment_prefix + '_' + pool_id
+            partition = self.conf.environment_prefix + '_' + tenant_id
+            pool = resource_helper.BigIPResourceHelper(
+                resource_helper.ResourceType.pool).load(
+                   bigip, name=pool_name, partition=partition)
+            members = pool.members_s.get_collection()
+            # figure out the members in this pool and send
+            # the members and their statuses to driver in batch
+            LOG.debug("The member length is %d for pool %s.",
+                      len(members), pool_name)
+            for member in members:
+                self.append_one_member(member.__dict__, pool_id,
+                                       all_members)
         except HTTPError as err:
             if err.response.status_code == 404:
                 LOG.debug('pool %s not on BIG-IP %s.'
@@ -560,12 +591,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if not bigip:
             LOG.debug("bigip is empty.")
             return
-
-        all_members = list()
+        prefix_name = self.conf.environment_prefix
+        batch_number = self.conf.member_update_number
+        prefix_len = len(prefix_name)
+        all_members = []
+        member_number = 0
+        folder_number = len(folders)
         for folder in folders:
             LOG.debug("The folder is %s." % folder)
             # tenant_id = folder[len(self.conf.environment_prefix):]
-            if str(folder).startswith(self.conf.environment_prefix):
+            try:
+                if not str(folder).startswith(prefix_name):
+                    LOG.debug("folder %s doesn't start with prefix.",
+                              str(folder))
+                    continue
+
                 resource = resource_helper.BigIPResourceHelper(
                     resource_helper.ResourceType.pool)
                 deployed_pools = resource.get_resources(bigip, folder, True)
@@ -573,25 +613,52 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     LOG.debug("get %d pool(s) for %s.",
                               len(deployed_pools), str(folder))
                     for pool in deployed_pools:
-                        # retrieve the and append members in pool
+                        # retrieve and append members in pool
                         reference = pool.membersReference
+                        if 'items' not in reference:
+                            LOG.debug("no items attribute for pool %s",
+                                      pool.name)
+                            continue
+
+                        if not str(pool.name).startswith(prefix_name):
+                            LOG.debug("folder %s doesn't start with prefix.",
+                                      str(pool.name))
+                            continue
+
                         members = reference['items']
+                        pool_id = pool.name[prefix_len + 1:]
                         LOG.debug("Get %d members.", len(members))
                         for member in members:
-                            self.append_one_member(member, all_members)
+                            self.append_one_member(
+                                member,
+                                pool_id,
+                                all_members
+                            )
 
-            if len(all_members) >= self.conf.member_update_number:
-                LOG.debug("update member status in batch %d",
-                          len(all_members))
-                self.plugin_rpc.update_member_status_in_batch(
-                    all_members)
-                all_members = list()
+                # check after one folder
+                if batch_number > 0 and len(all_members) >= batch_number:
+                    member_number += len(all_members)
+                    LOG.debug("update member status in batch %d",
+                              len(all_members))
+                    self.plugin_rpc.update_member_status_in_batch(
+                        all_members)
+                    all_members[:] = []
 
-        if len(all_members):
-            LOG.debug("update member status in batch %d",
+            except Exception as e:
+                all_members[:] = []
+                LOG.error("Unable to update member state: %s" % e.message)
+
+        if len(all_members) > 0:
+            member_number += len(all_members)
+            LOG.debug("last round update member status in batch %d",
                       len(all_members))
             self.plugin_rpc.update_member_status_in_batch(
-                all_members)
+                     all_members)
+            all_members[:] = []
+
+        LOG.debug("Totally update %u folders %u members",
+                  folder_number, member_number)
+
         return
 
     @log_helpers.log_method_call
@@ -601,25 +668,36 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug("bigip is empty.")
             return
 
-        all_members = list()
+        batch_number = self.conf.member_update_number
+        all_members = []
+        pool_number = len(pools)
+        member_number = 0
+
         for pool_id in pools:
-            LOG.debug("The pool_id is %s." % pool_id)
             pool = pools.get(pool_id, None)
-            if pool:
-                self.append_members_one_pool(
-                    bigip, pool, all_members)
-            if len(all_members) >= self.conf.member_update_number:
+            if not pool:
+                LOG.debug("couldn't find pool %s.", pool_id)
+                continue
+
+            self.append_members_one_pool(bigip, pool, all_members)
+            if batch_number > 0 and len(all_members) >= batch_number:
+                member_number += len(all_members)
                 LOG.debug("update member status in batch %d",
                           len(all_members))
                 self.plugin_rpc.update_member_status_in_batch(
                     all_members)
-                all_members = list()
+                all_members[:] = []
 
         if len(all_members):
+            member_number += len(all_members)
             LOG.debug("update member status in batch %d",
                       len(all_members))
             self.plugin_rpc.update_member_status_in_batch(
                 all_members)
+            all_members[:] = []
+
+        LOG.debug("Totally update %u pools %u members",
+                  pool_number, member_number)
 
         return
 
@@ -652,15 +730,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       time_delta, PERIODIC_MEMBER_UPDATE_INTERVAL)
             return
 
-        LOG.debug("Begin update member status at %s." % now)
+        LOG.debug("Begin updating member status at %s." % now)
         self.last_member_update = now
         self.needs_member_update = False
 
-        # the logic is, we retrieve all the members from bigip directly
-        # and update the neutron server in batch with the members' status
-        # 1) get_active_loadbalancer from neutron which will get all the active
-        # and agent specific lbs.
-        # 2) For the above lbs, get the members and update their status.
+        """ the logic is, we retrieve all the members from bigip directly
+        and update the neutron server in batch with the members' status
+        two modes for the update. One is per pool and the other is
+        per folder. """
 
         try:
             bigip = self.lbdriver.get_active_bigip()
@@ -670,6 +747,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 return
 
             if self.conf.member_update_mode == 1:
+                # logic of update member by pools
                 pools = self.lbdriver.get_all_pools_for_one_bigip(bigip)
                 if pools:
                     LOG.debug("%d pool(s) found", len(pools))
@@ -677,9 +755,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 else:
                     LOG.debug("no vailable pools")
             elif self.conf.member_update_mode == 2:
-                # new logic of update member
+                # logic of update member by folders
                 folders = self.system_helper.get_folders(bigip)
                 if folders:
+                    LOG.debug("%d folder(s) found", len(folders))
                     self.update_all_member_status_by_folders(bigip, folders)
                 else:
                     LOG.debug("no vailable folders")
@@ -692,7 +771,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         self.needs_member_update = True
         now = datetime.datetime.now()
-        LOG.debug("End update member status at %s." % now)
+        LOG.debug("End updating member status at %s." % now)
 
         return
 
@@ -723,7 +802,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
            PERIODIC_MEMBER_UPDATE_INTERVAL:
             LOG.debug('The interval value is not met yet.')
             return
-        LOG.debug("Begin update member status at %s." % now)
+        LOG.debug("Begin updating member status at %s." % now)
         self.last_member_update = now
         self.needs_member_update = False
         active_loadbalancers = \
@@ -743,6 +822,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     LOG.exception('Error updating status %s.', e.message)
 
         self.needs_member_update = True
+        now = datetime.datetime.now()
+        LOG.debug("End updating member status at %s." % now)
+        return
 
     # setup a period task to decide if it is time empty the local service
     # cache and resync service definitions form the controller
