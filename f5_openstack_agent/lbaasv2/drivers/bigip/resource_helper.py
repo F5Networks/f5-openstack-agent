@@ -65,6 +65,7 @@ class ResourceType(Enum):
     sip_monitor = 39
     diameter_monitor = 40
     ftp_profile = 41
+    partition = 42
 
 
 class BigIPResourceHelper(object):
@@ -339,7 +340,9 @@ class BigIPResourceHelper(object):
             ResourceType.http_profile:
                 lambda bigip: bigip.tm.ltm.profile.https,
             ResourceType.oneconnect:
-                lambda bigip: bigip.tm.ltm.profile.one_connects
+                lambda bigip: bigip.tm.ltm.profile.one_connects,
+            ResourceType.partition:
+                lambda bigip: bigip.tm.auth.partitions
         }
 
         if self.resource_type in collection_map:
