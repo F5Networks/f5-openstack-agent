@@ -57,6 +57,11 @@ OPTS = [
         default=-1,
         help='Seconds interval for resync task'
     ),
+    cfg.IntOpt(
+        'scrub_interval',
+        default=60,
+        help='Seconds interval for resync task'
+    ),
     cfg.BoolOpt(
         'start_agent_admin_state_up',
         default=True,
