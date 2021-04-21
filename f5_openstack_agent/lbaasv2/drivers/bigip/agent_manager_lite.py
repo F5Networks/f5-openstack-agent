@@ -160,6 +160,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
         self.last_member_update = datetime.datetime.now()
+        self.last_scrub_agent = datetime.datetime.now()
         self.needs_resync = False
         self.needs_member_update = True
         self.member_update_mode = self.conf.member_update_mode
@@ -170,10 +171,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.state_rpc = None
         self.system_helper = None
         self.pending_services = {}
-
-        self.service_resync_interval = conf.service_resync_interval
+        self.scrub_interval = conf.scrub_interval
+        self.resync_interval = conf.resync_interval
         LOG.debug('setting service resync intervl to %d seconds' %
-                  self.service_resync_interval)
+                  self.resync_interval)
 
         if PERIODIC_MEMBER_UPDATE_INTERVAL == 0:
             PERIODIC_MEMBER_UPDATE_INTERVAL = 60
@@ -436,13 +437,20 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.recover_errored_devices()
 
     @periodic_task.periodic_task(
-        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
+        spacing=cfg.CONF.scrub_interval)
     def scrub_dead_agents_in_env_and_group(self, context):
         """Triggering a dead agent scrub on the controller."""
         LOG.debug("running periodic scrub_dead_agents_in_env_and_group")
         if not self.plugin_rpc:
             return
 
+        now = datetime.datetime.now()
+        if ((now - self.last_scrub_agent).seconds < self.scrub_interval):
+            LOG.debug('The scrub interval value is not met yet.')
+            return
+
+        LOG.debug("Perform scrub agents at %s." % now)
+        self.last_scrub_agent = now
         self.plugin_rpc.scrub_dead_agents(self.conf.environment_prefix,
                                           self.conf.environment_group_number)
 
@@ -833,11 +841,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # check if a resync has not been requested by the driver
         if not self.needs_resync:
             # check if we hit the resync interval
-            if (now - self.last_resync).seconds > self.service_resync_interval:
+            if (now - self.last_resync).seconds > self.resync_interval:
                 self.needs_resync = True
                 LOG.debug(
                     'forcing resync of services on resync timer (%d seconds).'
-                    % self.service_resync_interval)
+                    % self.resync_interval)
                 self.cache.services = {}
                 self.last_resync = now
                 self.lbdriver.flush_cache()
