@@ -59,7 +59,7 @@ OPTS = [
     ),
     cfg.IntOpt(
         'scrub_interval',
-        default=60,
+        default=-1,
         help='Seconds interval for resync task'
     ),
     cfg.BoolOpt(
