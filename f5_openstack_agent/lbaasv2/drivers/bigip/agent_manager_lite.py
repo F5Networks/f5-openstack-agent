@@ -986,6 +986,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                             "by exception: %s, delete loadbalancer in Neutron",
                             id, ex.response.content)
                 provision_status = constants_v2.F5_ACTIVE
+        except f5_ex.ProjectIDException as ex:
+            LOG.debug("Delete loadbalancer with ProjectIDException")
+            provision_status = constants_v2.F5_ACTIVE
         except Exception as ex:
             LOG.error("Fail to delete loadbalancer %s "
                       "Exception: %s", id, ex.message)
@@ -1308,6 +1311,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Finish to delete multiple members")
             else:
                 LOG.debug("Finish to delete member %s", id)
+        except f5_ex.ProjectIDException as ex:
+            LOG.debug("Delete Member with ProjectIDException")
+            provision_status = constants_v2.F5_ACTIVE
         except Exception as ex:
             if multiple:
                 LOG.error("Fail to delete multiple members "
