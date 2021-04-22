@@ -38,6 +38,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
+from icontrol.exceptions import iControlUnexpectedHTTPError
+import re
 
 LOG = logging.getLogger(__name__)
 
@@ -1007,6 +1009,29 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr.delete(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete loadbalancer %s", id)
+        except iControlUnexpectedHTTPError as ex:
+            fd_matched = re.search(
+                "The requested folder (.*) was not found.",
+                ex.response.content
+            )
+            rd_matched = re.search(
+                "The requested route domain (.*) was not found.",
+                ex.response.content
+            )
+            provision_status = constants_v2.F5_ERROR
+            if ex.response.status_code == 400 and fd_matched:
+                LOG.warning("Not Found Exception to delete loadbalancer %s "
+                            "by exception: %s, delete loadbalancer in Neutron",
+                            id, ex.response.content)
+                provision_status = constants_v2.F5_ACTIVE
+            if ex.response.status_code == 404 and rd_matched:
+                LOG.warning("Not Found Exception to delete loadbalancer %s "
+                            "by exception: %s, delete loadbalancer in Neutron",
+                            id, ex.response.content)
+                provision_status = constants_v2.F5_ACTIVE
+        except f5_ex.ProjectIDException as ex:
+            LOG.debug("Delete loadbalancer with ProjectIDException")
+            provision_status = constants_v2.F5_ACTIVE
         except Exception as ex:
             LOG.error("Fail to delete loadbalancer %s "
                       "Exception: %s", id, ex.message)
@@ -1329,6 +1354,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Finish to delete multiple members")
             else:
                 LOG.debug("Finish to delete member %s", id)
+        except f5_ex.ProjectIDException as ex:
+            LOG.debug("Delete Member with ProjectIDException")
+            provision_status = constants_v2.F5_ACTIVE
         except Exception as ex:
             if multiple:
                 LOG.error("Fail to delete multiple members "

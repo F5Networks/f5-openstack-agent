@@ -309,6 +309,8 @@ class LoadBalancerManager(ResourceManager):
             self.driver.network_builder.update_bigip_l2(service)
 
     def _pre_create(self, service):
+
+        self._check_nonshared_network(service)
         loadbalancer = service["loadbalancer"]
         # allow address pair
         if self.driver.l3_binding:
@@ -416,6 +418,24 @@ class LoadBalancerManager(ResourceManager):
                 LOG.debug("Don't need any update.")
         return
 
+    def _check_nonshared_network(self, service):
+        loadbalancer = service["loadbalancer"]
+        tenant_id = loadbalancer['tenant_id']
+
+        lb_net_id = loadbalancer['network_id']
+        network = self.driver.service_adapter.get_network_from_service(
+            service, lb_net_id)
+
+        if not self.driver.network_builder.l2_service.is_common_network(
+                network):
+            net_project_id = network["project_id"]
+            if tenant_id != net_project_id:
+                raise f5_ex.ProjectIDException(
+                    "The tenant project id is %s. "
+                    "The nonshared netwok/subnet project id is %s. "
+                    "They are not belong to the same tenant." %
+                    (tenant_id, net_project_id))
+
     @serialized('LoadBalancerManager.update')
     @log_helpers.log_method_call
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
@@ -434,6 +454,7 @@ class LoadBalancerManager(ResourceManager):
         # assign neutron network object in service
         # with route domain first
         # self.driver.network_builder is None in global routed mode
+        self._check_nonshared_network(service)
         if self.driver.network_builder:
             self.driver.network_builder._annotate_service_route_domains(
                 service)
@@ -1219,6 +1240,9 @@ class MemberManager(ResourceManager):
     @serialized('MemberManager.create')
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
+
+        self._check_nonshared_network(service)
+
         create_in_bulk = False
         if 'multiple' in service:
             create_in_bulk = service.get('multiple')
@@ -1315,9 +1339,32 @@ class MemberManager(ResourceManager):
             self._pool_mgr._update(bigip, pool_payload, None, None, service)
         LOG.debug("Finish to create %s %s", self._resource, resource['id'])
 
+    def _check_nonshared_network(self, service):
+        loadbalancer = service["loadbalancer"]
+        tenant_id = loadbalancer["tenant_id"]
+
+        members = service["members"]
+        for meb in members:
+            meb_net_id = meb["network_id"]
+            network = self.driver.service_adapter.get_network_from_service(
+                service, meb_net_id)
+
+            if not self.driver.network_builder.l2_service.is_common_network(
+                    network):
+                net_project_id = network["project_id"]
+                if tenant_id != net_project_id:
+                    raise f5_ex.ProjectIDException(
+                        "The tenant project id is %s. "
+                        "The nonshared netwok/subnet project id of "
+                        "member %s is %s. "
+                        "They are not belong to the same tenant." %
+                        (tenant_id, meb, net_project_id))
+
     @serialized('MemberManager.delete')
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
+
+        self._check_nonshared_network(service)
 
         self.driver.annotate_service_members(service)
         if not service.get(self._key):
