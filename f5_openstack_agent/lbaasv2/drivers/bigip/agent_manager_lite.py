@@ -538,15 +538,26 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if not name:
                 LOG.debug("member's name is empty.")
                 return
-            if ":" not in name:
-                LOG.debug("member's name %s isn't in right format.", name)
+
+            match_obj = re.match(r'(.*)[:|.][1-9]\d*', name, re.M | re.I)
+            if match_obj:
+                address = match_obj.group(1)
+                if "%" in address:
+                    address = address.split("%")[0]
+            else:
+                LOG.debug("name %s format is wrong.", name)
                 return
 
-            parts = name.split(":")
-            address = parts[0]
-            port = parts[1]
-            if "%" in address:
-                address = address.split("%")[0]
+            port = name[len(address):]
+
+            if ":" in port:
+                port = port.split(":")[1]
+            elif "." in port:
+                port = port.split(".")[1]
+            else:
+                LOG.debug("port format is invalid.")
+                return
+
             member_info = {}
             member_info['pool_id'] = pool_id
             member_info['address'] = address
