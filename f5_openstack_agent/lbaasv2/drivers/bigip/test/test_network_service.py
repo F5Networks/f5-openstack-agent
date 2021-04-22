@@ -353,48 +353,58 @@ class TestNetworkServiceBuilder(object):
         # valid name
         net_short_name = network_service.get_neutron_net_short_name(network)
         assert net_short_name == 'vlan-608'
+        tenant_id = '57e89acdfb6e40a2bc7f6185645dbbdd'
 
         # invalid network type
         with pytest.raises(f5_ex.InvalidNetworkType) as excinfo:
             network['provider:network_type'] = ''
-            network_service.get_route_domain_from_cache(network)
+            network_service.get_route_domain_from_cache(tenant_id, network)
             assert 'provider:network_type' in str(excinfo.value)
 
         # invalid segmentation ID
         with pytest.raises(f5_ex.InvalidNetworkType) as excinfo:
             network['provider:network_type'] = 'vlan'
             network['provider:segmentation_id'] = ''
-            network_service.get_route_domain_from_cache(network)
+            network_service.get_route_domain_from_cache(tenant_id, network)
             assert 'provider:network_type - vlan' in str(excinfo.value)
 
     def test_get_route_domain_from_cache(self, network_service, network):
         # valid cache entries
-        rd = network_service.get_route_domain_from_cache(network)
+
+        tenant_id = "f2a944c28b5d43ad808cc28ba1f03cce"
+        rd = network_service.get_route_domain_from_cache(tenant_id,
+                                                         network)
         assert rd == 2
 
         network['provider:segmentation_id'] = 604
-        rd = network_service.get_route_domain_from_cache(network)
+        tenant_id = "cf705431f2a944c28ba1f03cce26d5f6"
+        rd = network_service.get_route_domain_from_cache(tenant_id,
+                                                         network)
         assert rd == 1
 
         # vlan not in cache
         with pytest.raises(f5_ex.RouteDomainCacheMiss) as excinfo:
             network['provider:segmentation_id'] = 600
-            network_service.get_route_domain_from_cache(network)
+            network_service.get_route_domain_from_cache(tenant_id,
+                                                        network)
         assert 'vlan-600' in str(excinfo.value)
 
         # empty cache
         with pytest.raises(f5_ex.RouteDomainCacheMiss) as excinfo:
+            tenant_id = "f2a944c28b5d43ad808cc28ba1f03cce"
             network['provider:segmentation_id'] = 606
             network['provider:network_type'] = 'vlan'
             network_service.rds_cache = {}
-            network_service.get_route_domain_from_cache(network)
+            network_service.get_route_domain_from_cache(tenant_id,
+                                                        network)
         assert 'vlan-606' in str(excinfo.value)
 
         # invalid network data
         with pytest.raises(f5_ex.InvalidNetworkType):
             network['provider:segmentation_id'] = 604
             network['provider:network_type'] = ''
-            network_service.get_route_domain_from_cache(network)
+            network_service.get_route_domain_from_cache(tenant_id,
+                                                        network)
 
     def test_assign_route_domain(self, network_service, network, subnet):
         """Test assign_route_domain()
