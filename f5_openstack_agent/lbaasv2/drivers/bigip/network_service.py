@@ -287,9 +287,12 @@ class NetworkServiceBuilder(object):
             network['route_domain_id'] = 0
             return
 
-        LOG.debug("Assign route domain get from cache %s" % network)
+        LOG.debug("Assign route domain get from cache %s. "
+                  "The network is %s." % (self.rds_cache, network))
+
         try:
-            route_domain_id = self.get_route_domain_from_cache(network)
+            route_domain_id = self.get_route_domain_from_cache(
+                tenant_id, network)
             network['route_domain_id'] = route_domain_id
             return
         except f5_ex.RouteDomainCacheMiss as exc:
@@ -509,14 +512,13 @@ class NetworkServiceBuilder(object):
             net_subnets[subnet_id] = {'cidr': netip.cidr}
             LOG.debug("rds_cache: now %s" % self.rds_cache)
 
-    def get_route_domain_from_cache(self, network):
+    def get_route_domain_from_cache(self, tenant_id, network):
         # Get route domain from cache by network
         net_short_name = self.get_neutron_net_short_name(network)
-        for tenant_id in self.rds_cache:
-            tenant_cache = self.rds_cache[tenant_id]
-            for route_domain_id in tenant_cache:
-                if net_short_name in tenant_cache[route_domain_id]:
-                    return route_domain_id
+        tenant_cache = self.rds_cache.get(tenant_id, {})
+        for route_domain_id in tenant_cache:
+            if net_short_name in tenant_cache[route_domain_id]:
+                return route_domain_id
 
         # Not found
         raise f5_ex.RouteDomainCacheMiss(
