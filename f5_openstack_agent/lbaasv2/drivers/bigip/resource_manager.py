@@ -248,10 +248,21 @@ class LoadBalancerManager(ResourceManager):
         lb_net_id = loadbalancer['network_id']
         network = self.driver.service_adapter.get_network_from_service(
             service, lb_net_id)
+        net_project_id = network["project_id"]
+
+        if self.driver.conf.f5_global_routed_mode:
+            shared = network["shared"]
+            if not shared:
+                if tenant_id != net_project_id:
+                    raise f5_ex.ProjectIDException(
+                        "The tenant project id is %s. "
+                        "The nonshared netwok/subnet project id is %s. "
+                        "They are not belong to the same tenant." %
+                        (tenant_id, net_project_id))
+            return
 
         if not self.driver.network_builder.l2_service.is_common_network(
                 network):
-            net_project_id = network["project_id"]
             if tenant_id != net_project_id:
                 raise f5_ex.ProjectIDException(
                     "The tenant project id is %s. "
@@ -1159,10 +1170,21 @@ class MemberManager(ResourceManager):
             meb_net_id = meb["network_id"]
             network = self.driver.service_adapter.get_network_from_service(
                 service, meb_net_id)
+            net_project_id = network["project_id"]
+
+            if self.driver.conf.f5_global_routed_mode:
+                shared = network["shared"]
+                if not shared:
+                    if tenant_id != net_project_id:
+                        raise f5_ex.ProjectIDException(
+                            "The tenant project id is %s. "
+                            "The nonshared netwok/subnet project id is %s. "
+                            "They are not belong to the same tenant." %
+                            (tenant_id, net_project_id))
+                return
 
             if not self.driver.network_builder.l2_service.is_common_network(
                     network):
-                net_project_id = network["project_id"]
                 if tenant_id != net_project_id:
                     raise f5_ex.ProjectIDException(
                         "The tenant project id is %s. "
