@@ -29,6 +29,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.snats import BigipSnatManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
+from icontrol.exceptions import iControlUnexpectedHTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -287,6 +288,37 @@ class NetworkServiceBuilder(object):
             network['route_domain_id'] = 0
             return
 
+        LOG.debug("max namespaces: %s" % self.conf.max_namespaces_per_tenant)
+
+        if self.conf.max_namespaces_per_tenant == 1:
+            project_route_domain = None
+
+            bigip = self.driver.get_bigip()
+            try:
+                partition_id = self.service_adapter.get_folder_name(
+                    tenant_id)
+                tenant_rd = self.network_helper.get_route_domain(
+                    bigip, partition=partition_id)
+
+                project_route_domain = tenant_rd.id
+
+            except iControlUnexpectedHTTPError:
+                LOG.debug("Can not get a project route domain from bigip"
+                          " %s partition %s, now try to create" %
+                          (bigip, partition_id))
+
+                project_route_domain = self._create_rd(
+                    tenant_id, is_aux=False
+                )
+
+            if not project_route_domain:
+                raise Exception("Cannot allocate route domain for project "
+                                "%s in max_namespaces_per_tenant = 1 mode."
+                                % tenant_id)
+
+            network['route_domain_id'] = project_route_domain
+            return
+
         LOG.debug("Assign route domain get from cache %s. "
                   "The network is %s." % (self.rds_cache, network))
 
@@ -297,20 +329,6 @@ class NetworkServiceBuilder(object):
             return
         except f5_ex.RouteDomainCacheMiss as exc:
             LOG.debug(exc.message)
-
-        LOG.debug("max namespaces: %s" % self.conf.max_namespaces_per_tenant)
-        LOG.debug("max namespaces == 1: %s" %
-                  (self.conf.max_namespaces_per_tenant == 1))
-
-        if self.conf.max_namespaces_per_tenant == 1:
-            bigip = self.driver.get_bigip()
-            LOG.debug("bigip before get_domain: %s" % bigip)
-            partition_id = self.service_adapter.get_folder_name(
-                tenant_id)
-            tenant_rd = self.network_helper.get_route_domain(
-                bigip, partition=partition_id)
-            network['route_domain_id'] = tenant_rd.id
-            return
 
         LOG.debug("assign route domain checking for available route domain")
         check_cidr = netaddr.IPNetwork(subnet['cidr'])
@@ -342,7 +360,8 @@ class NetworkServiceBuilder(object):
         if placed_route_domain_id is None:
             if (len(self.rds_cache[tenant_id]) <
                     self.conf.max_namespaces_per_tenant):
-                placed_route_domain_id = self._create_aux_rd(tenant_id)
+                placed_route_domain_id = self._create_rd(
+                    tenant_id, is_aux=True)
                 self.rds_cache[tenant_id][placed_route_domain_id] = {}
                 LOG.debug("Tenant %s now has %d route domains" %
                           (tenant_id, len(self.rds_cache[tenant_id])))
@@ -359,7 +378,7 @@ class NetworkServiceBuilder(object):
         net_subnets[subnet['id']] = {'cidr': check_cidr}
         network['route_domain_id'] = placed_route_domain_id
 
-    def _create_aux_rd(self, tenant_id):
+    def _create_rd(self, tenant_id, is_aux=False):
         # Create a new route domain
         bigips = self.driver.get_all_bigips()
         retries = 5
@@ -376,7 +395,7 @@ class NetworkServiceBuilder(object):
                         rd_id,
                         partition=partition_id,
                         strictness=self.conf.f5_route_domain_strictness,
-                        is_aux=True)
+                        is_aux=is_aux)
                 LOG.debug("Allocated route domain %s for tenant %s"
                           % (rd_id, tenant_id))
                 break

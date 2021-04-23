@@ -437,8 +437,6 @@ class TestNetworkServiceBuilder(object):
             network['provider:segmentation_id'] = 600
             network_service.assign_route_domain(tenant_id, network, subnet)
             assert network['route_domain_id'] == 1234
-            assert mock.call('No route domain cache entry for vlan-600') in \
-                mock_log.debug.call_args_list
             assert mock.call('max namespaces: 1') in \
                 mock_log.debug.call_args_list
 
