@@ -175,6 +175,16 @@ class LBaaSv2PluginRPC(object):
         )
 
     @log_helpers.log_method_call
+    def update_member_status_in_batch(self, members):
+        """Update the member status in batch."""
+        return self._cast(
+            self.context,
+            self._make_msg('update_member_status_in_batch',
+                           members=members),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
     def update_member_status(self,
                              member_id,
                              provisioning_status=None,

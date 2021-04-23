@@ -125,8 +125,19 @@ OPTS = [
     ),
     cfg.IntOpt(
         'member_update_interval',
-        default=30,
+        default=300,
         help=('Number of seconds between member status update')
+    ),
+    cfg.IntOpt(
+        'member_update_mode',
+        default=2,
+        help=('Mode of the member status update')
+    ),
+    cfg.IntOpt(
+        'member_update_number',
+        default=-1,
+        help=('number of members in one batch send to neutron'
+              ' negative means send all members in on batch')
     ),
     cfg.StrOpt(
         'environment_prefix',
