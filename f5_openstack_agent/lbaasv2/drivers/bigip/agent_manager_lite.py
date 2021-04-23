@@ -48,7 +48,6 @@ from icontrol.exceptions import iControlUnexpectedHTTPError
 from requests import HTTPError
 
 
-
 LOG = logging.getLogger(__name__)
 
 OPTS = [
