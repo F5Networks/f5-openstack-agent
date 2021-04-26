@@ -699,7 +699,11 @@ class iControlDriver(LBaaSBaseDriver):
         # Open bigip connection
         try:
             bigip = self.__bigips[hostname]
-            if bigip.status not in ['creating', 'error']:
+            # active creating connected initializing validating_HA
+            # error connecting. If status is e.g. 'initializing' etc,
+            # seems should try to connect again, otherwise status stucks
+            # the same forever.
+            if bigip.status in ['active']:
                 LOG.debug('BIG-IP %s status invalid %s to open a connection'
                           % (hostname, bigip.status))
                 return bigip
