@@ -20,6 +20,10 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
+    BigIPResourceHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
+    ResourceType
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
 
 LOG = logging.getLogger(__name__)
@@ -145,6 +149,38 @@ class BigipTenantManager(object):
         if not self._partition_empty(bigip, partition):
             LOG.debug("Partition: %s still exists VIPs and Nodes" % partition)
             return
+
+        # There might be some snats, vlans and self ips in this folder, which
+        # are shared by member subnets. Since we can not remove them when
+        # deleting members, we just cleanup them all before removing folder
+        types = [
+            ResourceType.snat_translation,
+            ResourceType.selfip,
+        ]
+        # Deallocate neutron port, ignore error.
+        for rtype in types:
+            helper = BigIPResourceHelper(rtype)
+            for r in helper.get_resources(bigip, partition):
+                try:
+                    self.driver.plugin_rpc.delete_port_by_name(
+                        port_name=r.name)
+                except Exception as err:
+                    LOG.debug("Failed to delete port: %s", err.message)
+        types = [
+            ResourceType.snat,
+            ResourceType.snatpool,
+            ResourceType.snat_translation,
+            ResourceType.selfip,
+            ResourceType.vlan
+        ]
+        # Delete resource from BIG-IP, igore error.
+        for rtype in types:
+            helper = BigIPResourceHelper(rtype)
+            for r in helper.get_resources(bigip, partition):
+                try:
+                    r.delete()
+                except Exception as err:
+                    LOG.debug("Failed to delete resource: %s", err.message)
 
         LOG.info("Delete empty partition: %s" % partition)
         for domain_name in domain_names:
