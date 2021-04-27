@@ -45,8 +45,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
 from icontrol.exceptions import iControlUnexpectedHTTPError
 from requests import HTTPError
 
-import re
-
 LOG = logging.getLogger(__name__)
 
 OPTS = [
@@ -54,6 +52,9 @@ OPTS = [
 ]
 
 cfg.CONF.register_opts(OPTS)
+
+PERIODIC_MEMBER_UPDATE_INTERVAL = 30
+
 
 class LogicalServiceCache(object):
     """Manage a cache of known services."""
@@ -159,12 +160,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
-        self.last_member_update = datetime.datetime.now()
         self.last_scrub_agent = datetime.datetime.now()
+        self.last_member_update = datetime.datetime(1970, 1, 1, 0, 0, 0)
         self.needs_resync = False
         self.needs_member_update = True
+        self.member_update_base = datetime.datetime(1970, 1, 1, 0, 0, 0)
         self.member_update_mode = self.conf.member_update_mode
         self.member_update_number = self.conf.member_update_number
+        self.member_update_interval = self.conf.member_update_interval
+        self.member_update_agent_number = self.conf.member_update_agent_number
+        self.member_update_agent_order = self.conf.member_update_agent_order
         self.plugin_rpc = None
         self.tunnel_rpc = None
         self.l2_pop_rpc = None
@@ -175,11 +180,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.resync_interval = conf.resync_interval
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.resync_interval)
-
-        if PERIODIC_MEMBER_UPDATE_INTERVAL == 0:
-            PERIODIC_MEMBER_UPDATE_INTERVAL = 60
-        LOG.debug('setting member update intervl to %d seconds' %
-                  PERIODIC_MEMBER_UPDATE_INTERVAL)
 
         # Load the driver.
         self._load_driver(conf)
@@ -255,6 +255,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.connect_driver)
             reportbeat.start(interval=report_interval)
             heartbeat.start(interval=report_interval)
+
+        member_update_interval = self.conf.member_update_interval
+        if member_update_interval > 0:
+            LOG.debug('Starting the member status update task.')
+            member_update_task = loopingcall.FixedIntervalLoopingCall(
+                self.update_member_status_task)
+            member_update_task.start(interval=30)
+        else:
+            LOG.debug('The member update interval %d is negative.' %
+                      member_update_interval)
 
         if self.lbdriver:
             self.lbdriver.connect()
@@ -716,9 +726,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         return
 
-    @periodic_task.periodic_task(
-        spacing=PERIODIC_MEMBER_UPDATE_INTERVAL)
-    def update_member_status_task(self, context):
+    def update_member_status_task(self):
         """Update pool member operational status from devices to controller."""
 
         if not self.conf.member_update_mode:
@@ -733,24 +741,45 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug("The previous task is still running.")
             return
 
-        if PERIODIC_MEMBER_UPDATE_INTERVAL < 0:
+        if self.member_update_interval < 0:
             LOG.debug('The interval is negative %d' %
-                      PERIODIC_MEMBER_UPDATE_INTERVAL)
+                      self.member_update_interval)
+            return
+
+        if self.member_update_agent_order < 0:
+            LOG.debug('The agent order is negative %d' %
+                      self.member_update_agent_order)
             return
 
         now = datetime.datetime.now()
         time_delta = (now - self.last_member_update).seconds
-        if time_delta < PERIODIC_MEMBER_UPDATE_INTERVAL:
+        if time_delta < self.member_update_interval:
             LOG.debug('The interval %d (%d) is not met yet.',
-                      time_delta, PERIODIC_MEMBER_UPDATE_INTERVAL)
+                      time_delta, self.member_update_interval)
             return
+
+        time_delta = (now - self.member_update_base).seconds
+        order = time_delta % (self.member_update_agent_number *
+                              self.member_update_interval)
+        order /= self.member_update_interval
+
+        if (order != self.member_update_agent_order):
+            LOG.debug("Not the order %u for this agent %u to be runnning",
+                      order, self.member_update_agent_order)
+            return
+
+        """ we only update the member status when:
+         1) the order is the right.
+         2) the time passed since last update is no less than interval.
+        """
 
         LOG.debug("Begin updating member status at %s." % now)
         self.last_member_update = now
         self.needs_member_update = False
 
         """ the logic is, we retrieve all the members from bigip directly
-        and update the neutron server in batch with the members' status
+        and update the neutron server in batch with the members' statuses.
+
         two modes for the update. One is per pool and the other is
         per folder. """
 

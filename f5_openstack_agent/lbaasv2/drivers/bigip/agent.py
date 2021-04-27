@@ -95,6 +95,26 @@ def main():
     else:
         mgr = manager.LbaasAgentManager(cfg.CONF)
 
+    if cfg.CONF.member_update_interval == 0:
+        LOG.info("set member update interval to 60s",
+                 cfg.CONF.member_update_interval)
+        cfg.CONF.member_update_interval = 60
+
+    if cfg.CONF.member_update_agent_number <= 0:
+        LOG.info("set member update agent number %d to 1",
+                 cfg.CONF.member_update_agent_number)
+        cfg.CONF.member_update_agent_number = 1
+
+    if cfg.CONF.member_update_agent_order >= \
+            cfg.CONF.member_update_agent_number:
+
+        LOG.info("set member update agent order %d to %d",
+                 cfg.CONF.member_update_agent_order,
+                 cfg.CONF.member_update_agent_number - 1)
+
+        cfg.CONF.member_update_agent_order = \
+            cfg.CONF.member_update_agent_number - 1
+
     svc = F5AgentService(
         host=mgr.agent_host,
         topic=f5constants.TOPIC_LOADBALANCER_AGENT_V2,
