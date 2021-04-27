@@ -139,6 +139,16 @@ OPTS = [
         help=('number of members in one batch send to neutron'
               ' negative means send all members in on batch')
     ),
+    cfg.IntOpt(
+        'member_update_agent_number',
+        default=1,
+        help=('Total number of the agents for thie project')
+    ),
+    cfg.IntOpt(
+        'member_update_agent_order',
+        default=0,
+        help=('Order of this agent for thie project')
+    ),
     cfg.StrOpt(
         'environment_prefix',
         default='Project',
