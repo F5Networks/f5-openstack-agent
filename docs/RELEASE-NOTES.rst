@@ -19,8 +19,8 @@ Added Functionality
 * Use HEAD or GET for monitor
 * Remove persist profile from vs, if its default pool remove persistence
 * When update listener with customized paramater then bind the new http profile to the listener
-* Will not del the vs customized property. It will be used when configuring the other bigips in cluster mode.
-* use a new way to check if tls and customized properties are changed.
+* Will not del the vs customized property. Use it when configuring the other bigips in cluster mode.
+* use a new way to check if tls and customized properties change.
 
 Bug Fixes
 `````````
