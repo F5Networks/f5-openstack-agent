@@ -181,7 +181,9 @@ class ListenerServiceBuilder(object):
             self._create_ssl_profile(
                     container_ref, bigip, vip, True,
                     client_auth=tls.get("mutual_authentication_up", False),
-                    ca_container_id=tls.get("ca_container_id", None))
+                    ca_container_id=tls.get("ca_container_id", None),
+                    tls_protocols=tls.get("tls_protocols", None),
+                    cipher_suites=tls.get("cipher_suites", None))
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
@@ -189,7 +191,9 @@ class ListenerServiceBuilder(object):
                 self._create_ssl_profile(
                         container_ref, bigip, vip, False,
                         client_auth=tls.get("mutual_authentication_up", False),
-                        ca_container_id=tls.get("ca_container_id", None))
+                        ca_container_id=tls.get("ca_container_id", None),
+                        tls_protocols=tls.get("tls_protocols", None),
+                        cipher_suites=tls.get("cipher_suites", None))
 
     def _create_ssl_profile(self, container_ref, bigip, vip,
                             sni_default=False, **kwargs):
@@ -208,6 +212,9 @@ class ListenerServiceBuilder(object):
             i = c_ca_cref.rindex("/") + 1
             c_ca_file = self.service_adapter.prefix + c_ca_cref[i:] + ".crt"
 
+        tls_protocols = kwargs.get("tls_protocols", None)
+        cipher_suites = kwargs.get("cipher_suites", None)
+
         chain = None
         if intermediates:
             chain = '\n'.join(list(intermediates))
@@ -225,6 +232,8 @@ class ListenerServiceBuilder(object):
                 client_auth=client_auth,
                 client_ca_cert=c_ca_cert,
                 ca_cert_filename=c_ca_file,
+                tls_protocols=tls_protocols,
+                cipher_suites=cipher_suites,
                 profile_name=profile_name)
         except HTTPError as err:
             if err.response.status_code != 409:

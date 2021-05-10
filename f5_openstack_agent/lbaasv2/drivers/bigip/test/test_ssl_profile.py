@@ -58,6 +58,8 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom=None,
         )
 
@@ -89,6 +91,8 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom=None,
         )
 
@@ -114,6 +118,8 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom='parentprofile',
         )
 
@@ -151,6 +157,8 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom=None,
         )
 
@@ -173,6 +181,8 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom=None,
         )
 
@@ -199,6 +209,8 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom=None,
         )
 
@@ -222,6 +234,8 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom=None,
         )
 
@@ -245,6 +259,8 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom=None,
         )
 
@@ -272,5 +288,7 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
+            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
+            ciphers='DEFAULT',
             defaultsFrom=None,
         )

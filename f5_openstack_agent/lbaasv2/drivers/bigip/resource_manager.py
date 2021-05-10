@@ -572,6 +572,17 @@ class ListenerManager(ResourceManager):
             new_ca = listener.get('ca_container_id', "")
             if old_mode != new_mode or old_ca != new_ca:
                 return True
+
+            # If cipher setting changes, need to update client ssl profile.
+            old_tls_protocols = old_listener.get('tls_protocols', "")
+            tls_protocols = listener.get('tls_protocols', "")
+            old_cipher_suites = old_listener.get('cipher_suites', "")
+            cipher_suites = listener.get('cipher_suites', "")
+            if old_tls_protocols != tls_protocols:
+                return True
+            if tls_protocols != "" and old_cipher_suites != cipher_suites:
+                return True
+
         return False
 
     def _check_customized_changed(self, old_listener, listener):
