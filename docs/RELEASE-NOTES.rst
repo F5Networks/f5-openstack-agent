@@ -5,6 +5,30 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.3 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* use the pool-id address and port to update the port
+* multiple agents update the members in order
+
+Bug Fixes
+`````````
+* Fix the issue of route domain issue: id already exists
+* change the member update status interval configurable
+* convert bandwidth from string to int
+* Fix the KeyError issue caused by heartbeat periodic task.
+* Fix negative periodic value not taking effect
+* by default disable the scrub agent task
+* Fix rds cache polluted problem
+* Cleanup all snat, vlan and self ip before removing partition
+* Handle bigip status check
+
+Limitations
+```````````
+
 v9.9.2 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
