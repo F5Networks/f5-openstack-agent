@@ -447,10 +447,95 @@ class LoadBalancerManager(ResourceManager):
                     "They are not belong to the same tenant." %
                     (tenant_id, net_project_id))
 
+    def _update_2_limits(self, old_loadbalancer, loadbalancer, service):
+        # TODO(xie): delete following lines, 4 test
+        # old_loadbalancer['flavor'] = 4
+        # loadbalancer['flavor'] = 5
+
+        LOG.info('inside _update_2_limits')
+        old_flavor = old_loadbalancer.get('flavor')
+        new_flavor = loadbalancer.get('flavor')
+        LOG.debug(old_flavor)
+        LOG.debug(new_flavor)
+
+        if not new_flavor or int(new_flavor) < 0 or int(new_flavor) > 7:
+            LOG.error('flavor id not expected. neglect only')
+            return
+
+        # refactor
+        flavor_dict = {
+            "1": {
+                'connection_limit': 5000,
+                'rate_limit': 3000
+            },
+            "2": {
+                'connection_limit': 50000,
+                'rate_limit': 5000
+            },
+            "3": {
+                'connection_limit': 100000,
+                'rate_limit': 10000
+            },
+            "4": {
+                'connection_limit': 200000,
+                'rate_limit': 20000
+            },
+            "5": {
+                'connection_limit': 500000,
+                'rate_limit': 50000
+            },
+            "6": {
+                'connection_limit': 1000000,
+                'rate_limit': 100000
+            },
+            "7": {
+                'connection_limit': 8000000,
+                'rate_limit': 100000
+            }
+        }
+
+        # add some checks
+        if not old_flavor or old_flavor != new_flavor:
+            if new_flavor == 0:
+                listener_connection_limit = 0
+                listener_rate_limit = 0
+            else:
+                ratio1 = self.driver.conf.connection_limit_ratio
+                LOG.debug(ratio1)
+                ratio2 = self.driver.conf.connection_rate_limit_ratio
+                LOG.debug(ratio2)
+
+                listener_connection_limit = \
+                    flavor_dict[str(new_flavor)]['connection_limit'] / ratio1
+
+                listener_rate_limit = \
+                    flavor_dict[str(new_flavor)]['rate_limit'] / ratio2
+
+            LOG.info('listener_connection_limit to use:')
+            LOG.info(listener_connection_limit)
+
+            LOG.info('listener_rate_limit to use:')
+            LOG.info(listener_rate_limit)
+
+            if 'listeners' in service.keys():
+                bigips = self.driver.get_config_bigips()
+                for bigip in bigips:
+                    LOG.info(bigip)
+                    for listener in service['listeners']:
+                        vs_payload = self.driver.service_adapter.\
+                            _init_virtual_name(loadbalancer, listener)
+
+                        vs_payload['connectionLimit'] = \
+                            listener_connection_limit
+                        vs_payload['rateLimit'] = listener_rate_limit
+                        LOG.info(vs_payload)
+                        self.vs_helper.update(bigip, vs_payload)
+
     @serialized('LoadBalancerManager.update')
     @log_helpers.log_method_call
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
         self._update_bwc(old_loadbalancer, loadbalancer, service)
+        self._update_2_limits(old_loadbalancer, loadbalancer, service)
         super(LoadBalancerManager, self).update(
             old_loadbalancer, loadbalancer, service)
 

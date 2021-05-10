@@ -318,6 +318,20 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'bwc_profile',
         default=None,
         help='bwc_profile name which is configured in bigip side'
+    ),
+    cfg.IntOpt(
+        'connection_limit_ratio',
+        default=5,
+        help="connection limit ratio for a listener, setting to 5 means "
+        "a listener's connection limit will be set to 1/5 of the lb's "
+        "upper limit, which is predefined by the flavors 1-7."
+    ),
+    cfg.IntOpt(
+        'connection_rate_limit_ratio',
+        default=5,
+        help="connection rate limit ratio for listener, setting to 5 means "
+        "a listener's connection rate limit will be set to 1/5 of the lb's "
+        "upper limit, which is predefined by the flavors 1-7."
     )
 ]
 

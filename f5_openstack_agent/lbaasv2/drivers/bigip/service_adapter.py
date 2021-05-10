@@ -460,6 +460,7 @@ class ServiceModelAdapter(object):
         else:
             vip['pool'] = ""
 
+        # should not be using this value
         vip["connectionLimit"] = listener.get("connection_limit", 0)
         if vip["connectionLimit"] < 0:
             vip["connectionLimit"] = 0
@@ -507,6 +508,68 @@ class ServiceModelAdapter(object):
         if policies:
             self._apply_l7_and_esd_policies(listener, policies, vip)
 
+        # TODO(xie): delete this line, 4 test
+        # loadbalancer['flavor'] = 2
+
+        # TODO(xie): consider 9.8
+        if self.conf.connection_limit_ratio and \
+                self.conf.connection_rate_limit_ratio and \
+                loadbalancer.get('flavor') is not None:
+            ratio1 = self.conf.connection_limit_ratio
+            ratio2 = self.conf.connection_rate_limit_ratio
+            flavor_id = loadbalancer['flavor']
+
+            if flavor_id == 0:
+                listener_connection_limit = 0
+                listener_rate_limit = 0
+            else:
+                # predefined table is not using 1024 etc. seems fine though.
+                # convenient to be divided by 5, by default.
+                flavor_dict = {
+                    "1": {
+                        'connection_limit': 5000,
+                        'rate_limit': 3000
+                    },
+                    "2": {
+                        'connection_limit': 50000,
+                        'rate_limit': 5000
+                    },
+                    "3": {
+                        'connection_limit': 100000,
+                        'rate_limit': 10000
+                    },
+                    "4": {
+                        'connection_limit': 200000,
+                        'rate_limit': 20000
+                    },
+                    "5": {
+                        'connection_limit': 500000,
+                        'rate_limit': 50000
+                    },
+                    "6": {
+                        'connection_limit': 1000000,
+                        'rate_limit': 100000
+                    },
+                    "7": {
+                        'connection_limit': 8000000,
+                        'rate_limit': 100000
+                    }
+                }
+
+                listener_connection_limit = \
+                    flavor_dict[str(flavor_id)]['connection_limit'] / ratio1
+                listener_rate_limit = \
+                    flavor_dict[str(flavor_id)]['rate_limit'] / ratio2
+
+                vip["connectionLimit"] = listener_connection_limit
+                LOG.info("connectionLimit:")
+                LOG.info(vip["connectionLimit"])
+
+                vip["rateLimit"] = listener_rate_limit
+                LOG.info("rateLimit:")
+                LOG.info(vip["rateLimit"])
+        else:
+            LOG.info('limit part is not run this time.')
         return vip
 
     def _apply_l7_and_esd_policies(self, listener, policies, vip):
