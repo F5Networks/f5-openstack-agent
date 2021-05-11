@@ -41,6 +41,8 @@ class BigipTenantManager(object):
         self.service_adapter = self.driver.service_adapter
         self.va_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual_address)
+        self.node_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.node)
 
     def assure_tenant_created(self, service, sync=False):
         """Create tenant partition.
@@ -203,7 +205,8 @@ class BigipTenantManager(object):
     def _partition_empty(self, bigip, partition):
         virtual_addresses = self.va_helper.get_resources(
             bigip, partition=partition)
-        nodes = bigip.tm.ltm.nodes.get_collection(partition=partition)
+        nodes = self.node_helper.get_resources(
+            bigip, partition=partition)
 
         if not nodes and not virtual_addresses:
             return True
