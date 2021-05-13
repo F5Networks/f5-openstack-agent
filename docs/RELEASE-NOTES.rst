@@ -5,6 +5,29 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.46 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* binding logging profile to http or terminated_https virtual server
+
+Bug Fixes
+`````````
+* Fix the KeyError issue caused by heartbeat periodic task
+* Adjust some annotation
+* Typo fix for response
+* Fix rds cache polluted problem
+* Fix: project named route domain
+* Fix check project_id at global_routed_mode is True
+* Handle bigip status check
+* Cleanup all snat, vlan and self ip before removing partition
+* Fix check nodes issue in current partition
+* Cleanup all snat, vlan and self ip before removing partition
+
+Limitations
+
 v9.8.45 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
