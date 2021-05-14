@@ -399,7 +399,7 @@ class NetworkServiceBuilder(object):
                 LOG.debug("Allocated route domain %s for tenant %s"
                           % (rd_id, tenant_id))
                 break
-            except f5_ex.RouteDomainCreationException as err:
+            except Exception as err:
                 if retries == 0:
                     raise f5_ex.RouteDomainCreationException(
                         "Failed to create route domain for "
