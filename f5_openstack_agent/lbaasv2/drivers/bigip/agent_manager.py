@@ -160,11 +160,6 @@ OPTS = [
         default='',
         help=('The file name of extended profiles definition of a listener')
     ),
-    cfg.StrOpt(
-        'f5_request_logging_profile',
-        default='/Common/request-log',
-        help=('The request logging profile path on bigip')
-    ),
 ]
 
 PERIODIC_TASK_INTERVAL = 10
