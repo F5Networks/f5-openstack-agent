@@ -765,9 +765,9 @@ class PoolManager(ResourceManager):
             # Possilbe error if node is shared with another member.
             # If so, ignore the error.
             if err.response.status_code == 400:
-                LOG.debug(str(err))
+                LOG.debug("Failed to delete node 400: %s" % err.message)
             elif err.response.status_code == 404:
-                LOG.debug(str(err))
+                LOG.debug("Failed to delete node 404: %s" % err.message)
             else:
                 LOG.error("Unexpected node deletion error: %s",
                           urllib.quote(node['name']))
@@ -872,7 +872,6 @@ class PoolManager(ResourceManager):
 
         """ try to delete the node which is only used by the pool """
         loadbalancer = service.get('loadbalancer')
-        self.driver.annotate_service_members(service)
         members = service.get('members', list())
         for member in members:
             self._delete_member_node(loadbalancer, member, bigip)
@@ -890,6 +889,7 @@ class PoolManager(ResourceManager):
     @serialized('PoolManager.delete')
     @log_helpers.log_method_call
     def delete(self, pool, service, **kwargs):
+        self.driver.annotate_service_members(service)
         super(PoolManager, self).delete(pool, service)
 
 
