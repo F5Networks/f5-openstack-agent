@@ -530,9 +530,6 @@ class ListenerManager(ResourceManager):
             profile_name = '/' + payload['partition'] + '/' \
                            + 'http_profile_' + payload['name']
             profiles.append(profile_name)
-        if listener['protocol'] == "HTTP" or \
-           listener['protocol'] == "TERMINATED_HTTPS":
-            profiles.append(self.driver.conf.f5_request_logging_profile)
         return payload
 
     def _update_payload(self, old_listener, listener, service, **kwargs):
