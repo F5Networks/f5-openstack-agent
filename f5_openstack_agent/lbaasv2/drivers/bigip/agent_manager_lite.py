@@ -1539,6 +1539,35 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                               "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
+    def update_acl_bind(self, context, listener, acl_bind, service):
+        """Handle RPC cast from plugin to update_acl_bind."""
+        loadbalancer = service['loadbalancer']
+        id = listener['id']
+        try:
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.update_acl_bind(listener, acl_bind, service)
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update ACL bind of listener %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update ACL bind of listener %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_listener_status(
+                    id, provision_status,
+                    listener['operating_status']
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of listener %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of listener %s "
+                              "Exception: %s", id, ex.message)
+
+    @log_helpers.log_method_call
     def create_pool(self, context, pool, service):
         """Handle RPC cast from plugin to create_pool."""
         loadbalancer = service['loadbalancer']
@@ -2140,3 +2169,39 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             except Exception as ex:
                 LOG.exception("Failt to updte status of l7rule %s "
                               "Exception: %s", id, ex.message)
+
+    @log_helpers.log_method_call
+    def create_acl_group(self, context, acl_group):
+        """Handle RPC cast from plugin to create ACL Group."""
+        id = acl_group['id']
+        try:
+            mgr = resource_manager.ACLGroupManager(self.lbdriver)
+            mgr.create(acl_group)
+            LOG.debug("Finish to create acl_group %s", id)
+        except Exception as ex:
+            LOG.error("Fail to create acl_group %s "
+                      "Exception: %s", id, ex.message)
+
+    @log_helpers.log_method_call
+    def delete_acl_group(self, context, acl_group):
+        """Handle RPC cast from plugin to delete ACL Group."""
+        try:
+            mgr = resource_manager.ACLGroupManager(self.lbdriver)
+            mgr.delete(acl_group)
+            LOG.debug("Finish to delete ACL Group %s", id)
+        except Exception as ex:
+            LOG.error("Fail to delete ACL Group %s "
+                      "Exception: %s", id, ex.message)
+
+    @log_helpers.log_method_call
+    def update_acl_group(self, context, acl_group):
+        """Handle RPC cast from plugin to update ACL Group."""
+        id = acl_group['id']
+        old_acl_group = dict()
+        try:
+            mgr = resource_manager.ACLGroupManager(self.lbdriver)
+            mgr.update(old_acl_group, acl_group)
+            LOG.debug("Finish to update acl_group %s", id)
+        except Exception as ex:
+            LOG.error("Fail to update loadbalancer %s "
+                      "Exception: %s", id, ex.message)
