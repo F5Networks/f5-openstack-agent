@@ -1242,6 +1242,42 @@ class iControlDriver(LBaaSBaseDriver):
                         if error.response.status_code == 400:
                             LOG.error(error.response)
 
+    @serialized('get_all_pools_for_one_bigip')
+    @is_operational
+    def get_all_pools_for_one_bigip(self, bigip):
+        LOG.debug('getting deployed pools for member on BIG-IPs')
+        deployed_pool_dict = {}
+        if not bigip:
+            LOG.debug("bigip is empty.")
+            return
+        prefix_name = self.service_adapter.prefix
+        prefix_len = len(prefix_name)
+        folders = self.system_helper.get_folders(bigip)
+        LOG.debug('get %d folder(s).', len(folders))
+
+        for folder in folders:
+            tenant_id = folder[prefix_len:]
+            if str(folder).startswith(prefix_name):
+                resource = resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.pool)
+                deployed_pools = resource.get_resources(bigip, folder)
+                if deployed_pools:
+                    LOG.debug("get %d pool(s) for %s.",
+                              len(deployed_pools), str(folder))
+                    for pool in deployed_pools:
+                        if not str(pool.name).startswith(prefix_name):
+                            LOG.debug("folder %s doesn't start with prefix.",
+                                      str(pool.name))
+                            continue
+                        pool_id = pool.name[prefix_len:]
+                        if pool_id not in deployed_pool_dict:
+                            deployed_pool_dict[pool_id] = {
+                                'id': pool_id,
+                                'tenant_id': tenant_id,
+                                'hostnames': [bigip.hostname]
+                            }
+        return deployed_pool_dict
+
     @serialized('get_all_deployed_pools')
     @is_operational
     def get_all_deployed_pools(self):
