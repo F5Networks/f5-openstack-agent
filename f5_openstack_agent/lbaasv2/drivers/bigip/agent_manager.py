@@ -206,6 +206,11 @@ OPTS = [
         default=10000,
         help=('Maximum MBtyes value of bandwidth')
     ),
+    cfg.StrOpt(
+        'f5_request_logging_profile',
+        default='/Common/request-log',
+        help=('The request logging profile path on bigip')
+    ),
 ]
 
 PERIODIC_TASK_INTERVAL = 10
