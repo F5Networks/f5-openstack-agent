@@ -499,6 +499,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 member_status = constants_v2.F5_DISABLED
             else:
                 member_status = constants_v2.F5_ONLINE
+        elif status == 'checking':
+            if session == 'monitor-enabled':
+                member_status = constants_v2.F5_CHECKING
         else:
             LOG.warning("Unexpected status %s and session %s",
                         status, session)
@@ -531,10 +534,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             member_info['id'] = member_id
             member_info['state'] = \
                 self.calculate_member_status(member)
-            LOG.debug("append member %s with statue %s",
-                      member_id,
-                      member_info['state'])
-            all_members.append(member_info)
+            if member_info['state'] is not None and \
+               member_info['state'] != constants_v2.F5_CHECKING:
+                LOG.debug("append member %s with statue %s",
+                          member_id,
+                          member_info['state'])
+                all_members.append(member_info)
         else:
             LOG.debug("neither description nor name exists.")
 
@@ -577,7 +582,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             member_info['protocol_port'] = int(port)
             member_info['state'] = \
                 self.calculate_member_status(member)
-            all_members.append(member_info)
+            if member_info['state'] is not None and \
+               member_info['state'] != constants_v2.F5_CHECKING:
+                all_members.append(member_info)
         else:
             LOG.debug("member name doesn't exist.")
         return
