@@ -68,6 +68,7 @@ class ResourceType(Enum):
     bwc_policy = 42
     internal_data_group = 43
     http2_profile = 44
+    websocket_profile = 45
 
 
 class BigIPResourceHelper(object):
@@ -278,7 +279,9 @@ class BigIPResourceHelper(object):
             ResourceType.bwc_policy:
                 lambda bigip: bigip.tm.net.bwc.policys.policy,
             ResourceType.internal_data_group:
-                lambda bigip: bigip.tm.ltm.data_group.internals.internal
+                lambda bigip: bigip.tm.ltm.data_group.internals.internal,
+            ResourceType.websocket_profile:
+                lambda bigip: bigip.tm.ltm.profile.websockets.websocket
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -352,7 +355,9 @@ class BigIPResourceHelper(object):
             ResourceType.oneconnect:
                 lambda bigip: bigip.tm.ltm.profile.one_connects,
             ResourceType.bwc_policy:
-                lambda bigip: bigip.tm.net.bwc.policys
+                lambda bigip: bigip.tm.net.bwc.policys,
+            ResourceType.websocket_profile:
+                lambda bigip: bigip.tm.ltm.profile.websockets
         }
 
         if self.resource_type in collection_map:
