@@ -66,6 +66,7 @@ class ResourceType(Enum):
     diameter_monitor = 40
     ftp_profile = 41
     bwc_policy = 42
+    internal_data_group = 43
 
 
 class BigIPResourceHelper(object):
@@ -272,7 +273,9 @@ class BigIPResourceHelper(object):
             ResourceType.ftp_profile:
                 lambda bigip: bigip.tm.ltm.profile.ftps.ftp,
             ResourceType.bwc_policy:
-                lambda bigip: bigip.tm.net.bwc.policys.policy
+                lambda bigip: bigip.tm.net.bwc.policys.policy,
+            ResourceType.internal_data_group:
+                lambda bigip: bigip.tm.ltm.data_group.internals.internal
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):

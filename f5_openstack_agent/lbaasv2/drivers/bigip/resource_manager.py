@@ -18,6 +18,7 @@ import os
 import re
 import urllib
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.acl import ACLHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
     import FTPProfileHelper
@@ -129,8 +130,8 @@ class ResourceManager(object):
         return True
 
     @log_helpers.log_method_call
-    def create(self, resource, service, **kwargs):
-        if not service.get(self._key):
+    def create(self, resource, service=dict(), **kwargs):
+        if service and not service.get(self._key):
             self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
@@ -151,8 +152,8 @@ class ResourceManager(object):
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
 
     @log_helpers.log_method_call
-    def update(self, old_resource, resource, service, **kwargs):
-        if not service.get(self._key):
+    def update(self, old_resource, resource, service=dict(), **kwargs):
+        if service and not service.get(self._key):
             self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._update_payload(old_resource, resource,
@@ -174,8 +175,8 @@ class ResourceManager(object):
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
 
     @log_helpers.log_method_call
-    def delete(self, resource, service, **kwargs):
-        if not service.get(self._key):
+    def delete(self, resource, service=dict(), **kwargs):
+        if service and not service.get(self._key):
             self._search_element(resource, service)
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
@@ -516,6 +517,7 @@ class ListenerManager(ResourceManager):
         self.http_profile_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.http_profile)
         self.ftp_helper = FTPProfileHelper()
+        self.acl_helper = ACLHelper()
         self.mutable_props = {
             "name": "description",
             "default_pool_id": "pool",
@@ -914,6 +916,56 @@ class ListenerManager(ResourceManager):
     def update(self, old_listener, listener, service, **kwargs):
         super(ListenerManager, self).update(
             old_listener, listener, service)
+
+    # we may change this to bind_acl
+    # and we add unbind_acl
+    # bind_acl will consider enable and disableo
+    # unbind_acl will clear everything whatever it enable or disable
+    @serialized('ListenerManager.update_acl_bind')
+    @log_helpers.log_method_call
+    def update_acl_bind(self, listener, acl_bind, service, **kwargs):
+        enable = self.acl_helper.enable_acl(acl_bind)
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+
+        # force to used service although it is bad
+        service["listener"] = listener
+        vs_info = self.driver.service_adapter.get_virtual_name(service)
+        irule_payload = self.acl_helper.get_acl_irule_payload(
+            acl_bind, vs_info)
+        irule_fullPath = irule_payload["fullPath"]
+
+        for bigip in bigips:
+
+            vs = self.resource_helper.load(
+                bigip, name=vs_info['name'], partition=vs_info['partition'])
+            irules = vs.rules
+
+            if enable:
+                self.acl_helper.create_acl_irule(
+                    bigip, irule_payload)
+
+                if irule_fullPath not in irules:
+                    irules.append(irule_fullPath)
+
+                vs_info['rules'] = irules
+                # In order to rebuild listener, if it is missing.
+                # we insure it only changes the changes, it will not
+                # affect other configurations
+                super(ListenerManager, self)._update(
+                    bigip, vs_info, None, listener, service)
+            else:
+                if irule_fullPath in irules:
+                    irules.remove(irule_fullPath)
+
+                vs_info['rules'] = irules
+                super(ListenerManager, self)._update(
+                    bigip, vs_info, None, listener, service)
+
+                self.acl_helper.remove_acl_irule(
+                    bigip, irule_payload)
+
+        LOG.debug("Finish to update ACL bind %s %s",
+                  self._resource, str(acl_bind))
 
     @serialized('ListenerManager.delete')
     @log_helpers.log_method_call
@@ -1755,3 +1807,36 @@ class L7RuleManager(ResourceManager):
         else:
             # Update LTM policy
             self._update_ltm_policy(self._l7policy, service)
+
+
+class ACLGroupManager(ResourceManager):
+
+    def __init__(self, driver, **kwargs):
+        super(ACLGroupManager, self).__init__(driver)
+        self._resource = "ACLGroup"
+        self.resource_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.internal_data_group)
+
+    def _create_payload(self, resource, *args, **kwargs):
+        """Convert neutron lbaas acl_group to bigip data_group"""
+
+        partition = "Common"
+        name = "acl_" + resource["id"]
+        data_group_type = "ip"
+        rules = resource.get("acl_rules_detail")
+        data_group_rules = {}
+
+        if rules:
+            # do we need to put data as rule['id'] here?
+            data_group_rules = [
+                {"name": rule["ip_address"], "data": ""}
+                for rule in rules]
+
+        payload = {
+            "name": name,
+            "partition": partition,
+            "type": data_group_type,
+            "records": data_group_rules
+        }
+
+        return payload
