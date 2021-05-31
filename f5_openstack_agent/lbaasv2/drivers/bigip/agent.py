@@ -95,6 +95,16 @@ def main():
     else:
         mgr = manager.LbaasAgentManager(cfg.CONF)
 
+    if cfg.CONF.connection_limit_ratio and \
+            cfg.CONF.connection_limit_ratio <= 0:
+        LOG.info('seems wrong, set connection_limit_ratio to 5.')
+        cfg.CONF.connection_limit_ratio = 5
+
+    if cfg.CONF.connection_rate_limit_ratio and \
+            cfg.CONF.connection_rate_limit_ratio <= 0:
+        LOG.info('seems wrong, set connection_rate_limit_ratio to 5.')
+        cfg.CONF.connection_rate_limit_ratio = 5
+
     if cfg.CONF.f5_bandwidth_default < 0:
         LOG.info("set default bandwidth from %d to 200MB",
                  cfg.CONF.f5_bandwidth_default)
