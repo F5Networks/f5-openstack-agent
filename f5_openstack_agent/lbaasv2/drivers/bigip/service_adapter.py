@@ -763,7 +763,10 @@ class ServiceModelAdapter(object):
                 'sni_containers',
                 # client auth parameters
                 'mutual_authentication_up',
-                'ca_container_id'
+                'ca_container_id',
+                # cipher parameters
+                'tls_protocols',
+                'cipher_suites'
             ]:
                 if tls_key in listener and listener[tls_key]:
                     tls[tls_key] = listener[tls_key]

@@ -44,6 +44,29 @@ class SSLProfileHelper(object):
         client_ca_cert = kwargs.get("client_ca_cert", None)
         ca_cert_filename = kwargs.get("ca_cert_filename", None)
 
+        ciphers = "DEFAULT"
+        tm_options = ["dont-insert-empty-fragments", "no-tlsv1.3"]
+        tls_protocols = kwargs.get("tls_protocols", None)
+        cipher_suites = kwargs.get("cipher_suites", None)
+        if tls_protocols:
+            protocols = tls_protocols.split(",")
+            protocol_map = {
+                "TLS1.0": "no-tlsv1",
+                "TLS1.1": "no-tlsv1.1",
+                "TLS1.2": "no-tlsv1.2",
+                "TLS1.3": "no-tlsv1.3"
+            }
+            for protocol in protocols:
+                protocol_map.pop(protocol, None)
+            if len(protocol_map.keys()) < 4:
+                # Convert valid tls_protocols input to tm_options, and also
+                # configure ciphers of client ssl profile. Otherwise, use
+                # bigip default value.
+                tm_options = ["dont-insert-empty-fragments"] + \
+                             protocol_map.values()
+                if cipher_suites:
+                    ciphers = cipher_suites
+
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
@@ -118,6 +141,8 @@ class SSLProfileHelper(object):
                                sniDefault=sni_default,
                                peerCertMode=peerCertMode,
                                caFile=ca_cert_filename,
+                               tmOptions=tm_options,
+                               ciphers=ciphers,
                                defaultsFrom=parent_profile)
             else:
                 ssl_client_profile.create(name=profile_name,
@@ -126,6 +151,8 @@ class SSLProfileHelper(object):
                                           sniDefault=sni_default,
                                           peerCertMode=peerCertMode,
                                           caFile=ca_cert_filename,
+                                          tmOptions=tm_options,
+                                          ciphers=ciphers,
                                           defaultsFrom=parent_profile)
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
