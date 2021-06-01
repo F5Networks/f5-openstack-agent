@@ -15,6 +15,7 @@
 #
 import json
 import os
+import re
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.acl import ACLHelper
@@ -107,19 +108,16 @@ class ResourceManager(object):
                       resource_type, payload['name'])
             resource_helper.create(bigip, payload)
 
-    def _update(self, bigip, payload, old_resource, resource, service,
-                **kwargs):
-        resource_helper = kwargs.get("helper", self.resource_helper)
-        resource_type = kwargs.get("type", self._resource)
-        if resource_helper.exists(bigip, name=payload['name'],
-                                  partition=payload['partition']):
-            LOG.debug("%s already exists ... updating", resource_type)
-            resource_helper.update(bigip, payload)
+    def _update(self, bigip, payload, old_resource, resource, service):
+        if self.resource_helper.exists(bigip, name=payload['name'],
+                                       partition=payload['partition']):
+            LOG.debug("%s already exists ... updating", self._resource)
+            self.resource_helper.update(bigip, payload)
         else:
-            LOG.debug("%s does not exist ... creating", resource_type)
+            LOG.debug("%s does not exist ... creating", self._resource)
             payload = self._create_payload(resource, service)
-            LOG.debug("%s payload is %s", resource_type, payload)
-            resource_helper.create(bigip, payload)
+            LOG.debug("%s payload is %s", self._resource, payload)
+            self.resource_helper.create(bigip, payload)
 
     def _delete(self, bigip, payload, resource, service, **kwargs):
         resource_helper = kwargs.get("helper", self.resource_helper)
@@ -601,6 +599,8 @@ class ListenerManager(ResourceManager):
             resource_helper.ResourceType.cookie_persistence)
         self.source_addr_persist_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.source_addr_persistence)
+        self.http_profile_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.http_profile)
         self.ftp_helper = FTPProfileHelper()
         self.acl_helper = ACLHelper()
         self.mutable_props = {
@@ -608,32 +608,6 @@ class ListenerManager(ResourceManager):
             "default_pool_id": "pool",
             "connection_limit": "connectionLimit"
         }
-        self.profile_map = {
-            "http_profile": {
-                "condition": self._isHTTPorTLS,
-                "customize": self._customize,
-                "helper": resource_helper.BigIPResourceHelper(
-                    resource_helper.ResourceType.http_profile)
-            }
-        }
-        self.extended_profiles = {}
-        self._load_extended_profiles()
-
-    def _isHTTPorTLS(self, listener):
-        if listener['protocol'] == "HTTP" or \
-           listener['protocol'] == "TERMINATED_HTTPS":
-            return True
-        else:
-            return False
-
-    def _customize(self, profile_type, profile, listener):
-        # NOTE(qzhao): The default behavior is to merge customized properties
-        # into profile payload. That is for the profile like http_profile, who
-        # supports to fetch addtional properties from customized json from API.
-        # If any other profile requires different behavior, need to implement
-        # that specific behavior by itself.
-        customized = self._customized_profile(profile_type, listener)
-        profile.update(customized)
 
     def _create_payload(self, listener, service):
         payload = self.driver.service_adapter.get_virtual(service)
@@ -643,7 +617,8 @@ class ListenerManager(ResourceManager):
             profile_name = '/' + payload['partition'] + '/' \
                            + 'http_profile_' + payload['name']
             profiles.append(profile_name)
-        if self._isHTTPorTLS(listener):
+        if listener['protocol'] == "HTTP" or \
+           listener['protocol'] == "TERMINATED_HTTPS":
             profiles.append(self.driver.conf.f5_request_logging_profile)
         return payload
 
@@ -703,10 +678,12 @@ class ListenerManager(ResourceManager):
     def _check_customized_changed(self, old_listener, listener):
         if not old_listener:
             return False
-        old_customized = old_listener.get('customized', None)
-        new_customized = listener.get('customized', None)
-        if old_customized != new_customized:
-            return True
+        if listener['protocol'] == "HTTP" or \
+           listener['protocol'] == "TERMINATED_HTTPS":
+            old_customized = old_listener.get('customized', None)
+            new_customized = listener.get('customized', None)
+            if old_customized != new_customized:
+                return True
         return False
 
     def _check_update_needed(self, payload, old_listener, listener):
@@ -825,97 +802,74 @@ class ListenerManager(ResourceManager):
         tls['name'] = vs['name']
         listener_builder.remove_ssl_profiles(tls, bigip)
 
-    def _load_extended_profiles(self):
-        if not self.driver.conf.f5_extended_profile:
-            return
+    def _delete_http_profile(self, bigip, vs):
+        payload = {
+            "name": "http_profile_" + vs['name'],
+            "partition": vs['partition'],
+        }
+        super(ListenerManager, self)._delete(
+            bigip, payload, None, None,
+            helper=self.http_profile_helper)
 
-        file_name = self.driver.conf.f5_extended_profile
-        if not os.path.exists(file_name):
-            LOG.warning("Extended profile %s doesn't exist", file_name)
-            return
+    def _create_http_profile(self, bigip, listener, vs):
 
-        try:
-            with open(file_name) as file:
-                self.extended_profiles = json.load(file)
-        except ValueError:
-            LOG.error("Extended profile %s is a invalid json", file_name)
-            return
+        http_profile = self.__create_http_profile_content(bigip, listener, vs)
+        http_profile['partition'] = vs['partition']
+        http_profile['name'] = "http_profile_" + vs['name']
+        super(ListenerManager, self)._create(
+            bigip, http_profile, None, None, type="http-profile",
+            helper=self.http_profile_helper, overwrite=True)
 
-        # Remove name and partition attributes
-        for profile_type in self.extended_profiles.keys():
-            profile = self.extended_profiles[profile_type]
-            for key in ["name", "partition"]:
-                if key in profile:
-                    del profile[key]
-        return
+    def __create_http_profile_content(self, bigip, listener, vs):
+        # If the f5_extended_profile is configured in .ini, then
+        # 1) check if the configured file exists or not.
+        # 2) parse the content in the file
+        # If customized is provided from cli, then
+        # 1) parse vs['customized'] as json format.
+        # 2) merge existing http_profile dict with parsed 'http_profile'
 
-    def _customized_profile(self, profile_type, listener):
-        if 'customized' not in listener or not listener['customized']:
-            return {}
+        http_profile = {}
+        if self.driver.conf.f5_extended_profile:
+            # check if the file exists or not.
+            # check the content of the file content
+            file_name = self.driver.conf.f5_extended_profile
+            LOG.debug("extended profile file configured is %s",
+                      file_name)
+            if not os.path.exists(file_name):
+                LOG.warning("extended profile %s doesn't exist",
+                            file_name)
+            else:
+                try:
+                    with open(file_name) as fp:
+                        payload = json.load(fp)
+                    if 'http_profile' not in payload:
+                        LOG.debug("http profile is not defined in %s",
+                                  file_name)
+                    else:
+                        http_profile = payload.get('http_profile', {})
+                except ValueError:
+                    LOG.error("extended profile %s is not a valid json file",
+                              file_name)
 
-        try:
-            customized = json.loads(listener['customized'])
-        except ValueError:
-            LOG.error("Invalid json format: %s", listener['customized'])
-            return {}
+            LOG.debug("http profile content from file is %s", http_profile)
 
-        if profile_type not in customized:
-            return {}
+        if 'customized' in listener and listener['customized']:
+            try:
+                payload = json.loads(listener['customized'])
+                http_profile_arg = payload.get('http_profile', {})
+                http_profile.update(http_profile_arg)
+            except ValueError:
+                LOG.error("Invalid json format: %s", listener['customized'])
 
-        return customized.get(profile_type, {})
+        # The name and parition items in the file will be overwriten
+        if 'name' in http_profile:
+            del http_profile['name']
 
-    def _extended_profile_condition(self, profile_type, listener):
-        condition = self.profile_map[profile_type]["condition"]
-        if callable(condition):
-            return condition(listener)
-        elif isinstance(condition, bool):
-            return condition
-        else:
-            return False
+        if 'partition' in http_profile:
+            del http_profile['partition']
 
-    def _create_extended_profiles(self, bigip, listener, vs):
-        for profile_type in self.profile_map.keys():
-            if self._extended_profile_condition(profile_type, listener):
-                profile = self.extended_profiles.get(profile_type, {})
-                customize = self.profile_map[profile_type].get("customize")
-                if callable(customize):
-                    customize(profile_type, profile, listener)
-                profile['partition'] = vs['partition']
-                profile['name'] = profile_type + "_" + vs['name']
-                helper = self.profile_map[profile_type]['helper']
-                super(ListenerManager, self)._create(
-                    bigip, profile, None, None, type=profile_type,
-                    helper=helper, overwrite=True)
-                loc = "/" + profile['partition'] + "/" + profile['name']
-                if loc not in vs['profiles']:
-                    vs['profiles'].append(loc)
-
-    def _update_extended_profiles(self, bigip, listener, vs, required):
-        for profile_type in self.profile_map.keys():
-            if self._extended_profile_condition(profile_type, listener) and \
-               profile_type in required:
-                # Needn't consider profile default value when updating
-                profile = {}
-                customize = self.profile_map[profile_type].get("customize")
-                if callable(customize):
-                    customize(profile_type, profile, listener)
-                profile['partition'] = vs['partition']
-                profile['name'] = profile_type + "_" + vs['name']
-                helper = self.profile_map[profile_type]['helper']
-                super(ListenerManager, self)._update(
-                    bigip, profile, None, None, None, type=profile_type,
-                    helper=helper)
-
-    def _delete_extended_profiles(self, bigip, listener, vs):
-        for profile_type in self.profile_map.keys():
-            profile = {}
-            if self._extended_profile_condition(profile_type, listener):
-                profile['partition'] = vs['partition']
-                profile['name'] = profile_type + "_" + vs['name']
-                helper = self.profile_map[profile_type]['helper']
-                super(ListenerManager, self)._delete(
-                    bigip, profile, None, None, type=profile_type,
-                    helper=helper)
+        LOG.debug("http profile content merged is %s", http_profile)
+        return http_profile
 
     def _create(self, bigip, vs, listener, service):
         tls = self.driver.service_adapter.get_tls(service)
@@ -932,10 +886,9 @@ class ListenerManager(ResourceManager):
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
-
-        # Create the following profiles required by this VS:
-        #   HTTP profile (if listener is HTTP or TERMINATED_HTTPS)
-        self._create_extended_profiles(bigip, listener, vs)
+        if listener['protocol'] == "HTTP" or \
+           listener['protocol'] == "TERMINATED_HTTPS":
+            self._create_http_profile(bigip, listener, vs)
 
         bandwidth = LoadBalancerManager.get_bandwidth_value(
             self.driver.conf, loadbalancer)
@@ -985,8 +938,39 @@ class ListenerManager(ResourceManager):
             vs['persist'] = [{"name": profile}]
 
         if self._check_customized_changed(old_listener, listener) is True:
-            self._update_extended_profiles(bigip, listener, vs,
-                                           ["http_profile"])
+            self._create_http_profile(bigip, listener, vs)
+            # load the porfiles from bigip if needed
+            if not orig_profiles:
+                orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
+
+            # build the profiles property for the update payload
+            profiles = list()
+            profile_exists = False
+            profile_name = '/' + vs['partition'] + '/' \
+                           + 'http_profile_' + vs['name']
+            http_pattern = "https://localhost/mgmt/tm/ltm/profile/http/"
+            profiles.append(profile_name)
+
+            for profile in orig_profiles['items']:
+                # check if the new http profile is already there.
+                # if yes, don't do anything
+                if profile['fullPath'] == profile_name:
+                    LOG.debug("The http profile is already bound to vs.")
+                    profile_exists = True
+                    break
+
+                link = profile['nameReference']['link']
+                if not re.search(http_pattern, link):
+                    profiles.append(profile['fullPath'])
+
+            # only build the profiles body if needed
+            if profile_exists is False:
+                if 'profiles' not in vs:
+                    vs['profiles'] = list()
+                # add the profile which is from above profiles list and
+                # doesn't exist in origin vs[profiles']
+                vs['profiles'] += filter(
+                    lambda x: x not in vs['profiles'], profiles)
 
         # If no vs property to update, do not call icontrol patch api.
         # This happens, when vs payload only contains 'customized'.
@@ -1005,7 +989,7 @@ class ListenerManager(ResourceManager):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
         self._delete_persist_profile(bigip, vs)
         self._delete_ssl_profiles(bigip, vs, service)
-        self._delete_extended_profiles(bigip, listener, vs)
+        self._delete_http_profile(bigip, vs)
         ftp_enable = self.ftp_helper.enable_ftp(service)
         if ftp_enable:
             self.ftp_helper.remove_profile(service, vs, bigip)
