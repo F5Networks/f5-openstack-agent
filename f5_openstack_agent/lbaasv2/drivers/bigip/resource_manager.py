@@ -614,10 +614,33 @@ class ListenerManager(ResourceManager):
                 "customize": self._customize,
                 "helper": resource_helper.BigIPResourceHelper(
                     resource_helper.ResourceType.http_profile)
+            },
+            "http2_profile": {
+                "condition": self._isHTTP2,
+                "helper": resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.http2_profile)
+            },
+            "http2tls_profile": {
+                "condition": self._isHTTP2TLS,
+                "helper": resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.http2_profile)
             }
+
         }
         self.extended_profiles = {}
         self._load_extended_profiles()
+
+    def _isHTTP2TLS(self, listener):
+        if listener['protocol'] != "TERMINATED_HTTPS":
+            return False
+        http2tls = listener.get('http2', False)
+        return http2tls
+
+    def _isHTTP2(self, listener):
+        if listener['protocol'] != "HTTP":
+            return False
+        http2 = listener.get('http2', False)
+        return http2
 
     def _isHTTPorTLS(self, listener):
         if listener['protocol'] == "HTTP" or \

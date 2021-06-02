@@ -33,6 +33,12 @@ class SSLProfileHelper(object):
         intermediates = kwargs.get("intermediates", None)
         parent_profile = kwargs.get("parent_profile", None)
         profile_name = kwargs.get("profile_name", None)
+        http2 = kwargs.get("http2", False)
+        renegotiation = kwargs.get("renegotiation", True)
+
+        if http2 is True:
+            renegotiation = False
+
         if not profile_name:
             profile_name = name
 
@@ -143,7 +149,8 @@ class SSLProfileHelper(object):
                                caFile=ca_cert_filename,
                                tmOptions=tm_options,
                                ciphers=ciphers,
-                               defaultsFrom=parent_profile)
+                               defaultsFrom=parent_profile,
+                               renegotiation=renegotiation)
             else:
                 ssl_client_profile.create(name=profile_name,
                                           partition='Common',
@@ -153,7 +160,8 @@ class SSLProfileHelper(object):
                                           caFile=ca_cert_filename,
                                           tmOptions=tm_options,
                                           ciphers=ciphers,
-                                          defaultsFrom=parent_profile)
+                                          defaultsFrom=parent_profile,
+                                          renegotiation=renegotiation)
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
             raise SSLProfileError(err.message)
