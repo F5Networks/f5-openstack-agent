@@ -829,7 +829,8 @@ class ServiceModelAdapter(object):
                 'ca_container_id',
                 # cipher parameters
                 'tls_protocols',
-                'cipher_suites'
+                'cipher_suites',
+                'http2'
             ]:
                 if tls_key in listener and listener[tls_key]:
                     tls[tls_key] = listener[tls_key]

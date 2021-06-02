@@ -61,6 +61,7 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom=None,
+            renegotiation='enabled',
         )
 
     def exists_parent(self, *args, **kwargs):
@@ -94,6 +95,7 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom=None,
+            renegotiation='enabled',
         )
 
     def test_create_client_ssl_profile_parent(self):
@@ -121,6 +123,7 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom='parentprofile',
+            renegotiation='enabled',
         )
 
     def test_create_client_ssl_profile_raises(self):
@@ -160,6 +163,7 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom=None,
+            renegotiation='enabled',
         )
 
     def test_create_client_ssl_intermediates(self):
@@ -184,6 +188,7 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom=None,
+            renegotiation='enabled',
         )
 
     def test_create_client_ssl_intermediates_parent_profile(self):
@@ -212,6 +217,7 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom=None,
+            renegotiation='enabled',
         )
 
     def test_create_client_ssl_passphrase_none(self):
@@ -237,6 +243,7 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom=None,
+            renegotiation='enabled',
         )
 
     def test_create_client_ssl_passphrase(self):
@@ -262,6 +269,7 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom=None,
+            renegotiation='enabled',
         )
 
     def test_create_client_ssl_inter_passphrase_profile(self):
@@ -291,4 +299,5 @@ class TestSSLProfileHelper(object):
             tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
             ciphers='DEFAULT',
             defaultsFrom=None,
+            renegotiation='enabled',
         )

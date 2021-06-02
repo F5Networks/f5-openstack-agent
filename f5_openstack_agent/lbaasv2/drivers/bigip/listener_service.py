@@ -183,7 +183,8 @@ class ListenerServiceBuilder(object):
                     client_auth=tls.get("mutual_authentication_up", False),
                     ca_container_id=tls.get("ca_container_id", None),
                     tls_protocols=tls.get("tls_protocols", None),
-                    cipher_suites=tls.get("cipher_suites", None))
+                    cipher_suites=tls.get("cipher_suites", None),
+                    http2=tls.get("http2", False))
 
         if "sni_containers" in tls and tls["sni_containers"]:
             for container in tls["sni_containers"]:
@@ -193,7 +194,8 @@ class ListenerServiceBuilder(object):
                         client_auth=tls.get("mutual_authentication_up", False),
                         ca_container_id=tls.get("ca_container_id", None),
                         tls_protocols=tls.get("tls_protocols", None),
-                        cipher_suites=tls.get("cipher_suites", None))
+                        cipher_suites=tls.get("cipher_suites", None),
+                        http2=tls.get("http2", False))
 
     def _create_ssl_profile(self, container_ref, bigip, vip,
                             sni_default=False, **kwargs):
@@ -203,6 +205,7 @@ class ListenerServiceBuilder(object):
         key_passphrase = self.cert_manager.get_private_key_passphrase(
                              container_ref)
 
+        http2 = kwargs.get("http2", False)
         client_auth = kwargs.get("client_auth", False)
         c_ca_cref = kwargs.get("ca_container_id", None)
         c_ca_cert = None
@@ -234,7 +237,8 @@ class ListenerServiceBuilder(object):
                 ca_cert_filename=c_ca_file,
                 tls_protocols=tls_protocols,
                 cipher_suites=cipher_suites,
-                profile_name=profile_name)
+                profile_name=profile_name,
+                http2=http2)
         except HTTPError as err:
             if err.response.status_code != 409:
                 LOG.error("SSL profile creation error: %s" %

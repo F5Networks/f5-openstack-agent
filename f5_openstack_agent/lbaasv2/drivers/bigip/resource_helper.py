@@ -67,6 +67,7 @@ class ResourceType(Enum):
     ftp_profile = 41
     bwc_policy = 42
     internal_data_group = 43
+    http2_profile = 44
 
 
 class BigIPResourceHelper(object):
@@ -268,6 +269,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.ltm.persistence.universal,
             ResourceType.http_profile:
                 lambda bigip: bigip.tm.ltm.profile.https.http,
+            ResourceType.http2_profile:
+                lambda bigip: bigip.tm.ltm.profile.http2s.http2,
             ResourceType.ssl_cert_file:
                 lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert,
             ResourceType.ftp_profile:
@@ -344,6 +347,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.sys.file.ssl_certs,
             ResourceType.http_profile:
                 lambda bigip: bigip.tm.ltm.profile.https,
+            ResourceType.http2_profile:
+                lambda bigip: bigip.tm.ltm.profile.http2s,
             ResourceType.oneconnect:
                 lambda bigip: bigip.tm.ltm.profile.one_connects,
             ResourceType.bwc_policy:
