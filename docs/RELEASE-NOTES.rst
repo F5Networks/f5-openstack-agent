@@ -5,6 +5,25 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.30 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Add flavor support: connection limit and connection rate limit.
+* Bind logging profile to http/terminated_https vs.
+* Add checking status support and don't send the members with status of none or checking.
+* Add ACL feature.
+* Support cipher options.
+
+Enhancement
+```````````
+* Refactor extended profile implementation
+
+Limitations
+```````````
+
 v9.9.6 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
