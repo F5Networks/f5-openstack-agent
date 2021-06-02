@@ -50,7 +50,7 @@ class ACLHelper(object):
         }}"""
 
         black_template = """when CLIENT_ACCEPTED {{
-        if {{ [class match [IP::client_addr] {}] }} {{
+        if {{ [class match [IP::client_addr] eq {}] }} {{
         log local0. "Dropped connection: """ + \
             """client IP [IP::client_addr] is restricted."
             drop}}
