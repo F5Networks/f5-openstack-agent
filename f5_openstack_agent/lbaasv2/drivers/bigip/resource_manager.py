@@ -98,6 +98,9 @@ class ResourceManager(object):
             if overwrite:
                 LOG.debug("%s %s already exists ... updating",
                           resource_type, payload['name'])
+                # if lb is exists, it can not overwrite its address,
+                # even they are same, it raise AttemptedMutationOfReadOnly
+                # address
                 resource_helper.update(bigip, payload)
             else:
                 LOG.debug("%s %s already exists, do not update.",
@@ -147,7 +150,7 @@ class ResourceManager(object):
         LOG.debug("%s payload is %s", self._resource, payload)
         bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         for bigip in bigips:
-            self._create(bigip, payload, resource, service)
+            self._create(bigip, payload, resource, service, **kwargs)
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
 
     @log_helpers.log_method_call
@@ -215,7 +218,7 @@ class LoadBalancerManager(ResourceManager):
     def create(self, loadbalancer, service, **kwargs):
         self._pre_create(service)
         super(LoadBalancerManager, self).create(
-            service["loadbalancer"], service)
+            service["loadbalancer"], service, overwrite=False)
         self._post_create(service)
 
     def _post_create(self, service):
