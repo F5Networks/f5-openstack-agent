@@ -19,7 +19,6 @@ Added Functionality
 
 Enhancement
 ```````````
-* Refactor extended profile implementation
 
 Limitations
 ```````````
