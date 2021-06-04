@@ -315,13 +315,23 @@ class ServiceModelAdapter(object):
         # interval - delay
         if "delay" in lbaas_healthmonitor:
             healthmonitor["interval"] = lbaas_healthmonitor["delay"]
+            LOG.info('using interval:')
+            LOG.info(healthmonitor["interval"])
 
         # timeout
         if "timeout" in lbaas_healthmonitor:
             if "max_retries" in lbaas_healthmonitor:
-                timeout = (int(lbaas_healthmonitor["max_retries"]) *
-                           int(lbaas_healthmonitor["timeout"]))
-                healthmonitor["timeout"] = timeout
+                if "delay" in lbaas_healthmonitor:
+                    # timeout = (int(lbaas_healthmonitor["max_retries"]) *
+                    #            int(lbaas_healthmonitor["timeout"]))
+                    timeout = (
+                        int(lbaas_healthmonitor["delay"]) *
+                        (int(lbaas_healthmonitor["max_retries"]) - 1) +
+                        int(lbaas_healthmonitor["timeout"])
+                    )
+                    healthmonitor["timeout"] = timeout
+                    LOG.info('using timeout:')
+                    LOG.info(healthmonitor["timeout"])
 
         return healthmonitor
 
