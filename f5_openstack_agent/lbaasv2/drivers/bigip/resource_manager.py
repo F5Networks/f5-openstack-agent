@@ -909,17 +909,42 @@ class ListenerManager(ResourceManager):
                 # properties defined in json file.
                 old_profile = {}
                 profile = {}
+                whole_profile = self.extended_profiles.get(profile_type, {})
                 customize = self.profile_map[profile_type].get("customize")
                 if callable(customize):
                     customize(profile_type, old_profile, old_listener)
                     customize(profile_type, profile, listener)
-                if profile != old_profile:
-                    profile['partition'] = vs['partition']
-                    profile['name'] = profile_type + "_" + vs['name']
-                    helper = self.profile_map[profile_type]['helper']
-                    super(ListenerManager, self)._update(
-                        bigip, profile, None, None, None, type=profile_type,
-                        helper=helper)
+                    customize(profile_type, whole_profile, listener)
+                changed = profile != old_profile
+                profile['partition'] = vs['partition']
+                profile['name'] = profile_type + "_" + vs['name']
+                whole_profile['partition'] = vs['partition']
+                whole_profile['name'] = profile_type + "_" + vs['name']
+                helper = self.profile_map[profile_type]['helper']
+                if changed:
+                    try:
+                        super(ListenerManager,
+                              self)._update(bigip, profile, None, None, None,
+                                            type=profile_type, helper=helper)
+                    except HTTPError as ex:
+                        # If profile is not there, create it. That happens
+                        # in Agent migration case.
+                        if ex.response.status_code == 404:
+                            super(ListenerManager, self)._create(
+                                  bigip, whole_profile, None, None,
+                                  type=profile_type, helper=helper)
+                            self._attach_profile(bigip, vs, whole_profile)
+                        else:
+                            raise ex
+                else:
+                    # In Agent migration case, profile might not be attached.
+                    # Attempt to create profile, even if no change. Nothing
+                    # will happen if profile is already there.
+                    super(ListenerManager,
+                          self)._create(bigip, whole_profile, None, None,
+                                        type=profile_type, helper=helper,
+                                        overwrite=False)
+                    self._attach_profile(bigip, vs, whole_profile)
             elif old_cond != new_cond and new_cond:
                 # Need to create and attach profile
                 profile = self.extended_profiles.get(profile_type, {})
@@ -954,6 +979,9 @@ class ListenerManager(ResourceManager):
                 bigip, profile, None, None, type=profile_type, helper=helper)
 
     def _attach_profile(self, bigip, vs, profile):
+        if profile['name'].startswith("http_profile_"):
+            return self._attach_http_profile(bigip, vs, profile)
+
         v = self.resource_helper.load(bigip, name=vs['name'],
                                       partition=vs['partition'])
         if v.profiles_s.profiles.exists(name=profile['name'],
@@ -963,6 +991,33 @@ class ListenerManager(ResourceManager):
         else:
             v.profiles_s.profiles.create(name=profile['name'],
                                          partition=profile['partition'])
+
+    def _attach_http_profile(self, bigip, vs, profile):
+        # If VS is created by legacy Agent instead of Agent Lite, we have to
+        # patch VS profiles property, because /Common/http cannot be dettached.
+        loc = "/" + profile["partition"] + "/" + profile["name"]
+        attached = False
+        payload = {
+            "name": vs['name'],
+            "partition": vs['partition'],
+            "profiles": []
+        }
+        v = self.resource_helper.load(bigip, name=vs['name'],
+                                      partition=vs['partition'])
+        profiles = v.profiles_s.get_collection()
+        for p in profiles:
+            if p.fullPath == loc:
+                attached = True
+                break
+            if p.fullPath == "/Common/http":
+                payload['profiles'].append(loc)
+            else:
+                payload['profiles'].append(p.fullPath)
+        if not attached:
+            self._update(bigip, payload, None, None, None)
+        else:
+            LOG.debug("Profile %s has already been attached to vs %s",
+                      profile['name'], vs['name'])
 
     def _detach_profile(self, bigip, vs, profile):
         v = self.resource_helper.load(bigip, name=vs['name'],
