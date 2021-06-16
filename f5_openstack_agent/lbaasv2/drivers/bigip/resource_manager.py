@@ -614,10 +614,33 @@ class ListenerManager(ResourceManager):
                 "customize": self._customize,
                 "helper": resource_helper.BigIPResourceHelper(
                     resource_helper.ResourceType.http_profile)
+            },
+            "http2_profile": {
+                "condition": self._isHTTP2,
+                "helper": resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.http2_profile)
+            },
+            "http2tls_profile": {
+                "condition": self._isHTTP2TLS,
+                "helper": resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.http2_profile)
             }
+
         }
         self.extended_profiles = {}
         self._load_extended_profiles()
+
+    def _isHTTP2TLS(self, listener):
+        if listener['protocol'] != "TERMINATED_HTTPS":
+            return False
+        http2tls = listener.get('http2', False)
+        return http2tls
+
+    def _isHTTP2(self, listener):
+        if listener['protocol'] != "HTTP":
+            return False
+        http2 = listener.get('http2', False)
+        return http2
 
     def _isHTTPorTLS(self, listener):
         if listener['protocol'] == "HTTP" or \
@@ -682,7 +705,14 @@ class ListenerManager(ResourceManager):
             new_mode = listener.get('mutual_authentication_up', False)
             old_ca = old_listener.get('ca_container_id', "")
             new_ca = listener.get('ca_container_id', "")
+
             if old_mode != new_mode or old_ca != new_ca:
+                return True
+            # if http2 property changes
+            # also need to update client ssl profile
+            old_http2 = old_listener.get('http2', False)
+            new_http2 = listener.get('http2', False)
+            if old_http2 != new_http2:
                 return True
 
             # If cipher setting changes, need to update client ssl profile.
@@ -1075,6 +1105,7 @@ class ListenerManager(ResourceManager):
 
     def _update(self, bigip, vs, old_listener, listener, service):
         # Add conditions here for more update requests via vs['profiles']
+        extended_profile_updated = False
         orig_profiles = []
         if self._check_tls_changed(old_listener, listener) is True:
             orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
@@ -1084,6 +1115,19 @@ class ListenerManager(ResourceManager):
                 lambda x: x['context'] != 'clientside', orig_profiles['items'])
             tls = self.driver.service_adapter.get_tls(service)
             if tls:
+                http2 = listener.get('http2', False)
+                if self._check_http2_changed(old_listener, listener) is True \
+                   and http2 is False:
+                    # tls type listener,
+                    # 1) http2 changed from true to false,
+                    # update http2 profile at first then update tls profile.
+                    # 2) http2 changed from false to true,
+                    # update tls profile at first then update http2 profile.
+
+                    self._update_extended_profiles(bigip, old_listener,
+                                                   listener, vs)
+                    extended_profile_updated = True
+                tls['http2'] = http2
                 self._create_ssl_profile(bigip, vs, tls)
 
         if vs.get("persist") == []:
@@ -1100,7 +1144,7 @@ class ListenerManager(ResourceManager):
 
         # Other code might call ListenerManager to post vs payload directly.
         # Only need to refresh profile when a real listener update occurs.
-        if old_listener and listener:
+        if old_listener and listener and not extended_profile_updated:
             self._update_extended_profiles(bigip, old_listener, listener, vs)
 
         # If no vs property to update, do not call icontrol patch api.
