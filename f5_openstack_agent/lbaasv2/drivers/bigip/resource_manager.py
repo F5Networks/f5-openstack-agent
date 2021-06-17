@@ -27,6 +27,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import tenants
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
+from icontrol.exceptions import iControlUnexpectedHTTPError
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -1669,11 +1670,24 @@ class MemberManager(ResourceManager):
                 name=urllib.quote(pool_payload['name']),
                 partition=pool_payload['partition']
             )
-            pool_resource.members_s.members.create(**payload)
+
+            try:
+                pool_resource.members_s.members.create(**payload)
+            except iControlUnexpectedHTTPError as ex:
+                if ex.response.status_code == 409:
+                    LOG.warning("The pool member %s exists", payload)
+                    LOG.debug(
+                        "Finish to create %s %s",
+                        self._resource, resource['id'])
+                    continue
+                else:
+                    raise ex
+
             self._shrink_payload(pool_payload,
                                  keys_to_keep=['partition',
                                                'name', 'loadBalancingMode'])
             self._pool_mgr._update(bigip, pool_payload, None, None, service)
+
         LOG.debug("Finish to create %s %s", self._resource, resource['id'])
 
     def _check_nonshared_network(self, service):
