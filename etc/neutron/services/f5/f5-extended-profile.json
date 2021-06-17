@@ -1,8 +1,9 @@
 {
-    "http_profile":{
+    "http_profile": {
         "insertXforwardedFor": "enabled"
     },
     "http2_profile": {
         "activationModes": ["always"]
-    }
+    },
+    "websocket_profile": {}
 }

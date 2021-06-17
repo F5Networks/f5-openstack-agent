@@ -604,6 +604,8 @@ class ListenerManager(ResourceManager):
             resource_helper.ResourceType.source_addr_persistence)
         self.ftp_helper = FTPProfileHelper()
         self.acl_helper = ACLHelper()
+        self.irule_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.rule)
         self.mutable_props = {
             "name": "description",
             "default_pool_id": "pool",
@@ -625,8 +627,15 @@ class ListenerManager(ResourceManager):
                 "condition": self._isHTTP2TLS,
                 "helper": resource_helper.BigIPResourceHelper(
                     resource_helper.ResourceType.http2_profile)
+            },
+            "websocket_profile": {
+                "condition": self._isHTTPorTLS,
+                "partition": "Common",
+                "name": "websocket",
+                "overwrite": False,
+                "helper": resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.websocket_profile)
             }
-
         }
         self.extended_profiles = {}
         self._load_extended_profiles()
@@ -915,12 +924,16 @@ class ListenerManager(ResourceManager):
                 customize = self.profile_map[profile_type].get("customize")
                 if callable(customize):
                     customize(profile_type, profile, listener)
-                profile['partition'] = vs['partition']
-                profile['name'] = profile_type + "_" + vs['name']
+                profile['partition'] = self.profile_map[profile_type].get(
+                    "partition", vs['partition'])
+                profile['name'] = self.profile_map[profile_type].get(
+                    "name", profile_type + "_" + vs['name'])
+                overwrite = self.profile_map[profile_type].get(
+                    "overwrite", True)
                 helper = self.profile_map[profile_type]['helper']
                 super(ListenerManager, self)._create(
                     bigip, profile, None, None, type=profile_type,
-                    helper=helper, overwrite=True)
+                    helper=helper, overwrite=overwrite)
                 loc = "/" + profile['partition'] + "/" + profile['name']
                 if "profiles" not in vs:
                     vs['profiles'] = list()
@@ -947,10 +960,14 @@ class ListenerManager(ResourceManager):
                     customize(profile_type, profile, listener)
                     customize(profile_type, whole_profile, listener)
                 changed = profile != old_profile
-                profile['partition'] = vs['partition']
-                profile['name'] = profile_type + "_" + vs['name']
-                whole_profile['partition'] = vs['partition']
-                whole_profile['name'] = profile_type + "_" + vs['name']
+                profile['partition'] = self.profile_map[profile_type].get(
+                    "partition", vs['partition'])
+                profile['name'] = self.profile_map[profile_type].get(
+                    "name", profile_type + "_" + vs['name'])
+                whole_profile['partition'] = profile['partition']
+                whole_profile['name'] = profile['name']
+                overwrite = self.profile_map[profile_type].get(
+                    "overwrite", True)
                 helper = self.profile_map[profile_type]['helper']
                 if changed:
                     try:
@@ -963,7 +980,8 @@ class ListenerManager(ResourceManager):
                         if ex.response.status_code == 404:
                             super(ListenerManager, self)._create(
                                   bigip, whole_profile, None, None,
-                                  type=profile_type, helper=helper)
+                                  type=profile_type, helper=helper,
+                                  overwrite=overwrite)
                             self._attach_profile(bigip, vs, whole_profile)
                         else:
                             raise ex
@@ -982,8 +1000,12 @@ class ListenerManager(ResourceManager):
                 customize = self.profile_map[profile_type].get("customize")
                 if callable(customize):
                     customize(profile_type, profile, listener)
-                profile['partition'] = vs['partition']
-                profile['name'] = profile_type + "_" + vs['name']
+                profile['partition'] = self.profile_map[profile_type].get(
+                    "partition", vs['partition'])
+                profile['name'] = self.profile_map[profile_type].get(
+                    "name", profile_type + "_" + vs['name'])
+                overwrite = self.profile_map[profile_type].get(
+                    "overwrite", True)
                 helper = self.profile_map[profile_type]['helper']
                 super(ListenerManager, self)._create(
                     bigip, profile, None, None, type=profile_type,
@@ -992,13 +1014,17 @@ class ListenerManager(ResourceManager):
             elif old_cond != new_cond and not new_cond:
                 # Need to detach and delete profile
                 profile = {}
-                profile['partition'] = vs['partition']
-                profile['name'] = profile_type + "_" + vs['name']
+                profile['partition'] = self.profile_map[profile_type].get(
+                    "partition", vs['partition'])
+                profile['name'] = self.profile_map[profile_type].get(
+                    "name", profile_type + "_" + vs['name'])
                 self._detach_profile(bigip, vs, profile)
-                helper = self.profile_map[profile_type]['helper']
-                super(ListenerManager, self)._delete(
-                    bigip, profile, None, None, type=profile_type,
-                    helper=helper)
+                # Do not delete shared profile under /Common
+                if profile['partition'] != "Common":
+                    helper = self.profile_map[profile_type]['helper']
+                    super(ListenerManager, self)._delete(
+                        bigip, profile, None, None, type=profile_type,
+                        helper=helper)
 
     def _delete_extended_profiles(self, bigip, listener, vs):
         for profile_type in self.profile_map.keys():
@@ -1006,8 +1032,11 @@ class ListenerManager(ResourceManager):
             profile['partition'] = vs['partition']
             profile['name'] = profile_type + "_" + vs['name']
             helper = self.profile_map[profile_type]['helper']
-            super(ListenerManager, self)._delete(
-                bigip, profile, None, None, type=profile_type, helper=helper)
+            # Do not delete shared profile under /Common
+            if profile['partition'] != "Common":
+                super(ListenerManager, self)._delete(
+                    bigip, profile, None, None, type=profile_type,
+                    helper=helper)
 
     def _attach_profile(self, bigip, vs, profile):
         if profile['name'].startswith("http_profile_"):
@@ -1057,10 +1086,34 @@ class ListenerManager(ResourceManager):
                                         partition=profile['partition']):
             p = v.profiles_s.profiles.load(name=profile['name'],
                                            partition=profile['partition'])
-            p.delete()
+            # Do not delete shared profile under /Common
+            if profile['partition'] != "Common":
+                p.delete()
         else:
             LOG.debug("Profile %s is not attached to vs %s",
                       profile['name'], vs['name'])
+
+    def _create_websocket_irule(self, bigip, vs):
+        # Websocket iRule is shared across all partitions. Needn't delete it.
+        irule = {
+            "name": "websocket_irule",
+            "partition": "Common",
+            "apiAnonymous": (
+                'when HTTP_REQUEST {\n'
+                '  if {([string tolower [HTTP::header value Upgrade]]\n'
+                '                       equals "websocket") &&\n'
+                '      ([string tolower [HTTP::header value Connection]]\n'
+                '                       equals "upgrade")}\n'
+                '  {\n'
+                '    # TODO\n'
+                '    HTTP::cookie insert name "hello" value "world"\n'
+                '  }\n'
+                '}\n'
+            )
+        }
+        super(ListenerManager, self)._create(
+            bigip, irule, None, None, type="irule", helper=self.irule_helper)
+        vs['rules'].append("/Common/websocket_irule")
 
     def _create(self, bigip, vs, listener, service):
         tls = self.driver.service_adapter.get_tls(service)
@@ -1080,7 +1133,11 @@ class ListenerManager(ResourceManager):
 
         # Create the following profiles required by this VS:
         #   HTTP profile (if listener is HTTP or TERMINATED_HTTPS)
+        #   Websocket profile (if listener is HTTP or TERMINATED_HTTPS)
         self._create_extended_profiles(bigip, listener, vs)
+
+        if self._isHTTPorTLS(listener):
+            self._create_websocket_irule(bigip, vs)
 
         bandwidth = LoadBalancerManager.get_bandwidth_value(
             self.driver.conf, loadbalancer)

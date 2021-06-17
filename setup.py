@@ -45,6 +45,6 @@ setuptools.setup(
             'update-lb = f5_openstack_agent.lbaasv2.drivers.bigip.update_lb:update_lb'
         ]
     },
-    install_requires=['f5-sdk==3.0.11.1']
+    install_requires=['f5-sdk==3.0.11.3']
 )
 
