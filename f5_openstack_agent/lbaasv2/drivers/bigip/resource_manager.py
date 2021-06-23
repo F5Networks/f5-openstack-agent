@@ -1104,6 +1104,15 @@ class MonitorManager(ResourceManager):
         elif subtype == 'TCP':
             monitor_type = resource_helper.ResourceType.tcp_monitor
             self._resource = 'tcp_monitor'
+        elif subtype == 'UDP':
+            monitor_type = resource_helper.ResourceType.udp_monitor
+            self._resource = 'udp_monitor'
+        elif subtype == 'SIP':
+            monitor_type = resource_helper.ResourceType.sip_monitor
+            self._resource = 'sip_monitor'
+        elif subtype == 'DIAMETER':
+            monitor_type = resource_helper.ResourceType.diameter_monitor
+            self._resource = 'diameter_monitor'
         else:
             raise Exception("Invalid monitor type %s", subtype)
 
