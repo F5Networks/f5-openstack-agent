@@ -1053,11 +1053,6 @@ class ListenerManager(ResourceManager):
         extended_profile_updated = False
         orig_profiles = []
         if self._check_tls_changed(old_listener, listener) is True:
-            orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
-            if 'profiles' not in vs:
-                vs['profiles'] = list()
-            vs['profiles'] += filter(
-                lambda x: x['context'] != 'clientside', orig_profiles['items'])
             tls = self.driver.service_adapter.get_tls(service)
             if tls:
                 http2 = listener.get('http2', False)
@@ -1074,6 +1069,12 @@ class ListenerManager(ResourceManager):
                     extended_profile_updated = True
                 tls['http2'] = http2
                 self._create_ssl_profile(bigip, vs, tls)
+
+            orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
+            if 'profiles' not in vs:
+                vs['profiles'] = list()
+            vs['profiles'] += filter(
+                lambda x: x['context'] != 'clientside', orig_profiles['items'])
 
         if vs.get("persist") == []:
             LOG.debug("Need to remove persist profile from vs %s", vs['name'])
