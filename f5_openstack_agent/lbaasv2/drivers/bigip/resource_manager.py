@@ -2183,3 +2183,7 @@ class ACLGroupManager(ResourceManager):
         }
 
         return payload
+
+    def _update_payload(self, old_resource, resource, service, **kwargs):
+        payload = self._create_payload(resource, **kwargs)
+        return payload
