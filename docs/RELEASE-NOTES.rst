@@ -5,6 +5,20 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.7 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* Add UDP healthmonitor type support.
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+
 v9.9.6 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
