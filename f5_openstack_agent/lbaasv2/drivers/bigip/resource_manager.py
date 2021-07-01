@@ -619,17 +619,17 @@ class ListenerManager(ResourceManager):
                     resource_helper.ResourceType.http_profile)
             },
             "http2_profile": {
-                "condition": self._isHTTP2,
+                "condition": False,
                 "helper": resource_helper.BigIPResourceHelper(
                     resource_helper.ResourceType.http2_profile)
             },
             "http2tls_profile": {
-                "condition": self._isHTTP2TLS,
+                "condition": False,
                 "helper": resource_helper.BigIPResourceHelper(
                     resource_helper.ResourceType.http2_profile)
             },
             "websocket_profile": {
-                "condition": self._isHTTPorTLS,
+                "condition": False,
                 "partition": "Common",
                 "name": "websocket",
                 "overwrite": False,
@@ -1136,8 +1136,8 @@ class ListenerManager(ResourceManager):
         #   Websocket profile (if listener is HTTP or TERMINATED_HTTPS)
         self._create_extended_profiles(bigip, listener, vs)
 
-        if self._isHTTPorTLS(listener):
-            self._create_websocket_irule(bigip, vs)
+        # if self._isHTTPorTLS(listener):
+        #     self._create_websocket_irule(bigip, vs)
 
         bandwidth = LoadBalancerManager.get_bandwidth_value(
             self.driver.conf, loadbalancer)
