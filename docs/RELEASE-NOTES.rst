@@ -5,6 +5,28 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.31 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* New way for health monitor timeout
+* Add udp sip diameter hm type
+* Support http2 profile
+* Support websocket profile
+* Add disable option for HTTP2 and Websocket
+
+Bug Fixes
+`````````
+* Avoid patching profile failure, if profile is not created
+* If member is existed, it will cause HTTP 409 ERROR
+* Update profiles before retriving the profiles from bigip.
+* Add rule and remove rule for ACLGroup
+
+Limitations
+```````````
+
 v9.9.30 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
