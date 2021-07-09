@@ -125,7 +125,8 @@ class BigIPResourceHelper(object):
             obj = resource.load(name=name, partition=partition)
             obj.delete()
 
-    def load(self, bigip, name=None, partition=None):
+    def load(self, bigip, name=None, partition=None,
+             expand_subcollections=False):
         u"""Retrieve a BIG-IP resource from a BIG-IP.
 
         Populates a resource object with attributes for instance on a
@@ -137,7 +138,13 @@ class BigIPResourceHelper(object):
         :returns: created or updated resource object.
         """
         resource = self._resource(bigip)
-        return resource.load(name=name, partition=partition)
+        params = {
+            "params": {
+                "expandSubcollections": str(expand_subcollections).lower()
+            }
+        }
+        return resource.load(name=name, partition=partition,
+                             requests_params=params)
 
     def update(self, bigip, model):
         u"""Update a resource (e.g., pool) on a BIG-IP system.

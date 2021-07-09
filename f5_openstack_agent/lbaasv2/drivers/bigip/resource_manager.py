@@ -15,6 +15,7 @@
 #
 import json
 import os
+import re
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.acl import ACLHelper
@@ -112,15 +113,17 @@ class ResourceManager(object):
                 **kwargs):
         resource_helper = kwargs.get("helper", self.resource_helper)
         resource_type = kwargs.get("type", self._resource)
+        create_payload = kwargs.get("create_payload", {})
         if resource_helper.exists(bigip, name=payload['name'],
                                   partition=payload['partition']):
             LOG.debug("%s already exists ... updating", resource_type)
             resource_helper.update(bigip, payload)
         else:
             LOG.debug("%s does not exist ... creating", resource_type)
-            payload = self._create_payload(resource, service)
-            LOG.debug("%s payload is %s", resource_type, payload)
-            resource_helper.create(bigip, payload)
+            if not create_payload:
+                create_payload = self._create_payload(resource, service)
+            LOG.debug("%s payload is %s", resource_type, create_payload)
+            resource_helper.create(bigip, create_payload)
 
     def _delete(self, bigip, payload, resource, service, **kwargs):
         resource_helper = kwargs.get("helper", self.resource_helper)
@@ -970,30 +973,11 @@ class ListenerManager(ResourceManager):
                     "overwrite", True)
                 helper = self.profile_map[profile_type]['helper']
                 if changed:
-                    try:
-                        super(ListenerManager,
-                              self)._update(bigip, profile, None, None, None,
-                                            type=profile_type, helper=helper)
-                    except HTTPError as ex:
-                        # If profile is not there, create it. That happens
-                        # in Agent migration case.
-                        if ex.response.status_code == 404:
-                            super(ListenerManager, self)._create(
-                                  bigip, whole_profile, None, None,
-                                  type=profile_type, helper=helper,
-                                  overwrite=overwrite)
-                            self._attach_profile(bigip, vs, whole_profile)
-                        else:
-                            raise ex
-                else:
-                    # In Agent migration case, profile might not be attached.
-                    # Attempt to create profile, even if no change. Nothing
-                    # will happen if profile is already there.
-                    super(ListenerManager,
-                          self)._create(bigip, whole_profile, None, None,
-                                        type=profile_type, helper=helper,
-                                        overwrite=False)
-                    self._attach_profile(bigip, vs, whole_profile)
+                    super(ListenerManager, self)._update(
+                        bigip, profile, None, None, None,
+                        type=profile_type, helper=helper,
+                        create_payload=whole_profile)
+                    self._attach_profile(bigip, vs, profile)
             elif old_cond != new_cond and new_cond:
                 # Need to create and attach profile
                 profile = self.extended_profiles.get(profile_type, {})
@@ -1009,7 +993,7 @@ class ListenerManager(ResourceManager):
                 helper = self.profile_map[profile_type]['helper']
                 super(ListenerManager, self)._create(
                     bigip, profile, None, None, type=profile_type,
-                    helper=helper, overwrite=True)
+                    helper=helper, overwrite=overwrite)
                 self._attach_profile(bigip, vs, profile)
             elif old_cond != new_cond and not new_cond:
                 # Need to detach and delete profile
@@ -1063,16 +1047,17 @@ class ListenerManager(ResourceManager):
             "profiles": []
         }
         v = self.resource_helper.load(bigip, name=vs['name'],
-                                      partition=vs['partition'])
-        profiles = v.profiles_s.get_collection()
-        for p in profiles:
-            if p.fullPath == loc:
+                                      partition=vs['partition'],
+                                      expand_subcollections=True)
+        http_pattern = "https://localhost/mgmt/tm/ltm/profile/http/"
+        for p in v.profilesReference['items']:
+            if p['fullPath'] == loc:
                 attached = True
                 break
-            if p.fullPath == "/Common/http":
+            if re.search(http_pattern, p['nameReference']['link']):
                 payload['profiles'].append(loc)
             else:
-                payload['profiles'].append(p.fullPath)
+                payload['profiles'].append(p['fullPath'])
         if not attached:
             self._update(bigip, payload, None, None, None)
         else:
