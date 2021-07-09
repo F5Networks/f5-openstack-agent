@@ -238,6 +238,7 @@ class ListenerServiceBuilder(object):
                 tls_protocols=tls_protocols,
                 cipher_suites=cipher_suites,
                 profile_name=profile_name,
+                vip_name=vip['name'],
                 http2=http2)
         except HTTPError as err:
             if err.response.status_code != 409:
