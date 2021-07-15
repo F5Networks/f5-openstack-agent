@@ -33,6 +33,7 @@ class SSLProfileHelper(object):
         intermediates = kwargs.get("intermediates", None)
         parent_profile = kwargs.get("parent_profile", None)
         profile_name = kwargs.get("profile_name", None)
+        vip_name = kwargs.get("vip_name", None)
         http2 = kwargs.get("http2", False)
         renegotiation = kwargs.get("renegotiation", 'enabled')
 
@@ -71,12 +72,14 @@ class SSLProfileHelper(object):
                 tm_options = ["dont-insert-empty-fragments"] + \
                              protocol_map.values()
                 if cipher_suites:
-                    ciphers = cipher_suites
+                    ciphers = cipher_suites.upper()
 
         uploader = bigip.shared.file_transfer.uploads
         cert_registrar = bigip.tm.sys.crypto.certs
         key_registrar = bigip.tm.sys.crypto.keys
         ssl_client_profile = bigip.tm.ltm.profile.client_ssls.client_ssl
+        cipher_rule = bigip.tm.ltm.cipher.rules.rule
+        cipher_group = bigip.tm.ltm.cipher.groups.group
 
         # Check that parent profile exists; use default if not.
         if parent_profile and not ssl_client_profile.exists(
@@ -147,8 +150,6 @@ class SSLProfileHelper(object):
                                sniDefault=sni_default,
                                peerCertMode=peerCertMode,
                                caFile=ca_cert_filename,
-                               tmOptions=tm_options,
-                               ciphers=ciphers,
                                defaultsFrom=parent_profile,
                                renegotiation=renegotiation)
             else:
@@ -158,13 +159,38 @@ class SSLProfileHelper(object):
                                           sniDefault=sni_default,
                                           peerCertMode=peerCertMode,
                                           caFile=ca_cert_filename,
-                                          tmOptions=tm_options,
-                                          ciphers=ciphers,
                                           defaultsFrom=parent_profile,
                                           renegotiation=renegotiation)
         except Exception as err:
             LOG.error("Error creating SSL profile: %s" % err.message)
             raise SSLProfileError(err.message)
+
+        # NOTE:(qzhao) Must modify tmOptions and cipherGroup separately,
+        # after create/modify ssl profile which has default cipher
+        # settings. Otherwise, cipher modification operation may fail.
+        rule_name = vip_name
+        group_name = vip_name
+        profile = ssl_client_profile.load(name=profile_name,
+                                          partition='Common')
+        if "no-tlsv1.3" in tm_options:
+            # No TLS1.3, no cipher group
+            profile.modify(tmOptions=tm_options, ciphers=ciphers)
+        else:
+            # TLS1.3, create cipher group
+            if cipher_rule.exists(name=rule_name, partition='Common'):
+                rule = cipher_rule.load(name=rule_name, partition='Common')
+                rule.modify(cipher=ciphers)
+            else:
+                cipher_rule.create(name=rule_name, partition='Common',
+                                   cipher=ciphers)
+            if cipher_group.exists(name=group_name, partition='Common'):
+                group = cipher_group.load(name=group_name, partition='Common')
+                group.modify(allow=[rule_name])
+            else:
+                cipher_group.create(name=group_name, partition='Common',
+                                    allow=[rule_name])
+            profile.modify(tmOptions=tm_options, ciphers="",
+                           cipherGroup=group_name)
 
     @staticmethod
     def get_client_ssl_profile_count(bigip):

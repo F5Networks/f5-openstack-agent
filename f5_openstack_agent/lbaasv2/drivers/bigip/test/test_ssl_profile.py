@@ -58,8 +58,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom=None,
             renegotiation='enabled',
         )
@@ -92,8 +90,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom=None,
             renegotiation='enabled',
         )
@@ -120,8 +116,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom='parentprofile',
             renegotiation='enabled',
         )
@@ -160,8 +154,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom=None,
             renegotiation='enabled',
         )
@@ -185,8 +177,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom=None,
             renegotiation='enabled',
         )
@@ -214,8 +204,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom=None,
             renegotiation='enabled',
         )
@@ -240,8 +228,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom=None,
             renegotiation='enabled',
         )
@@ -266,8 +252,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom=None,
             renegotiation='enabled',
         )
@@ -296,8 +280,6 @@ class TestSSLProfileHelper(object):
             sniDefault=False,
             peerCertMode='ignore',
             caFile=None,
-            tmOptions=['dont-insert-empty-fragments', 'no-tlsv1.3'],
-            ciphers='DEFAULT',
             defaultsFrom=None,
             renegotiation='enabled',
         )
