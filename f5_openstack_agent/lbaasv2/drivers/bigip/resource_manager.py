@@ -871,6 +871,20 @@ class ListenerManager(ResourceManager):
         tls = self.driver.service_adapter.get_tls(service)
         tls['name'] = vs['name']
         listener_builder.remove_ssl_profiles(tls, bigip)
+        # Cleanup cipher group and rule, if they exist.
+        try:
+            for handle in [
+                bigip.tm.ltm.cipher.groups.group,
+                bigip.tm.ltm.cipher.rules.rule
+            ]:
+                if handle.exists(name=vs['name'], partition="Common"):
+                    obj = handle.load(name=vs['name'], partition="Common")
+                    obj.delete()
+        except HTTPError as err:
+            # Tolerate HTTP 400 error, because ssl profile and cipher
+            # can not be deleted when updating a listener.
+            if err.response.status_code != 400:
+                raise err
 
     def _load_extended_profiles(self):
         if not self.driver.conf.f5_extended_profile:
@@ -1060,7 +1074,7 @@ class ListenerManager(ResourceManager):
                 payload['profiles'].append(profile)
             else:
                 profile['name'] = p['fullPath']
-                if p['context']:
+                if p.get('context', None):
                     profile['context'] = p['context']
                 payload['profiles'].append(profile)
         if not attached:
