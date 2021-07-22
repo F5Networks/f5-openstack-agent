@@ -627,7 +627,7 @@ class ListenerManager(ResourceManager):
                     resource_helper.ResourceType.http2_profile)
             },
             "http2tls_profile": {
-                "condition": False,
+                "condition": self._isHTTP2TLS,
                 "helper": resource_helper.BigIPResourceHelper(
                     resource_helper.ResourceType.http2_profile)
             },
