@@ -1065,18 +1065,18 @@ class ListenerManager(ResourceManager):
                                       expand_subcollections=True)
         http_pattern = "https://localhost/mgmt/tm/ltm/profile/http/"
         for p in v.profilesReference['items']:
-            profile = {}
+            profile_item = {}
             if p['fullPath'] == loc:
                 attached = True
                 break
             if re.search(http_pattern, p['nameReference']['link']):
-                profile['name'] = loc
-                payload['profiles'].append(profile)
+                profile_item['name'] = loc
+                payload['profiles'].append(profile_item)
             else:
-                profile['name'] = p['fullPath']
+                profile_item['name'] = p['fullPath']
                 if p.get('context', None):
-                    profile['context'] = p['context']
-                payload['profiles'].append(profile)
+                    profile_item['context'] = p['context']
+                payload['profiles'].append(profile_item)
         if not attached:
             self._update(bigip, payload, None, None, None)
         else:
