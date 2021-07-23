@@ -5,23 +5,6 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
-v9.9.40 (Pike, Queens)
---------------------------------------------
-NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
-
-Added Functionality
-```````````````````
-* Identify customized http profile
-* Add the profile's context when trying to update the listener's profiles to avoid conflict.
-* Enable tls+http2 profile support
-
-Bug Fixes
-`````````
-* Fix TLS1.3 cipher group
-
-Limitations
-```````````
-
 v9.9.31 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
@@ -37,7 +20,7 @@ Added Functionality
 Bug Fixes
 `````````
 * Avoid patching profile failure, if profile is not created
-* If members exist, it will cause HTTP 409 ERROR
+* If member is existed, it will cause HTTP 409 ERROR
 * Update profiles before retriving the profiles from bigip.
 * Add rule and remove rule for ACLGroup
 
