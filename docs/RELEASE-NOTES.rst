@@ -5,6 +5,22 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.47 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* new way for health monitor timeout
+* add UDP health monitor type
+
+Bug Fixes
+`````````
+* If member already exists, it causes HTTP 409 ERROR
+* Fix requirements
+
+Limitations
+
 v9.8.46 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
