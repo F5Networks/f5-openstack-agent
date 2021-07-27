@@ -1047,7 +1047,8 @@ class ListenerManager(ResourceManager):
             LOG.debug("Profile %s has already been attached to vs %s",
                       profile['name'], vs['name'])
         else:
-            v.profiles_s.profiles.create(name=profile['name'],
+            full_name = "/" + profile['partition'] + "/" + profile['name']
+            v.profiles_s.profiles.create(name=full_name,
                                          partition=profile['partition'])
 
     def _attach_http_profile(self, bigip, vs, profile):
@@ -1205,18 +1206,16 @@ class ListenerManager(ResourceManager):
             profile = self._create_persist_profile(bigip, vs, persist)
             vs['persist'] = [{"name": profile}]
 
+        # If no vs property to update, do not call icontrol patch api.
+        # This happens, when vs payload only contains 'customized'.
+        if set(sorted(vs.keys())) > set(['name', 'partition']):
+            super(ListenerManager, self)._update(bigip, vs, old_listener,
+                                                 listener, service)
+
         # Other code might call ListenerManager to post vs payload directly.
         # Only need to refresh profile when a real listener update occurs.
         if old_listener and listener and not extended_profile_updated:
             self._update_extended_profiles(bigip, old_listener, listener, vs)
-
-        # If no vs property to update, do not call icontrol patch api.
-        # This happens, when vs payload only contains 'customized'.
-        if sorted(vs.keys()) == ['name', 'partition']:
-            return
-
-        super(ListenerManager, self)._update(bigip, vs, old_listener, listener,
-                                             service)
 
         if old_listener and \
            self._check_tls_changed(old_listener, listener) is True:
