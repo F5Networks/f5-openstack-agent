@@ -18,6 +18,8 @@ Added Functionality
 Bug Fixes
 `````````
 * Fix TLS1.3 cipher group
+* Fix the variable name conflicts with the input parameter.
+* Use the full path name when creating a new profile.
 
 Limitations
 ```````````
