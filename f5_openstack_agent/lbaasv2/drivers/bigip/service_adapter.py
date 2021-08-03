@@ -399,9 +399,8 @@ class ServiceModelAdapter(object):
             # If source_ip lb method, add SOURCE_IP persistence to ensure
             # source IP loadbalancing. See issue #344 for details.
             if lbaas_pool['lb_algorithm'].upper() == 'SOURCE_IP':
-                persist = lbaas_pool.get('session_persistence', None)
-                if not persist:
-                    lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
+                # SOURCE_IP lb algorithm use source-ip persist profile
+                lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
 
         if lbaas_hm:
             hm = self.init_monitor_name(loadbalancer, lbaas_hm)
