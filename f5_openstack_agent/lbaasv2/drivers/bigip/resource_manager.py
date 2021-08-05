@@ -792,6 +792,12 @@ class PoolManager(ResourceManager):
             # pool is the default pool of a listener, need
             # to remove persist property from VS.
             payload['session_persistence'] = "remove"
+        elif old_pool['lb_algorithm'] == "SOURCE_IP":
+            # If old pool uses SOURCE_IP algorithm, but new pool has no
+            # persist profile, that means pool algorithm changes and no
+            # session_persistence setting either. The source-ip persist
+            # profile should be dettached from VS.
+            payload['session_persistence'] = "remove"
 
         return super(PoolManager, self)._update_payload(
             old_pool, pool, service,
