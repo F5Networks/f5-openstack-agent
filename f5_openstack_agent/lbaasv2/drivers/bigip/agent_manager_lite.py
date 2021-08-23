@@ -1454,6 +1454,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = listener['id']
         try:
             mgr = resource_manager.ListenerManager(self.lbdriver)
+            # todo delete these 3 lines
+            # listener['redirect_up'] = True
+            # listener['redirect_protocol'] = 'HTTPS'
+            # listener['redirect_port'] = 444
+            # service["listeners"][0]["redirect_up"] = True
+            # service["listeners"][0]["redirect_port"] = 444
+            # service["listeners"][0]["redirect_protocol"] = 'HTTPS'
+
             mgr.create(listener, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE

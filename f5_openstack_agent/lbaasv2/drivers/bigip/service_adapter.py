@@ -111,6 +111,7 @@ class ServiceModelAdapter(object):
         return full_description
 
     def get_virtual(self, service):
+        # whether need to pass redirect from driver side.
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
@@ -505,6 +506,14 @@ class ServiceModelAdapter(object):
 
         self._add_vlan_and_snat(listener, vip)
         self._add_profiles_session_persistence(listener, pool, vip)
+
+        if "redirect_up" in listener:
+            if listener["redirect_up"]:
+                vip["redirect_up"] = True
+                vip["redirect_port"] = listener["redirect_port"]
+                vip["redirect_protocol"] = listener["redirect_protocol"]
+            else:
+                vip["redirect_up"] = False
 
         # Set bandwidth controller
         if 'bwcPolicy' in listener:
