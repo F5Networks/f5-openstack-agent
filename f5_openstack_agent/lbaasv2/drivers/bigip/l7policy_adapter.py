@@ -260,7 +260,9 @@ class Rule(object):
                 if action == 'REDIRECT_TO_POOL':
                     action_val = pol['redirect_pool_id']
                 if action == 'REDIRECT_TO_URL':
-                    action_val = pol['redirect_url']
+                    # Add "tcl:" prefix in order to allow tcl variable
+                    # such as [HTTP::host]] embeded in URL string
+                    action_val = "tcl:" + pol['redirect_url']
                 return action, action_val
         msg = "Could not find action for the following policy id: {}".format(
             policy_id)
