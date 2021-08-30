@@ -27,6 +27,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.irule \
     import iRuleHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_adapter \
     import L7PolicyServiceAdapter
+from f5_openstack_agent.lbaasv2.drivers.bigip.ltm_policy \
+    import LTMPolicyRedirect
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tcp_profile \
     import TCPProfileHelper
@@ -670,6 +672,9 @@ class ListenerManager(ResourceManager):
         else:
             return False
 
+    def _isRedirect(self, listener):
+        return listener.get("redirect_up", False)
+
     def _customize(self, profile_type, profile, listener):
         # NOTE(qzhao): The default behavior is to merge customized properties
         # into profile payload. That is for the profile like http_profile, who
@@ -764,9 +769,23 @@ class ListenerManager(ResourceManager):
             return True
         return False
 
+    def _check_redirect_changed(self, old_listener, listener):
+        if old_listener.get("redirect_up") != listener.get("redirect_up"):
+            return True
+
+        if listener.get("redirect_up"):
+            for key in ["redirect_port", "redirect_protocol"]:
+                old_value = old_listener.get(key)
+                new_value = listener.get(key)
+                if old_value != new_value:
+                    return True
+
+        return False
+
     def _update_needed(self, payload, old_listener, listener):
         if self._check_tls_changed(old_listener, listener) or \
            self._check_customized_changed(old_listener, listener) or \
+           self._check_redirect_changed(old_listener, listener) or \
            self._check_http2_changed(old_listener, listener) or \
            self.tcp_helper.need_update_tcp(old_listener, listener):
             return True
@@ -1129,6 +1148,50 @@ class ListenerManager(ResourceManager):
             bigip, irule, None, None, type="irule", helper=self.irule_helper)
         vs['rules'].append("/Common/websocket_irule")
 
+    def _create_redirect_policy(self, bigip, vs, listener):
+        protocol = listener.get("redirect_protocol", "")
+        if not protocol:
+            protocol = "https"
+
+        host = "[HTTP::host]"
+        port = listener.get("redirect_port", 0)
+        if port:
+            host = "[getfield [HTTP::host] : 1]:" + str(port)
+
+        location = "tcl:" + protocol + "://" + host + "[HTTP::uri]"
+
+        policy = LTMPolicyRedirect(
+            bigip=bigip,
+            partition=vs['partition'],
+            vs_name=vs['name'],
+            location=location,
+        )
+        policy.create()
+        policy.attach_to_vs()
+
+    def _update_redirect_policy(self, bigip, vs, old_listener, listener):
+        if not self._isRedirect(old_listener) and self._isRedirect(listener):
+            self._create_redirect_policy(bigip, vs, listener)
+        elif self._isRedirect(old_listener) and not self._isRedirect(listener):
+            self._delete_redirect_policy(bigip, vs)
+        elif self._isRedirect(old_listener) and self._isRedirect(listener):
+            old_proto = old_listener.get("redirect_protocol", "")
+            new_proto = listener.get("redirect_protocol", "")
+            old_port = old_listener.get("redirect_port", 0)
+            new_port = listener.get("redirect_port", 0)
+
+            if old_proto != new_proto or old_port != new_port:
+                self._create_redirect_policy(bigip, vs, listener)
+
+    def _delete_redirect_policy(self, bigip, vs):
+        policy = LTMPolicyRedirect(
+            bigip=bigip,
+            partition=vs['partition'],
+            vs_name=vs['name']
+        )
+        policy.detach_from_vs()
+        policy.delete()
+
     def _create(self, bigip, vs, listener, service):
         tls = self.driver.service_adapter.get_tls(service)
         if tls:
@@ -1185,6 +1248,9 @@ class ListenerManager(ResourceManager):
             )
 
         super(ListenerManager, self)._create(bigip, vs, listener, service)
+
+        if self._isRedirect(listener):
+            self._create_redirect_policy(bigip, vs, listener)
 
     def __get_profiles_from_bigip(self, bigip, vs):
         # load profiles from bigip
@@ -1272,6 +1338,10 @@ class ListenerManager(ResourceManager):
             old_service = {"listener": old_listener}
             self._delete_ssl_profiles(bigip, vs, old_service)
 
+        if old_listener and \
+           self._check_redirect_changed(old_listener, listener):
+            self._update_redirect_policy(bigip, vs, old_listener, listener)
+
         if tcp_ip_update:
             if self.tcp_helper.delete_profile is True:
                 self.tcp_helper.remove_profile(
@@ -1287,6 +1357,7 @@ class ListenerManager(ResourceManager):
         self._delete_persist_profile(bigip, vs)
         self._delete_ssl_profiles(bigip, vs, service)
         self._delete_extended_profiles(bigip, listener, vs)
+        self._delete_redirect_policy(bigip, vs)
         ftp_enable = self.ftp_helper.enable_ftp(service)
         if ftp_enable:
             self.ftp_helper.remove_profile(service, vs, bigip)
