@@ -58,6 +58,11 @@ OPTS = [
         help='Seconds interval for resync task'
     ),
     cfg.IntOpt(
+        'config_save_interval',
+        default=60,
+        help='Seconds interval for config save'
+    ),
+    cfg.IntOpt(
         'scrub_interval',
         default=-1,
         help='Seconds interval for resync task'

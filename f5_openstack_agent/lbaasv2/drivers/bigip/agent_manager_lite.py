@@ -181,6 +181,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.pending_services = {}
         self.scrub_interval = conf.scrub_interval
         self.resync_interval = conf.resync_interval
+        self.config_save_interval = conf.config_save_interval
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.resync_interval)
 
@@ -878,6 +879,20 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.needs_member_update = True
         now = datetime.datetime.now()
         LOG.debug("End updating member status at %s." % now)
+        return
+
+    # setup a period task to decide if it is time empty the local service
+    # cache and resync service definitions form the controller
+    @periodic_task.periodic_task(spacing=cfg.CONF.config_save_interval)
+    def periodic_config_save(self, context):
+        """Config save task."""
+        if self.resync_interval > 0:
+            LOG.debug("skip config save since resync tasking is running.")
+            return
+
+        LOG.debug("periodic config save task is running.")
+        # serialize config and save to disk
+        self.lbdriver.backup_configuration()
         return
 
     # setup a period task to decide if it is time empty the local service
