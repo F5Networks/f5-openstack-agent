@@ -756,10 +756,42 @@ class ListenerManager(ResourceManager):
             return True
         return False
 
+    def _check_redirect_changed(self, old_listener, listener):
+        LOG.debug(old_listener)
+        LOG.debug(listener)
+
+        if 'redirect_up' not in old_listener or 'redirect_up' not in listener:
+            return 'none'
+
+        old_redirect_up = old_listener.get('redirect_up')
+        new_redirect_up = listener.get('redirect_up')
+
+        if new_redirect_up and not old_redirect_up:
+            LOG.debug('enabling')
+            return 'enable'
+        elif old_redirect_up and not new_redirect_up:
+            LOG.debug('disabling')
+            return 'disable'
+        elif old_redirect_up and new_redirect_up:
+            old_num = old_listener.get('redirect_port')
+            new_num = listener.get('redirect_port')
+            LOG.debug('old_num:')
+            LOG.debug(old_num)
+            LOG.debug('new_num:')
+            LOG.debug(new_num)
+            if old_num != new_num:
+                LOG.debug('modifying')
+                return 'modify'
+
+        LOG.debug('nothing')
+        return 'none'
+
     def _update_needed(self, payload, old_listener, listener):
         if self._check_tls_changed(old_listener, listener) or \
            self._check_customized_changed(old_listener, listener) or \
+           self._check_redirect_changed(old_listener, listener) != 'none' or \
            self._check_http2_changed(old_listener, listener):
+            LOG.info('true here')
             return True
         return super(ListenerManager, self)._update_needed(
             payload, old_listener, listener)
@@ -1098,6 +1130,22 @@ class ListenerManager(ResourceManager):
             LOG.debug("Profile %s is not attached to vs %s",
                       profile['name'], vs['name'])
 
+    def _create_redirect_irule_payload(self, vs, loadbalancer, listener):
+        # create the redirect irule
+        irule = {}
+        irule['partition'] = self.driver.service_adapter.\
+            get_folder_name(loadbalancer['tenant_id'])
+        irule['name'] = 'redirect_irule_' + listener['id']
+
+        redi_port = listener.get('redirect_port')
+        if redi_port is None:
+            LOG.error('redirect port is none, seems safe to neglect now')
+
+        irule['apiAnonymous'] = 'when HTTP_REQUEST {\n\
+            HTTP::redirect https://[getfield [HTTP::host] ":" 1]:' + \
+            str(redi_port) + '[HTTP::uri]\n}'
+        return irule
+
     def _create_websocket_irule(self, bigip, vs):
         # Websocket iRule is shared across all partitions. Needn't delete it.
         irule = {
@@ -1119,6 +1167,36 @@ class ListenerManager(ResourceManager):
         super(ListenerManager, self)._create(
             bigip, irule, None, None, type="irule", helper=self.irule_helper)
         vs['rules'].append("/Common/websocket_irule")
+
+    def try_create_redirect_irule(self, bigip, vs, loadbalancer, listener):
+        LOG.debug('vs here is:')
+        LOG.debug(vs)
+        the_payload = self._create_redirect_irule_payload(
+            vs, loadbalancer, listener
+        )
+        super(ListenerManager, self)._create(
+            bigip, the_payload, None, None, type="irule",
+            helper=self.irule_helper, overwrite=True
+        )
+
+    def try_del_redirect_irule(self, bigip, vs, loadbalancer, listener):
+        LOG.debug('inside try_del_redirect_irule')
+        LOG.debug('vs here:')
+        LOG.debug(vs)
+
+        LOG.debug('loadbalancer here:')
+        LOG.debug(loadbalancer)
+
+        LOG.debug('listener here:')
+        LOG.debug(listener)
+
+        payload = self._create_redirect_irule_payload(
+            vs, loadbalancer, listener
+        )
+        super(ListenerManager, self).\
+            _delete(bigip, payload, None, None,
+                    type="irule",
+                    helper=self.irule_helper)
 
     def _create(self, bigip, vs, listener, service):
         tls = self.driver.service_adapter.get_tls(service)
@@ -1154,6 +1232,23 @@ class ListenerManager(ResourceManager):
             bwc_policy = LoadBalancerManager.get_bwc_policy_name(
                 self.driver.service_adapter, loadbalancer)
             vs['bwcPolicy'] = bwc_policy
+
+        # redirect_up, redirect_protocol, redirect_port
+        if vs.get('redirect_up'):
+            LOG.debug('at redirect_up')
+            self.try_create_redirect_irule(
+                bigip, vs, loadbalancer, listener
+            )
+            # use full name
+            # redirect_irule_name = 'redirect_irule_' + listener['id']
+            redi_irule_full_name = self.get_redirect_irule_full_name(
+                self.driver.service_adapter,
+                loadbalancer, listener['id']
+            )
+            vs['rules'].append(redi_irule_full_name)
+
+        LOG.debug('vs details:')
+        LOG.debug(vs)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
     def __get_profiles_from_bigip(self, bigip, vs):
@@ -1165,6 +1260,13 @@ class ListenerManager(ResourceManager):
         v = filter(lambda x: x.name == vs['name'], l_objs)[0]
         profiles = v.profilesReference
         return profiles
+
+    @staticmethod
+    def get_redirect_irule_full_name(adapter, loadbalancer, listener_id):
+        irule_name = '/' + adapter.\
+            get_folder_name(loadbalancer['tenant_id']) + '/redirect_irule_'\
+            + listener_id
+        return irule_name
 
     def _update(self, bigip, vs, old_listener, listener, service):
         # Add conditions here for more update requests via vs['profiles']
@@ -1222,7 +1324,74 @@ class ListenerManager(ResourceManager):
             old_service = {"listener": old_listener}
             self._delete_ssl_profiles(bigip, vs, old_service)
 
+        LOG.debug('checking redirect here')
+        # enable, disable, modify, none
+        redirect_ret = self._check_redirect_changed(old_listener, listener)
+        LOG.debug('redirect_ret here is:')
+        LOG.debug(redirect_ret)
+        loadbalancer = service.get('loadbalancer', dict())
+
+        # redirect_irule_name = 'redirect_irule_' + listener['id']
+        redi_irule_full_name = self.get_redirect_irule_full_name(
+            self.driver.service_adapter,
+            loadbalancer, listener['id']
+        )
+
+        the_vs_payload = self.driver.service_adapter.\
+            _init_virtual_name(loadbalancer, listener)
+        the_vs = self.resource_helper.load(
+            bigip, name=the_vs_payload['name'],
+            partition=the_vs_payload['partition']
+        )
+
+        the_vs_payload['rules'] = the_vs.rules
+
+        if redirect_ret == 'enable':
+            LOG.debug('to redirect')
+            self.try_create_redirect_irule(
+                bigip, the_vs_payload,
+                loadbalancer, listener
+            )
+            the_vs_payload['rules'].append(redi_irule_full_name)
+
+        elif redirect_ret == 'disable':
+            LOG.debug('to reverse redirect')
+            # not able to delete here because it is still in use by listener
+            # self.try_del_redirect_irule(bigip,vs,loadbalancer,old_listener)
+
+            if redi_irule_full_name in the_vs_payload['rules']:
+                LOG.debug('remove from rules')
+                LOG.debug(redi_irule_full_name)
+                the_vs_payload['rules'].remove(redi_irule_full_name)
+
+        elif redirect_ret == 'modify':
+            LOG.debug('to redirect elsewhere')
+            # self.try_del_redirect_irule(bigip, the_vs_payload,
+            # loadbalancer,old_listener)
+            LOG.debug('creating new:')
+            self.try_create_redirect_irule(
+                bigip, the_vs_payload, loadbalancer, listener
+            )
+
+            if redi_irule_full_name not in the_vs_payload['rules']:
+                LOG.info('add to rules')
+                the_vs_payload['rules'].append(redi_irule_full_name)
+        else:
+            LOG.debug('no redirect change here')
+
+        if redirect_ret in ('enable', 'disable', 'modify'):
+            LOG.debug('calling _update')
+            self.resource_helper.update(bigip, the_vs_payload)
+
+        if redirect_ret == 'disable':
+            LOG.debug('delete the irule here.')
+            self.try_del_redirect_irule(
+                bigip, the_vs_payload, loadbalancer, old_listener
+            )
+
     def _delete(self, bigip, vs, listener, service):
+        loadbalancer = service.get("loadbalancer", None)
+
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
         self._delete_persist_profile(bigip, vs)
         self._delete_ssl_profiles(bigip, vs, service)
@@ -1230,6 +1399,8 @@ class ListenerManager(ResourceManager):
         ftp_enable = self.ftp_helper.enable_ftp(service)
         if ftp_enable:
             self.ftp_helper.remove_profile(service, vs, bigip)
+
+        self.try_del_redirect_irule(bigip, vs, loadbalancer, listener)
 
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
