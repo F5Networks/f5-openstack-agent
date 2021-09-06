@@ -18,6 +18,7 @@ Bug Fixes
 `````````
 * If member already exists, it causes HTTP 409 ERROR
 * Fix requirements
+* Add a periodic config save task to save the configuration.
 
 Limitations
 
