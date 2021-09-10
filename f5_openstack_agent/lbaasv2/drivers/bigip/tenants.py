@@ -15,6 +15,7 @@
 #
 
 from oslo_log import log as logging
+from requests import HTTPError
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -72,12 +73,18 @@ class BigipTenantManager(object):
                 try:
                     self.system_helper.create_folder(bigip, folder)
                 except Exception as err:
-                    # XXX Maybe we can make this more specific?
-                    LOG.exception("Error creating folder %s: %s" %
-                                  (folder, err.message))
-                    raise f5ex.SystemCreationException(
-                        "Folder creation error for tenant %s" %
-                        (tenant_id))
+                    if isinstance(err, HTTPError) and \
+                            err.response.status_code == 409:
+                        LOG.info(
+                            "folder %s already exists, ignore." % folder_name)
+                    else:
+                        # XXX Maybe we can make this more specific?
+                        LOG.exception(
+                            "Error creating folder %s: %s" %
+                            (folder, err.message))
+                        raise f5ex.SystemCreationException(
+                            "Folder creation error for tenant %s" %
+                            (tenant_id))
 
         if self.conf.use_namespaces and sync \
                 and not self.conf.f5_global_routed_mode:
