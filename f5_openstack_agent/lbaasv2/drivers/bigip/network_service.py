@@ -387,6 +387,7 @@ class NetworkServiceBuilder(object):
             retries -= 1
             try:
                 rd_id = self.network_helper.get_next_domain_id(bigips)
+                LOG.info('retrying create route domain id: %d' % rd_id)
                 for bigip in bigips:
                     partition_id = self.service_adapter.get_folder_name(
                                     tenant_id)
@@ -400,11 +401,22 @@ class NetworkServiceBuilder(object):
                           % (rd_id, tenant_id))
                 break
             except Exception as err:
-                if retries == 0:
+                # 409 situation:
+                # {"code":409,"message":"01020066:3:
+                # The requested route domain (/CORE_xxx/CORE_xxxx)
+                # already exists in partition CORE_xxxx."
+                if isinstance(err, HTTPError) and \
+                        err.response.status_code == 409:
+                    LOG.info("rd %d already exists, ignore." % rd_id)
+                    break
+                elif retries == 0:
                     raise f5_ex.RouteDomainCreationException(
                         "Failed to create route domain for "
                         "tenant %s: %s" % (tenant_id, err.message))
                 else:
+                    # 400 situation: {"code":400,"message":"01070734:3:
+                    # Configuration error: invalid route domain,
+                    # the domain id already exists (77)
                     LOG.info("Failed to create route domain for tenant"
                              " %s: %s, retrying." % (tenant_id, err.message))
         else:
