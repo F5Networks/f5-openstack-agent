@@ -1497,14 +1497,14 @@ class iControlDriver(LBaaSBaseDriver):
                                   % (l7_policy_id, bigip.hostname))
                     else:
                         error = err
-                except Exception as exc:
+                except Exception as err:
                     error = err
                 if error:
                     kwargs = dict(
                         tenant_id=tenant_id, l7_policy_id=l7_policy_id,
                         hostname=bigip.hostname, listener_id=listener_id)
                     LOG.exception('Exception: purge_orphaned_l7_policy({}) '
-                                  '"{}"'.format(kwargs, exc))
+                                  '"{}"'.format(kwargs, error))
 
     @serialized('purge_orphaned_loadbalancer')
     @is_operational
@@ -2147,7 +2147,7 @@ class iControlDriver(LBaaSBaseDriver):
                     LOG.debug("    _post_service_networking "
                               "took %.5f secs" % (time() - start_time))
 
-        except f5ex.NetworkNotReady as error:
+        except f5ex.NetworkNotReady:
             pass
         except Exception as err:
             LOG.exception(err)
