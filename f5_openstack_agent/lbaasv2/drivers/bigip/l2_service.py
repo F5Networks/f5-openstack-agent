@@ -15,6 +15,7 @@
 #
 
 import random
+from requests import HTTPError
 from time import time
 
 from oslo_log import log as logging
@@ -319,6 +320,12 @@ class L2ServiceBuilder(object):
                      'description': network['id'],
                      'route_domain_id': network['route_domain_id']}
             self.network_helper.create_vlan(bigip, model)
+        except HTTPError as err:
+            if err.response.status_code == 409:
+                LOG.info("vlan %s already exists: %s, ignored.." % (
+                        vlan_name, err.message))
+            else:
+                raise
         except Exception as err:
             LOG.exception("%s", err.message)
             raise f5_ex.VLANCreationException(

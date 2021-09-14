@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from requests.exceptions import HTTPError
+from requests import HTTPError
 
 import os
 
@@ -182,10 +182,15 @@ class BigipSnatManager(object):
                     self.snat_translation_manager.create(
                         bigip, snat_translation_model)
             except Exception as err:
-                LOG.exception(err)
-                raise f5_ex.SNATCreationException(
-                    "Error creating snat translation manager %s" %
-                    index_snat_name)
+                if isinstance(err, HTTPError) and \
+                        err.response.status_code == 409:
+                    LOG.info("SNAT pool %s already exists: %s, ignored." % (
+                        index_snat_name, err.message))
+                else:
+                    LOG.exception(err)
+                    raise f5_ex.SNATCreationException(
+                        "Error creating snat translation manager %s" %
+                        index_snat_name)
 
             snat_pool_model = {
                 "name": snat_info['pool_name'],
@@ -212,9 +217,13 @@ class BigipSnatManager(object):
                     snatpool.modify(members=snatpool.members)
 
             except Exception as err:
-                LOG.error("Create SNAT pool failed %s" % err.message)
-                raise f5_ex.SNATCreationException(
-                    "Failed to create SNAT pool")
+                if isinstance(err, HTTPError) and \
+                        err.response.status_code == 409:
+                    LOG.info("SNAT member %s already exists: %s, ignored." % (
+                        snat_pool_member, err.message))
+                else:
+                    raise f5_ex.SNATCreationException(
+                        "Failed to create SNAT pool: %s" % err.message)
 
             if self.l3_binding:
                 self.l3_binding.bind_address(subnet_id=subnet['id'],
