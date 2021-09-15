@@ -11,14 +11,16 @@ NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack rele
 
 Added Functionality
 ```````````````````
-* new way for health monitor timeout
-* add UDP health monitor type
+* [OPENSTACK-2224] new way for health monitor timeout
+* [OPENSTACK-2223] add UDP health monitor type
 
 Bug Fixes
 `````````
-* If member already exists, it causes HTTP 409 ERROR
-* Fix requirements
-* Add a periodic config save task to save the configuration.
+* [OPENSTACK-2214] If member already exists, it causes HTTP 409 ERROR
+* [OPENSTACK-2286] Fix deb requirements
+* [OPENSTACK-2277] Add a periodic config save task to save the configuration
+* [OPENSTACK-2282] Fix resources creation conflict issue
+* [OPENSTACK-2282] Cleanup redundant neutron port of self ip and snat ip
 
 Limitations
 
