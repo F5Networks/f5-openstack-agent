@@ -180,6 +180,16 @@ class BigipSelfIpManager(object):
                 host_passed=host_passed
             )
 
+            if port:
+                ports = self.driver.plugin_rpc.get_port_by_name(
+                    port_name=selfip_name)
+                # If the port created by me is not the first, that means
+                # another agent process creates a new port before me.
+                # Delete my port and use the first one.
+                if len(ports) > 0 and ports[0]['id'] != port['id']:
+                    self.driver.plugin_rpc.delete_port(port_id=port['id'])
+                    port = ports[0]
+
         if port and 'fixed_ips' in port:
             fixed_ip = port['fixed_ips'][0]
             selfip_address = fixed_ip['ip_address']
