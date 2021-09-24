@@ -198,6 +198,11 @@ class BigipSnatManager(object):
                         partition=snat_info['network_folder']):
                     self.snat_translation_manager.create(
                         bigip, snat_translation_model)
+                else:
+                    # Existing SNAT addresss might be incorrect in
+                    # multi-agent racing case. Overwrite it.
+                    self.snat_translation_manager.update(
+                        bigip, snat_translation_model)
                 snat_translation_members.append(
                     '/' + snat_info['network_folder'] + '/' + index_snat_name
                 )
