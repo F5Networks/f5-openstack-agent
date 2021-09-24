@@ -21,6 +21,8 @@ Bug Fixes
 * [OPENSTACK-2277] Add a periodic config save task to save the configuration
 * [OPENSTACK-2282] Fix resources creation conflict issue
 * [OPENSTACK-2282] Cleanup redundant neutron port of self ip and snat ip
+* [OPENSTACK-2294] Multiple agents updating snatpool member causes bigip incosistency problem
+* [OPENSTACK-2295] Ensure route domain id consistency
 
 Limitations
 
