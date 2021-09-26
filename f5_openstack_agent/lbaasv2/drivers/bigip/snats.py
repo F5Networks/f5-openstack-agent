@@ -105,17 +105,7 @@ class BigipSnatManager(object):
                     vnic_type=vnic_type
                 )
                 if new_port is not None:
-                    ports = self.driver.plugin_rpc.get_port_by_name(
-                        port_name=index_snat_name)
-                    # If the port created by me is not the first, that means
-                    # another agent process creates a new port before me.
-                    # Delete my port and use the first one.
-                    if len(ports) > 0 and ports[0]['id'] != new_port['id']:
-                        self.driver.plugin_rpc.delete_port(
-                            port_id=new_port['id'])
-                        ip_address = ports[0]['fixed_ips'][0]['ip_address']
-                    else:
-                        ip_address = new_port['fixed_ips'][0]['ip_address']
+                    ip_address = new_port['fixed_ips'][0]['ip_address']
 
             # Push the IP address on the list if the port was acquired.
             if len(ip_address) > 0:
