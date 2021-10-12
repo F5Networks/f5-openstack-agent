@@ -147,6 +147,7 @@ class BigipSnatManager(object):
         # Configure the ip addresses for snat
         network = subnetinfo['network']
         subnet = subnetinfo['subnet']
+        snat_translation_members = []
 
         if tenant_id not in bigip.assured_tenant_snat_subnets:
             bigip.assured_tenant_snat_subnets[tenant_id] = []
@@ -154,6 +155,12 @@ class BigipSnatManager(object):
             return
 
         snat_name = self._get_snat_name(subnet, tenant_id)
+
+        snat_pool_model = {
+            "name": snat_info['pool_name'],
+            "partition": snat_info['pool_folder'],
+        }
+
         for i, snat_address in enumerate(snat_info['addrs']):
             ip_address = snat_address + \
                 '%' + str(network['route_domain_id'])
@@ -181,6 +188,9 @@ class BigipSnatManager(object):
                         partition=snat_info['network_folder']):
                     self.snat_translation_manager.create(
                         bigip, snat_translation_model)
+                snat_translation_members.append(
+                    '/' + snat_info['network_folder'] + '/' + index_snat_name
+                )
             except Exception as err:
                 if isinstance(err, HTTPError) and \
                         err.response.status_code == 409:
@@ -192,44 +202,59 @@ class BigipSnatManager(object):
                         "Error creating snat translation manager %s" %
                         index_snat_name)
 
-            snat_pool_model = {
-                "name": snat_info['pool_name'],
-                "partition": snat_info['pool_folder'],
-            }
-            snat_pool_member = (
-                '/' + snat_info['network_folder'] + '/' + index_snat_name)
-            snat_pool_model["members"] = [snat_pool_member]
-            try:
-                if not self.snatpool_manager.exists(
-                        bigip,
-                        name=snat_pool_model['name'],
-                        partition=snat_pool_model['partition']):
-                    LOG.debug("Creating SNAT pool: %s" % snat_pool_model)
-                    self.snatpool_manager.create(bigip, snat_pool_model)
-                else:
-                    LOG.debug("Updating SNAT pool")
-                    snatpool = self.snatpool_manager.load(
-                        bigip,
-                        name=snat_pool_model["name"],
-                        partition=snat_pool_model["partition"]
-                    )
-                    snatpool.members.append(snat_pool_member)
-                    snatpool.modify(members=snatpool.members)
-
-            except Exception as err:
-                if isinstance(err, HTTPError) and \
-                        err.response.status_code == 409:
-                    LOG.info("SNAT member %s already exists: %s, ignored." % (
-                        snat_pool_member, err.message))
-                else:
-                    raise f5_ex.SNATCreationException(
-                        "Failed to create SNAT pool: %s" % err.message)
-
             if self.l3_binding:
                 self.l3_binding.bind_address(subnet_id=subnet['id'],
                                              ip_address=ip_address)
 
-        # bigip.assured_tenant_snat_subnets[tenant_id].append(subnet['id'])
+        # pzhang(NOTE): update all snatpool members at once, in case of
+        # chaos that multiple agents update different numbers of snatpool
+        # members.
+        try:
+            exist_snatpool = self.snatpool_manager.exists(
+                bigip,
+                name=snat_info['pool_name'],
+                partition=snat_info['pool_folder']
+            )
+
+            all_members = None
+            if not exist_snatpool:
+                all_members = snat_translation_members
+                members = list(set(all_members))
+                snat_pool_model = {
+                    "name": snat_info['pool_name'],
+                    "partition": snat_info['pool_folder'],
+                    "members": members
+                }
+                self.snatpool_manager.create(
+                    bigip,
+                    snat_pool_model
+                )
+            else:
+                LOG.debug("Updating SNAT pool members")
+                snatpool = self.snatpool_manager.load(
+                    bigip,
+                    name=snat_info['pool_name'],
+                    partition=snat_info['pool_folder']
+                )
+                all_members = snatpool.members + snat_translation_members
+                members = list(set(all_members))
+                snatpool.modify(members=members)
+        except Exception as err:
+            if isinstance(err, HTTPError) and \
+                    err.response.status_code == 409:
+                LOG.info("SNAT pool %s already exists: %s, ignored." % (
+                    index_snat_name, err.message))
+            elif isinstance(err, HTTPError) and \
+                    err.response.status_code == 400:
+                LOG.info("SNAT pool create/modify fail. "
+                         "snatpool: %s; members: %s; error message: %s." % (
+                             snat_info['pool_name'], all_members, err.message
+                         ))
+            else:
+                LOG.exception(err)
+                raise f5_ex.SNATCreationException(
+                    "Error creating snat translation manager %s" %
+                    index_snat_name)
 
     def delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
         # Assure shared snat configuration (which syncs) is deleted.
