@@ -408,6 +408,17 @@ class NetworkServiceBuilder(object):
                 if isinstance(err, HTTPError) and \
                         err.response.status_code == 409:
                     LOG.info("rd %d already exists, ignore." % rd_id)
+                    # This route domain might be created by another
+                    # agent process.
+                    # When is_aux==False, rd_id is not included in rd
+                    # name, so that the rd id might not be same as the
+                    # id calculated by me.
+                    # When is_aux==True, rd_id is included in rd name,
+                    # there will not be inconsistency.
+                    if not is_aux:
+                        rd = self.network_helper.get_route_domain(
+                            bigip, partition=partition_id)
+                        rd_id = rd.id
                     break
                 elif retries == 0:
                     raise f5_ex.RouteDomainCreationException(
