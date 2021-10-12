@@ -367,7 +367,8 @@ class ServiceModelAdapter(object):
         if lbaas_pool.get('priority_group_least_member'):
             LOG.info('setting to priority_group_least_member')
             LOG.info(lbaas_pool.get('priority_group_least_member'))
-            pool['minActiveMembers'] = lbaas_pool['priority_group_least_member']
+            pool['minActiveMembers'] = \
+                lbaas_pool['priority_group_least_member']
         else:
             LOG.info('setting to priority_group_least_member 0')
             pool['minActiveMembers'] = 0
