@@ -1290,7 +1290,7 @@ class ListenerManager(ResourceManager):
         ftp_enable = self.ftp_helper.enable_ftp(service)
         if ftp_enable:
             self.ftp_helper.remove_profile(service, vs, bigip)
-        tcp_ip_enable = self.tcp_helper.enable_tcp(service)
+        tcp_ip_enable = self.tcp_helper.need_delete_tcp(service)
         if tcp_ip_enable:
             self.tcp_helper.remove_profile(
                 service, vs, bigip,

@@ -30,12 +30,26 @@ class TCPProfileHelper(object):
             resource_helper.ResourceType.tcp_profile
         )
         self.delete_profile = False
+        self.allowed_protocols = ["TCP", "FTP"]
 
-    @staticmethod
-    def enable_tcp(service):
+    def enable_tcp(self, service):
         # pzhang: do not check ipProtocol TCP for further requirements,
         # which may require to change tcp profile in higher level protocol
-        # such as HTTPS, HTTP, FTP etc.
+        # such as FTP
+
+        listener = service.get('listener')
+        if listener is None:
+            return False
+
+        protocol = listener.get('protocol')
+        if protocol not in self.allowed_protocols:
+            raise Exception("%s listener is not allowed TOA" %
+                            protocol)
+
+        return listener.get('transparent')
+
+    def need_delete_tcp(self, service):
+        # pzhang: allow to delete any type listener with 'transparent'
 
         listener = service.get('listener')
         if listener is None:
@@ -43,11 +57,15 @@ class TCPProfileHelper(object):
 
         return listener.get('transparent')
 
-    @staticmethod
-    def need_update_tcp(old_listener, listener):
+    def need_update_tcp(self, old_listener, listener):
         # pzhang: in case of other resource update without listener dict.
         if old_listener is None or listener is None:
             return False
+
+        protocol = listener.get('protocol')
+        if protocol not in self.allowed_protocols:
+            raise Exception("%s listener is not allowed TOA" %
+                            protocol)
 
         if old_listener['transparent'] != listener['transparent']:
             return True
