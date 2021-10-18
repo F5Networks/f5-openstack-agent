@@ -1,5 +1,6 @@
 include etc/neutron/services/f5/f5-openstack-agent.ini
 include etc/neutron/services/f5/f5-extended-profile.json
+include etc/neutron/services/f5/f5-cipher-policy.json
 include etc/neutron/services/f5/esd/demo.json
 include etc/init.d/*
 include bin/*
