@@ -41,12 +41,14 @@ class TCPProfileHelper(object):
         if listener is None:
             return False
 
-        protocol = listener.get('protocol')
-        if protocol not in self.allowed_protocols:
-            raise Exception("%s listener is not allowed TOA" %
-                            protocol)
-
-        return listener.get('transparent')
+        if listener.get('transparent'):
+            protocol = listener.get('protocol')
+            if protocol not in self.allowed_protocols:
+                raise Exception("%s listener is not allowed TOA" %
+                                protocol)
+            return True
+        else:
+            return False
 
     def need_delete_tcp(self, service):
         # pzhang: allow to delete any type listener with 'transparent'
@@ -62,15 +64,14 @@ class TCPProfileHelper(object):
         if old_listener is None or listener is None:
             return False
 
-        protocol = listener.get('protocol')
-        if protocol not in self.allowed_protocols:
-            raise Exception("%s listener is not allowed TOA" %
-                            protocol)
-
         if old_listener['transparent'] != listener['transparent']:
+            protocol = listener.get('protocol')
+            if protocol not in self.allowed_protocols:
+                raise Exception("%s listener is not allowed TOA" %
+                                protocol)
             return True
-
-        return False
+        else:
+            return False
 
     def add_profile(self, service, vip, bigip, **kwargs):
         side = kwargs.get("side")
