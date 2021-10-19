@@ -35,6 +35,7 @@ class SSLProfileHelper(object):
         profile_name = kwargs.get("profile_name", None)
         vip_name = kwargs.get("vip_name", None)
         http2 = kwargs.get("http2", False)
+        cipher_policy = kwargs.get("cipher_policy", {})
         renegotiation = kwargs.get("renegotiation", 'enabled')
 
         if http2 is True:
@@ -71,7 +72,13 @@ class SSLProfileHelper(object):
                 # bigip default value.
                 tm_options = ["dont-insert-empty-fragments"] + \
                              protocol_map.values()
-                if cipher_suites:
+            if cipher_suites:
+                if "cipher_suites" in cipher_policy and \
+                   cipher_suites in cipher_policy['cipher_suites']:
+                    ciphers = ":".join(
+                        cipher_policy["cipher_suites"][cipher_suites]
+                    )
+                else:
                     ciphers = cipher_suites.upper()
 
         uploader = bigip.shared.file_transfer.uploads
