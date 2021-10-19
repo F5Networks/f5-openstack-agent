@@ -839,6 +839,7 @@ class ServiceModelAdapter(object):
                 # cipher parameters
                 'tls_protocols',
                 'cipher_suites',
+                'cipher_policy',
                 'http2'
             ]:
                 if tls_key in listener and listener[tls_key]:

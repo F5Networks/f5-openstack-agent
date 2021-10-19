@@ -420,7 +420,8 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             target._create_ssl_profile.assert_called_once_with(
                 '12345', bigip, dict(name='name', partition='partition'),
                 True, ca_container_id=None, client_auth=False,
-                tls_protocols=None, cipher_suites=None, http2=False)
+                tls_protocols=None, cipher_suites=None,
+                cipher_policy={}, http2=False)
 
         def add_ssl_profile_no_tls_one_sni(target, service_with_listener):
             svc['listener']['protocol'] = 'HTTP'
@@ -437,7 +438,8 @@ class TestListenerServiceBuilder(TestListenerServiceBuilderBuilder):
             target._create_ssl_profile.assert_called_once_with(
                 '12345', bigip, dict(name='name', partition='partition'),
                 False, ca_container_id=None, client_auth=False,
-                tls_protocols=None, cipher_suites=None, http2=False)
+                tls_protocols=None, cipher_suites=None,
+                cipher_policy={}, http2=False)
 
         self.creation_mode_listener(svc, svc['listeners'][0])
         add_ssl_profile_no_tls_or_sni(target, svc)

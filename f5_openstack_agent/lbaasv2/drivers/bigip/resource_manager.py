@@ -652,6 +652,8 @@ class ListenerManager(ResourceManager):
         }
         self.extended_profiles = {}
         self._load_extended_profiles()
+        self.cipher_policy = {}
+        self._load_cipher_policy()
 
     def _isHTTP2TLS(self, listener):
         if listener['protocol'] != "TERMINATED_HTTPS":
@@ -927,7 +929,7 @@ class ListenerManager(ResourceManager):
             with open(file_name) as file:
                 self.extended_profiles = json.load(file)
         except ValueError:
-            LOG.error("Extended profile %s is a invalid json", file_name)
+            LOG.error("Extended profile %s is an invalid json", file_name)
             return
 
         # Remove name and partition attributes
@@ -936,6 +938,23 @@ class ListenerManager(ResourceManager):
             for key in ["name", "partition"]:
                 if key in profile:
                     del profile[key]
+        return
+
+    def _load_cipher_policy(self):
+        if not self.driver.conf.f5_cipher_policy:
+            return
+
+        file_name = self.driver.conf.f5_cipher_policy
+        if not os.path.exists(file_name):
+            LOG.warning("Cipher policy %s doesn't exist", file_name)
+            return
+
+        try:
+            with open(file_name) as file:
+                self.cipher_policy = json.load(file)
+        except ValueError:
+            LOG.error("Cipher policy %s is an invalid json", file_name)
+
         return
 
     def _customized_profile(self, profile_type, listener):
@@ -1195,6 +1214,7 @@ class ListenerManager(ResourceManager):
     def _create(self, bigip, vs, listener, service):
         tls = self.driver.service_adapter.get_tls(service)
         if tls:
+            tls['cipher_policy'] = self.cipher_policy
             self._create_ssl_profile(bigip, vs, tls)
         persist = service[self._key].get('session_persistence')
         if persist:
@@ -1282,6 +1302,7 @@ class ListenerManager(ResourceManager):
                                                    listener, vs)
                     extended_profile_updated = True
                 tls['http2'] = http2
+                tls['cipher_policy'] = self.cipher_policy
                 self._create_ssl_profile(bigip, vs, tls)
 
             orig_profiles = self.__get_profiles_from_bigip(bigip, vs)

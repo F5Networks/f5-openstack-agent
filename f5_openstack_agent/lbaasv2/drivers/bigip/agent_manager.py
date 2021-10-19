@@ -201,6 +201,11 @@ OPTS = [
         default='',
         help=('The file name of extended profiles definition of a listener')
     ),
+    cfg.StrOpt(
+        'f5_cipher_policy',
+        default='',
+        help=('The file name of TLS cipher suites policy definition')
+    ),
     cfg.IntOpt(
         'f5_bandwidth_default',
         default=200,

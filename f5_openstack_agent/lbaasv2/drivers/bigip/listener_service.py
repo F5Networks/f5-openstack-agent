@@ -184,6 +184,7 @@ class ListenerServiceBuilder(object):
                     ca_container_id=tls.get("ca_container_id", None),
                     tls_protocols=tls.get("tls_protocols", None),
                     cipher_suites=tls.get("cipher_suites", None),
+                    cipher_policy=tls.get("cipher_policy", {}),
                     http2=tls.get("http2", False))
 
         if "sni_containers" in tls and tls["sni_containers"]:
@@ -195,6 +196,7 @@ class ListenerServiceBuilder(object):
                         ca_container_id=tls.get("ca_container_id", None),
                         tls_protocols=tls.get("tls_protocols", None),
                         cipher_suites=tls.get("cipher_suites", None),
+                        cipher_policy=tls.get("cipher_policy", {}),
                         http2=tls.get("http2", False))
 
     def _create_ssl_profile(self, container_ref, bigip, vip,
@@ -217,6 +219,7 @@ class ListenerServiceBuilder(object):
 
         tls_protocols = kwargs.get("tls_protocols", None)
         cipher_suites = kwargs.get("cipher_suites", None)
+        cipher_policy = kwargs.get("cipher_policy", {})
 
         chain = None
         if intermediates:
@@ -237,6 +240,7 @@ class ListenerServiceBuilder(object):
                 ca_cert_filename=c_ca_file,
                 tls_protocols=tls_protocols,
                 cipher_suites=cipher_suites,
+                cipher_policy=cipher_policy,
                 profile_name=profile_name,
                 vip_name=vip['name'],
                 http2=http2)
