@@ -114,8 +114,8 @@ class ServiceModelAdapter(object):
         listener = service["listener"]
         loadbalancer = service["loadbalancer"]
 
-        listener["use_snat"] = self.snat_mode() and not listener.get(
-            "transparent")
+        listener["use_snat"] = self.snat_mode()
+
         if listener["use_snat"] and self.snat_count() > 0:
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
