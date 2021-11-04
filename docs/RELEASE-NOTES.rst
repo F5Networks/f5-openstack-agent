@@ -5,6 +5,31 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.41 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2083] Add TOA feature
+* [OPENSTACK-2083] Remove pervious tranparent function
+* [OPENSTACK-2325] Add cipher policy config file
+* [OPENSTACK-2262] Support redirect LTM policy
+* [OPENSTACK-2325] Enable TLS cipher suites policy definition
+* [OPENSTACK-2277] Add a periodic config save task
+
+Bug Fixes
+`````````
+* [OPENSTACK-2282] Fix snat creation conflict issue
+* [OPENSTACK-2342] Fix: selfip recreating unabled to catch HTTP 409
+* [OPENSTACK-2295] Ensure route domain id consistency
+* [OPENSTACK-2294] Fix: multiple agents updating snatpool member causes
+* [OPENSTACK-2341] Fix: get all nodes in a partition
+* [OPENSTACK-2253] Ensure source ip session persistence when lb algorithm is SOURCE_IP
+
+Limitations
+```````````
+
 v9.9.40 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
