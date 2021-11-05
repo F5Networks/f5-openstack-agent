@@ -727,7 +727,15 @@ class NetworkHelper(object):
 
         node_addrs = []
         for node in nodes:
-            node_addrs.append(node.address)
+            # If the node resides in the Common partition,
+            # all users can access it.
+            # any6 may not belong to any neutron subnet
+            # but we still need to translate
+            if node.partition == partition:
+                if node.address == 'any6':
+                    node_addrs.append("::")
+                else:
+                    node_addrs.append(node.address)
 
         return node_addrs
 
