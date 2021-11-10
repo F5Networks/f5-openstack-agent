@@ -74,9 +74,9 @@ class SSLProfileHelper(object):
                              protocol_map.values()
             if cipher_suites:
                 if "cipher_suites" in cipher_policy and \
-                   cipher_suites in cipher_policy['cipher_suites']:
+                   cipher_suites.lower() in cipher_policy['cipher_suites']:
                     ciphers = ":".join(
-                        cipher_policy["cipher_suites"][cipher_suites]
+                        cipher_policy["cipher_suites"][cipher_suites.lower()]
                     )
                 else:
                     ciphers = cipher_suites.upper()
@@ -181,7 +181,8 @@ class SSLProfileHelper(object):
                                           partition='Common')
         if "no-tlsv1.3" in tm_options:
             # No TLS1.3, no cipher group
-            profile.modify(tmOptions=tm_options, ciphers=ciphers)
+            profile.modify(tmOptions=tm_options, ciphers=ciphers,
+                           cipherGroup="")
         else:
             # TLS1.3, create cipher group
             if cipher_rule.exists(name=rule_name, partition='Common'):
