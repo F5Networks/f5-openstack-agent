@@ -166,6 +166,7 @@ class ResourceManager(object):
 
     @log_helpers.log_method_call
     def update(self, old_resource, resource, service=dict(), **kwargs):
+
         if service and not service.get(self._key):
             self._search_element(resource, service)
         payload = kwargs.get("payload",
@@ -758,12 +759,10 @@ class ListenerManager(ResourceManager):
     def _check_customized_changed(self, old_listener, listener):
         if not old_listener:
             return False
-        if listener['protocol'] == "HTTP" or \
-           listener['protocol'] == "TERMINATED_HTTPS":
-            old_customized = old_listener.get('customized', None)
-            new_customized = listener.get('customized', None)
-            if old_customized != new_customized:
-                return True
+
+        xff_upd = self.http_xff_update(old_listener, listener)
+        if xff_upd:
+            return True
         return False
 
     def _check_http2_changed(self, old_listener, listener):
@@ -980,6 +979,35 @@ class ListenerManager(ResourceManager):
             return condition
         else:
             return False
+
+    def set_customerized(self, listener):
+        customized = listener.get('customized')
+        if not customized:
+            customized = '{}'
+        cstm = json.loads(customized)
+        http_profile = cstm.get("http_profile", {})
+
+        xff_enable = self.http_xff_enable(listener)
+        if xff_enable:
+            http_profile["insertXforwardedFor"] = "enabled"
+        else:
+            http_profile["insertXforwardedFor"] = "disabled"
+
+        cstm["http_profile"] = http_profile
+        listener["customized"] = json.dumps(cstm)
+
+    def http_xff_enable(self, listener):
+        if listener['protocol'] in ['HTTP', 'TERMINATED_HTTPS']:
+            return listener.get('transparent', False)
+        return False
+
+    def http_xff_update(self, old_listener, listener):
+        if listener['protocol'] in ['HTTP', 'TERMINATED_HTTPS']:
+            new_transparent = listener['transparent']
+            old_transparent = old_listener['transparent']
+            if new_transparent != old_transparent:
+                return True
+        return False
 
     def _create_extended_profiles(self, bigip, listener, vs):
         for profile_type in self.profile_map.keys():
@@ -1406,11 +1434,22 @@ class ListenerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
+
+        # Public cloud is not allowed to set 'customized' field in
+        # CLI, thus we translate other fields to reuse 'customized'.
+        self.set_customerized(listener)
+
         super(ListenerManager, self).create(listener, service)
 
     @serialized('ListenerManager.update')
     @log_helpers.log_method_call
     def update(self, old_listener, listener, service, **kwargs):
+
+        if self._check_customized_changed(old_listener, listener):
+            # Public cloud is not allowed to set 'customized' field in
+            # CLI, thus we translate other fields to reuse 'customized'.
+            self.set_customerized(listener)
+
         super(ListenerManager, self).update(
             old_listener, listener, service)
 
