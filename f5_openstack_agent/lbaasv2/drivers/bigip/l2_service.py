@@ -176,6 +176,7 @@ class L2ServiceBuilder(object):
                     "Interface name is greater than 15 chars in length")
             vlan_name = "flat-%s" % (interface_name)
         else:
+            # vlan_name cannot be longer than 64 characters.
             vlan_name = "vlan-%d" % (vlanid)
 
         return vlan_name

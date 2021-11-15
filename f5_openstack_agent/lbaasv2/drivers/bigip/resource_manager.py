@@ -1489,6 +1489,8 @@ class PoolManager(ResourceManager):
             "lb_algorithm": "loadBalancingMode"
         }
 
+        self.all_subnet_hints = {}
+
     """ commonly used by pool and member """
     def _delete_member_node(self, loadbalancer, member, bigip):
         error = None
@@ -1540,6 +1542,38 @@ class PoolManager(ResourceManager):
             old_pool, pool, service,
             payload=payload, create_payload=create_payload
         )
+
+    def _check_nonshared_network(self, service):
+        loadbalancer = service["loadbalancer"]
+        tenant_id = loadbalancer["tenant_id"]
+
+        members = service["members"]
+        for meb in members:
+            meb_net_id = meb["network_id"]
+            network = self.driver.service_adapter.get_network_from_service(
+                service, meb_net_id)
+            net_project_id = network["project_id"]
+
+            if self.driver.conf.f5_global_routed_mode:
+                shared = network["shared"]
+                if not shared:
+                    if tenant_id != net_project_id:
+                        raise f5_ex.ProjectIDException(
+                            "The tenant project id is %s. "
+                            "The nonshared netwok/subnet project id is %s. "
+                            "They are not belong to the same tenant." %
+                            (tenant_id, net_project_id))
+                return
+
+            if not self.driver.network_builder.l2_service.is_common_network(
+                    network):
+                if tenant_id != net_project_id:
+                    raise f5_ex.ProjectIDException(
+                        "The tenant project id is %s. "
+                        "The nonshared netwok/subnet project id of "
+                        "member %s is %s. "
+                        "They are not belong to the same tenant." %
+                        (tenant_id, meb, net_project_id))
 
     def _create(self, bigip, poolpayload, pool, service):
         if 'members' in poolpayload:
@@ -1633,8 +1667,48 @@ class PoolManager(ResourceManager):
     @serialized('PoolManager.delete')
     @log_helpers.log_method_call
     def delete(self, pool, service, **kwargs):
-        self.driver.annotate_service_members(service)
+        self._pre_delete(service)
         super(PoolManager, self).delete(pool, service)
+        self._post_delete(service)
+
+    def _pre_delete(self, service):
+        # assign neutron network object in service
+        # with route domain first
+        # self.driver.network_builder is None in global routed mode
+        self._check_nonshared_network(service)
+        if self.driver.network_builder:
+            self.driver.network_builder._annotate_service_route_domains(
+                service)
+
+        loadbalancer = service["loadbalancer"]
+
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        for bigip in bigips:
+            self.all_subnet_hints[bigip.device_name] = \
+                {'check_for_delete_subnets': {},
+                 'do_not_delete_subnets': []}
+
+        # FIXME(pzhang): when delete a pool, we mark all member as
+        # PENDING_DELETE, this will be slow...
+        for pool in service['pools']:
+            if pool['provisioning_status'] == 'PENDING_DELETE':
+                for member in service['members']:
+                    member['provisioning_status'] = "PENDING_DELETE"
+
+        for member in service['members']:
+            self.driver.lbaas_builder._update_subnet_hints(
+                member["provisioning_status"],
+                member["subnet_id"],
+                member["network_id"],
+                self.all_subnet_hints,
+                True
+            )
+
+    def _post_delete(self, service):
+        # self.driver.network_builder is None in global routed mode
+        if self.driver.network_builder:
+            self.driver.network_builder.post_service_networking(
+                service, self.all_subnet_hints)
 
 
 class MonitorManager(ResourceManager):
@@ -1760,6 +1834,8 @@ class MemberManager(ResourceManager):
             "weight": "ratio",
             "admin_state_up": "session",
         }
+
+        self.all_subnet_hints = {}
 
     def _create_member_payload(self, loadbalancer, member):
         return self.driver.service_adapter._map_member(loadbalancer, member)
@@ -1963,9 +2039,9 @@ class MemberManager(ResourceManager):
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
 
-        self._check_nonshared_network(service)
+        # pzhang: member
+        self._pre_delete(service)
 
-        self.driver.annotate_service_members(service)
         if not service.get(self._key):
             self._search_element(resource, service)
 
@@ -2008,7 +2084,49 @@ class MemberManager(ResourceManager):
                                                'name', 'loadBalancingMode'])
             self._pool_mgr._update(bigip, pool_payload, None, None, service)
 
+        # pzhang: member
+        self._post_delete(service)
+
         LOG.debug("Finish to delete %s %s", self._resource, resource['id'])
+
+    def _pre_delete(self, service):
+        # assign neutron network object in service
+        # with route domain first
+        # self.driver.network_builder is None in global routed mode
+        self._check_nonshared_network(service)
+        if self.driver.network_builder:
+            self.driver.network_builder._annotate_service_route_domains(
+                service)
+
+        loadbalancer = service["loadbalancer"]
+
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        for bigip in bigips:
+            self.all_subnet_hints[bigip.device_name] = \
+                {'check_for_delete_subnets': {},
+                 'do_not_delete_subnets': []}
+
+        # FIXME(pzhang): when delete a pool, we mark all member as
+        # PENDING_DELETE, this will be slow...
+        for pool in service['pools']:
+            if pool['provisioning_status'] == 'PENDING_DELETE':
+                for member in service['members']:
+                    member['provisioning_status'] = "PENDING_DELETE"
+
+        for member in service['members']:
+            self.driver.lbaas_builder._update_subnet_hints(
+                member["provisioning_status"],
+                member["subnet_id"],
+                member["network_id"],
+                self.all_subnet_hints,
+                True
+            )
+
+    def _post_delete(self, service):
+        # self.driver.network_builder is None in global routed mode
+        if self.driver.network_builder:
+            self.driver.network_builder.post_service_networking(
+                service, self.all_subnet_hints)
 
     @serialized('MemberManager.update')
     @log_helpers.log_method_call

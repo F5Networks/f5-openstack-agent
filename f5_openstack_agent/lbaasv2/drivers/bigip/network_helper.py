@@ -299,9 +299,9 @@ class NetworkHelper(object):
         return lowest_available_index
 
     @log_helpers.log_method_call
-    def create_route_domain(self, bigip, rd_id,
+    def create_route_domain(self, bigip, rd_id, name,
                             partition=const.DEFAULT_PARTITION,
-                            strictness=False, is_aux=False, name=None):
+                            strictness=False, is_aux=False):
         """Creates the route domain based upon settings in config
 
         This method will create the Route Domain object per partition in the
@@ -319,8 +319,6 @@ class NetworkHelper(object):
         """
         if name and self.conf.external_gateway_mode:
             name = self._get_route_domain_name(name)
-        else:
-            name = partition
         rd = bigip.tm.net.route_domains.route_domain
         if is_aux:
             name += '_aux_' + str(rd_id)

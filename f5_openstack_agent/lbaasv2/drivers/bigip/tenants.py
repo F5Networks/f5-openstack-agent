@@ -86,55 +86,6 @@ class BigipTenantManager(object):
                             "Folder creation error for tenant %s" %
                             (tenant_id))
 
-        if self.conf.use_namespaces and sync \
-                and not self.conf.f5_global_routed_mode:
-            # pzhang sync all route domain on an active bigip to all
-            # standby bigip
-            bigips = self.driver.get_all_bigips()
-            active_bigips = [
-                bigip for bigip in bigips
-                if bigip.failover_state == "active"
-            ]
-
-            standby_bigips = [
-                bigip for bigip in bigips
-                if bigip.failover_state == "standby"
-            ]
-
-            if active_bigips:
-                # pzhang; default to use first
-                # active bigip to sync route domain
-                # of certain parition of the loadbalancer in service.
-                active_bigip = active_bigips[0]
-                rd_ids = self.network_helper.get_route_domain_ids(
-                    active_bigip, partition=folder_name)
-            else:
-                LOG.warning(
-                    "Not found active bigip to sync route domain in L2 mode"
-                )
-
-            if rd_ids:
-                for rd_id in rd_ids:
-                    for standby_bigip in standby_bigips:
-                        rd_exists = self.network_helper.route_domain_exists(
-                            standby_bigip,
-                            folder_name
-                        )
-                        if not rd_exists:
-                            self.network_helper.create_route_domain(
-                                standby_bigip,
-                                rd_id,
-                                folder_name,
-                                self.conf.f5_route_domain_strictness
-                            )
-
-            else:
-                LOG.warning(
-                    "Not found any route domain ids \
-                    of partitiion %s in L2 mode",
-                    folder_name
-                )
-
     def assure_tenant_cleanup(self, service, all_subnet_hints):
         """Delete tenant partition."""
         # Called for every bigip only in replication mode,
