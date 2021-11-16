@@ -5,26 +5,13 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
-v9.9.42 (Pike, Queens)
+v9.9.40.patch1 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
 
 Added Functionality
 ```````````````````
 * [OPENSTACK-2343] Support uppercase cipher policy name
-
-Bug Fixes
-`````````
-
-Limitations
-```````````
-
-v9.9.41 (Pike, Queens)
---------------------------------------------
-NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
-
-Added Functionality
-```````````````````
 * [OPENSTACK-2083] Add TOA feature
 * [OPENSTACK-2083] Remove pervious tranparent function
 * [OPENSTACK-2325] Add cipher policy config file
