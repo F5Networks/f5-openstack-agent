@@ -43,12 +43,11 @@ class TCPProfileHelper(object):
         if listener is None:
             return False
 
+        protocol = listener.get('protocol')
+        if protocol not in self.allowed_protocols:
+            return False
+
         if listener.get('transparent'):
-            protocol = listener.get('protocol')
-            if protocol not in self.allowed_protocols:
-                LOG.warning("%s listener is not allowed TOA" %
-                                protocol)
-                return False
             return True
         return False
 
@@ -66,12 +65,11 @@ class TCPProfileHelper(object):
         if old_listener is None or listener is None:
             return False
 
+        protocol = listener.get('protocol')
+        if protocol not in self.allowed_protocols:
+            return False
+
         if old_listener['transparent'] != listener['transparent']:
-            protocol = listener.get('protocol')
-            if protocol not in self.allowed_protocols:
-                LOG.warning("%s listener is not allowed TOA" %
-                                protocol)
-                return False
             return True
         return False
 

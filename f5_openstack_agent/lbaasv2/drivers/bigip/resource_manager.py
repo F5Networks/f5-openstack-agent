@@ -410,20 +410,81 @@ class ListenerManager(ResourceManager):
                 return True
         return False
 
-    def _check_customized_changed(self, old_listener, listener):
+    # pzhang xff change check
+    def _check_trans_changed(self, old_listener, listener):
+        new_trans = listener.get("transparent")
+        old_trans = old_listener.get("transparent")
+
+        if new_trans != old_trans:
+            return True
+        return False
+
+    def _update_filter_cust(self, old_listener, listener):
+        old_customized = old_listener.get('customized', None)
+        new_customized = listener.get('customized', None)
+
+        if old_customized:
+            old_listener['customized'] = self._filter_depercated(
+                old_customized)
+
+        if new_customized:
+            listener['customized'] = self._filter_depercated(
+                new_customized)
+
+    def _filter_depercated(self, customized):
+        # depercated = {"http_profile": ["insertXforwardedFor"]}
+        depercated = {}
+
+        cust = json.loads(customized)
+        for profile, depercated_vals in depercated.items():
+            cust_profile = cust.get(profile)
+            if cust_profile:
+                for val in depercated_vals:
+                    if val in cust_profile:
+                        del cust_profile[val]
+        cust_ret = json.dumps(cust)
+        return cust_ret
+
+    def _check_customized_changed(
+            self, old_listener, listener):
         if not old_listener:
             return False
+
+        self._update_filter_cust(old_listener, listener)
+
         if listener['protocol'] == "HTTP" or \
            listener['protocol'] == "TERMINATED_HTTPS":
             old_customized = old_listener.get('customized', None)
             new_customized = listener.get('customized', None)
-            if old_customized != new_customized:
+
+            # check if transparent option changed
+            xff_changed = self._check_trans_changed(
+                old_listener, listener)
+
+            cust_changed = old_customized != new_customized
+
+            if cust_changed or xff_changed:
                 return True
+        return False
+
+    def _check_transparent_changed(
+            self, old_listener, listener):
+        if not old_listener:
+            return False
+
+        if listener['protocol'] == "TCP":
+            # check if transparent option change
+            changed = self._check_trans_changed(
+                old_listener, listener)
+            return changed
+
         return False
 
     def _check_update_needed(self, payload, old_listener, listener):
         if not payload or len(payload.keys()) == 0:
             if self._check_customized_changed(old_listener, listener) \
+               is False and \
+               self._check_transparent_changed(old_listener, listener) \
                is False and \
                self._check_redirect_changed(old_listener, listener) \
                is False and \
@@ -561,11 +622,35 @@ class ListenerManager(ResourceManager):
             bigip, payload, None, None,
             helper=self.http_profile_helper)
 
+    def trans_xff_enable(self, listener):
+        if listener['protocol'] in ['HTTP', 'HTTPS']:
+            return listener.get('transparent', False)
+        return False
+
+    def cust_xff_enable(self, http_profile):
+        if http_profile:
+            xff_enable = http_profile.get('insertXforwardedFor')
+            return xff_enable == "enabled"
+        return False
+
+    def set_xff(self, flag, http_profile):
+        if flag:
+            http_profile["insertXforwardedFor"] = "enabled"
+        else:
+            http_profile["insertXforwardedFor"] = "disabled"
+
     def _create_http_profile(self, bigip, listener, vs):
 
         http_profile = self.__create_http_profile_content(bigip, listener, vs)
         http_profile['partition'] = vs['partition']
         http_profile['name'] = "http_profile_" + vs['name']
+
+        # use --transparent to configure listener xff
+        trans_xff = self.trans_xff_enable(listener)
+        cust_xff = self.cust_xff_enable(http_profile)
+        enable_xff = trans_xff or cust_xff
+        self.set_xff(enable_xff, http_profile)
+
         super(ListenerManager, self)._create(
             bigip, http_profile, None, None, type="http-profile",
             helper=self.http_profile_helper, overwrite=True)
