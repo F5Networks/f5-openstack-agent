@@ -432,8 +432,7 @@ class ListenerManager(ResourceManager):
                 new_customized)
 
     def _filter_depercated(self, customized):
-        # depercated = {"http_profile": ["insertXforwardedFor"]}
-        depercated = {}
+        depercated = {"http_profile": ["insertXforwardedFor"]}
 
         cust = json.loads(customized)
         for profile, depercated_vals in depercated.items():
