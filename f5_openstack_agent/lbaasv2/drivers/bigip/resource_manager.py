@@ -420,35 +420,39 @@ class ListenerManager(ResourceManager):
         return False
 
     def _update_filter_cust(self, old_listener, listener):
-        old_customized = old_listener.get('customized', None)
-        new_customized = listener.get('customized', None)
+        old_cust = old_listener.get('customized', None)
+        new_cust = listener.get('customized', None)
 
-        if old_customized:
-            old_listener['customized'] = self._filter_depercated(
-                old_customized)
+        if old_cust:
+            old_cust = json.loads(old_cust)
+            self._filter_depercated(old_cust)
+            old_listener['customized'] = json.dumps(old_cust)
+        if new_cust:
+            new_cust = json.loads(new_cust)
+            self._filter_depercated(new_cust)
+            listener['customized'] = json.dumps(new_cust)
 
-        if new_customized:
-            listener['customized'] = self._filter_depercated(
-                new_customized)
-
-    def _filter_depercated(self, customized):
+    def _filter_depercated(self, cust):
         depercated = {"http_profile": ["insertXforwardedFor"]}
 
-        cust = json.loads(customized)
         for profile, depercated_vals in depercated.items():
             cust_profile = cust.get(profile)
             if cust_profile:
                 for val in depercated_vals:
                     if val in cust_profile:
                         del cust_profile[val]
-        cust_ret = json.dumps(cust)
-        return cust_ret
 
+    # this function does not check global customized file is changed or not.
+    # If --customized is never change, and global customized file chagned,
+    # it wont update customized change accurately.
     def _check_customized_changed(
             self, old_listener, listener):
         if not old_listener:
             return False
 
+        # the insertXforwardedFor should be depercated in check update,
+        # otherwise it will affect the compatible of
+        # --customized '{ "http_profile":{ "insertXforwardedFor": "enabled" }}'
         self._update_filter_cust(old_listener, listener)
 
         if listener['protocol'] == "HTTP" or \
@@ -456,22 +460,32 @@ class ListenerManager(ResourceManager):
             old_customized = old_listener.get('customized', None)
             new_customized = listener.get('customized', None)
 
-            # check if transparent option changed
-            xff_changed = self._check_trans_changed(
-                old_listener, listener)
-
-            cust_changed = old_customized != new_customized
-
-            if cust_changed or xff_changed:
-                return True
+            return old_customized != new_customized
         return False
 
-    def _check_transparent_changed(
+    def _check_http_trans_changed(
             self, old_listener, listener):
         if not old_listener:
             return False
 
-        if listener['protocol'] == "TCP":
+        # only allow these protocol listener use transparent
+        if listener is not None and listener['protocol'] in [
+                "HTTP", "TERMINATED_HTTPS"]:
+            # check if transparent option change
+            changed = self._check_trans_changed(
+                old_listener, listener)
+            return changed
+
+        return False
+
+    def _check_tcp_trans_changed(
+            self, old_listener, listener):
+        if not old_listener:
+            return False
+
+        # only allow these protocol listener use transparent
+        if listener is not None and listener['protocol'] in [
+                "TCP"]:
             # check if transparent option change
             changed = self._check_trans_changed(
                 old_listener, listener)
@@ -483,7 +497,9 @@ class ListenerManager(ResourceManager):
         if not payload or len(payload.keys()) == 0:
             if self._check_customized_changed(old_listener, listener) \
                is False and \
-               self._check_transparent_changed(old_listener, listener) \
+               self._check_http_trans_changed(old_listener, listener) \
+               is False and \
+               self._check_tcp_trans_changed(old_listener, listener) \
                is False and \
                self._check_redirect_changed(old_listener, listener) \
                is False and \
@@ -681,6 +697,12 @@ class ListenerManager(ResourceManager):
                                   file_name)
                     else:
                         http_profile = payload.get('http_profile', {})
+                        # depercate global setting for insertXforwardedFor
+                        # when update. because check stage it never check
+                        # global customized file changes
+                        if listener['provisioning_status'] == \
+                                'PENDING_UPDATE':
+                            self._filter_depercated(payload)
                 except ValueError:
                     LOG.error("extended profile %s is not a valid json file",
                               file_name)
@@ -848,7 +870,15 @@ class ListenerManager(ResourceManager):
                 ip_version=ip_version
             )
 
-        if self._check_customized_changed(old_listener, listener) is True:
+        # depercated --customized for xff, check other customized changes
+        cust_changed = self._check_customized_changed(old_listener, listener)
+        # --transparent also need to change http profile
+        trans_changed = self._check_http_trans_changed(old_listener, listener)
+
+        # skip http profile for TCP listener update
+        # customized can not be used for TCP for now
+        # because it will add duplicated '/Common/tcp'
+        if cust_changed or trans_changed:
             self._create_http_profile(bigip, listener, vs)
             # load the porfiles from bigip if needed
             if not orig_profiles:
