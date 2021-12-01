@@ -900,6 +900,16 @@ class ListenerManager(ResourceManager):
            self._check_redirect_changed(old_listener, listener):
             self._update_redirect_policy(bigip, vs, old_listener, listener)
 
+        if tcp_ip_update:
+            if self.tcp_helper.delete_profile is True:
+                self.tcp_helper.remove_profile(
+                    service, vs, bigip, side="server"
+                )
+            if self.tcp_irule_helper.delete_iRule is True:
+                self.tcp_irule_helper.remove_iRule(
+                    service, vs, bigip
+                )
+
     def _delete(self, bigip, vs, listener, service):
         super(ListenerManager, self)._delete(bigip, vs, listener, service)
         self._delete_persist_profile(bigip, vs)
