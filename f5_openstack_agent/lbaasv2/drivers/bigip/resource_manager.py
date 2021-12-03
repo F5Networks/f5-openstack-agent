@@ -638,14 +638,8 @@ class ListenerManager(ResourceManager):
             helper=self.http_profile_helper)
 
     def trans_xff_enable(self, listener):
-        if listener['protocol'] in ['HTTP', 'HTTPS']:
+        if listener['protocol'] in ['HTTP', 'TERMINATED_HTTPS']:
             return listener.get('transparent', False)
-        return False
-
-    def cust_xff_enable(self, http_profile):
-        if http_profile:
-            xff_enable = http_profile.get('insertXforwardedFor')
-            return xff_enable == "enabled"
         return False
 
     def set_xff(self, flag, http_profile):
@@ -662,9 +656,7 @@ class ListenerManager(ResourceManager):
 
         # use --transparent to configure listener xff
         trans_xff = self.trans_xff_enable(listener)
-        cust_xff = self.cust_xff_enable(http_profile)
-        enable_xff = trans_xff or cust_xff
-        self.set_xff(enable_xff, http_profile)
+        self.set_xff(trans_xff, http_profile)
 
         super(ListenerManager, self)._create(
             bigip, http_profile, None, None, type="http-profile",
@@ -696,13 +688,10 @@ class ListenerManager(ResourceManager):
                         LOG.debug("http profile is not defined in %s",
                                   file_name)
                     else:
-                        http_profile = payload.get('http_profile', {})
                         # depercate global setting for insertXforwardedFor
-                        # when update. because check stage it never check
-                        # global customized file changes
-                        if listener['provisioning_status'] == \
-                                'PENDING_UPDATE':
-                            self._filter_depercated(payload)
+                        # in global customized file
+                        self._filter_depercated(payload)
+                        http_profile = payload.get('http_profile', {})
                 except ValueError:
                     LOG.error("extended profile %s is not a valid json file",
                               file_name)
