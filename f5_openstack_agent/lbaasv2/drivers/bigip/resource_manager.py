@@ -724,7 +724,10 @@ class ListenerManager(ResourceManager):
         host = "[HTTP::host]"
         port = listener.get("redirect_port", 0)
         if port:
-            host = "[getfield [HTTP::host] : 1]:" + str(port)
+            # Only support IPv4
+            # host = "[getfield [HTTP::host] : 1]:" + str(port)
+            # Support IPv4 and IPv6 both
+            host = r"[regsub -all {:\d*$} [HTTP::host] \"\"]:" + str(port)
 
         location = "tcl:" + protocol + "://" + host + "[HTTP::uri]"
 
