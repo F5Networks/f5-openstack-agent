@@ -29,7 +29,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.snats import BigipSnatManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
-from icontrol.exceptions import iControlUnexpectedHTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -178,6 +177,7 @@ class NetworkServiceBuilder(object):
             try:
                 LOG.debug("Annotating the service definition networks "
                           "with route domain ID.")
+
                 self._annotate_service_route_domains(service)
             except f5_ex.InvalidNetworkType as exc:
                 LOG.warning(exc.message)
@@ -203,6 +203,7 @@ class NetworkServiceBuilder(object):
             self.bigip_selfip_manager.assure_bigip_selfip(
                 assure_bigip, service, subnetinfo)
 
+        # XXX(pzhang): we need to add route domain to snat ip?
         # L3 Shared Config
         assure_bigips = self.driver.get_config_bigips()
         LOG.debug("Getting subnetinfo for ...")
@@ -226,7 +227,6 @@ class NetworkServiceBuilder(object):
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
         tenant_id = service['loadbalancer']['tenant_id']
-        self.update_rds_cache(tenant_id)
         if 'members' in service:
             for member in service['members']:
                 if 'address' in member:
@@ -237,14 +237,15 @@ class NetworkServiceBuilder(object):
                                 service,
                                 member['network_id']
                             ))
-                        member_subnet = (
-                            self.service_adapter.get_subnet_from_service(
-                                service,
-                                member['subnet_id']
-                            ))
                         if member_network:
-                            self.assign_route_domain(
-                                tenant_id, member_network, member_subnet)
+                            if member["provisioning_status"] in [
+                                    constants_v2.PENDING_DELETE,
+                                    constants_v2.ERROR]:
+                                self.assign_delete_route_domain(
+                                    tenant_id, member_network)
+                            else:
+                                self.assign_route_domain(
+                                    tenant_id, member_network)
                             rd_id = (
                                 '%' + str(member_network['route_domain_id'])
                             )
@@ -256,10 +257,11 @@ class NetworkServiceBuilder(object):
             if 'network_id' in loadbalancer:
                 lb_network = self.service_adapter.get_network_from_service(
                     service, loadbalancer['network_id'])
-                vip_subnet = self.service_adapter.get_subnet_from_service(
-                    service, loadbalancer['vip_subnet_id'])
-                self.assign_route_domain(
-                    tenant_id, lb_network, vip_subnet)
+                if loadbalancer["provisioning_status"] in [
+                        constants_v2.PENDING_DELETE, constants_v2.ERROR]:
+                    self.assign_delete_route_domain(tenant_id, lb_network)
+                else:
+                    self.assign_route_domain(tenant_id, lb_network)
                 rd_id = '%' + str(lb_network['route_domain_id'])
                 service['loadbalancer']['vip_address'] += rd_id
             else:
@@ -268,6 +270,7 @@ class NetworkServiceBuilder(object):
     def is_common_network(self, network):
         return self.l2_service.is_common_network(network)
 
+    # NOTE(pzhang) we can delete this?
     def find_subnet_route_domain(self, tenant_id, subnet_id):
         rd_id = 0
         bigip = self.driver.get_bigip()
@@ -282,342 +285,110 @@ class NetworkServiceBuilder(object):
 
         return rd_id
 
-    def assign_route_domain(self, tenant_id, network, subnet):
-        # Assign route domain for a network
+    def assign_delete_route_domain(self, tenant_id, network):
+        LOG.info("Assgin route domain for deleting")
         if self.l2_service.is_common_network(network):
             network['route_domain_id'] = 0
             return
 
-        LOG.debug("max namespaces: %s" % self.conf.max_namespaces_per_tenant)
+        route_domain = self.get_route_domain(network)
+        self.set_network_route_domain(network, route_domain)
+        LOG.info("Finish route domain %s for deleting" %
+                 route_domain)
 
-        if self.conf.max_namespaces_per_tenant == 1:
-            project_route_domain = None
-
-            bigip = self.driver.get_bigip()
-            try:
-                partition_id = self.service_adapter.get_folder_name(
-                    tenant_id)
-                tenant_rd = self.network_helper.get_route_domain(
-                    bigip, partition=partition_id)
-
-                project_route_domain = tenant_rd.id
-
-            except iControlUnexpectedHTTPError:
-                LOG.debug("Can not get a project route domain from bigip"
-                          " %s partition %s, now try to create" %
-                          (bigip, partition_id))
-
-                project_route_domain = self._create_rd(
-                    tenant_id, is_aux=False
-                )
-
-            if not project_route_domain:
-                raise Exception("Cannot allocate route domain for project "
-                                "%s in max_namespaces_per_tenant = 1 mode."
-                                % tenant_id)
-
-            network['route_domain_id'] = project_route_domain
+    def assign_route_domain(self, tenant_id, network):
+        LOG.info(
+            "Start creating Route Domain of network %s "
+            "for tenant: %s" % (network, tenant_id)
+        )
+        if self.l2_service.is_common_network(network):
+            network['route_domain_id'] = 0
             return
 
-        LOG.debug("Assign route domain get from cache %s. "
-                  "The network is %s." % (self.rds_cache, network))
+        bigips = self.driver.get_all_bigips()
+        for bigip in bigips:
+            self.create_rd_by_net(bigip, tenant_id, network)
+
+        LOG.info(
+            "Finished creating Route Domain of network %s "
+            "for tenant: %s" % (network, tenant_id)
+        )
+
+    def create_rd_by_net(self, bigip, tenant_id, network):
+        LOG.info("Create Route Domain by network %s", network)
+
+        partition = self.service_adapter.get_folder_name(
+            tenant_id
+        )
+        name = self.get_rd_name(network)
+        route_domain = self.get_route_domain(network)
+        self.set_network_route_domain(network, route_domain)
 
         try:
-            route_domain_id = self.get_route_domain_from_cache(
-                tenant_id, network)
-            network['route_domain_id'] = route_domain_id
-            return
-        except f5_ex.RouteDomainCacheMiss as exc:
-            LOG.debug(exc.message)
+            exists = self.network_helper.route_domain_exists(
+                bigip, partition=partition, name=name
+            )
 
-        LOG.debug("assign route domain checking for available route domain")
-        check_cidr = netaddr.IPNetwork(subnet['cidr'])
-        placed_route_domain_id = None
-        for route_domain_id in self.rds_cache[tenant_id]:
-            LOG.debug("checking rd %s" % route_domain_id)
-            rd_entry = self.rds_cache[tenant_id][route_domain_id]
-            overlapping_subnet = None
-            for net_shortname in rd_entry:
-                LOG.debug("checking net %s" % net_shortname)
-                net_entry = rd_entry[net_shortname]
-                for exist_subnet_id in net_entry['subnets']:
-                    if exist_subnet_id == subnet['id']:
-                        continue
-                    exist_subnet = net_entry['subnets'][exist_subnet_id]
-                    exist_cidr = exist_subnet['cidr']
-                    if check_cidr in exist_cidr or exist_cidr in check_cidr:
-                        overlapping_subnet = exist_subnet
-                        LOG.debug('rd %s: overlaps with subnet %s id: %s' % (
-                            (route_domain_id, exist_subnet, exist_subnet_id)))
-                        break
-                if overlapping_subnet:
-                    # no need to keep looking
-                    break
-            if not overlapping_subnet:
-                placed_route_domain_id = route_domain_id
-                break
-
-        if placed_route_domain_id is None:
-            if (len(self.rds_cache[tenant_id]) <
-                    self.conf.max_namespaces_per_tenant):
-                placed_route_domain_id = self._create_rd(
-                    tenant_id, is_aux=True)
-                self.rds_cache[tenant_id][placed_route_domain_id] = {}
-                LOG.debug("Tenant %s now has %d route domains" %
-                          (tenant_id, len(self.rds_cache[tenant_id])))
+            if exists:
+                LOG.info("route domain: %s, %s exists on bigip: %s"
+                         % (name, route_domain, bigip.hostname))
             else:
-                raise Exception("Cannot allocate route domain")
+                self.network_helper.create_route_domain(
+                    bigip,
+                    route_domain,
+                    name,
+                    partition=partition,
+                    strictness=self.conf.f5_route_domain_strictness
+                )
 
-        LOG.debug("Placed in route domain %s" % placed_route_domain_id)
-        rd_entry = self.rds_cache[tenant_id][placed_route_domain_id]
+                LOG.info("create route domain: %s, %s on bigip: %s"
+                         % (name, route_domain, bigip.hostname))
+        except Exception as ex:
+            if ex.response.status_code == 409:
+                LOG.info("route domain %s already exists: %s, ignored.." % (
+                    route_domain, ex.message))
+            else:
+                # FIXME(pzhang): what to do with multiple agent race?
+                LOG.error(ex.message)
+                raise f5_ex.RouteDomainCreationException(
+                    "Failed to create route domain: %s, %s on bigip %s"
+                    % (name, route_domain, bigip.hostname)
+                )
 
-        net_short_name = self.get_neutron_net_short_name(network)
-        if net_short_name not in rd_entry:
-            rd_entry[net_short_name] = {'subnets': {}}
-        net_subnets = rd_entry[net_short_name]['subnets']
-        net_subnets[subnet['id']] = {'cidr': check_cidr}
-        network['route_domain_id'] = placed_route_domain_id
+    def get_rd_name(self, network):
+        name = self.conf.environment_prefix + '_' + network["id"]
+        return name
 
-    def _create_rd(self, tenant_id, is_aux=False):
-        # Create a new route domain
-        bigips = self.driver.get_all_bigips()
-        retries = 5
-        rd_id = None
-        while retries > 0:
-            retries -= 1
-            try:
-                rd_id = self.network_helper.get_next_domain_id(bigips)
-                LOG.info('retrying create route domain id: %d' % rd_id)
-                for bigip in bigips:
-                    partition_id = self.service_adapter.get_folder_name(
-                                    tenant_id)
-                    self.network_helper.create_route_domain(
-                        bigip,
-                        rd_id,
-                        partition=partition_id,
-                        strictness=self.conf.f5_route_domain_strictness,
-                        is_aux=is_aux)
-                LOG.debug("Allocated route domain %s for tenant %s"
-                          % (rd_id, tenant_id))
-                break
-            except Exception as err:
-                # 409 situation:
-                # {"code":409,"message":"01020066:3:
-                # The requested route domain (/CORE_xxx/CORE_xxxx)
-                # already exists in partition CORE_xxxx."
-                if isinstance(err, HTTPError) and \
-                        err.response.status_code == 409:
-                    LOG.info("rd %d already exists, ignore." % rd_id)
-                    # This route domain might be created by another
-                    # agent process.
-                    # When is_aux==False, rd_id is not included in rd
-                    # name, so that the rd id might not be same as the
-                    # id calculated by me.
-                    # When is_aux==True, rd_id is included in rd name,
-                    # there will not be inconsistency.
-                    if not is_aux:
-                        rd = self.network_helper.get_route_domain(
-                            bigip, partition=partition_id)
-                        rd_id = rd.id
-                    break
-                elif retries == 0:
-                    raise f5_ex.RouteDomainCreationException(
-                        "Failed to create route domain for "
-                        "tenant %s: %s" % (tenant_id, err.message))
-                else:
-                    # 400 situation: {"code":400,"message":"01070734:3:
-                    # Configuration error: invalid route domain,
-                    # the domain id already exists (77)
-                    LOG.info("Failed to create route domain for tenant"
-                             " %s: %s, retrying." % (tenant_id, err.message))
-        else:
-            LOG.error("Failed to create route domain for max retries")
-            raise f5_ex.RouteDomainCreationException(
-                        "Failed to create route domain: %s" % tenant_id)
-        return rd_id
+    def set_network_route_domain(self, network, route_domain):
+        if not route_domain:
+            raise Exception("Route domain is not found, for network "
+                            "%s." % network)
 
-    # The purpose of the route domain subnet cache is to
-    # determine whether there is an existing bigip
-    # subnet that conflicts with a new one being
-    # assigned to the route domain.
-    """
-    # route domain subnet cache
-    rds_cache =
-        {'<tenant_id>': {
-            {'0': {
-                '<network type>-<segmentation id>': [
-                    'subnets': [
-                        '<subnet id>': {
-                            'cidr': '<cidr>'
-                        }
-                ],
-            '1': {}}}}
-    """
-    def update_rds_cache(self, tenant_id):
-        # Update the route domain cache from bigips
-        if tenant_id not in self.rds_cache:
-            LOG.debug("rds_cache: adding tenant %s" % tenant_id)
-            self.rds_cache[tenant_id] = {}
-            for bigip in self.driver.get_all_bigips():
-                self.update_rds_cache_bigip(tenant_id, bigip)
-            LOG.debug("rds_cache updated: " + str(self.rds_cache))
+        network["route_domain_id"] = route_domain
 
-    def update_rds_cache_bigip(self, tenant_id, bigip):
-        # Update the route domain cache for this tenant
-        # with information from bigip's vlan and tunnels
-        LOG.debug("rds_cache: processing bigip %s" % bigip.device_name)
+    def get_route_domain(self, network):
+        net_type = network['provider:network_type']
+        net_segement = network['provider:segmentation_id']
+        shared = network['shared']
 
-        route_domain_ids = self.network_helper.get_route_domain_ids(
-            bigip,
-            partition=self.service_adapter.get_folder_name(tenant_id))
-        # LOG.debug("rds_cache: got bigip route domains: %s" % route_domains)
-        for route_domain_id in route_domain_ids:
-            self.update_rds_cache_bigip_rd_vlans(
-                tenant_id, bigip, route_domain_id)
+        if shared:
+            LOG.info("route domain: 0 for shared network: %s"
+                     % network)
+            return 0
 
-    def update_rds_cache_bigip_rd_vlans(
-            self, tenant_id, bigip, route_domain_id):
-        # Update the route domain cache with information
-        # from the bigip vlans and tunnels from
-        # this route domain
-        LOG.debug("rds_cache: processing bigip %s rd %s"
-                  % (bigip.device_name, route_domain_id))
-        # this gets tunnels too
-        partition_id = self.service_adapter.get_folder_name(tenant_id)
-        rd_vlans = self.network_helper.get_vlans_in_route_domain_by_id(
-            bigip,
-            partition=partition_id,
-            id=route_domain_id
-        )
-        LOG.debug("rds_cache: bigip %s rd %s vlans: %s"
-                  % (bigip.device_name, route_domain_id, rd_vlans))
-        if len(rd_vlans) == 0:
-            LOG.debug("No vlans found for route domain: %d" %
-                      (route_domain_id))
-            return
+        if not net_type:
+            raise f5_ex.InvalidNetworkType(
+                'Provider network attributes not complete:'
+                'Provider:network_type - {0} '
+                'Provider:segmentation_id - {1}'
+                'Provider network - {2}'
+                .format(net_type, net_segement,
+                        network))
 
-        # make sure this rd has a cache entry
-        tenant_entry = self.rds_cache[tenant_id]
-        if route_domain_id not in tenant_entry:
-            tenant_entry[route_domain_id] = {}
+        LOG.info("route domain: %s for network: %s"
+                 % (net_segement, network))
 
-        # for every VLAN or TUNNEL on this bigip...
-        for rd_vlan in rd_vlans:
-            self.update_rds_cache_bigip_vlan(
-                tenant_id, bigip, route_domain_id, rd_vlan)
-
-    def update_rds_cache_bigip_vlan(
-            self, tenant_id, bigip, route_domain_id, rd_vlan):
-        # Update the route domain cache with information
-        #    from the bigip vlan or tunnel
-        LOG.debug("rds_cache: processing bigip %s rd %d vlan %s"
-                  % (bigip.device_name, route_domain_id, rd_vlan))
-        net_short_name = self.get_bigip_net_short_name(
-            bigip, tenant_id, rd_vlan)
-
-        # make sure this net has a cache entry
-        tenant_entry = self.rds_cache[tenant_id]
-        rd_entry = tenant_entry[route_domain_id]
-        if net_short_name not in rd_entry:
-            rd_entry[net_short_name] = {'subnets': {}}
-        net_subnets = rd_entry[net_short_name]['subnets']
-
-        partition_id = self.service_adapter.get_folder_name(tenant_id)
-        LOG.debug("Calling get_selfips with: partition %s and vlan_name %s",
-                  partition_id, rd_vlan)
-        selfips = self.bigip_selfip_manager.get_selfips(
-            bigip,
-            partition=partition_id,
-            vlan_name=rd_vlan
-        )
-
-        LOG.debug("rds_cache: got selfips")
-        for selfip in selfips:
-            LOG.debug("rds_cache: processing bigip %s rd %s vlan %s self %s" %
-                      (bigip.device_name, route_domain_id, rd_vlan,
-                       selfip.name))
-            if bigip.device_name not in selfip.name:
-                LOG.error("rds_cache: Found unexpected selfip %s for tenant %s"
-                          % (selfip.name, tenant_id))
-                continue
-            subnet_id = selfip.name.split(bigip.device_name + '-')[1]
-
-            # convert 10.1.1.1%1/24 to 10.1.1.1/24
-            (addr, netbits) = selfip.address.split('/')
-            addr = addr.split('%')[0]
-            selfip.address = addr + '/' + netbits
-
-            # selfip addresses will have slash notation: 10.1.1.1/24
-            netip = netaddr.IPNetwork(selfip.address)
-            LOG.debug("rds_cache: updating subnet %s with %s"
-                      % (subnet_id, str(netip.cidr)))
-            net_subnets[subnet_id] = {'cidr': netip.cidr}
-            LOG.debug("rds_cache: now %s" % self.rds_cache)
-
-    def get_route_domain_from_cache(self, tenant_id, network):
-        # Get route domain from cache by network
-        net_short_name = self.get_neutron_net_short_name(network)
-        tenant_cache = self.rds_cache.get(tenant_id, {})
-        for route_domain_id in tenant_cache:
-            if net_short_name in tenant_cache[route_domain_id]:
-                return route_domain_id
-
-        # Not found
-        raise f5_ex.RouteDomainCacheMiss(
-            "No route domain cache entry for {0}".format(net_short_name))
-
-    def remove_from_rds_cache(self, network, subnet):
-        # Get route domain from cache by network
-        LOG.debug("remove_from_rds_cache")
-        net_short_name = self.get_neutron_net_short_name(network)
-        for tenant_id in self.rds_cache:
-            LOG.debug("rds_cache: processing remove for %s" % tenant_id)
-            deleted_rds = []
-            tenant_cache = self.rds_cache[tenant_id]
-            for route_domain_id in tenant_cache:
-                if net_short_name in tenant_cache[route_domain_id]:
-                    net_entry = tenant_cache[route_domain_id][net_short_name]
-                    if subnet['id'] in net_entry['subnets']:
-                        del net_entry['subnets'][subnet['id']]
-                        if len(net_entry['subnets']) == 0:
-                            del net_entry['subnets']
-                    if len(tenant_cache[route_domain_id][net_short_name]) == 0:
-                        del tenant_cache[route_domain_id][net_short_name]
-                if len(self.rds_cache[tenant_id][route_domain_id]) == 0:
-                    deleted_rds.append(route_domain_id)
-            for rd in deleted_rds:
-                LOG.debug("removing route domain %d from tenant %s" %
-                          (rd, tenant_id))
-                del self.rds_cache[tenant_id][rd]
-
-    def get_bigip_net_short_name(self, bigip, tenant_id, network_name):
-        # Return <network_type>-<seg_id> for bigip network
-        LOG.debug("get_bigip_net_short_name: %s:%s" % (
-            tenant_id, network_name))
-        partition_id = self.service_adapter.get_folder_name(tenant_id)
-        LOG.debug("network_name %s", network_name.split('/'))
-        network_name = network_name.split("/")[-1]
-        if 'tunnel-gre-' in network_name:
-            tunnel_key = self.network_helper.get_tunnel_key(
-                bigip,
-                network_name,
-                partition=partition_id
-            )
-            return 'gre-%s' % tunnel_key
-        elif 'tunnel-vxlan-' in network_name:
-            LOG.debug("Getting tunnel key for VXLAN: %s", network_name)
-            tunnel_key = self.network_helper.get_tunnel_key(
-                bigip,
-                network_name,
-                partition=partition_id
-            )
-            return 'vxlan-%s' % tunnel_key
-        else:
-            LOG.debug("Getting tunnel key for VLAN: %s", network_name)
-            vlan_id = self.network_helper.get_vlan_id(bigip,
-                                                      name=network_name,
-                                                      partition=partition_id)
-            return 'vlan-%s' % vlan_id
+        return net_segement
 
     @staticmethod
     def get_neutron_net_short_name(network):
@@ -875,12 +646,15 @@ class NetworkServiceBuilder(object):
                             opflex_net_id)
                         deleted_names.add(opflex_net_port)
 
-                self.l2_service.delete_bigip_network(bigip, network)
+                if not subnetinfo['network_vlan_inuse']:
+                    self.delete_route_domain(
+                        bigip, network_folder, network
+                    )
+                    self.l2_service.delete_bigip_network(bigip, network)
 
                 if subnet['id'] not in subnet_hints['do_not_delete_subnets']:
                     subnet_hints['do_not_delete_subnets'].append(subnet['id'])
 
-                self.remove_from_rds_cache(network, subnet)
                 tenant_id = service['loadbalancer']['tenant_id']
                 if tenant_id in bigip.assured_tenant_snat_subnets:
                     tenant_snat_subnets = \
@@ -910,26 +684,41 @@ class NetworkServiceBuilder(object):
             route_domain = network.get('route_domain_id', None)
             if not subnet:
                 continue
-            if not self._ips_exist_on_subnet(
-                    bigip,
-                    service,
-                    subnet,
-                    route_domain):
+
+            tenant_id = service['loadbalancer']['tenant_id']
+
+            inuse = self.selfip_routedomain_inuse(
+                bigip,
+                tenant_id,
+                subnet,
+                route_domain
+            )
+
+            if not inuse['selfip']:
+                # XXX(pzhang): a vlan map a route domain,
+                # if route domain is not inuse, then mark its vlan
+                # can be deleted.
+                subnetinfo['network_vlan_inuse'] = inuse['route_domain']
                 subnets_to_delete.append(subnetinfo)
 
         return subnets_to_delete
 
-    def _ips_exist_on_subnet(self, bigip, service, subnet, route_domain):
-        # pzhang: check vip and nodes on bigips
-        # Does the big-ip have any IP addresses on this subnet?
-        LOG.debug("_ips_exist_on_subnet entry %s rd %s"
-                  % (str(subnet['cidr']), route_domain))
+    def selfip_routedomain_inuse(self, bigip, tenant_id,
+                                 subnet, route_domain):
+        # check vip and nodes on bigips
+        # does the big-ip have any IP addresses on this subnet.
+        # check the selfip is in use.
+        # check the selfip related route domain is in use.
+        # FIXME(pzhang): it may have race problem
+
+        inuse = {"route_domain": False, "selfip": False}
+
         route_domain = str(route_domain)
         ipsubnet = netaddr.IPNetwork(subnet['cidr'])
 
         # Are there any virtual addresses on this subnet?
         folder = self.service_adapter.get_folder_name(
-            service['loadbalancer']['tenant_id']
+            tenant_id
         )
         va_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual_address)
@@ -937,18 +726,16 @@ class NetworkServiceBuilder(object):
 
         for vip in virtual_addresses:
             dest = vip.address
-            LOG.debug("ANY VIP EXISTS: _ips_exist_on_subnet: checking vip %s"
-                      % dest)
             if len(dest.split('%')) > 1:
                 vip_route_domain = dest.split('%')[1]
             else:
                 vip_route_domain = '0'
-            if vip_route_domain != route_domain:
-                continue
-            vip_addr = strip_domain_address(dest)
-            if netaddr.IPAddress(vip_addr) in ipsubnet:
-                LOG.debug("FOUND VIP EXIST _ips_exist_on_subnet: found")
-                return True
+
+            if vip_route_domain == route_domain:
+                inuse["route_domain"] = True
+                vip_addr = strip_domain_address(dest)
+                if netaddr.IPAddress(vip_addr) in ipsubnet:
+                    inuse["selfip"] = True
 
         # If there aren't any virtual addresses, are there
         # node addresses on this subnet?
@@ -957,24 +744,41 @@ class NetworkServiceBuilder(object):
             partition=folder
         )
         for node in nodes:
-            LOG.debug(
-                "ANY NODES IP EXISTS _ips_exist_on_subnet: checking node %s"
-                % str(node))
             if len(node.split('%')) > 1:
                 node_route_domain = node.split('%')[1]
             else:
                 node_route_domain = '0'
-            if node_route_domain != route_domain:
-                continue
-            node_addr = strip_domain_address(node)
-            if netaddr.IPAddress(node_addr) in ipsubnet:
-                LOG.debug("FOUND NODES IP EXIST _ips_exist_on_subnet: found")
-                return True
+
+            if node_route_domain == route_domain:
+                inuse["route_domain"] = True
+                node_addr = strip_domain_address(node)
+                if netaddr.IPAddress(node_addr) in ipsubnet:
+                    inuse["selfip"] = True
 
         LOG.debug("_ips_exist_on_subnet exit %s"
                   % str(subnet['cidr']))
-        # nothing found
-        return False
+
+        return inuse
+
+    def delete_route_domain(self, bigip, partition, network):
+        LOG.info("Deleting route domain of network %s",
+                 network)
+
+        name = self.get_rd_name(network)
+        try:
+            self.network_helper.delete_route_domain(
+                bigip,
+                partition=partition,
+                name=name
+            )
+        except HTTPError as err:
+            if err.response.status_code == 404:
+                LOG.warning(
+                    "The deleting route domain"
+                    "is not found: %s", err.message
+                )
+            else:
+                raise err
 
     def add_bigip_fdb(self, bigip, fdb):
         self.l2_service.add_bigip_fdb(bigip, fdb)
