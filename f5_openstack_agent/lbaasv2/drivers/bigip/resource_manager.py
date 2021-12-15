@@ -23,6 +23,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.acl import ACLHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
     import FTPProfileHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.http_profile \
+    import HTTPProfileHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.irule \
     import iRuleHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_adapter \
@@ -613,6 +615,7 @@ class ListenerManager(ResourceManager):
         self.source_addr_persist_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.source_addr_persistence)
         self.ftp_helper = FTPProfileHelper()
+        self.http_helper = HTTPProfileHelper()
         self.acl_helper = ACLHelper()
         self.irule_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.rule)
@@ -684,6 +687,9 @@ class ListenerManager(ResourceManager):
         # If any other profile requires different behavior, need to implement
         # that specific behavior by itself.
         customized = self._customized_profile(profile_type, listener)
+        customized.update(
+            self.http_helper.set_xff(listener)
+        )
         profile.update(customized)
 
     def _create_payload(self, listener, service):
@@ -786,10 +792,11 @@ class ListenerManager(ResourceManager):
 
     def _update_needed(self, payload, old_listener, listener):
         if self._check_tls_changed(old_listener, listener) or \
-           self._check_customized_changed(old_listener, listener) or \
-           self._check_redirect_changed(old_listener, listener) or \
-           self._check_http2_changed(old_listener, listener) or \
-           self.tcp_helper.need_update_tcp(old_listener, listener):
+                self._check_customized_changed(old_listener, listener) or \
+                self._check_redirect_changed(old_listener, listener) or \
+                self._check_http2_changed(old_listener, listener) or \
+                self.tcp_helper.need_update_tcp(old_listener, listener) or \
+                self.http_helper.need_update_xff(old_listener, listener):
             return True
         return super(ListenerManager, self)._update_needed(
             payload, old_listener, listener)
@@ -928,6 +935,7 @@ class ListenerManager(ResourceManager):
         try:
             with open(file_name) as file:
                 self.extended_profiles = json.load(file)
+                self._filter_depercated(self.extended_profiles)
         except ValueError:
             LOG.error("Extended profile %s is an invalid json", file_name)
             return
@@ -957,12 +965,23 @@ class ListenerManager(ResourceManager):
 
         return
 
+    def _filter_depercated(self, cust):
+        depercated = {"http_profile": ["insertXforwardedFor"]}
+
+        for profile, depercated_vals in depercated.items():
+            cust_profile = cust.get(profile)
+            if cust_profile:
+                for val in depercated_vals:
+                    if val in cust_profile:
+                        del cust_profile[val]
+
     def _customized_profile(self, profile_type, listener):
         if 'customized' not in listener or not listener['customized']:
             return {}
 
         try:
             customized = json.loads(listener['customized'])
+            self._filter_depercated(customized)
         except ValueError:
             LOG.error("Invalid json format: %s", listener['customized'])
             return {}
