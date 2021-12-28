@@ -1,3 +1,4 @@
+lazy-object-proxy==1.6.0
 flake8
 hacking
 pep257
