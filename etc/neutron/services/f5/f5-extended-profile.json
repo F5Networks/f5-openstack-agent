@@ -1,7 +1,5 @@
 {
-    "http_profile": {
-        "insertXforwardedFor": "enabled"
-    },
+    "http_profile": {},
     "http2_profile": {
         "activationModes": ["always"]
     },
