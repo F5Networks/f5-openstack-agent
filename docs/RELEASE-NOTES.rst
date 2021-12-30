@@ -5,23 +5,6 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
-v9.9.40.patch2 (Pike, Queens)
---------------------------------------------
-NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
-
-Added Functionality
-```````````````````
-[OPENSTACK-2284] refact: create route domain/vlan by net
-[OPENSTACK-2344] feat: use '--transparent' to enable/disable xff
-[OPENSTACK-2344] chore: remove xff configuration in json file
-
-Bug Fixes
-`````````
-[OPENSTACK-2262] Fix IPv6 redirect host parsing
-
-Limitations
-```````````
-
 v9.9.40.patch1 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
