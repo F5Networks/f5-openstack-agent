@@ -1,1 +1,1 @@
-__version__ = "9.9.40.patch1"
+__version__ = "9.9.40.patch2"
