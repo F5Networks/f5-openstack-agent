@@ -5,6 +5,28 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.48beta (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2350] depercated customized to configure xff
+* [OPENSTACK-2350] feat: disable --customized to update xff
+* [OPENSTACK-2350] refact: refactory XFF function to use transparent
+* [OPENSTACK-2350] feat: add TOA funtion for TCP listener
+* [OPENSTACK-2349] Support redirect LTM policy
+
+Bug Fixes
+`````````
+* [OPENSTACK-2262] Fix IPv6 redirect host parsing
+* [OPENSTACK-2350]fix: depercated --customized insertXforwardedFor
+* [OPENSTACK-2350] fix: TOA update need to delete profile and iRule
+* [OPENSTACK-2342] fix: selfip recreating is unabled to catch HTTP 409
+* [OPENSTACK-2341] fix: get all nodes in a partition
+
+Limitations
+
 v9.8.47 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.

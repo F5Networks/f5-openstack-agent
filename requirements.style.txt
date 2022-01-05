@@ -2,3 +2,4 @@ flake8
 hacking
 pep257
 pylint
+lazy-object-proxy==1.6.0
