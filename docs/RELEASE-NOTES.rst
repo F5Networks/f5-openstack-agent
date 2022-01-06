@@ -22,7 +22,7 @@ Bug Fixes
 * [OPENSTACK-2262] Fix IPv6 redirect host parsing
 * [OPENSTACK-2350]fix: depercated --customized insertXforwardedFor
 * [OPENSTACK-2350] fix: TOA update need to delete profile and iRule
-* [OPENSTACK-2342] fix: selfip recreating is unabled to catch HTTP 409
+* [OPENSTACK-2342] fix: selfip recreating fails to catch HTTP 409
 * [OPENSTACK-2341] fix: get all nodes in a partition
 
 Limitations
