@@ -1,5 +1,3 @@
 {
-    "http_profile":{
-        "insertXforwardedFor": "enabled"
-    }
+    "http_profile":{}
 }
