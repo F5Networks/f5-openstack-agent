@@ -1249,6 +1249,32 @@ class MonitorManager(ResourceManager):
         super(MonitorManager, self).update(
             old_monitor, monitor, service)
 
+    def _update_payload(self, old_resource, resource, service, **kwargs):
+        LOG.info('inside _update_payload MonitorManager')
+        payload = kwargs.get('payload', {})
+        create_payload = kwargs.get('create_payload',
+                                    self._create_payload(resource, service))
+
+        for key in self.mutable_props.keys():
+            old = old_resource.get(key)
+            new = resource.get(key)
+            if old != new:
+                prop = self.mutable_props[key]
+                payload[prop] = create_payload[prop]
+
+        LOG.info(payload)
+        # changing only interval needs to update timeout as well
+        if 'interval' in payload:
+            payload['timeout'] = create_payload['timeout']
+
+        if len(payload.keys()) > 0:
+            payload['name'] = create_payload['name']
+            payload['partition'] = create_payload['partition']
+
+        LOG.debug('payload here:')
+        LOG.debug(payload)
+        return payload
+
     @serialized('MonitorManager.delete')
     @log_helpers.log_method_call
     def delete(self, monitor, service, **kwargs):
