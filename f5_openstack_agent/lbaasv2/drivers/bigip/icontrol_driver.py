@@ -2049,6 +2049,7 @@ class iControlDriver(LBaaSBaseDriver):
             try:
                 self.network_builder.prep_service_networking(
                     service, traffic_group)
+                self.network_builder.config_snat(service)
             except f5ex.NetworkNotReady as error:
                 LOG.debug("Network creation for member deferred until "
                           "network definition is completed: %s",

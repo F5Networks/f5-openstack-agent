@@ -116,6 +116,7 @@ class ServiceModelAdapter(object):
 
         listener["use_snat"] = self.snat_mode()
 
+        # pzhang:import pdb; pdb.set_trace() listener have snatpool
         if listener["use_snat"] and self.snat_count() > 0:
             listener["snat_pool_name"] = self.get_folder_name(
                 loadbalancer["tenant_id"])
