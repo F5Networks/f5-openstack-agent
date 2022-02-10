@@ -39,7 +39,7 @@ class BigipSnatManager(object):
             ResourceType.snat_translation)
         self.network_helper = NetworkHelper()
 
-    def _get_snat_name(self, subnet, tenant_id):
+    def get_snat_name(self, subnet, tenant_id):
         # Get the snat name based on HA type
         if self.driver.conf.f5_ha_type == 'standalone':
             return 'snat-traffic-group-local-only-' + subnet['id']
@@ -49,6 +49,20 @@ class BigipSnatManager(object):
             traffic_group = self.driver.tenant_to_traffic_group(tenant_id)
             base_traffic_group = os.path.basename(traffic_group)
             return 'snat-' + base_traffic_group + '-' + subnet['id']
+        LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
+        return ''
+
+    def get_flavor_snat_name(self, subnet_id, lb_id,  tenant_id):
+
+        # Get the snat name based on HA type
+        if self.driver.conf.f5_ha_type == 'standalone':
+            return 'snat-tg-local-only-' + lb_id + '_' + subnet_id
+        elif self.driver.conf.f5_ha_type == 'pair':
+            return 'snat-tg-1-' + lb_id + '_' + subnet_id
+        elif self.driver.conf.f5_ha_type == 'scalen':
+            traffic_group = self.driver.tenant_to_traffic_group(tenant_id)
+            base_traffic_group = os.path.basename(traffic_group)
+            return 'snat-' + base_traffic_group + '-' + lb_id + '_' + subnet_id
         LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
         return ''
 
@@ -74,7 +88,7 @@ class BigipSnatManager(object):
         return ''
 
     def get_snat_addrs(self, subnetinfo, tenant_id, snat_count, lb_id,
-                       provider_name):
+                       snat_name, provider_name):
         # Get the ip addresses for snat
         if self.driver.conf.unlegacy_setting_placeholder:
             LOG.debug('setting vnic_type to normal instead of baremetal')
@@ -85,7 +99,6 @@ class BigipSnatManager(object):
         subnet = subnetinfo['subnet']
         snat_addrs = []
 
-        snat_name = self._get_snat_name(subnet, tenant_id)
         for i in range(snat_count):
             ip_address = ""
             index_snat_name = self._get_index_snat_name(snat_name,
@@ -117,33 +130,46 @@ class BigipSnatManager(object):
         return snat_addrs
 
     def assure_bigip_snats(self, bigip, subnetinfo, snat_addrs, tenant_id,
-                           provider_name):
+                           provider_name, pool_name=None):
         # Ensure Snat Addresses are configured on a bigip.
         # Called for every bigip only in replication mode.
         # otherwise called once and synced.
-        network = subnetinfo['network']
 
         snat_info = {}
-        if self.l2_service.is_common_network(network):
+        if self.l2_service.is_common_network(subnetinfo['network']):
             snat_info['network_folder'] = 'Common'
         else:
             snat_info['network_folder'] = (
                 self.driver.service_adapter.get_folder_name(tenant_id)
             )
 
-        snat_info['pool_name'] = self.driver.service_adapter.get_folder_name(
-            tenant_id
-        )
+        if not pool_name:
+            snat_info[
+                'pool_name'
+            ] = self.driver.service_adapter.get_folder_name(
+                tenant_id
+            )
+            snat_name = None
+        else:
+            snat_info[
+                'pool_name'
+            ] = self.driver.service_adapter.get_folder_name(
+                pool_name
+            )
+            snat_name = self.get_flavor_snat_name(
+                subnetinfo['subnet']['id'], pool_name, tenant_id
+            )
+
         snat_info['pool_folder'] = self.driver.service_adapter.get_folder_name(
             tenant_id
         )
         snat_info['addrs'] = snat_addrs
 
         self._assure_bigip_snats(bigip, subnetinfo, snat_info, tenant_id,
-                                 provider_name)
+                                 provider_name, snat_name)
 
     def _assure_bigip_snats(self, bigip, subnetinfo, snat_info, tenant_id,
-                            provider_name):
+                            provider_name, snat_name=None):
         # Configure the ip addresses for snat
         network = subnetinfo['network']
         subnet = subnetinfo['subnet']
@@ -154,7 +180,8 @@ class BigipSnatManager(object):
         if subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
             return
 
-        snat_name = self._get_snat_name(subnet, tenant_id)
+        if not snat_name:
+            snat_name = self.get_snat_name(subnet, tenant_id)
 
         snat_pool_model = {
             "name": snat_info['pool_name'],
@@ -288,6 +315,99 @@ class BigipSnatManager(object):
                 'Tenant id %s does not exist in '
                 'bigip.assured_tenant_snat_subnets' % tenant_id)
 
+    def delete_flavor_snats(self, bigip, subnetinfo, snat_count, tenant_id,
+                            provider_name, pool_name=None):
+        deleted_names = set()
+
+        # Assure snats deleted in standalone mode
+        network = subnetinfo['network']
+
+        partition = self.driver.service_adapter.get_folder_name(tenant_id)
+
+        if self.l2_service.is_common_network(network):
+            partition = 'Common'
+
+        snat_pool = self.driver.service_adapter.get_folder_name(pool_name)
+
+        snat_name = self.get_flavor_snat_name(
+            subnetinfo['subnet']['id'], pool_name, tenant_id
+        )
+        for i in range(self.driver.conf.f5_snat_addresses_per_subnet):
+            index_snat_name = self._get_index_snat_name(snat_name,
+                                                        provider_name, i)
+            deleted_names.add(index_snat_name)
+
+        self.snatpool_manager.delete(
+            bigip,
+            name=snat_pool,
+            partition=partition
+        )
+
+        return deleted_names
+
+    def update_flavor_snats(
+            self, bigip, subnetinfo, snat_addrs_map,
+            lb_id, tenant_id, diff
+    ):
+
+        partition = self.driver.service_adapter.get_folder_name(
+            tenant_id
+        )
+        if self.l2_service.is_common_network(subnetinfo['network']):
+            partition = 'Common'
+
+        pool_name = self.driver.service_adapter.get_folder_name(
+            lb_id
+        )
+
+        tg = self._get_snat_traffic_group(tenant_id)
+
+        snatpool = self.snatpool_manager.load(
+            bigip,
+            name=pool_name,
+            partition=partition
+        )
+
+        members = None
+        if diff < 0:
+            update_members = ['/' + partition + '/' + name
+                              for name in snat_addrs_map.keys()]
+            members = list(
+                set(snatpool.members) - set(update_members)
+            )
+            snatpool.modify(members=members)
+
+            for name, addr in snat_addrs_map.items():
+                self.snat_translation_manager.delete(
+                    bigip, name=name, partition=partition
+                )
+        if diff > 0:
+            for name, addr in snat_addrs_map.items():
+                snat_translation_model = {
+                    "name": name,
+                    "partition": partition,
+                    "address": addr,
+                    "trafficGroup": tg
+                }
+
+                try:
+                    self.snat_translation_manager.create(
+                        bigip, snat_translation_model)
+                except HTTPError as err:
+                    if err.response.status_code == 409:
+                        LOG.info(
+                            "SNAT Address %s already exists: %s." % (
+                                name, err.message
+                            )
+                        )
+
+            update_members = ['/' + partition + '/' + name
+                              for name in snat_addrs_map.keys()]
+            members = list(
+                set(snatpool.members + update_members)
+            )
+            snatpool.modify(members=members)
+
     def _delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
         # Assure snats deleted in standalone mode
         subnet = subnetinfo['subnet']
@@ -303,7 +423,7 @@ class BigipSnatManager(object):
         in_use_subnets = set()
 
         # Delete SNATs on traffic-group-local-only
-        snat_name = self._get_snat_name(subnet, tenant_id)
+        snat_name = self.get_snat_name(subnet, tenant_id)
         for i in range(self.driver.conf.f5_snat_addresses_per_subnet):
             index_snat_name = self._get_index_snat_name(snat_name,
                                                         provider_name, i)
@@ -414,3 +534,10 @@ class BigipSnatManager(object):
                 if member_name == os.path.basename(member):
                     snat_count += 1
         return snat_count
+
+    def snatpool_exist(self, bigip, name, partition='Common'):
+        if not name:
+            return False
+        return self.snatpool_manager.exists(
+            bigip, name=name, partition=partition
+        )

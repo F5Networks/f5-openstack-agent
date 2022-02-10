@@ -341,6 +341,7 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
+            self.driver.network_builder.config_snat(service)
 
     def __get_update_operation(self, old_loadbalancer, loadbalancer):
 
@@ -552,8 +553,20 @@ class LoadBalancerManager(ResourceManager):
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
         self._update_bwc(old_loadbalancer, loadbalancer, service)
         self._update_2_limits(old_loadbalancer, loadbalancer, service)
+        self._update_flavor_snat(old_loadbalancer, loadbalancer, service)
+
         super(LoadBalancerManager, self).update(
             old_loadbalancer, loadbalancer, service)
+
+    def _update_flavor_snat(
+        self, old_loadbalancer, loadbalancer, service
+    ):
+        if self.driver.network_builder:
+            if loadbalancer.get('flavor') != \
+                    old_loadbalancer.get('flavor'):
+                self.driver.network_builder.update_flavor_snat(
+                    old_loadbalancer, loadbalancer, service
+                )
 
     @serialized('LoadBalancerManager.delete')
     @log_helpers.log_method_call
@@ -594,6 +607,7 @@ class LoadBalancerManager(ResourceManager):
     def _post_delete(self, service):
         # self.driver.network_builder is None in global routed mode
         if self.driver.network_builder:
+            self.driver.network_builder.remove_flavor_snat(service)
             self.driver.network_builder.post_service_networking(
                 service, self.all_subnet_hints)
         self.tenant_manager.assure_tenant_cleanup(
