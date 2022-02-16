@@ -193,7 +193,7 @@ OPTS = [
     ),
     cfg.BoolOpt(
         'esd_auto_refresh',
-        default=True,
+        default=False,
         help='Enable ESD file periodic refresh'
     ),
     cfg.StrOpt(
