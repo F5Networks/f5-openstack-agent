@@ -450,8 +450,6 @@ class iControlDriver(LBaaSBaseDriver):
                          ' and pool members must be routable through'
                          ' pre-provisioned SelfIPs.')
                 self.conf.use_namespaces = False
-                self.conf.f5_snat_mode = True
-                self.conf.f5_snat_addresses_per_subnet = 0
                 self.agent_configurations['tunnel_types'] = []
                 self.agent_configurations['bridge_mappings'] = {}
             else:
@@ -2049,6 +2047,7 @@ class iControlDriver(LBaaSBaseDriver):
             try:
                 self.network_builder.prep_service_networking(
                     service, traffic_group)
+                self.network_builder.config_snat(service)
             except f5ex.NetworkNotReady as error:
                 LOG.debug("Network creation for member deferred until "
                           "network definition is completed: %s",

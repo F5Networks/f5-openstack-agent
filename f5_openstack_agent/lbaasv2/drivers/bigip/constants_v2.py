@@ -90,3 +90,7 @@ PLUGIN = 'q-plugin'
 UPDATE = 'update'
 L2POPULATION = 'l2population'
 AGENT = 'q-agent-notifier'
+FLAVOR_SNAT_MAP = {
+    4: {1: 2, 2: 2, 3: 2, 4: 4, 5: 8, 6: 16},
+    6: {1: 1, 2: 1, 3: 1, 4: 3, 5: 7, 6: 15}
+}

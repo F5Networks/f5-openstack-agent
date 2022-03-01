@@ -22,6 +22,7 @@ import netaddr
 from operator import itemgetter
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
     LbaasServiceObject
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
@@ -77,8 +78,16 @@ class ServiceModelAdapter(object):
     def snat_mode(self):
         return self.conf.f5_snat_mode
 
-    def snat_count(self):
-        return self.conf.f5_snat_addresses_per_subnet
+    def snat_count(self, loadbalancer):
+        if self.conf.f5_global_routed_mode:
+            return 0
+
+        addr = loadbalancer['vip_address'].split('%')[0]
+        ip_version = netaddr.IPAddress(addr).version
+
+        return constants_v2.FLAVOR_SNAT_MAP[ip_version][
+            loadbalancer['flavor']
+        ]
 
     def vip_on_common_network(self, service):
         loadbalancer = service.get('loadbalancer', {})
@@ -116,9 +125,9 @@ class ServiceModelAdapter(object):
 
         listener["use_snat"] = self.snat_mode()
 
-        if listener["use_snat"] and self.snat_count() > 0:
+        if listener["use_snat"] and self.snat_count(loadbalancer) > 0:
             listener["snat_pool_name"] = self.get_folder_name(
-                loadbalancer["tenant_id"])
+                loadbalancer["id"])
 
         pool = self.get_vip_default_pool(service)
 
@@ -773,7 +782,6 @@ class ServiceModelAdapter(object):
                 vip['sourceAddressTranslation']['pool'] = \
                     listener["snat_pool_name"]
             else:
-                # if snat_count < 0, use automap
                 vip['sourceAddressTranslation']['type'] = 'automap'
         else:
             vip['sourceAddressTranslation'] = {}

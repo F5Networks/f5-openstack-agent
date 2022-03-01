@@ -283,7 +283,6 @@ class TestServiceAdapter(object):
         assert target.get_virtual(basic_service) == vip
         assert basic_service['pool']['session_persistence'] == \
             basic_service['listener']['session_persistence']
-        assert basic_service['listener']['snat_pool_name'] == tenant_id
         target._map_virtual.assert_called_once_with(
             basic_service['loadbalancer'], basic_service['listener'],
             pool=basic_service['pool'], policies=list(), irules=list())
