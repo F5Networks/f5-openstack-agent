@@ -13,13 +13,7 @@
 # limitations under the License.
 #
 
-from requests import HTTPError
-
-import os
-
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
-from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
-    NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
     BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper import \
@@ -30,510 +24,75 @@ LOG = logging.getLogger(__name__)
 
 
 class BigipSnatManager(object):
-    def __init__(self, driver, l2_service, l3_binding):
+    def __init__(self, driver, l2_service):
         self.driver = driver
         self.l2_service = l2_service
-        self.l3_binding = l3_binding
         self.snatpool_manager = BigIPResourceHelper(ResourceType.snatpool)
-        self.snat_translation_manager = BigIPResourceHelper(
-            ResourceType.snat_translation)
-        self.network_helper = NetworkHelper()
 
-    def get_snat_name(self, subnet, tenant_id):
-        # Get the snat name based on HA type
-        if self.driver.conf.f5_ha_type == 'standalone':
-            return 'snat-traffic-group-local-only-' + subnet['id']
-        elif self.driver.conf.f5_ha_type == 'pair':
-            return 'snat-traffic-group-1-' + subnet['id']
-        elif self.driver.conf.f5_ha_type == 'scalen':
-            traffic_group = self.driver.tenant_to_traffic_group(tenant_id)
-            base_traffic_group = os.path.basename(traffic_group)
-            return 'snat-' + base_traffic_group + '-' + subnet['id']
-        LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
-        return ''
+    def get_flavor_snat_name(self, lb_id):
+        return 'snat_' + lb_id
 
-    def get_flavor_snat_name(self, subnet_id, lb_id,  tenant_id):
-
-        # Get the snat name based on HA type
-        if self.driver.conf.f5_ha_type == 'standalone':
-            return 'snat-tg-local-only-' + lb_id + '_' + subnet_id
-        elif self.driver.conf.f5_ha_type == 'pair':
-            return 'snat-tg-1-' + lb_id + '_' + subnet_id
-        elif self.driver.conf.f5_ha_type == 'scalen':
-            traffic_group = self.driver.tenant_to_traffic_group(tenant_id)
-            base_traffic_group = os.path.basename(traffic_group)
-            return 'snat-' + base_traffic_group + '-' + lb_id + '_' + subnet_id
-        LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
-        return ''
-
-    def _get_index_snat_name(self, snat_name, provider_name, index):
-        if provider_name:
-            index_snat_name = snat_name + "_" + provider_name + "_" + str(
-                index)
-        else:
-            index_snat_name = snat_name + "_" + str(index)
-        return index_snat_name
-
-    def _get_snat_traffic_group(self, tenant_id):
-        # Get the snat name based on HA type
-        if self.driver.conf.f5_ha_type == 'standalone':
-            return 'traffic-group-local-only'
-        elif self.driver.conf.f5_ha_type == 'pair':
-            return 'traffic-group-1'
-        elif self.driver.conf.f5_ha_type == 'scalen':
-            traffic_group = self.driver.tenant_to_traffic_group(tenant_id)
-            return os.path.basename(traffic_group)
-        # If this is an error shouldn't we raise?
-        LOG.error('Invalid f5_ha_type:%s' % self.driver.conf.f5_ha_type)
-        return ''
-
-    def get_snat_addrs(self, subnetinfo, tenant_id, snat_count, lb_id,
-                       snat_name, provider_name):
-        # Get the ip addresses for snat
-        if self.driver.conf.unlegacy_setting_placeholder:
-            LOG.debug('setting vnic_type to normal instead of baremetal')
-            vnic_type = "normal"
-        else:
-            vnic_type = "baremetal"
-
-        subnet = subnetinfo['subnet']
-        snat_addrs = []
-
-        for i in range(snat_count):
-            ip_address = ""
-            index_snat_name = self._get_index_snat_name(snat_name,
-                                                        provider_name, i)
-            ports = self.driver.plugin_rpc.get_port_by_name(
-                port_name=index_snat_name)
-            if len(ports) > 0:
-                first_port = ports[0]
-                first_fixed_ip = first_port['fixed_ips'][0]
-                ip_address = first_fixed_ip['ip_address']
-            else:
-                new_port = self.driver.plugin_rpc.create_port_on_subnet(
-                    subnet_id=subnet['id'],
-                    mac_address=None,
-                    name=index_snat_name,
-                    fixed_address_count=1, device_id=lb_id,
-                    vnic_type=vnic_type
-                )
-                if new_port is not None:
-                    ip_address = new_port['fixed_ips'][0]['ip_address']
-
-            # Push the IP address on the list if the port was acquired.
-            if len(ip_address) > 0:
-                snat_addrs.append(ip_address)
-            else:
-                LOG.error("get_snat_addrs: failed to allocate port for "
-                          "SNAT address.")
-
-        return snat_addrs
-
-    def assure_bigip_snats(self, bigip, subnetinfo, snat_addrs, tenant_id,
-                           provider_name, pool_name=None):
-        # Ensure Snat Addresses are configured on a bigip.
-        # Called for every bigip only in replication mode.
-        # otherwise called once and synced.
-
-        snat_info = {}
-        if self.l2_service.is_common_network(subnetinfo['network']):
-            snat_info['network_folder'] = 'Common'
-        else:
-            snat_info['network_folder'] = (
-                self.driver.service_adapter.get_folder_name(tenant_id)
-            )
-
-        if not pool_name:
-            snat_info[
-                'pool_name'
-            ] = self.driver.service_adapter.get_folder_name(
-                tenant_id
-            )
-            snat_name = None
-        else:
-            snat_info[
-                'pool_name'
-            ] = self.driver.service_adapter.get_folder_name(
-                pool_name
-            )
-            snat_name = self.get_flavor_snat_name(
-                subnetinfo['subnet']['id'], pool_name, tenant_id
-            )
-
-        snat_info['pool_folder'] = self.driver.service_adapter.get_folder_name(
-            tenant_id
-        )
-        snat_info['addrs'] = snat_addrs
-
-        self._assure_bigip_snats(bigip, subnetinfo, snat_info, tenant_id,
-                                 provider_name, snat_name)
-
-    def _assure_bigip_snats(self, bigip, subnetinfo, snat_info, tenant_id,
-                            provider_name, snat_name=None):
+    def assure_bigip_snats(
+            self, bigip, subnetinfo,
+            snat_info, tenant_id, snat_name):
         # Configure the ip addresses for snat
         network = subnetinfo['network']
-        subnet = subnetinfo['subnet']
-        snat_translation_members = []
-
-        if tenant_id not in bigip.assured_tenant_snat_subnets:
-            bigip.assured_tenant_snat_subnets[tenant_id] = []
-        if subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
-            return
-
-        if not snat_name:
-            snat_name = self.get_snat_name(subnet, tenant_id)
+        members = [
+            m + '%' + str(network['route_domain_id'])
+            for m in snat_info['addrs']
+        ]
 
         snat_pool_model = {
             "name": snat_info['pool_name'],
             "partition": snat_info['pool_folder'],
+            "members": members
         }
-
-        for i, snat_address in enumerate(snat_info['addrs']):
-            ip_address = snat_address + \
-                '%' + str(network['route_domain_id'])
-            index_snat_name = self._get_index_snat_name(snat_name,
-                                                        provider_name, i)
-
-            snat_traffic_group = self._get_snat_traffic_group(tenant_id)
-            # snat.create() did  the following in LBaaSv1
-            # Creates the SNAT
-            #   * if the traffic_group is empty it uses a const
-            #     but this seems like it should be an error see message
-            #     in this file about this
-            # Create a SNAT Pool if a name was passed in
-            #   * Add the snat to the list of members
-            snat_translation_model = {
-                "name": index_snat_name,
-                "partition": snat_info['network_folder'],
-                "address": ip_address,
-                "trafficGroup": snat_traffic_group
-            }
-            try:
-                if not self.snat_translation_manager.exists(
-                        bigip,
-                        name=index_snat_name,
-                        partition=snat_info['network_folder']):
-                    self.snat_translation_manager.create(
-                        bigip, snat_translation_model)
-                snat_translation_members.append(
-                    '/' + snat_info['network_folder'] + '/' + index_snat_name
-                )
-            except Exception as err:
-                if isinstance(err, HTTPError) and \
-                        err.response.status_code == 409:
-                    LOG.info("SNAT pool %s already exists: %s, ignored." % (
-                        index_snat_name, err.message))
-                else:
-                    LOG.exception(err)
-                    raise f5_ex.SNATCreationException(
-                        "Error creating snat translation manager %s" %
-                        index_snat_name)
-
-            if self.l3_binding:
-                self.l3_binding.bind_address(subnet_id=subnet['id'],
-                                             ip_address=ip_address)
-
-        # pzhang(NOTE): update all snatpool members at once, in case of
-        # chaos that multiple agents update different numbers of snatpool
-        # members.
         try:
-            exist_snatpool = self.snatpool_manager.exists(
+            self.snatpool_manager.create(
                 bigip,
-                name=snat_info['pool_name'],
-                partition=snat_info['pool_folder']
+                snat_pool_model
             )
-
-            all_members = None
-            if not exist_snatpool:
-                all_members = snat_translation_members
-                members = list(set(all_members))
-                snat_pool_model = {
-                    "name": snat_info['pool_name'],
-                    "partition": snat_info['pool_folder'],
-                    "members": members
-                }
-                self.snatpool_manager.create(
-                    bigip,
-                    snat_pool_model
-                )
-            else:
-                LOG.debug("Updating SNAT pool members")
-                snatpool = self.snatpool_manager.load(
-                    bigip,
-                    name=snat_info['pool_name'],
-                    partition=snat_info['pool_folder']
-                )
-                all_members = snatpool.members + snat_translation_members
-                members = list(set(all_members))
-                snatpool.modify(members=members)
         except Exception as err:
-            if isinstance(err, HTTPError) and \
-                    err.response.status_code == 409:
-                LOG.info("SNAT pool %s already exists: %s, ignored." % (
-                    index_snat_name, err.message))
-            elif isinstance(err, HTTPError) and \
-                    err.response.status_code == 400:
-                LOG.info("SNAT pool create/modify fail. "
-                         "snatpool: %s; members: %s; error message: %s." % (
-                             snat_info['pool_name'], all_members, err.message
-                         ))
-            else:
-                LOG.exception(err)
-                raise f5_ex.SNATCreationException(
-                    "Error creating snat translation manager %s" %
-                    index_snat_name)
+            LOG.exception(err)
+            raise f5_ex.SNATCreationException(
+                "Error creating snat pool: %s" %
+                snat_info)
 
-    def delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
-        # Assure shared snat configuration (which syncs) is deleted.
-        #
-        if not subnetinfo['network']:
-            LOG.error('Attempted to delete selfip and snats '
-                      'for missing network ... skipping.')
-            return set()
+    def delete_flavor_snats(self, bigip, subnetinfo,
+                            partition, snat_pool):
 
-        return self._delete_bigip_snats(bigip, subnetinfo, tenant_id,
-                                        provider_name)
-
-    def _remove_assured_tenant_snat_subnet(self, bigip, tenant_id, subnet):
-        # Remove ref for the subnet for this tenant
-        if tenant_id in bigip.assured_tenant_snat_subnets:
-            tenant_snat_subnets = \
-                bigip.assured_tenant_snat_subnets[tenant_id]
-            if tenant_snat_subnets and subnet['id'] in tenant_snat_subnets:
-                LOG.debug(
-                    'Remove subnet id %s from '
-                    'bigip.assured_tenant_snat_subnets for tenant %s' %
-                    (subnet['id'], tenant_id))
-                tenant_snat_subnets.remove(subnet['id'])
-            else:
-                LOG.debug(
-                    'Subnet id %s does not exist in '
-                    'bigip.assured_tenant_snat_subnets for tenant %s' %
-                    (subnet['id'], tenant_id))
-        else:
-            LOG.debug(
-                'Tenant id %s does not exist in '
-                'bigip.assured_tenant_snat_subnets' % tenant_id)
-
-    def delete_flavor_snats(self, bigip, subnetinfo, snat_count, tenant_id,
-                            provider_name, pool_name=None):
-        deleted_names = set()
-
-        # Assure snats deleted in standalone mode
-        network = subnetinfo['network']
-
-        partition = self.driver.service_adapter.get_folder_name(tenant_id)
-
-        if self.l2_service.is_common_network(network):
-            partition = 'Common'
-
-        snat_pool = self.driver.service_adapter.get_folder_name(pool_name)
-
-        snat_name = self.get_flavor_snat_name(
-            subnetinfo['subnet']['id'], pool_name, tenant_id
-        )
-        for i in range(self.driver.conf.f5_snat_addresses_per_subnet):
-            index_snat_name = self._get_index_snat_name(snat_name,
-                                                        provider_name, i)
-            deleted_names.add(index_snat_name)
-
-        self.snatpool_manager.delete(
-            bigip,
-            name=snat_pool,
-            partition=partition
-        )
-
-        return deleted_names
+        try:
+            # icontrol rest will not raise error
+            # when 404
+            self.snatpool_manager.delete(
+                bigip,
+                name=snat_pool,
+                partition=partition
+            )
+        except Exception as err:
+            LOG.exception(err)
+            raise f5_ex.SNATCreationException(
+                "Error deleting snat pool: %s" %
+                snat_pool)
 
     def update_flavor_snats(
-            self, bigip, subnetinfo, snat_addrs_map,
-            lb_id, tenant_id, diff
+        self, bigip, partition, pool_name,
+        new_snat_addrs
     ):
-
-        partition = self.driver.service_adapter.get_folder_name(
-            tenant_id
-        )
-        if self.l2_service.is_common_network(subnetinfo['network']):
-            partition = 'Common'
-
-        pool_name = self.driver.service_adapter.get_folder_name(
-            lb_id
-        )
-
-        tg = self._get_snat_traffic_group(tenant_id)
-
-        snatpool = self.snatpool_manager.load(
-            bigip,
-            name=pool_name,
-            partition=partition
-        )
-
-        members = None
-        if diff < 0:
-            update_members = ['/' + partition + '/' + name
-                              for name in snat_addrs_map.keys()]
-            members = list(
-                set(snatpool.members) - set(update_members)
+        try:
+            # icontrol rest will raise error
+            # when 404
+            snatpool = self.snatpool_manager.load(
+                bigip,
+                name=pool_name,
+                partition=partition
             )
-            snatpool.modify(members=members)
-
-            for name, addr in snat_addrs_map.items():
-                self.snat_translation_manager.delete(
-                    bigip, name=name, partition=partition
-                )
-        if diff > 0:
-            for name, addr in snat_addrs_map.items():
-                snat_translation_model = {
-                    "name": name,
-                    "partition": partition,
-                    "address": addr,
-                    "trafficGroup": tg
-                }
-
-                try:
-                    self.snat_translation_manager.create(
-                        bigip, snat_translation_model)
-                except HTTPError as err:
-                    if err.response.status_code == 409:
-                        LOG.info(
-                            "SNAT Address %s already exists: %s." % (
-                                name, err.message
-                            )
-                        )
-
-            update_members = ['/' + partition + '/' + name
-                              for name in snat_addrs_map.keys()]
-            members = list(
-                set(snatpool.members + update_members)
-            )
-            snatpool.modify(members=members)
-
-    def _delete_bigip_snats(self, bigip, subnetinfo, tenant_id, provider_name):
-        # Assure snats deleted in standalone mode
-        subnet = subnetinfo['subnet']
-        network = subnetinfo['network']
-        if self.l2_service.is_common_network(network):
-            partition = 'Common'
-        else:
-            partition = self.driver.service_adapter.get_folder_name(tenant_id)
-
-        snat_pool_name = self.driver.service_adapter.get_folder_name(tenant_id)
-        snat_pool_folder = snat_pool_name
-        deleted_names = set()
-        in_use_subnets = set()
-
-        # Delete SNATs on traffic-group-local-only
-        snat_name = self.get_snat_name(subnet, tenant_id)
-        for i in range(self.driver.conf.f5_snat_addresses_per_subnet):
-            index_snat_name = self._get_index_snat_name(snat_name,
-                                                        provider_name, i)
-            tmos_snat_name = index_snat_name
-
-            if self.l3_binding:
-                try:
-                    snat_xlate = self.snat_translation_manager.load(
-                        bigip, name=index_snat_name, partition=partition)
-                except HTTPError as err:
-                    LOG.error("Load SNAT xlate failed %s" % err.message)
-                except Exception:
-                    LOG.error("Unknown error occurred loading SNAT for unbind")
-                else:
-                    self.l3_binding.unbind_address(
-                        subnet_id=subnet['id'], ip_address=snat_xlate.address)
-
-            # Remove translation address from tenant snat pool
-            # This seems strange that name and partition are tenant_id
-            # but that is what the v1 code was doing.
-            # The v1 code was also comparing basename in some cases
-            # which seems dangerous because the folder may be in play?
-            #
-            # Revised (jl): It appears that v2 SNATs are created with a
-            # name, not tenant_id, so we need to load SNAT by name.
-            LOG.debug('Remove translation address from tenant SNAT pool')
-            try:
-                snatpool = self.snatpool_manager.load(bigip,
-                                                      snat_pool_name,
-                                                      snat_pool_folder)
-
-                snatpool.members = [
-                    member for member in snatpool.members
-                    if os.path.basename(member) != tmos_snat_name
-                ]
-
-                # Delete snat pool if empty (no members)
-                # In LBaaSv1 the snat.remove_from_pool() method did this if
-                # there was only one member and it matched the one we were
-                # deleting making this call basically useless, but the
-                # code above makes this still necessary and probably what the
-                # original authors intended anyway since there is logging here
-                # but not in the snat.py module from LBaaSv1
-                LOG.debug('Check if snat pool is empty')
-                if not snatpool.members:
-                    LOG.debug('Snat pool is empty - delete snatpool')
-                    try:
-                        snatpool.delete()
-                    except HTTPError as err:
-                        LOG.error("Delete SNAT pool failed %s" % err.message)
-                else:
-                    LOG.debug('Snat pool is not empty - update snatpool')
-                    try:
-                        snatpool.modify(members=snatpool.members)
-                    except HTTPError as err:
-                        LOG.error("Update SNAT pool failed %s" % err.message)
-            except HTTPError as err:
-                LOG.error("Failed to load SNAT pool %s" % err.message)
-
-            # Check if subnet in use by any tenants/snatpools. If in use,
-            # add subnet to hints list of subnets in use.
-            self._remove_assured_tenant_snat_subnet(bigip, tenant_id, subnet)
-            LOG.debug(
-                'Check cache for subnet %s in use by other tenant' %
-                subnet['id'])
-            in_use_count = 0
-            for loop_tenant_id in bigip.assured_tenant_snat_subnets:
-                tenant_snat_subnets = \
-                    bigip.assured_tenant_snat_subnets[loop_tenant_id]
-                if subnet['id'] in tenant_snat_subnets:
-                    LOG.debug(
-                        'Subnet %s in use (tenant %s)' %
-                        (subnet['id'], loop_tenant_id))
-                    in_use_count += 1
-
-            if in_use_count:
-                in_use_subnets.add(subnet['id'])
-            else:
-                LOG.debug('Check subnet in use by any tenant')
-                member_use_count = \
-                    self.get_snatpool_member_use_count(
-                        bigip, subnet['id'])
-                if member_use_count:
-                    LOG.debug('Subnet in use - do not delete')
-                    in_use_subnets.add(subnet['id'])
-                else:
-                    LOG.debug('Subnet not in use - delete')
-
-            # Check if trans addr in use by any snatpool.  If not in use,
-            # okay to delete associated neutron port.
-            LOG.debug('Check trans addr %s in use.' % tmos_snat_name)
-            in_use_count = \
-                self.get_snatpool_member_use_count(
-                    bigip, tmos_snat_name)
-            if not in_use_count:
-                LOG.debug('Trans addr not in use - delete')
-                deleted_names.add(index_snat_name)
-            else:
-                LOG.debug('Trans addr in use - do not delete')
-
-        return deleted_names, in_use_subnets
-
-    def get_snatpool_member_use_count(self, bigip, member_name):
-        snat_count = 0
-        snatpools = bigip.tm.ltm.snatpools.get_collection()
-        for snatpool in snatpools:
-            for member in snatpool.members:
-                if member_name == os.path.basename(member):
-                    snat_count += 1
-        return snat_count
+            snatpool.modify(members=new_snat_addrs)
+        except Exception as err:
+            LOG.exception(err)
+            raise f5_ex.SNATCreationException(
+                "Error updating snat pool: %s" %
+                new_snat_addrs)
 
     def snatpool_exist(self, bigip, name, partition='Common'):
         if not name:

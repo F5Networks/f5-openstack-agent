@@ -384,6 +384,28 @@ class LBaaSv2PluginRPC(object):
         return port
 
     @log_helpers.log_method_call
+    def update_port_on_subnet(self, port_id, port_name=None,
+                              subnet_id=None, fixed_address_count=0):
+        """Update a neutron port to the subnet."""
+        try:
+            port = self._call(
+                self.context,
+                self._make_msg(
+                    'update_port_on_subnet',
+                    port_id=port_id,
+                    port_name=port_name,
+                    subnet_id=subnet_id,
+                    fixed_address_count=fixed_address_count
+                ),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "update_port_on_subnet")
+
+        return port
+
+    @log_helpers.log_method_call
     def create_port_on_network(self, network_id=None, mac_address=None,
                                name=None, host=None,
                                device_id=None,
