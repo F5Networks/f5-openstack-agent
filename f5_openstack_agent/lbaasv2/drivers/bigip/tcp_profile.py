@@ -30,7 +30,7 @@ class TCPProfileHelper(object):
             resource_helper.ResourceType.tcp_profile
         )
         self.delete_profile = False
-        self.allowed_protocols = ["TCP", "FTP"]
+        self.allowed_protocols = ["TCP", "FTP", "HTTPS"]
 
     def enable_tcp(self, service):
         # pzhang: do not check ipProtocol TCP for further requirements,
