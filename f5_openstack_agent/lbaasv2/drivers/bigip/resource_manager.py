@@ -19,6 +19,7 @@ import os
 import re
 import urllib
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
     import FTPProfileHelper
@@ -484,9 +485,8 @@ class ListenerManager(ResourceManager):
             return False
 
         # only allow these protocol listener use transparent
-        if listener is not None and listener['protocol'] in [
-                "TCP"]:
-            # check if transparent option change
+        if listener is not None and listener['protocol'] \
+                in constants_v2.TOA_PROTOCOL:
             changed = self._check_trans_changed(
                 old_listener, listener)
             return changed
@@ -800,7 +800,7 @@ class ListenerManager(ResourceManager):
             )
 
         if listener['protocol'] == "HTTP" or \
-           listener['protocol'] == "TERMINATED_HTTPS":
+                listener['protocol'] == "TERMINATED_HTTPS":
             self._create_http_profile(bigip, listener, vs)
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
