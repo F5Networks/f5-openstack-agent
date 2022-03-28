@@ -90,3 +90,4 @@ PLUGIN = 'q-plugin'
 UPDATE = 'update'
 L2POPULATION = 'l2population'
 AGENT = 'q-agent-notifier'
+TOA_PROTOCOL = ["TCP", "FTP", "HTTPS"]

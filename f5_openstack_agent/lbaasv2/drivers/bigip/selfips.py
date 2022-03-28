@@ -78,7 +78,7 @@ class BigipSelfIpManager(object):
                                               model["name"],
                                               err.response.status_code,
                                               err.message))
-                            raise f5_ex.SelfIPCreationException(err.messgae)
+                            raise f5_ex.SelfIPCreationException(err.message)
                 elif err.response.status_code == 409:
                     created = True
                     LOG.info("selfip %s already exists: %s, ignored.." % (

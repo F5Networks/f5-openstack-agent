@@ -16,6 +16,7 @@
 # limitations under the License.
 #
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from oslo_log import log as logging
 
@@ -32,7 +33,7 @@ class TCPProfileHelper(object):
             resource_helper.ResourceType.tcp_profile
         )
         self.delete_profile = False
-        self.allowed_protocols = ["TCP"]
+        self.allowed_protocols = constants_v2.TOA_PROTOCOL
 
     def enable_tcp(self, service):
         # pzhang: do not check ipProtocol TCP for further requirements,
