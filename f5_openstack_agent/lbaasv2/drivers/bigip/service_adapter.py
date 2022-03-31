@@ -660,8 +660,7 @@ class ServiceModelAdapter(object):
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
 
-        # if protocol is HTTPS, also use fastl4
-        if protocol in ['TCP', 'HTTPS', 'UDP']:
+        if protocol in ['TCP', 'UDP']:
             virtual_type = 'fastl4'
         else:
             virtual_type = 'standard'
