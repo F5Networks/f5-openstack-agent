@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import copy
 import netaddr
 from requests import HTTPError
 
@@ -261,9 +262,9 @@ class NetworkServiceBuilder(object):
         route_helper.remove_default_route(
             bigip, subnet)
 
-    def config_selfips(self, service):
-        lb_network = self.lb_netinfo['network']
-        lb_subnets = self.lb_netinfo['subnets']
+    def config_selfips(self, service, **kwargs):
+        lb_network = kwargs.get("network", self.lb_netinfo["network"])
+        lb_subnets = kwargs.get("subnets", self.lb_netinfo["subnets"])
 
         subnetinfo = {'network': lb_network}
         for subnet in lb_subnets:
@@ -273,24 +274,44 @@ class NetworkServiceBuilder(object):
                     bigip, service, subnetinfo)
 
     def config_snat(self, service):
-        snat_helper = SNATHelper(
+        flavor = service["loadbalancer"].get("flavor")
+        if flavor in [7, 8]:
+            MyHelper = LargeSNATHelper
+        else:
+            MyHelper = SNATHelper
+
+        snat_helper = MyHelper(
             self.driver, service, self.lb_netinfo,
             self.bigip_snat_manager,
-            self.l2_service
+            self.l2_service,
+            net_service=self
         )
         snat_helper.snat_create()
 
     def remove_flavor_snat(self, service):
-        snat_helper = SNATHelper(
+        flavor = service["loadbalancer"].get("flavor")
+        if flavor in [7, 8]:
+            MyHelper = LargeSNATHelper
+        else:
+            MyHelper = SNATHelper
+
+        snat_helper = MyHelper(
             self.driver, service, self.lb_netinfo,
             self.bigip_snat_manager,
-            self.l2_service
+            self.l2_service,
+            net_service=self
         )
         snat_helper.snat_remove()
 
     def update_flavor_snat(
         self, old_loadbalancer, loadbalancer, service
     ):
+        new = loadbalancer.get("flavor")
+        old = old_loadbalancer.get("flavor")
+        if new in [7, 8] or old in [7, 8]:
+            raise f5_ex.SNATCreationException(
+                "Do not support to update flavor 7/8")
+
         snat_helper = SNATHelper(
             self.driver, service, self.lb_netinfo,
             self.bigip_snat_manager,
@@ -833,7 +854,7 @@ class SNATHelper(object):
     FLAVOR_MAP = constants_v2.FLAVOR_SNAT_MAP
 
     def __init__(self, driver, service, lb_netinfo,
-                 snat_manager, l2_service):
+                 snat_manager, l2_service, **kwargs):
         self.driver = driver
         self.service = service
         self.snat_manager = snat_manager
@@ -844,7 +865,7 @@ class SNATHelper(object):
             service['loadbalancer'].get('tenant_id')
         )
 
-        self.snat_net = lb_netinfo
+        self.snat_net = copy.deepcopy(lb_netinfo)
 
     def snat_pools_exist(self):
         snatpool_name = \
@@ -973,8 +994,15 @@ class SNATHelper(object):
         for subnet in self.snat_net['subnets']:
             snat_name = self.snat_manager.get_snat_name(
                 lb_id, subnet['ip_version'])
+
+            # Flavor 7/8 need to delete network after delete port,
+            # so that cast=False.
+            if self.flavor in [7, 8]:
+                cast = False
+            else:
+                cast = True
             self.driver.plugin_rpc.delete_port_by_name(
-                port_name=snat_name)
+                port_name=snat_name, cast=cast)
 
     def snat_update(
         self, old_loadbalancer, loadbalancer
@@ -1059,3 +1087,185 @@ class SNATHelper(object):
                     bigip, partition, pool_name,
                     list(new_snat_addrs)
                 )
+
+
+class LargeSNATHelper(SNATHelper):
+
+    def __init__(self, driver, service, lb_netinfo,
+                 snat_manager, l2_service, **kwargs):
+        super(LargeSNATHelper, self).__init__(
+            driver, service, lb_netinfo, snat_manager, l2_service
+        )
+        self.net_service = kwargs.get("net_service")
+
+    def snat_create(self):
+        # Create dedicated SNAT network
+        self.create_large_snat_network()
+
+        # Modify snat network information in memory and utilize
+        # the existing code to allocate SNAT IPs
+        self.snat_net["network"] = self.large_snat_network
+        self.snat_net["subnets"] = []
+        for key in self.large_snat_subnet:
+            self.snat_net["subnets"].append(self.large_snat_subnet[key])
+
+        super(LargeSNATHelper, self).snat_create()
+
+    def snat_remove(self):
+        super(LargeSNATHelper, self).snat_remove()
+        self.delete_large_snat_network()
+
+    def create_large_snat_network(self, ip_version=4):
+        tenant_id = self.service['loadbalancer']['tenant_id']
+        lb_id = self.service['loadbalancer']['id']
+        network_name = "snat-" + lb_id
+        subnet_v4_name = "snat-v4-" + lb_id
+        subnet_v6_name = "snat-v6-" + lb_id
+
+        # Identify VIP router id
+        vip_subnet_id = self.service['loadbalancer']['vip_subnet_id']
+        router_id = self.driver.plugin_rpc.get_router_id_by_subnet(
+            subnet_id=vip_subnet_id)
+
+        if not router_id:
+            raise Exception("No router found for subnet " + vip_subnet_id)
+
+        # Create large SNAT network
+        body = {
+            "tenant_id": tenant_id,
+            "name": network_name,
+            "shared": False,
+            "admin_state_up": True,
+            "provider:network_type":
+                self.snat_net["network"]["provider:network_type"],
+            "availability_zone_hints":
+                self.snat_net["network"]["availability_zones"]
+        }
+        self.large_snat_network = self.driver.plugin_rpc.create_network(**body)
+        snat_network_id = self.large_snat_network['id']
+
+        flavor = self.service['loadbalancer']['flavor']
+        self.large_snat_subnet = {}
+
+        ip_versions = []
+        for subnet in self.snat_net["subnets"]:
+            if subnet["ip_version"] not in ip_versions:
+                ip_versions.append(subnet["ip_version"])
+
+        # Create large SNAT subnets
+        for ip_version in ip_versions:
+            if flavor == 7:
+                if ip_version == 6:
+                    prefixlen = 121
+                else:
+                    prefixlen = 25
+            else:
+                if ip_version == 6:
+                    prefixlen = 122
+                else:
+                    prefixlen = 26
+
+            if ip_version == 6:
+                pool_id = self.driver.conf.snat_subnetpool_v6
+                subnet_name = subnet_v6_name
+            else:
+                pool_id = self.driver.conf.snat_subnetpool_v4
+                subnet_name = subnet_v4_name
+
+            self.large_snat_subnet[ip_version] = \
+                self.driver.plugin_rpc.create_subnet(
+                    name=subnet_name,
+                    tenant_id=tenant_id,
+                    network_id=snat_network_id,
+                    ip_version=ip_version,
+                    subnetpool_id=pool_id,
+                    prefixlen=prefixlen,
+                    cidr=None,
+                    enable_dhcp=False,
+                    allocation_pools=None,
+                    dns_nameservers=None,
+                    host_routes=None
+                )
+
+            # Attach VIP router
+            self.driver.plugin_rpc.attach_subnet_to_router(
+                router_id=router_id,
+                subnet_id=self.large_snat_subnet[ip_version]['id']
+            )
+
+        # Need to refresh network information because SDN might not
+        # assign a vlan id before creating the 1st port
+        self.large_snat_network = \
+            self.driver.plugin_rpc.get_network_by_id(id=snat_network_id)
+        if "segments" in self.large_snat_network:
+            for segment in self.large_snat_network["segments"]:
+                if segment["provider:network_type"] == "vlan":
+                    self.large_snat_network["provider:network_type"] = "vlan"
+                    self.large_snat_network["provider:segmentation_id"] = \
+                        segment["provider:segmentation_id"]
+                    self.large_snat_network["provider:physical_network"] = \
+                        segment["provider:physical_network"]
+
+        if "provider:segmentation_id" not in self.large_snat_network:
+            msg = "Missing vlan segmentation_id in network " + snat_network_id
+            LOG.error(msg)
+            raise Exception(msg)
+
+        # Needn't create route domain
+        # Only create snat vlan in VIP route domain
+        self.large_snat_network["route_domain_id"] = \
+            self.snat_net["network"]["route_domain_id"]
+        bigips = self.driver.get_config_bigips()
+        for bigip in bigips:
+            self.l2_service.assure_bigip_network(
+                 bigip, self.large_snat_network)
+
+        # Create selfip in bigips
+        self.net_service.config_selfips(
+            self.service,
+            network=self.large_snat_network,
+            subnets=self.large_snat_subnet.values()
+        )
+
+    def delete_large_snat_network(self):
+        lb_id = self.service['loadbalancer']['id']
+        network_name = "snat-" + lb_id
+        subnet_v4_name = "snat-v4-" + lb_id
+        subnet_v6_name = "snat-v6-" + lb_id
+
+        # Identify VIP router id
+        vip_subnet_id = self.service['loadbalancer']['vip_subnet_id']
+        router_id = self.driver.plugin_rpc.get_router_id_by_subnet(
+            subnet_id=vip_subnet_id)
+
+        if not router_id:
+            raise Exception("No router found for subnet " + vip_subnet_id)
+
+        # Detach VIP router
+        self.driver.plugin_rpc.detach_subnet_from_router(
+            router_id=router_id, subnet_name=subnet_v4_name)
+        self.driver.plugin_rpc.detach_subnet_from_router(
+            router_id=router_id, subnet_name=subnet_v6_name)
+
+        bigips = self.driver.get_config_bigips()
+
+        # Delete SelfIP of SNAT subnet
+        for name in [subnet_v4_name, subnet_v6_name]:
+            subnets = self.driver.plugin_rpc.get_subnet_by_name(name=name)
+            for subnet in subnets:
+                for bigip in bigips:
+                    selfip = "local-" + bigip.device_name + "-" + subnet["id"]
+                    self.net_service.bigip_selfip_manager.delete_selfip(
+                        bigip, selfip, partition=self.partition
+                    )
+                    self.driver.plugin_rpc.delete_port_by_name(
+                        port_name=selfip, cast=False)
+
+        # Empty subnets can be deleted along with network
+        networks = self.driver.plugin_rpc.delete_network_by_name(
+            name=network_name)
+
+        if networks:
+            for bigip in bigips:
+                for network in networks:
+                    self.l2_service.delete_bigip_network(bigip, network)
