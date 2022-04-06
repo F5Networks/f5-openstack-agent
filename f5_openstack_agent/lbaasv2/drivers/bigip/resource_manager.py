@@ -426,14 +426,14 @@ class ListenerManager(ResourceManager):
 
         if old_cust:
             old_cust = json.loads(old_cust)
-            self._filter_depercated(old_cust)
+            self._translate_customize(old_cust)
             old_listener['customized'] = json.dumps(old_cust)
         if new_cust:
             new_cust = json.loads(new_cust)
-            self._filter_depercated(new_cust)
+            self._translate_customize(new_cust)
             listener['customized'] = json.dumps(new_cust)
 
-    def _filter_depercated(self, cust):
+    def _translate_customize(self, cust):
         depercated = {"http_profile": ["insertXforwardedFor"]}
 
         for profile, depercated_vals in depercated.items():
@@ -443,6 +443,17 @@ class ListenerManager(ResourceManager):
                     if val in cust_profile:
                         del cust_profile[val]
 
+        http_mapping = {
+            "x_forwarded_for": "insertXforwardedFor",
+            # "x_forwarded_scheme": ""
+        }
+
+        http_profile = cust.get("http_profile")
+        if http_profile:
+            for key, val in http_mapping.items():
+                if key in http_profile:
+                    http_profile[val] = http_profile[key]
+
     # this function does not check global customized file is changed or not.
     # If --customized is never change, and global customized file chagned,
     # it wont update customized change accurately.
@@ -451,9 +462,6 @@ class ListenerManager(ResourceManager):
         if not old_listener:
             return False
 
-        # the insertXforwardedFor should be depercated in check update,
-        # otherwise it will affect the compatible of
-        # --customized '{ "http_profile":{ "insertXforwardedFor": "enabled" }}'
         self._update_filter_cust(old_listener, listener)
 
         if listener['protocol'] == "HTTP" or \
@@ -637,10 +645,16 @@ class ListenerManager(ResourceManager):
             bigip, payload, None, None,
             helper=self.http_profile_helper)
 
-    def trans_xff_enable(self, listener):
+    def xff_enable(self, listener, http_profile):
         if listener['protocol'] in ['HTTP', 'TERMINATED_HTTPS']:
-            return listener.get('transparent', False)
-        return False
+            cust_xff = http_profile.get("insertXforwardedFor")
+            if cust_xff == "enabled":
+                cust_xff = True
+            else:
+                cust_xff = False
+
+            trans_xff = listener.get('transparent', False)
+        return cust_xff or trans_xff
 
     def set_xff(self, flag, http_profile):
         if flag:
@@ -655,8 +669,8 @@ class ListenerManager(ResourceManager):
         http_profile['name'] = "http_profile_" + vs['name']
 
         # use --transparent to configure listener xff
-        trans_xff = self.trans_xff_enable(listener)
-        self.set_xff(trans_xff, http_profile)
+        enable_xff = self.xff_enable(listener, http_profile)
+        self.set_xff(enable_xff, http_profile)
 
         super(ListenerManager, self)._create(
             bigip, http_profile, None, None, type="http-profile",
@@ -684,14 +698,8 @@ class ListenerManager(ResourceManager):
                 try:
                     with open(file_name) as fp:
                         payload = json.load(fp)
-                    if 'http_profile' not in payload:
-                        LOG.debug("http profile is not defined in %s",
-                                  file_name)
-                    else:
-                        # depercate global setting for insertXforwardedFor
-                        # in global customized file
-                        self._filter_depercated(payload)
-                        http_profile = payload.get('http_profile', {})
+                    self._translate_customize(payload)
+                    http_profile = payload.get('http_profile', {})
                 except ValueError:
                     LOG.error("extended profile %s is not a valid json file",
                               file_name)
@@ -701,6 +709,7 @@ class ListenerManager(ResourceManager):
         if 'customized' in listener and listener['customized']:
             try:
                 payload = json.loads(listener['customized'])
+                self._translate_customize(payload)
                 http_profile_arg = payload.get('http_profile', {})
                 http_profile.update(http_profile_arg)
             except ValueError:
