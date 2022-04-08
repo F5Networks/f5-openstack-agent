@@ -69,6 +69,7 @@ class ResourceType(Enum):
     internal_data_group = 43
     http2_profile = 44
     websocket_profile = 45
+    route = 46
 
 
 class BigIPResourceHelper(object):
@@ -244,6 +245,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.net.arps.arp,
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains.route_domain,
+            ResourceType.route:
+                lambda bigip: bigip.tm.net.routes.route,
             ResourceType.tunnel:
                 lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel,
             ResourceType.virtual_address:
@@ -319,6 +322,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.ltm.rules,
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains,
+            ResourceType.route:
+                lambda bigip: bigip.tm.net.routes,
             ResourceType.vlan:
                 lambda bigip: bigip.tm.net.vlans,
             ResourceType.arp:

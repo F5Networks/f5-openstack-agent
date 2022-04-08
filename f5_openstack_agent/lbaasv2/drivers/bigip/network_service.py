@@ -13,22 +13,23 @@
 # limitations under the License.
 #
 
-import itertools
-import netaddr
-from requests import HTTPError
-
-from oslo_log import log as logging
-
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
     L2ServiceBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip import route
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.snats import BigipSnatManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
+import itertools
+import netaddr
+from oslo_log import log as logging
+from requests import HTTPError
+import urllib
 
 LOG = logging.getLogger(__name__)
 
@@ -229,6 +230,58 @@ class NetworkServiceBuilder(object):
             self.bigip_selfip_manager.assure_bigip_selfip(
                 assure_bigip, service, subnetinfo)
 
+    def prep_mb_network(self, resource, service):
+        """Assure network connectivity is established on all bigips."""
+        if self.conf.f5_global_routed_mode:
+            return
+
+        if not self.is_service_connected(service):
+            raise f5_ex.NetworkNotReady(
+                "Network segment(s) definition incomplete")
+
+        if self.conf.use_namespaces:
+            try:
+                LOG.debug("Annotating the service definition networks "
+                          "with route domain ID.")
+
+                self._annotate_service_route_domains(service)
+            except f5_ex.InvalidNetworkType as exc:
+                LOG.warning(exc.message)
+            except Exception as err:
+                LOG.exception(err)
+                raise f5_ex.RouteDomainCreationException(
+                    "Route domain annotation error")
+
+        route_helper = RouteHelper(self.driver, resource, service)
+        route_helper.tidy_net_info()
+        route_helper.create_mb_routes()
+
+    def delete_mb_network(self, resource, service, delete_pool=False):
+        """Assure network connectivity is established on all bigips."""
+        if self.conf.f5_global_routed_mode:
+            return
+
+        if not self.is_service_connected(service):
+            raise f5_ex.NetworkNotReady(
+                "Network segment(s) definition incomplete")
+
+        if self.conf.use_namespaces:
+            try:
+                LOG.debug("Annotating the service definition networks "
+                          "with route domain ID.")
+
+                self._annotate_service_route_domains(service)
+            except f5_ex.InvalidNetworkType as exc:
+                LOG.warning(exc.message)
+            except Exception as err:
+                LOG.exception(err)
+                raise f5_ex.RouteDomainCreationException(
+                    "Route domain annotation error")
+
+        route_helper = RouteHelper(self.driver, resource, service)
+        route_helper.tidy_net_info(delete_pool)
+        route_helper.delete_mb_routes()
+
     def config_snat(self, service):
         subnetsinfo = self._get_subnets_to_assure(service)
         snat_helper = SNATHelper(
@@ -261,31 +314,8 @@ class NetworkServiceBuilder(object):
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
         tenant_id = service['loadbalancer']['tenant_id']
-        if 'members' in service:
-            for member in service['members']:
-                if 'address' in member:
-                    LOG.debug("processing member %s" % member['address'])
-                    if 'network_id' in member and member['network_id']:
-                        member_network = (
-                            self.service_adapter.get_network_from_service(
-                                service,
-                                member['network_id']
-                            ))
-                        if member_network:
-                            if member["provisioning_status"] in [
-                                    constants_v2.PENDING_DELETE,
-                                    constants_v2.ERROR]:
-                                self.assign_delete_route_domain(
-                                    tenant_id, member_network)
-                            else:
-                                self.assign_route_domain(
-                                    tenant_id, member_network)
-                            rd_id = (
-                                '%' + str(member_network['route_domain_id'])
-                            )
-                            member['address'] += rd_id
-                    else:
-                        member['address'] += '%0'
+        loadbalancer = service['loadbalancer']
+
         if 'vip_address' in service['loadbalancer']:
             loadbalancer = service['loadbalancer']
             if 'network_id' in loadbalancer:
@@ -300,6 +330,26 @@ class NetworkServiceBuilder(object):
                 service['loadbalancer']['vip_address'] += rd_id
             else:
                 service['loadbalancer']['vip_address'] += '%0'
+
+        if 'members' in service:
+            for member in service['members']:
+                if 'address' in member:
+                    LOG.debug("processing member %s" % member['address'])
+                    if 'network_id' in member and member['network_id']:
+                        member_network = (
+                            self.service_adapter.get_network_from_service(
+                                service,
+                                member['network_id']
+                            ))
+                        if member_network:
+                            self.set_network_route_domain(
+                                member_network,
+                                lb_network['route_domain_id']
+                            )
+                            rd_id = '%' + str(lb_network['route_domain_id'])
+                            member['address'] += rd_id
+                    else:
+                        member['address'] += '%0'
 
     def is_common_network(self, network):
         return self.l2_service.is_common_network(network)
@@ -351,12 +401,12 @@ class NetworkServiceBuilder(object):
     def create_rd_by_net(self, bigip, tenant_id, network):
         LOG.info("Create Route Domain by network %s", network)
 
+        route_domain = get_route_domain(network)
+        self.set_network_route_domain(network, route_domain)
+        name = self.get_rd_name(network)
         partition = self.service_adapter.get_folder_name(
             tenant_id
         )
-        name = self.get_rd_name(network)
-        route_domain = get_route_domain(network)
-        self.set_network_route_domain(network, route_domain)
 
         try:
             exists = self.network_helper.route_domain_exists(
@@ -378,7 +428,7 @@ class NetworkServiceBuilder(object):
                 LOG.info("create route domain: %s, %s on bigip: %s"
                          % (name, route_domain, bigip.hostname))
         except Exception as ex:
-            if ex.response.status_code == 409:
+            if ex.response.status_code == 400:
                 LOG.info("route domain %s already exists: %s, ignored.." % (
                     route_domain, ex.message))
             else:
@@ -394,7 +444,7 @@ class NetworkServiceBuilder(object):
         return name
 
     def set_network_route_domain(self, network, route_domain):
-        if not route_domain:
+        if route_domain is None:
             raise Exception("Route domain is not found, for network "
                             "%s." % network)
 
@@ -800,8 +850,327 @@ class NetworkServiceBuilder(object):
                     networks[subnet['id']] = {'network': network,
                                               'subnet': subnet,
                                               'is_for_member': True}
-
         return networks.values()
+
+
+class RouteHelper(object):
+
+    def __init__(self, driver, resource, service):
+        self.driver = driver
+        self.member = resource
+        self.loadbalancer = service['loadbalancer']
+        self.service = service
+        self.service_adapter = self.driver.service_adapter
+        self.partition = self.driver.service_adapter.get_folder_name(
+            service['loadbalancer'].get('tenant_id')
+        )
+        self.pool_builder = pool_service.PoolServiceBuilder(
+            self.service_adapter
+        )
+        self.node_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.node
+        )
+        self.route_builder = route.RouteServiceBuilder()
+
+        self.lb_net = dict()
+        self.nodelete_mb_net = dict()
+        self.delete_mb_net = dict()
+
+    @property
+    def gateway_ip(self):
+        rd = self.lb_net['network']['route_domain_id']
+        ip = self.lb_net['subnet']['gateway_ip']
+
+        if rd is not None:
+            return ip + "%" + str(rd)
+        return ip
+
+    @property
+    def gateway_node_name(self):
+        if ':' in self.gateway_ip:
+            return self.gateway_ip + '.0'
+        else:
+            return self.gateway_ip + ':0'
+
+    @property
+    def mbs_use_gateway(self):
+        return len(self.nodelete_mb_net) != 0
+
+    def tidy_net_info(self, delete_pool=False):
+        # Examine service and return active networks
+
+        loadbalancer = self.service['loadbalancer']
+        service_adapter = self.service_adapter
+        lb_status = loadbalancer['provisioning_status']
+        if lb_status != constants_v2.F5_PENDING_DELETE:
+            if 'network_id' in loadbalancer:
+                network = service_adapter.get_network_from_service(
+                    self.service,
+                    loadbalancer['network_id']
+                )
+                subnet = service_adapter.get_subnet_from_service(
+                    self.service,
+                    loadbalancer['vip_subnet_id']
+                )
+                self.lb_net = {
+                    'network': network,
+                    'subnet': subnet,
+                    'address': loadbalancer['vip_address']
+                }
+
+        for member in self.service['members']:
+            if 'network_id' in member:
+                network = service_adapter.get_network_from_service(
+                    self.service,
+                    member['network_id']
+                )
+                subnet = service_adapter.get_subnet_from_service(
+                    self.service,
+                    member['subnet_id']
+                )
+                # add member id for name
+                if delete_pool:
+                    self.delete_mb_net[member['address']] = {
+                        'network': network,
+                        'subnet': subnet,
+                        'address': member['address']
+                    }
+                else:
+                    if member[
+                            'provisioning_status'
+                    ] != constants_v2.F5_PENDING_DELETE:
+                        # subnet id collision is small probability event
+                        self.nodelete_mb_net[member['address']] = {
+                            'network': network,
+                            'subnet': subnet,
+                            'address': member['address']
+                        }
+                    elif member[
+                        'provisioning_status'
+                    ] == constants_v2.F5_PENDING_DELETE:
+                        self.delete_mb_net[member['address']] = {
+                            'network': network,
+                            'subnet': subnet,
+                            'address': member['address']
+                        }
+
+    def get_name(self, prefix, route_net):
+        ip_rd = route_net['address']
+        ip = ip_rd.split("%")[0]
+        version = netaddr.IPAddress(ip).version
+
+        if version == 4:
+            return prefix + ip_rd.replace("%", "_")
+        else:
+            return prefix + \
+                ip_rd.replace(":", "-").replace("%", "_")
+
+    def route_name(self, route_net, prefix="route_to_"):
+        return self.get_name(prefix, route_net)
+
+    def route_pool_name(self, route_net, prefix="gateway_pool_"):
+        return self.get_name(prefix, route_net)
+
+    def route_destination(self, route_net):
+        ip_rd = route_net['address']
+        ip = ip_rd.split("%")[0]
+        version = netaddr.IPAddress(ip).version
+
+        if version == 4:
+            return ip_rd + "/32"
+        else:
+            return ip_rd + "/128"
+
+    def _assure_route_pool(self, bigip, route_net):
+        name = self.route_pool_name(
+            route_net
+        )
+        self.pool_builder.create_gateway_pool(
+            bigip, name, self.partition)
+
+    def _append_route_gateway_ip(self, bigip, route_net):
+        pool_name = self.route_pool_name(route_net)
+
+        pool = self.pool_builder.get_gateway_pool(
+            bigip, pool_name, self.partition)
+
+        new_mb = {
+            "name": self.gateway_node_name ,
+            "description": "Project_" + self.loadbalancer.get('id'),
+            "address": self.gateway_ip,
+            "partition": self.partition,
+            "ratio": 1,
+            "session": "user-enabled"
+        }
+
+        try:
+            pool.members_s.members.create(**new_mb)
+        except Exception as err:
+            if err.response.status_code == 409:
+                LOG.info("Gatway ip %s has existed in gateway pool %s",
+                         new_mb, pool_name)
+            else:
+                LOG.error("Fail to create gateway ip %s in gateway pool %s",
+                          new_mb, pool_name)
+                raise err
+
+    def _create_route_destination(self, bigip, route_net):
+        route_name = self.route_name(route_net)
+        pool_name = self.route_pool_name(
+            route_net
+        )
+        destination = self.route_destination(route_net)
+
+        payload = {
+            "name": route_name,
+            "partition": self.partition,
+            "network": destination,
+            "pool": "/" + self.partition + "/" + pool_name
+        }
+
+        self.route_builder.create_route(bigip, payload)
+
+    def _need_route(self, route_net):
+        mb_net_id = route_net['network']['id']
+        mb_subnet_id = route_net['subnet']['id']
+
+        if self.lb_net['network']['id'] == mb_net_id and \
+                self.lb_net['subnet']['id'] == mb_subnet_id:
+            return False
+        return True
+
+    # if two lbs create and delete the
+    # subnet member at the same same respectively.
+    # it causes another race situation
+
+    # shared member may cause serious race problem,
+    # if two lbs create the same member at the same time
+    # if create collision 409, creation skips
+    def create_mb_routes(self):
+        # when create a member
+        bigips = self.driver.get_config_bigips()
+
+        for bigip in bigips:
+            for route_net in self.nodelete_mb_net.values():
+                if self._need_route(route_net):
+                    self._assure_route_pool(bigip, route_net)
+                    self._append_route_gateway_ip(bigip, route_net)
+                    self._create_route_destination(bigip, route_net)
+
+    # shared member may cause serious race problem,
+    # if two lbs create the same member at the same time
+    # if delete collision 404, remove skips
+    def delete_mb_routes(self):
+        bigips = self.driver.get_config_bigips()
+
+        for bigip in bigips:
+            for route_net in self.delete_mb_net.values():
+                if self._need_route(route_net):
+                    self._remove_gateway_ip(bigip, route_net)
+                    if not self.route_inuse(bigip, route_net):
+                        self._remove_route_destination(bigip, route_net)
+                        self._remove_route_pool(bigip, route_net)
+
+            if not self.mbs_use_gateway:
+                self._attempt_rm_gateway_node(bigip)
+
+    def _remove_gateway_ip(self, bigip, route_net):
+        pool_name = self.route_pool_name(route_net)
+
+        try:
+            pool = self.pool_builder.get_gateway_pool(
+                bigip, pool_name, self.partition)
+        except Exception as err:
+            if err.response.status_code == 404:
+                LOG.warn(
+                    "Get Gateway pool %s not found "
+                    "in partition %s.",
+                    pool_name, self.partition
+                )
+                return
+
+        gateway_mb = {
+            "name": urllib.quote(self.gateway_node_name),
+            "partition": self.partition
+        }
+
+        try:
+            gateway_mb = pool.members_s.members.load(
+                **gateway_mb
+            )
+            gateway_mb.delete()
+        except Exception as err:
+            if err.response.status_code == 404:
+                LOG.info("Gatway ip %s has not been "
+                         "existed in gateway pool %s",
+                         gateway_mb, pool_name)
+            else:
+                LOG.error("Fail to remove gateway ip %s in gateway pool %s",
+                          gateway_mb, pool_name)
+                raise err
+
+    def _attempt_rm_gateway_node(self, bigip):
+        # we cannot check all members bound to the pools of a loadbalancer
+        # therefore we attempt to delete the node.
+        # the http response 400 tells us the node is used by others
+
+        try:
+            self.node_helper.delete(
+                bigip,
+                name=urllib.quote(self.gateway_ip),
+                partition=self.partition
+            )
+        except Exception as err:
+            if err.response.status_code == 404:
+                LOG.info("Node %s is not exist in partition %s",
+                         self.gateway_ip, self.partition)
+            elif err.response.status_code == 400:
+                LOG.warning(
+                    "Node %s can not be delete. "
+                    "The node is used by other pool, "
+                    "it may bind with the same "
+                    "loadbalancer, check your bigip %s.",
+                    self.gateway_ip, bigip.hostname
+                )
+                LOG.warning(err)
+            else:
+                LOG.error(
+                    "Fail to delete node %s in partition %s",
+                    self.gateway_ip, self.partition
+                )
+                raise err
+
+    def _remove_route_destination(self, bigip, route_net):
+        route_name = self.route_name(route_net)
+        self.route_builder.delete_route(
+            bigip, route_name, self.partition)
+
+    def _remove_route_pool(self, bigip, route_net):
+        pool_name = self.route_pool_name(
+            route_net
+        )
+        self.pool_builder.delete_gateway_pool(
+            bigip, pool_name, self.partition)
+
+    def route_inuse(self, bigip, route_net):
+        pool_name = self.route_pool_name(
+            route_net
+        )
+        try:
+            pool = self.pool_builder.get_gateway_pool(
+                bigip, pool_name, self.partition)
+        except Exception as err:
+            if err.response.status_code == 404:
+                LOG.warn(
+                    "Get Gateway pool %s not found "
+                    "in partition %s.",
+                    pool_name, self.partition
+                )
+                return
+
+        mbs = pool.members_s.get_collection()
+
+        return len(mbs) != 0
 
 
 class SNATHelper(object):

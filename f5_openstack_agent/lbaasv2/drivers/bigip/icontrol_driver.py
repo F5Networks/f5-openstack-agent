@@ -543,14 +543,11 @@ class iControlDriver(LBaaSBaseDriver):
         # will break setting esd_porcessor procedure.
         self.init_esd()
 
-        if self.conf.f5_global_routed_mode:
-            self.network_builder = None
-        else:
-            self.network_builder = NetworkServiceBuilder(
-                self.conf.f5_global_routed_mode,
-                self.conf,
-                self,
-                self.l3_binding)
+        self.network_builder = NetworkServiceBuilder(
+            self.conf.f5_global_routed_mode,
+            self.conf,
+            self,
+            self.l3_binding)
 
     def _init_bigip_hostnames(self):
         # Validate and parse bigip credentials
@@ -799,7 +796,7 @@ class iControlDriver(LBaaSBaseDriver):
                         % (hostname, device_group_name, check_group_name))
                 bigip.device_group_name = device_group_name
 
-            if self.network_builder:
+            if not self.conf.f5_global_routed_mode:
                 for network in self.conf.common_network_ids.values():
                     if not self.network_builder.vlan_exists(bigip,
                                                             network,
@@ -842,7 +839,7 @@ class iControlDriver(LBaaSBaseDriver):
     def _post_init(self):
         # After we have a connection to the BIG-IPs, initialize vCMP
         # on all connected BIG-IPs
-        if self.network_builder:
+        if not self.conf.f5_global_routed_mode:
             self.network_builder.initialize_vcmp()
 
         self.agent_configurations['network_segment_physical_network'] = \
@@ -878,7 +875,7 @@ class iControlDriver(LBaaSBaseDriver):
             else:
                 self.agent_configurations['nova_managed'] = False
 
-        if self.network_builder:
+        if not self.conf.f5_global_routed_mode:
             self.network_builder.post_init()
 
         self._set_agent_status(False)
@@ -1003,7 +1000,7 @@ class iControlDriver(LBaaSBaseDriver):
             self.agent_configurations['tunnel_types'] = list()
         self.agent_configurations['icontrol_endpoints'][bigip.hostname] = \
             ic_host
-        if self.network_builder:
+        if not self.conf.f5_global_routed_mode:
             self.agent_configurations['bridge_mappings'] = \
                 self.network_builder.interface_mapping
 
@@ -1119,7 +1116,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def set_context(self, context):
         # Context to keep for database access
-        if self.network_builder:
+        if not self.conf.f5_global_routed_mode:
             self.network_builder.set_context(context)
 
     def set_plugin_rpc(self, plugin_rpc):
@@ -1128,12 +1125,12 @@ class iControlDriver(LBaaSBaseDriver):
 
     def set_tunnel_rpc(self, tunnel_rpc):
         # Provide FDB Connector with ML2 RPC access
-        if self.network_builder:
+        if not self.conf.f5_global_routed_mode:
             self.network_builder.set_tunnel_rpc(tunnel_rpc)
 
     def set_l2pop_rpc(self, l2pop_rpc):
         # Provide FDB Connector with ML2 RPC access
-        if self.network_builder:
+        if not self.conf.f5_global_routed_mode:
             self.network_builder.set_l2pop_rpc(l2pop_rpc)
 
     def set_agent_report_state(self, report_state_callback):
@@ -1924,7 +1921,7 @@ class iControlDriver(LBaaSBaseDriver):
                           (folder_name, bigip.hostname))
                 return False
 
-        if self.network_builder:
+        if not self.conf.f5_global_routed_mode:
             # append route domain to member address
             self.network_builder._annotate_service_route_domains(service)
 
@@ -2036,41 +2033,6 @@ class iControlDriver(LBaaSBaseDriver):
                 raise f5ex.RouteDomainCreationException(
                     "Route domain annotation error")
 
-    def prepare_network_for_member(self, service,
-                                   delete_partition=False,
-                                   delete_event=False,
-                                   the_port_id=None):
-
-        # Assure that the service is configured on bigip(s)
-        LOG.debug("Preapre network resource")
-        loadbalancer = service.get("loadbalancer", None)
-
-        traffic_group = self.service_to_traffic_group(service)
-        loadbalancer['traffic_group'] = traffic_group
-
-        if self.network_builder:
-            start_time = time()
-            try:
-                self.network_builder.prep_service_networking(
-                    service, traffic_group)
-            except f5ex.NetworkNotReady as error:
-                LOG.debug("Network creation for member deferred until "
-                          "network definition is completed: %s",
-                          error.message)
-                if not delete_event:
-                    raise error
-            except Exception as error:
-                LOG.error("Prep-network for member exception: "
-                          "icontrol_driver: %s",
-                          error.message)
-                if not delete_event:
-                    raise error
-            finally:
-                if time() - start_time > .001:
-                    LOG.debug(" For member prep_service_networking "
-                              "took %.5f secs" % (time() - start_time))
-        return True
-
     def _common_service_handler(self, service,
                                 delete_partition=False,
                                 delete_event=False,
@@ -2110,7 +2072,7 @@ class iControlDriver(LBaaSBaseDriver):
             traffic_group = self.service_to_traffic_group(service)
             loadbalancer['traffic_group'] = traffic_group
 
-            if self.network_builder:
+            if not self.conf.f5_global_routed_mode:
                 start_time = time()
                 try:
                     self.network_builder.prep_service_networking(
@@ -2152,7 +2114,7 @@ class iControlDriver(LBaaSBaseDriver):
                                               all_subnet_hints)
             LOG.debug("XXXXXXXXX: Post assure service")
 
-            if self.network_builder:
+            if not self.conf.f5_global_routed_mode:
                 start_time = time()
                 try:
                     self.network_builder.post_service_networking(
@@ -2403,7 +2365,7 @@ class iControlDriver(LBaaSBaseDriver):
     @is_operational
     def update_operating_status(self, service):
         if 'members' in service:
-            if self.network_builder:
+            if not self.conf.f5_global_routed_mode:
                 # append route domain to member address
                 try:
                     self.network_builder._annotate_service_route_domains(

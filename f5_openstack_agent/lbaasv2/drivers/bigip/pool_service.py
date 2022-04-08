@@ -54,6 +54,71 @@ class PoolServiceBuilder(object):
         self.node_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.node)
 
+    def delete_gateway_pool(self, bigip, pool_name, partition='Common'):
+        try:
+            self.pool_helper.delete(
+                bigip,
+                name=pool_name,
+                partition=partition
+            )
+        except Exception as err:
+            if err.response.status_code == 404:
+                LOG.info("Gateway pool %s is not exist in partition %s",
+                         pool_name, partition)
+                LOG.info(err)
+            else:
+                LOG.err(
+                    "Fail to delete gateway pool %s in partition %s",
+                    pool_name, partition
+                )
+                raise err
+
+    def create_gateway_pool(self, bigip, pool_name, partition='Common'):
+
+        try:
+            if not self.pool_helper.exists(
+                bigip,
+                name=pool_name,
+                partition=partition
+            ):
+                self.pool_helper.create(
+                    bigip,
+                    {'name': pool_name,
+                     'monitor': "/Common/gateway_icmp",
+                     'partition': partition}
+                )
+        except Exception as err:
+            if err.response.status_code == 409:
+                LOG.info(
+                    "Gateway pool %s is already existed in partition %s",
+                    pool_name, partition
+                )
+                LOG.info(err)
+            else:
+                LOG.error("Failed to create gateway pool %s on %s: %s",
+                          pool_name, bigip, err.message)
+                raise err
+
+    def get_gateway_pool(self, bigip, pool_name, partition='Common'):
+        pool = None
+        try:
+            pool = self.pool_helper.load(
+                bigip,
+                name=pool_name,
+                partition=partition
+            )
+        except Exception as err:
+            if err.response.status_code == 404:
+                LOG.info("Gateway pool %s is not exist in partition %s",
+                         pool_name, partition)
+                raise err
+            else:
+                LOG.error("Failed to get gateway pool %s on %s: %s",
+                          pool_name, bigip, err.message)
+                raise err
+
+        return pool
+
     def create_pool(self, service, bigips):
         """Create a pool on set of BIG-IPs.
 

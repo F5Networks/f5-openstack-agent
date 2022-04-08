@@ -1671,7 +1671,9 @@ class PoolManager(ResourceManager):
     @serialized('PoolManager.delete')
     @log_helpers.log_method_call
     def delete(self, pool, service, **kwargs):
-        self.driver.annotate_service_members(service)
+        self.driver.network_builder.delete_mb_network(
+            None, service, delete_pool=True
+        )
         super(PoolManager, self).delete(pool, service)
 
 
@@ -1933,26 +1935,8 @@ class MemberManager(ResourceManager):
 
     def _create_single(self, resource, service, **kwargs):
 
-        net_resource_create = True
-
-        if 'loadbalancer' in service:
-            loadbalancer = service['loadbalancer']
-            if loadbalancer['vip_subnet_id'] == resource['subnet_id']:
-                LOG.debug("Loadbalancer's subnet is the same as member's")
-                net_resource_create = False
-
-        if net_resource_create is True and 'members' in service:
-            for item in service['members']:
-                if item['id'] != resource['id'] and \
-                   item['subnet_id'] == resource['subnet_id']:
-                    LOG.debug("member %s has the same subnet", item['name'])
-                    net_resource_create = False
-                    break
-
-        if net_resource_create is True:
-            self.driver.prepare_network_for_member(service)
-        else:
-            self.driver.annotate_service_members(service)
+        self.driver.network_builder.prep_mb_network(
+            resource, service)
 
         if not service.get(self._key):
             self._search_element(resource, service)
@@ -2029,7 +2013,9 @@ class MemberManager(ResourceManager):
 
         self._check_nonshared_network(service)
 
-        self.driver.annotate_service_members(service)
+        self.driver.network_builder.delete_mb_network(
+            resource, service)
+
         if not service.get(self._key):
             self._search_element(resource, service)
 
