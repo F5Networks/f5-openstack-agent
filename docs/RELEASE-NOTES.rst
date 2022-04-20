@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.49(Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2406] Disable ESD refresh job
+* [OPENSTACK-2440] Enable toa function for FTP and HTTPS
+* [OPENSTACK-2459] Let --transparent and --customize control XFF function
+
+Bug Fixes
+`````````
+
+Limitations
+
 v9.8.48 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
@@ -66,20 +81,20 @@ NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack rele
 
 Added Functionality
 ```````````````````
-* Feature change member update process 
+* Feature change member update process
 
 Bug Fixes
 `````````
 * Fix the KeyError issue of heartbeat periodic task.
 * Fix typo fix from reponse to response
 * Fix rds cache pollute problem
-* Fix project named route domain 
+* Fix project named route domain
 * Fix check project_id at global_routed_mode is True
 * Fix bigip status check
 * Fix cleanup all snat, vlan and self ip before removing partition
 * Fix only check nodes in current partition
 * Fix Catch all exception for route domain creation
-* Fix periodic_interval 
+* Fix periodic_interval
 * Upgrade eventlet to version 0.31.0 for Dependabot vulnerable
 * Fix the issue of deleting nodes and snat in bigip ha mode
 * add checking status support and don't send the members with status of none or checking
