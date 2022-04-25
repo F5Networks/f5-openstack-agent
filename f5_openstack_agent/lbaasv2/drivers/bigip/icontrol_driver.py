@@ -192,6 +192,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         default="10.190.5.7",
         help='The hostname (name or IP address) to use for iControl access'
     ),
+    cfg.IntOpt(
+        'icontrol_port',
+        default=443,
+        help='The port to use for iControl access'
+    ),
     cfg.StrOpt(
         'icontrol_username', default='admin',
         help='The username to use for iControl access'
@@ -720,6 +725,7 @@ class iControlDriver(LBaaSBaseDriver):
                                    self.conf.icontrol_username,
                                    self.conf.icontrol_password,
                                    timeout=f5const.DEVICE_CONNECTION_TIMEOUT,
+                                   port=self.conf.icontrol_port,
                                    debug=self.conf.debug)
             bigip.status = 'connected'
             bigip.status_message = 'connected to BIG-IP'
