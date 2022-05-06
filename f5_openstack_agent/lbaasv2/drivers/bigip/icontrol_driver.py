@@ -183,6 +183,28 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='All subnets have an external l3 route on gateway'
     ),
     cfg.StrOpt(
+        'confd_hostname',
+        default="",
+        help='The hostname (name or IP address) to use for F5OS confd access'
+    ),
+    cfg.IntOpt(
+        'confd_port',
+        default=443,
+        help='The port to use for F5OS confd access'
+    ),
+    cfg.StrOpt(
+        'confd_username', default='admin',
+        help='The username to use for F5OS confd access'
+    ),
+    cfg.StrOpt(
+        'confd_password', default='admin', secret=True,
+        help='The password to use for F5OS confd access'
+    ),
+    cfg.StrOpt(
+        'lag_interface', default="",
+        help='The LAG interface name in F5OS to associate vlan'
+    ),
+    cfg.StrOpt(
         'icontrol_vcmp_hostname',
         help='The hostname (name or IP address) to use for vCMP Host '
              'iControl access'
