@@ -324,6 +324,8 @@ class LoadBalancerManager(ResourceManager):
     def _post_delete(self, service):
         # self.driver.network_builder is None in global routed mode
         if self.driver.network_builder:
+            # TODO(jx) check if last one, disasso vlan with Tenant+LAG,
+            # then delete F5OS vlan
             self.driver.network_builder.post_service_networking(
                 service, self.all_subnet_hints)
         self.tenant_manager.assure_tenant_cleanup(
