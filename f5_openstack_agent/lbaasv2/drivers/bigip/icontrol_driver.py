@@ -854,6 +854,7 @@ class iControlDriver(LBaaSBaseDriver):
         # on all connected BIG-IPs
         if self.network_builder:
             self.network_builder.initialize_vcmp()
+            self.network_builder.initialize_rseries()
 
         self.agent_configurations['network_segment_physical_network'] = \
             self.conf.f5_network_segment_physical_network

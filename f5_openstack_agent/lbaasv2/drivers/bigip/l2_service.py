@@ -21,6 +21,10 @@ from time import time
 from oslo_log import log as logging
 from oslo_utils import importutils
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import F5OSClient
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import LAG
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Tenant
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Vlan
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.fdb_connector_ml2 \
     import FDBConnectorML2
@@ -110,6 +114,36 @@ class L2ServiceBuilder(object):
         '''Intialize the vCMP manager when the driver is ready.'''
 
         self.vcmp_manager = VcmpManager(self.driver)
+
+    def initialize_rseries_manager(self):
+        '''Intialize the rSeries manager when the driver is ready.'''
+        # TODO(jx): add some checks against these values
+        host = self.conf.confd_hostname
+        port = self.conf.confd_port
+        user = self.conf.confd_username
+        password = self.conf.confd_password
+        lag_interface = self.conf.lag_interface
+
+        self.rseries_manager = F5OSClient(
+            host=host,
+            port=port,
+            user=user,
+            password=password
+        )
+        # TODO(jx): to add checks, only consider 1 Tenant for now.
+        f5os_tenant_name = Tenant(
+            self.rseries_manager
+        ).loadCollection()[0]['name']
+
+        LOG.debug("f5os_tenant_name is:")
+        LOG.debug(f5os_tenant_name)
+
+        self.f5os_tenant = Tenant(self.rseries_manager)
+        self.f5os_tenant.load(name=f5os_tenant_name)
+        LOG.debug("self.f5os_tenant:")
+        LOG.debug(self.f5os_tenant)
+        # self.f5os_vlan = Vlan(self.rseries_manager)
+        self.f5os_lag = LAG(self.rseries_manager, name=lag_interface)
 
     def post_init(self):
         if self.vlan_binding:
@@ -310,9 +344,19 @@ class L2ServiceBuilder(object):
                                                'interface': interface,
                                                'network': network})
 
+        self._assure_rseries_device_network(vlanid, vlan_name)
+
         if self.vcmp_manager and self.vcmp_manager.get_vcmp_host(bigip):
             interface = None
+        # TODO(jx): add more filters
+        elif self.rseries_manager:
+            interface = None
         try:
+            # TODO(jx) for now, hardcode several seconds sleep for simplicity.
+            # to modify later
+            import time
+            time.sleep(3)
+            self.network_helper.delete_vlan(bigip, vlan_name)
             model = {'name': vlan_name,
                      'interface': interface,
                      'tag': vlanid,
@@ -433,6 +477,17 @@ class L2ServiceBuilder(object):
         # Associate the VLAN with the vCMP Guest, if necessary
         self.vcmp_manager.assoc_vlan_with_vcmp_guest(bigip, vlan)
 
+    def _assure_rseries_device_network(self, vlan_id, vlan_name):
+        # associateVlan(), add some checks, try etc
+        if not self.rseries_manager:
+            return
+
+        the_vlan = Vlan(self.rseries_manager)
+        the_vlan.create(vlan_id, vlan_name)
+
+        self.f5os_lag.associateVlan(vlan_id)
+        self.f5os_tenant.associateVlan(vlan_id)
+
     def delete_bigip_network(self, bigip, network):
         # Delete network on bigip
         if network['id'] in self.conf.common_network_ids:
@@ -504,6 +559,8 @@ class L2ServiceBuilder(object):
             )
 
         self._delete_vcmp_device_network(bigip, vlan_name)
+        # todo maybe add logic here as well
+        self._delete_rseries_device_network(bigip, vlan_name)
 
     def _delete_device_flat(self, bigip, network, network_folder):
         # Delete untagged vlan on specific bigip
@@ -582,6 +639,15 @@ class L2ServiceBuilder(object):
         if not vcmp_host:
             return
         self.vcmp_manager.disassoc_vlan_with_vcmp_guest(bigip, vlan_name)
+
+    def _delete_rseries_device_network(self, bigip, vlan_name):
+        '''Disassociated VLAN with Tenant, then delete it from F5OS
+
+        :param bigip: ManagementRoot object -- Tenant guest
+        :param vlan_name: str -- name of vlan
+        '''
+        # disasso vlan with Tenant+LAG, then delete F5OS vlan
+        pass
 
     def add_bigip_fdb(self, bigip, fdb):
         # Add entries from the fdb relevant to the bigip
