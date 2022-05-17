@@ -735,7 +735,6 @@ class NetworkServiceBuilder(object):
 
             subnet_hints = all_subnet_hints[bigip.device_name]
 
-            # todo here
             deleted_names = deleted_names.union(
                 self._assure_delete_nets_nonshared(
                     bigip, service, subnet_hints)
@@ -879,7 +878,6 @@ class NetworkServiceBuilder(object):
                             opflex_net_id)
                         deleted_names.add(opflex_net_port)
 
-                # todo add here
                 self.l2_service.delete_bigip_network(bigip, network)
 
                 if subnet['id'] not in subnet_hints['do_not_delete_subnets']:

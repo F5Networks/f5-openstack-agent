@@ -352,7 +352,7 @@ class L2ServiceBuilder(object):
         elif self.rseries_manager:
             interface = None
         try:
-            # TODO(jx) for now, hardcode several seconds sleep for simplicity.
+            # TODO(jx) for now, hardcode seconds for simplicity.
             # to modify later
             import time
             time.sleep(3)
@@ -482,10 +482,15 @@ class L2ServiceBuilder(object):
         if not self.rseries_manager:
             return
 
+        # TODO(nik) add try/catch if vlan already exists/associated
         the_vlan = Vlan(self.rseries_manager)
+        LOG.debug("creating vlan %s", vlan_name)
         the_vlan.create(vlan_id, vlan_name)
 
+        LOG.debug("associating vlan %d with lag", vlan_id)
         self.f5os_lag.associateVlan(vlan_id)
+
+        LOG.debug("associating vlan %d with Tenant", vlan_id)
         self.f5os_tenant.associateVlan(vlan_id)
 
     def delete_bigip_network(self, bigip, network):
@@ -559,8 +564,10 @@ class L2ServiceBuilder(object):
             )
 
         self._delete_vcmp_device_network(bigip, vlan_name)
-        # todo maybe add logic here as well
-        self._delete_rseries_device_network(bigip, vlan_name)
+
+        vlan_id = network.get('provider:segmentation_id', 0)
+        LOG.info("vlan_id here is: %d" % vlan_id)
+        self._delete_rseries_device_network(vlan_id)
 
     def _delete_device_flat(self, bigip, network, network_folder):
         # Delete untagged vlan on specific bigip
@@ -640,14 +647,40 @@ class L2ServiceBuilder(object):
             return
         self.vcmp_manager.disassoc_vlan_with_vcmp_guest(bigip, vlan_name)
 
-    def _delete_rseries_device_network(self, bigip, vlan_name):
+    def _delete_rseries_device_network(self, vlan_id):
         '''Disassociated VLAN with Tenant, then delete it from F5OS
 
-        :param bigip: ManagementRoot object -- Tenant guest
-        :param vlan_name: str -- name of vlan
+        :param vlan_id: -- id of vlan
         '''
+
+        # TODO(nik) might as well add try/catch/etc
         # disasso vlan with Tenant+LAG, then delete F5OS vlan
-        pass
+        LOG.debug("start of _delete_rseries_device_network")
+        if not self.rseries_manager:
+            return
+
+        LOG.debug("disassociating vlan %d with Tenant", vlan_id)
+        self.f5os_tenant.dissociateVlan(vlan_id)
+
+        # seems if adding this disasso sometimes leads 2 ERROR
+        # HTTPError: 400 Client Error: Bad Request for url:
+        # https://XXXXX/api/data/openconfig-vlan:vlans/vlan=XX
+        # looks like should wait for a little bit
+        LOG.debug("disassociating vlan %d with lag", vlan_id)
+        self.f5os_lag.dissociateVlan(vlan_id)
+
+        LOG.debug("deleting vlan %d", vlan_id)
+        import time
+        time.sleep(1)
+        try:
+            the_vlan = Vlan(self.rseries_manager, vlan_id)
+            the_vlan.delete()
+        except Exception as err:
+            LOG.exception("%s", err.message)
+            LOG.info("retry deletion")
+            the_vlan.delete()
+
+        LOG.debug("end of _delete_rseries_device_network")
 
     def add_bigip_fdb(self, bigip, fdb):
         # Add entries from the fdb relevant to the bigip
