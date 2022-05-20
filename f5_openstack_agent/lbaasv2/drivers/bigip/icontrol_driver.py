@@ -581,7 +581,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def _init_bigips(self):
         # Connect to all BIG-IPs
-        LOG.debug('initializing communications to BIG-IPs')
+        LOG.debug('checking communications to BIG-IPs')
         try:
             # setup logging options
             if not self.conf.debug:
@@ -713,8 +713,8 @@ class iControlDriver(LBaaSBaseDriver):
             # error connecting. If status is e.g. 'initializing' etc,
             # seems should try to connect again, otherwise status stucks
             # the same forever.
-            if bigip.status in ['active']:
-                LOG.debug('BIG-IP %s status invalid %s to open a connection'
+            if bigip.status == 'active':
+                LOG.debug('BIG-IP %s status is %s, skip reopen it.'
                           % (hostname, bigip.status))
                 return bigip
             bigip.status = 'connecting'
