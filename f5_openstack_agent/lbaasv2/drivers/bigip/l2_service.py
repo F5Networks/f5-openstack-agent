@@ -18,6 +18,7 @@ import random
 from requests import HTTPError
 from time import time
 
+from icontrol.exceptions import iControlUnexpectedHTTPError
 from oslo_log import log as logging
 from oslo_utils import importutils
 
@@ -356,7 +357,16 @@ class L2ServiceBuilder(object):
             # to modify later
             import time
             time.sleep(3)
-            self.network_helper.delete_vlan(bigip, vlan_name)
+            try:
+                self.network_helper.delete_vlan(bigip, vlan_name)
+            except iControlUnexpectedHTTPError as ex:
+                if ex.response.status_code == 400 and \
+                        'cannot be deleted because it is in use by a self' \
+                        in ex.message:
+                    LOG.info("being in use, skip.")
+                else:
+                    raise(ex)
+
             model = {'name': vlan_name,
                      'interface': interface,
                      'tag': vlanid,
