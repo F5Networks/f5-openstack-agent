@@ -341,6 +341,7 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
+            self.driver.network_builder.config_selfips(service)
             self.driver.network_builder.config_snat(service)
 
     def __get_update_operation(self, old_loadbalancer, loadbalancer):
@@ -566,6 +567,7 @@ class LoadBalancerManager(ResourceManager):
         if self.driver.network_builder:
             if loadbalancer.get('flavor') != \
                     old_loadbalancer.get('flavor'):
+                self.driver.network_builder._lb_netinfo_to_assure(service)
                 self.driver.network_builder.update_flavor_snat(
                     old_loadbalancer, loadbalancer, service
                 )
@@ -585,22 +587,9 @@ class LoadBalancerManager(ResourceManager):
         if self.driver.network_builder:
             self.driver.network_builder._annotate_service_route_domains(
                 service)
+            self.driver.network_builder._lb_netinfo_to_assure(service)
 
         loadbalancer = service["loadbalancer"]
-
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
-        for bigip in bigips:
-            self.all_subnet_hints[bigip.device_name] = \
-                {'check_for_delete_subnets': {},
-                 'do_not_delete_subnets': []}
-        self.driver.lbaas_builder._update_subnet_hints(
-            loadbalancer["provisioning_status"],
-            loadbalancer["vip_subnet_id"],
-            loadbalancer["network_id"],
-            self.all_subnet_hints,
-            False
-        )
-
         if self.driver.l3_binding:
             self.driver.l3_binding.unbind_address(
                 subnet_id=loadbalancer["vip_subnet_id"],
@@ -611,9 +600,8 @@ class LoadBalancerManager(ResourceManager):
         if self.driver.network_builder:
             self.driver.network_builder.remove_flavor_snat(service)
             self.driver.network_builder.post_service_networking(
-                service, self.all_subnet_hints)
-        self.tenant_manager.assure_tenant_cleanup(
-            service, self.all_subnet_hints)
+                service)
+        self.tenant_manager.assure_tenant_cleanup(service)
 
 
 class ListenerManager(ResourceManager):

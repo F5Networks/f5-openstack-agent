@@ -86,17 +86,16 @@ class BigipTenantManager(object):
                             "Folder creation error for tenant %s" %
                             (tenant_id))
 
-    def assure_tenant_cleanup(self, service, all_subnet_hints):
+    def assure_tenant_cleanup(self, service):
         """Delete tenant partition."""
         # Called for every bigip only in replication mode,
         # otherwise called once.
         for bigip in self.driver.get_config_bigips():
-            subnet_hints = all_subnet_hints[bigip.device_name]
-            self._assure_bigip_tenant_cleanup(bigip, service, subnet_hints)
+            self._assure_bigip_tenant_cleanup(bigip, service)
 
     # called for every bigip only in replication mode.
     # otherwise called once
-    def _assure_bigip_tenant_cleanup(self, bigip, service, subnet_hints):
+    def _assure_bigip_tenant_cleanup(self, bigip, service):
         tenant_id = service['loadbalancer']['tenant_id']
         self._remove_tenant_replication_mode(bigip, tenant_id)
 

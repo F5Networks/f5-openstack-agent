@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import itertools
 import netaddr
 from requests import HTTPError
 
@@ -78,6 +77,7 @@ class NetworkServiceBuilder(object):
         self.interface_mapping = self.l2_service.interface_mapping
         self.network_helper = NetworkHelper(conf=self.conf)
         self.service_adapter = self.driver.service_adapter
+        self.lb_netinfo = dict()
 
     def post_init(self):
         # Run and Post Initialization Tasks
@@ -213,46 +213,45 @@ class NetworkServiceBuilder(object):
                     "Route domain annotation error")
 
         # Per Device Network Connectivity (VLANs or Tunnels)
-        subnetsinfo = self._get_subnets_to_assure(service)
-        for (assure_bigip, subnetinfo) in (
-                itertools.product(self.driver.get_all_bigips(), subnetsinfo)):
-            LOG.debug("Assuring per device network connectivity "
-                      "for %s on subnet %s." % (assure_bigip.hostname,
-                                                subnetinfo['subnet']))
-
+        self._lb_netinfo_to_assure(service)
+        bigips = self.driver.get_all_bigips()
+        for bigip in bigips:
             # Make sure the L2 network is established
             self.l2_service.assure_bigip_network(
-                assure_bigip, subnetinfo['network'])
+                bigip, self.lb_netinfo['network'])
 
-            # Connect the BigIP device to network, by getting
-            # a self-ip address on the subnet.
-            self.bigip_selfip_manager.assure_bigip_selfip(
-                assure_bigip, service, subnetinfo)
+    def config_selfips(self, service):
+        lb_network = self.lb_netinfo['network']
+        lb_subnets = self.lb_netinfo['subnets']
+
+        subnetinfo = {'network': lb_network}
+        for subnet in lb_subnets:
+            subnetinfo['subnet'] = subnet
+            for bigip in self.driver.get_all_bigips():
+                self.bigip_selfip_manager.assure_bigip_selfip(
+                    bigip, service, subnetinfo)
 
     def config_snat(self, service):
-        subnetsinfo = self._get_subnets_to_assure(service)
         snat_helper = SNATHelper(
-            self.driver, service, subnetsinfo,
+            self.driver, service, self.lb_netinfo,
             self.bigip_snat_manager,
             self.l2_service
         )
         snat_helper.snat_create()
 
     def remove_flavor_snat(self, service):
-        subnetsinfo = self._get_subnets_to_assure(service)
         snat_helper = SNATHelper(
-            self.driver, service, subnetsinfo,
+            self.driver, service, self.lb_netinfo,
             self.bigip_snat_manager,
             self.l2_service
         )
         snat_helper.snat_remove()
 
     def update_flavor_snat(
-            self, old_loadbalancer, loadbalancer, service
+        self, old_loadbalancer, loadbalancer, service
     ):
-        subnetsinfo = self._get_subnets_to_assure(service)
         snat_helper = SNATHelper(
-            self.driver, service, subnetsinfo,
+            self.driver, service, self.lb_netinfo,
             self.bigip_snat_manager,
             self.l2_service
         )
@@ -261,33 +260,9 @@ class NetworkServiceBuilder(object):
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
         tenant_id = service['loadbalancer']['tenant_id']
-        if 'members' in service:
-            for member in service['members']:
-                if 'address' in member:
-                    LOG.debug("processing member %s" % member['address'])
-                    if 'network_id' in member and member['network_id']:
-                        member_network = (
-                            self.service_adapter.get_network_from_service(
-                                service,
-                                member['network_id']
-                            ))
-                        if member_network:
-                            if member["provisioning_status"] in [
-                                    constants_v2.PENDING_DELETE,
-                                    constants_v2.ERROR]:
-                                self.assign_delete_route_domain(
-                                    tenant_id, member_network)
-                            else:
-                                self.assign_route_domain(
-                                    tenant_id, member_network)
-                            rd_id = (
-                                '%' + str(member_network['route_domain_id'])
-                            )
-                            member['address'] += rd_id
-                    else:
-                        member['address'] += '%0'
+        loadbalancer = service['loadbalancer']
+
         if 'vip_address' in service['loadbalancer']:
-            loadbalancer = service['loadbalancer']
             if 'network_id' in loadbalancer:
                 lb_network = self.service_adapter.get_network_from_service(
                     service, loadbalancer['network_id'])
@@ -300,6 +275,26 @@ class NetworkServiceBuilder(object):
                 service['loadbalancer']['vip_address'] += rd_id
             else:
                 service['loadbalancer']['vip_address'] += '%0'
+
+        if 'members' in service:
+            for member in service['members']:
+                if 'address' in member:
+                    LOG.debug("processing member %s" % member['address'])
+                    if 'network_id' in member and member['network_id']:
+                        member_network = (
+                            self.service_adapter.get_network_from_service(
+                                service,
+                                member['network_id']
+                            ))
+                        if member_network:
+                            self.set_network_route_domain(
+                                member_network,
+                                lb_network['route_domain_id']
+                            )
+                            rd_id = '%' + str(lb_network['route_domain_id'])
+                            member['address'] += rd_id
+                    else:
+                        member['address'] += '%0'
 
     def is_common_network(self, network):
         return self.l2_service.is_common_network(network)
@@ -454,7 +449,7 @@ class NetworkServiceBuilder(object):
                 LOG.exception(ermsg)
         return True
 
-    def post_service_networking(self, service, all_subnet_hints):
+    def post_service_networking(self, service):
         # Assure networks are deleted from big-ips
         if self.conf.f5_global_routed_mode:
             return
@@ -466,31 +461,10 @@ class NetworkServiceBuilder(object):
         # Delete shared config objects
         deleted_names = set()
         for bigip in self.driver.get_config_bigips():
-            LOG.debug('post_service_networking: calling '
-                      '_assure_delete_networks del nets sh for bigip %s %s'
-                      % (bigip.device_name, all_subnet_hints))
-            subnet_hints = all_subnet_hints[bigip.device_name]
-            deleted_names = deleted_names.union(
-                self._assure_delete_nets_shared(bigip, service,
-                                                subnet_hints))
-
-        # Delete non shared config objects
-        for bigip in self.driver.get_all_bigips():
-            LOG.debug('    post_service_networking: calling '
-                      '    _assure_delete_networks del nets ns for bigip %s'
-                      % bigip.device_name)
-
-            subnet_hints = all_subnet_hints[bigip.device_name]
-
-            deleted_names = deleted_names.union(
-                self._assure_delete_nets_nonshared(
-                    bigip, service, subnet_hints)
-            )
+            deleted_names |= self._delete_shared_nets_config(
+                bigip, service)
 
         for port_name in deleted_names:
-            LOG.debug('    post_service_networking: calling '
-                      '    del port %s'
-                      % port_name)
             self.driver.plugin_rpc.delete_port_by_name(
                 port_name=port_name)
 
@@ -541,35 +515,21 @@ class NetworkServiceBuilder(object):
 
         LOG.debug("update_bigip_l2 complete")
 
-    def _assure_delete_nets_shared(self, bigip, service, subnet_hints):
-        # Assure shared configuration (which syncs) is deleted
+    def _delete_shared_nets_config(self, bigip, service):
         deleted_names = set()
-
         delete_gateway = self.bigip_selfip_manager.delete_gateway_on_subnet
-        for subnetinfo in self._get_subnets_to_delete(bigip,
-                                                      service,
-                                                      subnet_hints):
+
+        subnets_to_delete = self._get_subnets_to_delete(
+            bigip, service
+        )
+        for subnetinfo in subnets_to_delete:
             try:
                 if not self.conf.f5_snat_mode:
                     gw_name = delete_gateway(bigip, subnetinfo)
                     deleted_names.add(gw_name)
-            except f5_ex.F5NeutronException as exc:
-                LOG.error("assure_delete_nets_shared: exception: %s"
-                          % str(exc.msg))
-            except Exception as exc:
-                LOG.error("assure_delete_nets_shared: exception: %s"
-                          % str(exc.message))
 
-        return deleted_names
-
-    def _assure_delete_nets_nonshared(self, bigip, service, subnet_hints):
-        # Delete non shared base objects for networks
-        deleted_names = set()
-        for subnetinfo in self._get_subnets_to_delete(bigip,
-                                                      service,
-                                                      subnet_hints):
-            try:
                 network = subnetinfo['network']
+
                 if self.l2_service.is_common_network(network):
                     network_folder = 'Common'
                 else:
@@ -585,77 +545,69 @@ class NetworkServiceBuilder(object):
                         partition=network_folder
                     )
 
-                local_selfip_name = "local-" + bigip.device_name + \
-                                    "-" + subnet['id']
-
-                selfip_address = self.bigip_selfip_manager.get_selfip_addr(
-                    bigip,
-                    local_selfip_name,
-                    partition=network_folder
-                )
-
-                if not selfip_address:
-                    LOG.error("Failed to get self IP address %s in cleanup.",
-                              local_selfip_name)
-
-                self.bigip_selfip_manager.delete_selfip(
-                    bigip,
-                    local_selfip_name,
-                    partition=network_folder
-                )
-
-                if self.l3_binding and selfip_address:
-                    self.l3_binding.unbind_address(subnet_id=subnet['id'],
-                                                   ip_address=selfip_address)
-
-                deleted_names.add(local_selfip_name)
-
-                if self.conf.f5_network_segment_physical_network:
-                    opflex_net_id = network.get('id')
-                    if opflex_net_id:
-                        opflex_net_port = "bigip-opflex-{}".format(
-                            opflex_net_id)
-                        deleted_names.add(opflex_net_port)
-
+                # only when lb vlan is not in use,
+                # it means network is not used,
+                # and subnets (selfip, vlan, route_doamin) of
+                # network is not used
                 if not subnetinfo['network_vlan_inuse']:
+                    local_selfip_name = "local-" + bigip.device_name \
+                        + "-" + 'IPv' + str(subnet['ip_version']) \
+                        + "-" + subnet['id']
+
+                    selfip_address = self.bigip_selfip_manager.get_selfip_addr(
+                        bigip,
+                        local_selfip_name,
+                        partition=network_folder
+                    )
+
+                    if not selfip_address:
+                        LOG.error(
+                            "Failed to get self IP address %s in cleanup.",
+                            local_selfip_name
+                        )
+
+                    self.bigip_selfip_manager.delete_selfip(
+                        bigip,
+                        local_selfip_name,
+                        partition=network_folder
+                    )
+
+                    if self.l3_binding and selfip_address:
+                        self.l3_binding.unbind_address(
+                            subnet_id=subnet['id'],
+                            ip_address=selfip_address
+                        )
+
+                    deleted_names.add(local_selfip_name)
+
+                    if self.conf.f5_network_segment_physical_network:
+                        opflex_net_id = network.get('id')
+                        if opflex_net_id:
+                            opflex_net_port = "bigip-opflex-{}".format(
+                                opflex_net_id)
+                            deleted_names.add(opflex_net_port)
+
                     self.delete_route_domain(
                         bigip, network_folder, network
                     )
                     self.l2_service.delete_bigip_network(bigip, network)
 
-                if subnet['id'] not in subnet_hints['do_not_delete_subnets']:
-                    subnet_hints['do_not_delete_subnets'].append(subnet['id'])
-
-                tenant_id = service['loadbalancer']['tenant_id']
-                if tenant_id in bigip.assured_tenant_snat_subnets:
-                    tenant_snat_subnets = \
-                        bigip.assured_tenant_snat_subnets[tenant_id]
-                    if subnet['id'] in tenant_snat_subnets:
-                        tenant_snat_subnets.remove(subnet['id'])
-            except f5_ex.F5NeutronException as exc:
-                LOG.debug("assure_delete_nets_nonshared: exception: %s"
-                          % str(exc.msg))
             except Exception as exc:
-                LOG.debug("assure_delete_nets_nonshared: exception: %s"
+                LOG.debug("_delete_shared_nets_config: exception: %s\n"
                           % str(exc.message))
 
         return deleted_names
 
-    def _get_subnets_to_delete(self, bigip, service, subnet_hints):
+    def _get_subnets_to_delete(self, bigip, service):
         # Clean up any Self IP, SNATs, networks, and folder for
         # services items that we deleted.
         subnets_to_delete = []
-        for subnetinfo in subnet_hints['check_for_delete_subnets'].values():
-            subnet = self.service_adapter.get_subnet_from_service(
-                service, subnetinfo['subnet_id'])
-            subnetinfo['subnet'] = subnet
-            network = self.service_adapter.get_network_from_service(
-                service, subnetinfo['network_id'])
-            subnetinfo['network'] = network
-            route_domain = network.get('route_domain_id', None)
-            if not subnet:
-                continue
+        network = self.lb_netinfo['network']
 
+        for subnet in self.lb_netinfo['subnets']:
+            subnetinfo = dict()
+
+            route_domain = network.get('route_domain_id', None)
             tenant_id = service['loadbalancer']['tenant_id']
 
             inuse = self.selfip_routedomain_inuse(
@@ -670,6 +622,8 @@ class NetworkServiceBuilder(object):
                 # if route domain is not inuse, then mark its vlan
                 # can be deleted.
                 subnetinfo['network_vlan_inuse'] = inuse['route_domain']
+                subnetinfo['network'] = network
+                subnetinfo['subnet'] = subnet
                 subnets_to_delete.append(subnetinfo)
 
         return subnets_to_delete
@@ -766,77 +720,75 @@ class NetworkServiceBuilder(object):
     def vlan_exists(self, bigip, network, folder='Common'):
         return self.vlan_manager.exists(bigip, name=network, partition=folder)
 
-    def _get_subnets_to_assure(self, service):
+    def _lb_netinfo_to_assure(self, service):
         # Examine service and return active networks
-        networks = dict()
-        loadbalancer = service['loadbalancer']
-        service_adapter = self.service_adapter
-        lb_status = loadbalancer['provisioning_status']
-        if lb_status != constants_v2.F5_PENDING_DELETE:
-            if 'network_id' in loadbalancer:
-                network = service_adapter.get_network_from_service(
-                    service,
-                    loadbalancer['network_id']
-                )
-                subnet = service_adapter.get_subnet_from_service(
-                    service,
-                    loadbalancer['vip_subnet_id']
-                )
-                networks[subnet['id']] = {'network': network,
-                                          'subnet': subnet,
-                                          'is_for_member': False}
 
-        for member in service['members']:
-            if member['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
-                if 'network_id' in member:
-                    network = service_adapter.get_network_from_service(
-                        service,
-                        member['network_id']
-                    )
-                    subnet = service_adapter.get_subnet_from_service(
-                        service,
-                        member['subnet_id']
-                    )
-                    networks[subnet['id']] = {'network': network,
-                                              'subnet': subnet,
-                                              'is_for_member': True}
-
-        return networks.values()
+        network_id = service['loadbalancer']['network_id']
+        network = service['networks'][network_id]
+        subnets = self.driver.plugin_rpc.get_subnets_info(
+            subnet_ids=network['subnets']
+        )
+        self.lb_netinfo['network'] = network
+        self.lb_netinfo['subnets'] = subnets
 
 
 class SNATHelper(object):
 
     FLAVOR_MAP = constants_v2.FLAVOR_SNAT_MAP
 
-    def __init__(self, driver, service, subnetsinfo,
+    def __init__(self, driver, service, lb_netinfo,
                  snat_manager, l2_service):
         self.driver = driver
         self.service = service
-        self.subnetsinfo = subnetsinfo
         self.snat_manager = snat_manager
         self.l2_service = l2_service
-
         self.flavor = service['loadbalancer'].get('flavor')
         self.traffic_group = self.driver.service_to_traffic_group(service)
         self.partition = self.driver.service_adapter.get_folder_name(
             service['loadbalancer'].get('tenant_id')
         )
 
-    @property
-    def ip_addr(self):
-        vip = self.service['loadbalancer'].get('vip_address')
-        if '%' in vip:
-            return vip.split('%')[0]
-        return vip
+        self.snat_net = lb_netinfo
+        self.check_snat_netinfo()
 
-    @property
-    def net_info(self):
-        lb_subnet_id = self.service['loadbalancer'].get('vip_subnet_id')
-        lb_subnet_info = self.service['subnets'].get(lb_subnet_id)
-        lb_network_info = self.service['networks'].get(
-            lb_subnet_info['network_id'])
+    def check_snat_netinfo(self):
+        status = self.service['loadbalancer']['provisioning_status']
+        network = self.snat_net['network']
+        subnets = self.snat_net['subnets']
 
-        return {'network': lb_network_info, 'subnet': lb_subnet_info}
+        if not network:
+            LOG.error("Not found network info of network: %s" %
+                      network)
+            raise Exception(
+                "Can not find network info about service %s." %
+                self.service
+            )
+
+        if not subnets:
+            LOG.error(
+                "Not found subnet info of network: %s\n."
+                "SNAT IP can not be created." %
+                network
+            )
+            raise Exception(
+                "Can not find subnet info about service %s\n." %
+                self.service
+            )
+
+        if len(subnets) > 2 and status not in [
+                constants_v2.PENDING_DELETE,
+                constants_v2.ERROR
+        ]:
+            LOG.warning(
+                "The loadbalancer network %s has more than 2 subnet "
+                "we may create SNAT IPs not as you excepted.\n" %
+                subnets
+            )
+            raise Exception(
+                "Number of subnets is more than 2 in network"
+                "subnet info is: %s, network info is: %s.\n" %
+                (subnets, network)
+            )
 
     def snat_pools_exist(self):
         snatpool_name = \
@@ -859,79 +811,81 @@ class SNATHelper(object):
                     (snatpool_name, bigip.hostname)
                 )
 
-    def new_lb_create(self):
-        return len(self.subnetsinfo) == 1
-
     def snat_create(self):
         bigips = self.driver.get_config_bigips()
-
-        if self.new_lb_create():
-            self.lb_snat_create(bigips)
+        self.lb_snat_create(bigips)
 
     def lb_snat_create(self, bigips):
         # Ensure snat for subnet exists on bigips
         tenant_id = self.service['loadbalancer']['tenant_id']
-        subnet_id = self.net_info['subnet']['id']
         lb_id = self.service['loadbalancer']['id']
+        snat_addrs = set()
 
-        ip_version = netaddr.IPAddress(self.ip_addr).version
-        snats_per_subnet = self.count_SNATIPs(ip_version)
+        for subnet in self.snat_net['subnets']:
+            LOG.info("Creating snat addrs for subnet: %s" %
+                     subnet)
 
-        LOG.debug("_assure_flavor_snats: getting snat addrs for: %s" %
-                  subnet_id)
-        if len(bigips):
+            ip_version = subnet['ip_version']
+            snats_per_subnet = self.count_SNATIPs(
+                ip_version)
 
-            snat_name = self.snat_manager.get_flavor_snat_name(lb_id)
+            if len(bigips):
+                snat_name = self.snat_manager.get_snat_name(
+                    lb_id, ip_version)
 
-            if self.driver.conf.unlegacy_setting_placeholder:
-                LOG.debug('setting vnic_type to normal instead of baremetal')
-                vnic_type = "normal"
-            else:
-                vnic_type = "baremetal"
+                if self.driver.conf.unlegacy_setting_placeholder:
+                    LOG.debug(
+                        'setting vnic_type to normal instead of baremetal'
+                    )
+                    vnic_type = "normal"
+                else:
+                    vnic_type = "baremetal"
 
-            port = self.driver.plugin_rpc.get_port_by_name(
-                port_name=snat_name
+                port = self.driver.plugin_rpc.get_port_by_name(
+                    port_name=snat_name
+                )
+
+                if len(port) == 0:
+                    port = self.driver.plugin_rpc.create_port_on_subnet(
+                        subnet_id=subnet['id'],
+                        mac_address=None,
+                        name=snat_name,
+                        fixed_address_count=snats_per_subnet,
+                        device_id=lb_id,
+                        vnic_type=vnic_type
+                    )
+                else:
+                    port = port[0]
+
+                snat_addrs |= {
+                    addr_info['ip_address'] for addr_info in port['fixed_ips']
+                }
+
+                if len(port['fixed_ips']) != snats_per_subnet:
+                    raise f5_ex.SNATCreationException(
+                        "Unable to satisfy request to allocate %d "
+                        "snats.  Actual SNAT count: %d SNATs"
+                        "The subnet info is: %s." %
+                        (snats_per_subnet, len(snat_addrs), subnet)
+                    )
+
+        snat_info = {}
+        snat_info[
+            'pool_name'
+        ] = self.driver.service_adapter.get_folder_name(lb_id)
+        snat_info['pool_folder'] = self.partition
+        snat_info['addrs'] = snat_addrs
+
+        if self.l2_service.is_common_network(self.snat_net['network']):
+            snat_info['network_folder'] = 'Common'
+        else:
+            snat_info['network_folder'] = self.partition
+
+        for bigip in bigips:
+            self.snat_manager.assure_bigip_snats(
+                bigip, self.snat_net, snat_info,
+                tenant_id, snat_name
             )
-
-            if len(port) == 0:
-                port = self.driver.plugin_rpc.create_port_on_subnet(
-                    subnet_id=subnet_id,
-                    mac_address=None,
-                    name=snat_name,
-                    fixed_address_count=snats_per_subnet,
-                    device_id=lb_id,
-                    vnic_type=vnic_type
-                )
-            else:
-                port = port[0]
-
-            snat_addrs = [
-                addr_info['ip_address'] for addr_info in port['fixed_ips']
-            ]
-
-            if len(snat_addrs) != snats_per_subnet:
-                raise f5_ex.SNATCreationException(
-                    "Unable to satisfy request to allocate %d "
-                    "snats.  Actual SNAT count: %d SNATs" %
-                    (snats_per_subnet, len(snat_addrs)))
-
-            snat_info = {}
-            snat_info[
-                'pool_name'
-            ] = self.driver.service_adapter.get_folder_name(lb_id)
-            snat_info['pool_folder'] = self.partition
-            snat_info['addrs'] = snat_addrs
-
-            if self.l2_service.is_common_network(self.net_info['network']):
-                snat_info['network_folder'] = 'Common'
-            else:
-                snat_info['network_folder'] = self.partition
-
-            for bigip in bigips:
-                self.snat_manager.assure_bigip_snats(
-                    bigip, self.net_info, snat_info,
-                    tenant_id, snat_name
-                )
 
     def count_SNATIPs(self, ipversion, flavor=None):
         if not flavor:
@@ -945,26 +899,26 @@ class SNATHelper(object):
 
     def lb_snat_delete(self, bigips):
         lb_id = self.service['loadbalancer']['id']
-        LOG.debug("_assure_flavor_snats: getting snat addrs for: %s" %
-                  self.net_info['subnet']['id'])
+        LOG.debug("Getting snat addrs for: %s" %
+                  self.snat_net['subnets'])
 
         snat_pool = self.driver.service_adapter.get_folder_name(
             lb_id)
-        if self.l2_service.is_common_network(self.net_info['network']):
+        if self.l2_service.is_common_network(self.snat_net['network']):
             partition = 'Common'
         else:
             partition = self.partition
 
         for bigip in bigips:
             self.snat_manager.delete_flavor_snats(
-                bigip, self.net_info,
-                partition, snat_pool
+                bigip, partition, snat_pool
             )
 
-        snat_name = self.snat_manager.get_flavor_snat_name(
-            lb_id)
-        self.driver.plugin_rpc.delete_port_by_name(
-            port_name=snat_name)
+        for subnet in self.snat_net['subnets']:
+            snat_name = self.snat_manager.get_snat_name(
+                lb_id, subnet['ip_version'])
+            self.driver.plugin_rpc.delete_port_by_name(
+                port_name=snat_name)
 
     def snat_update(
         self, old_loadbalancer, loadbalancer
@@ -983,79 +937,69 @@ class SNATHelper(object):
         rd = 0
 
         if not self.driver.conf.f5_global_routed_mode:
-            rd = get_route_domain(self.net_info['network'])
+            rd = get_route_domain(self.snat_net['network'])
 
-        old_ip_version = netaddr.IPAddress(
-            old_loadbalancer['vip_address']
-        ).version
-        old_snats_per_subnet = self.count_SNATIPs(
-            old_ip_version, old_loadbalancer['flavor'])
+        new_snat_addrs = set()
 
-        ip_version = netaddr.IPAddress(
-            loadbalancer['vip_address']
-        ).version
-        new_snats_per_subnet = self.count_SNATIPs(
-            ip_version, loadbalancer['flavor'])
+        for subnet in self.snat_net['subnets']:
+            ip_version = subnet['ip_version']
+            snat_name = self.snat_manager.get_snat_name(
+                lb_id, ip_version)
 
-        snat_name = self.snat_manager.get_flavor_snat_name(lb_id)
-
-        if ip_version != old_ip_version:
-            LOG.warning(
-                "Old port %s IP version is different from the new one %s " %
-                (old_loadbalancer, loadbalancer)
-            )
-
-        diff = old_snats_per_subnet - new_snats_per_subnet
-        new_snat_addrs = list()
-        old_snat_addrs = list()
-
-        if diff != 0:
-            ports = self.driver.plugin_rpc.get_port_by_name(
-                port_name=snat_name
-            )
-
-            if len(ports) == 0:
-                raise Exception(
-                    "Can not find SNAT port %s in Neutron" % snat_name
+            if old_loadbalancer['flavor'] != loadbalancer['flavor']:
+                old_port = self.driver.plugin_rpc.get_port_by_name(
+                    port_name=snat_name
                 )
 
-            if len(ports) > 1:
-                LOG.warning(
-                    "Find multiple SNAT port in Neutron %s \n"
-                    "First SNAT port is used %s" % (ports, ports[0])
-                )
+                new_snats_per_subnet = self.count_SNATIPs(
+                    ip_version, loadbalancer['flavor'])
 
-            old_snat_addrs = [
-                netinfo['ip_address'] + '%' + str(rd)
-                for netinfo in ports[0]['fixed_ips']
-            ]
-
-            port = self.driver.plugin_rpc.update_port_on_subnet(
-                port_id=ports[0]['id'],
-                subnet_id=loadbalancer['vip_subnet_id'],
-                fixed_address_count=new_snats_per_subnet
-            )
-
-            new_snat_addrs = [
-                netinfo['ip_address'] + '%' + str(rd)
-                for netinfo in port['fixed_ips']
-            ]
-            pool_name = self.driver.service_adapter.get_folder_name(
-                lb_id
-            )
-            LOG.debug(
-                "Update SNAT Pool %s,  old SNAT IP %s to new SNAT IP %s" %
-                (pool_name, old_snat_addrs, new_snat_addrs)
-            )
-            if self.l2_service.is_common_network(self.net_info['network']):
-                partition = 'Common'
-            else:
-                partition = self.partition
-
-            if new_snat_addrs or old_snat_addrs:
-                bigips = self.driver.get_config_bigips()
-                for bigip in bigips:
-                    self.snat_manager.update_flavor_snats(
-                        bigip, partition, pool_name,
-                        new_snat_addrs
+                if len(old_port) == 0:
+                    raise Exception(
+                        "Can not find SNAT port %s in Neutron" % snat_name
                     )
+
+                if len(old_port) > 1:
+                    LOG.warning(
+                        "Find multiple SNAT port in Neutron %s \n" %
+                        old_port
+                    )
+                    raise Exception(
+                        "There should be one port with multiple IPs, "
+                        "but we got multiple ports %s \n" % old_port
+                    )
+
+                old_port = old_port[0]
+                if new_snats_per_subnet != len(old_port['fixed_ips']):
+                    port = self.driver.plugin_rpc.update_port_on_subnet(
+                        port_id=old_port['id'],
+                        subnet_id=subnet['id'],
+                        fixed_address_count=new_snats_per_subnet
+                    )
+                else:
+                    port = old_port
+
+                new_snat_addrs |= {
+                    netinfo['ip_address'] + '%' + str(rd)
+                    for netinfo in port['fixed_ips']
+                }
+
+        pool_name = self.driver.service_adapter.get_folder_name(
+            lb_id
+        )
+        LOG.debug(
+            "Update SNAT Pool %s to new SNAT IP %s" %
+            (pool_name, new_snat_addrs)
+        )
+        if self.l2_service.is_common_network(self.snat_net['network']):
+            partition = 'Common'
+        else:
+            partition = self.partition
+
+        if new_snat_addrs:
+            bigips = self.driver.get_config_bigips()
+            for bigip in bigips:
+                self.snat_manager.update_flavor_snats(
+                    bigip, partition, pool_name,
+                    list(new_snat_addrs)
+                )

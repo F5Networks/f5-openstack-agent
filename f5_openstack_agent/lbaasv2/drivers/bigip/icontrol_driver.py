@@ -2156,7 +2156,7 @@ class iControlDriver(LBaaSBaseDriver):
                 start_time = time()
                 try:
                     self.network_builder.post_service_networking(
-                        service, all_subnet_hints)
+                        service)
                 except Exception as error:
                     LOG.error("Post-network exception: icontrol_driver: %s",
                               error.message)

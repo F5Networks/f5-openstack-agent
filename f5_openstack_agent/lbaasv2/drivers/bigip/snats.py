@@ -29,6 +29,9 @@ class BigipSnatManager(object):
         self.l2_service = l2_service
         self.snatpool_manager = BigIPResourceHelper(ResourceType.snatpool)
 
+    def get_snat_name(self, lb_id, ip_version):
+        return 'snat_' + 'ipv' + str(ip_version) + '_' + lb_id
+
     def get_flavor_snat_name(self, lb_id):
         return 'snat_' + lb_id
 
@@ -58,7 +61,7 @@ class BigipSnatManager(object):
                 "Error creating snat pool: %s" %
                 snat_info)
 
-    def delete_flavor_snats(self, bigip, subnetinfo,
+    def delete_flavor_snats(self, bigip,
                             partition, snat_pool):
 
         try:
