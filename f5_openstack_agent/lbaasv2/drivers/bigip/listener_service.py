@@ -278,11 +278,53 @@ class ListenerServiceBuilder(object):
         :param bigip: Single BigIP instances to update.
         """
         try:
+            def get_partition_name(fullpath):
+                pn = fullpath.split('/')
+                if len(pn) == 3:
+                    return pn[1], pn[2]
+                else:
+                    raise Exception("fullpath is invalid: %s" % fullpath)
+
+            del_objs = []
             ssl_client_profile = bigip.tm.ltm.profile.client_ssls.client_ssl
             if ssl_client_profile.exists(name=name, partition='Common'):
-                obj = ssl_client_profile.load(name=name, partition='Common')
-                obj.delete()
+                pobj = ssl_client_profile.load(name=name, partition='Common')
+                del_objs.append(pobj)
 
+                try:
+                    cert_pt, cert_name = get_partition_name(pobj.cert)
+                    LOG.debug("deleting profile's cert: %s" % cert_name)
+                    certcls = bigip.tm.sys.crypto.certs.cert
+                    if certcls.exists(name=cert_name, partition=cert_pt):
+                        obj = certcls.load(name=cert_name, partition=cert_pt)
+                        del_objs.append(obj)
+                except Exception as e:
+                    LOG.debug("failed to discover cert: %s." % e.message)
+
+                try:
+                    key_pt, key_name = get_partition_name(pobj.key)
+                    LOG.debug("deleting profile's key: %s" % key_name)
+                    keycls = bigip.tm.sys.crypto.keys.key
+                    if keycls.exists(name=key_name, partition=key_pt):
+                        obj = keycls.load(name=key_name, partition=key_pt)
+                        del_objs.append(obj)
+                except Exception as e:
+                    LOG.debug("failed to discover key: %s." % e.message)
+
+                try:
+                    chain_pt, chain_name = get_partition_name(pobj.chain)
+                    LOG.debug("deleting profile's chain: %s" % chain_name)
+                    certcls = bigip.tm.sys.crypto.certs.cert
+                    if certcls.exists(name=chain_name, partition=chain_pt):
+                        obj = certcls.load(name=chain_name, partition=chain_pt)
+                        del_objs.append(obj)
+                except Exception as e:
+                    LOG.debug("failed to discover chain: %s." % e.message)
+
+                for obj in del_objs:
+                    obj.delete()
+
+                LOG.debug("done of deleting profile and its cert/key/chain.")
         except Exception as err:
             # Not necessarily an error -- profile might be referenced
             # by another virtual server.
