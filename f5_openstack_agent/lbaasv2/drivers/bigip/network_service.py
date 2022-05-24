@@ -75,6 +75,9 @@ class NetworkServiceBuilder(object):
     def initialize_vcmp(self):
         self.l2_service.initialize_vcmp_manager()
 
+    def initialize_rseries(self):
+        self.l2_service.initialize_rseries_manager()
+
     def initialize_tunneling(self, bigip):
         # setup tunneling
         vtep_folder = self.conf.f5_vtep_folder
