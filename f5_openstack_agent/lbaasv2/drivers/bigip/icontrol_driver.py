@@ -2036,41 +2036,6 @@ class iControlDriver(LBaaSBaseDriver):
                 raise f5ex.RouteDomainCreationException(
                     "Route domain annotation error")
 
-    def prepare_network_for_member(self, service,
-                                   delete_partition=False,
-                                   delete_event=False,
-                                   the_port_id=None):
-
-        # Assure that the service is configured on bigip(s)
-        LOG.debug("Preapre network resource")
-        loadbalancer = service.get("loadbalancer", None)
-
-        traffic_group = self.service_to_traffic_group(service)
-        loadbalancer['traffic_group'] = traffic_group
-
-        if self.network_builder:
-            start_time = time()
-            try:
-                self.network_builder.prep_service_networking(
-                    service, traffic_group)
-            except f5ex.NetworkNotReady as error:
-                LOG.debug("Network creation for member deferred until "
-                          "network definition is completed: %s",
-                          error.message)
-                if not delete_event:
-                    raise error
-            except Exception as error:
-                LOG.error("Prep-network for member exception: "
-                          "icontrol_driver: %s",
-                          error.message)
-                if not delete_event:
-                    raise error
-            finally:
-                if time() - start_time > .001:
-                    LOG.debug(" For member prep_service_networking "
-                              "took %.5f secs" % (time() - start_time))
-        return True
-
     def _common_service_handler(self, service,
                                 delete_partition=False,
                                 delete_event=False,

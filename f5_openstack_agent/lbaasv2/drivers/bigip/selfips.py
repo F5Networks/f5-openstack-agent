@@ -144,7 +144,6 @@ class BigipSelfIpManager(object):
         netmask = netaddr.IPNetwork(subnet['cidr']).prefixlen
         address = selfip_address + ("/%d" % netmask)
         name = "local-" + bigip.device_name \
-            + "-" + 'IPv' + str(subnet['ip_version']) \
             + "-" + subnet['id']
         model = {
             "name": name,

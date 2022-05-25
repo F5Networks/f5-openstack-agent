@@ -25,6 +25,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip.route import RouteHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.snats import BigipSnatManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
@@ -189,6 +190,28 @@ class NetworkServiceBuilder(object):
 
         return True
 
+    def prep_mb_network(self, resource, service):
+        if self.conf.f5_global_routed_mode:
+            return
+        if not self.is_service_connected(service):
+            raise f5_ex.NetworkNotReady(
+                "Network segment(s) definition incomplete"
+            )
+        if self.conf.use_namespaces:
+            try:
+                LOG.debug(
+                    "Annotating the service definition networks "
+                    "with route domain ID."
+                )
+                self._annotate_service_route_domains(service)
+            except f5_ex.InvalidNetworkType as exc:
+                LOG.warning(exc.message)
+            except Exception as err:
+                LOG.exception(err)
+                raise f5_ex.RouteDomainCreationException(
+                    "Route domain annotation error"
+                )
+
     def prep_service_networking(self, service, traffic_group,
                                 member_caller=False):
         """Assure network connectivity is established on all bigips."""
@@ -213,12 +236,30 @@ class NetworkServiceBuilder(object):
                     "Route domain annotation error")
 
         # Per Device Network Connectivity (VLANs or Tunnels)
-        self._lb_netinfo_to_assure(service)
+        self.lb_netinfo_to_assure(service)
         bigips = self.driver.get_all_bigips()
         for bigip in bigips:
             # Make sure the L2 network is established
             self.l2_service.assure_bigip_network(
                 bigip, self.lb_netinfo['network'])
+
+    def config_lb_default_route(self, service):
+        route_helper = RouteHelper(
+            self.lb_netinfo,
+            self.l2_service
+        )
+        bigips = self.driver.get_config_bigips()
+        for bigip in bigips:
+            route_helper.create_route_for_net(bigip)
+
+    def remove_lb_default_route(
+            self, bigip, subnet):
+        route_helper = RouteHelper(
+            self.lb_netinfo,
+            self.l2_service
+        )
+        route_helper.remove_default_route(
+            bigip, subnet)
 
     def config_selfips(self, service):
         lb_network = self.lb_netinfo['network']
@@ -550,8 +591,12 @@ class NetworkServiceBuilder(object):
                 # and subnets (selfip, vlan, route_doamin) of
                 # network is not used
                 if not subnetinfo['network_vlan_inuse']:
+
+                    self.remove_lb_default_route(
+                        bigip, subnetinfo['subnet']
+                    )
+
                     local_selfip_name = "local-" + bigip.device_name \
-                        + "-" + 'IPv' + str(subnet['ip_version']) \
                         + "-" + subnet['id']
 
                     selfip_address = self.bigip_selfip_manager.get_selfip_addr(
@@ -571,12 +616,6 @@ class NetworkServiceBuilder(object):
                         local_selfip_name,
                         partition=network_folder
                     )
-
-                    if self.l3_binding and selfip_address:
-                        self.l3_binding.unbind_address(
-                            subnet_id=subnet['id'],
-                            ip_address=selfip_address
-                        )
 
                     deleted_names.add(local_selfip_name)
 
@@ -720,7 +759,7 @@ class NetworkServiceBuilder(object):
     def vlan_exists(self, bigip, network, folder='Common'):
         return self.vlan_manager.exists(bigip, name=network, partition=folder)
 
-    def _lb_netinfo_to_assure(self, service):
+    def lb_netinfo_to_assure(self, service):
         # Examine service and return active networks
 
         network_id = service['loadbalancer']['network_id']
@@ -730,6 +769,63 @@ class NetworkServiceBuilder(object):
         )
         self.lb_netinfo['network'] = network
         self.lb_netinfo['subnets'] = subnets
+
+        self.check_lb_netinfo(service)
+
+    def check_lb_netinfo(self, service):
+        # in case of create mutliple or duplicate
+        # selfip, route, SNAT IPs
+        status = service['loadbalancer']['provisioning_status']
+        network = self.lb_netinfo['network']
+        subnets = self.lb_netinfo['subnets']
+
+        if not network:
+            LOG.error("Not found network info of network: %s.\n" %
+                      network)
+            raise Exception(
+                "Can not find network info about service %s.\n" %
+                service
+            )
+
+        if not subnets:
+            LOG.error(
+                "Not found subnet info of network: %s\n."
+                "SNAT IP can not be created." %
+                network
+            )
+            raise Exception(
+                "Can not find subnet info about service %s\n." %
+                service
+            )
+
+        if status not in [
+                constants_v2.PENDING_DELETE,
+                constants_v2.ERROR
+        ]:
+            if len(subnets) > 2:
+                LOG.warning(
+                    "The loadbalancer network %s has more than 2 subnet "
+                    "we may create SNAT IPs not as you excepted.\n" %
+                    subnets
+                )
+                raise Exception(
+                    "Number of subnets is more than 2 in network"
+                    "subnet info is: %s, network info is: %s.\n" %
+                    (subnets, network)
+                )
+
+            ipv4_subnet = [
+                subnet for subnet in subnets if subnet['ip_version'] == 4
+            ]
+            ipv6_subnet = [
+                subnet for subnet in subnets if subnet['ip_version'] == 6
+            ]
+
+            if len(ipv4_subnet) > 1 or len(ipv6_subnet) > 1:
+                raise Exception(
+                    "The number of IPv4 or IPv6 subent is more than 1, "
+                    "network info is: %s\n" % self.lb_netinfo
+                )
 
 
 class SNATHelper(object):
@@ -749,46 +845,6 @@ class SNATHelper(object):
         )
 
         self.snat_net = lb_netinfo
-        self.check_snat_netinfo()
-
-    def check_snat_netinfo(self):
-        status = self.service['loadbalancer']['provisioning_status']
-        network = self.snat_net['network']
-        subnets = self.snat_net['subnets']
-
-        if not network:
-            LOG.error("Not found network info of network: %s" %
-                      network)
-            raise Exception(
-                "Can not find network info about service %s." %
-                self.service
-            )
-
-        if not subnets:
-            LOG.error(
-                "Not found subnet info of network: %s\n."
-                "SNAT IP can not be created." %
-                network
-            )
-            raise Exception(
-                "Can not find subnet info about service %s\n." %
-                self.service
-            )
-
-        if len(subnets) > 2 and status not in [
-                constants_v2.PENDING_DELETE,
-                constants_v2.ERROR
-        ]:
-            LOG.warning(
-                "The loadbalancer network %s has more than 2 subnet "
-                "we may create SNAT IPs not as you excepted.\n" %
-                subnets
-            )
-            raise Exception(
-                "Number of subnets is more than 2 in network"
-                "subnet info is: %s, network info is: %s.\n" %
-                (subnets, network)
-            )
 
     def snat_pools_exist(self):
         snatpool_name = \
