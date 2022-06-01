@@ -1,4 +1,5 @@
 import requests
+from requests import HTTPError
 
 from oslo_log import log
 
@@ -295,7 +296,15 @@ class DataInterface(Interface):
                 int(vlan_id)
             ]
         }
-        self.client.patch(path=path, body=body)
+        try:
+            self.client.patch(path=path, body=body)
+        except HTTPError as ex:
+            # NOTE(qzhao): PATCH may get 404 reply,
+            # if no vlan is associated with interface
+            if ex.response.status_code == 404:
+                self.client.put(path=path, body=body)
+            else:
+                raise ex
 
     def dissociateVlan(self, vlan_id, interface_name=None):
         path = self.instance_path(interface_name) + \
