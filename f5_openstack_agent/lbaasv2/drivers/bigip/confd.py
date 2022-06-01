@@ -199,7 +199,17 @@ class Tenant(F5OSResource):
                 int(vlan_id)
             ]
         }
-        self.client.patch(path=path, body=body)
+
+        try:
+            self.client.patch(path=path, body=body)
+        except HTTPError as ex:
+            # when no vlan associated on the guest yet.
+            # FAILED: HTTPError: 404 Client Error: Not Found for url:
+            # xx/api/data/f5-tenants:tenants/tenant=test1/config/vlans
+            if ex.response.status_code == 404:
+                self.client.put(path=path, body=body)
+            else:
+                raise ex
 
     def dissociateVlan(self, vlan_id, tenant_name=None):
         path = self.instance_path(tenant_name) + \
