@@ -143,8 +143,10 @@ class BigipSelfIpManager(object):
 
         netmask = netaddr.IPNetwork(subnet['cidr']).prefixlen
         address = selfip_address + ("/%d" % netmask)
+        name = "local-" + bigip.device_name \
+            + "-" + subnet['id']
         model = {
-            "name": "local-" + bigip.device_name + "-" + subnet['id'],
+            "name": name,
             "address": address,
             "vlan": network_name,
             "floating": "disabled",

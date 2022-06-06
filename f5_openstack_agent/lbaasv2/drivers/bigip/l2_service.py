@@ -722,7 +722,7 @@ class L2ServiceBuilder(object):
             raise f5_ex.InvalidNetworkType(error_message)
         return network_name, preserve_network_name
 
-    def _get_network_folder(self, network):
+    def get_network_folder(self, network):
         if self.is_common_network(network):
             return 'Common'
         else:
@@ -762,7 +762,7 @@ class L2ServiceBuilder(object):
             network = loadbalancer['network']
             tunnel_name = _get_tunnel_name(network)
             fdbs[tunnel_name] = dict()
-            fdbs[tunnel_name]['folder'] = self._get_network_folder(network)
+            fdbs[tunnel_name]['folder'] = self.get_network_folder(network)
             records = dict()
             fdbs[tunnel_name]['records'] = records
             self.append_loadbalancer_fdb_records(
@@ -773,7 +773,7 @@ class L2ServiceBuilder(object):
             tunnel_name = _get_tunnel_name(network)
             if tunnel_name not in fdbs:
                 fdbs[tunnel_name] = dict()
-                fdbs[tunnel_name]['folder'] = self._get_network_folder(network)
+                fdbs[tunnel_name]['folder'] = self.get_network_folder(network)
                 fdbs[tunnel_name]['records'] = dict()
 
             records = fdbs[tunnel_name]['records']

@@ -341,7 +341,10 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
+            self.driver.network_builder.config_selfips(service)
             self.driver.network_builder.config_snat(service)
+            self.driver.network_builder.config_lb_default_route(
+                service)
 
     def __get_update_operation(self, old_loadbalancer, loadbalancer):
 
@@ -566,6 +569,7 @@ class LoadBalancerManager(ResourceManager):
         if self.driver.network_builder:
             if loadbalancer.get('flavor') != \
                     old_loadbalancer.get('flavor'):
+                self.driver.network_builder.lb_netinfo_to_assure(service)
                 self.driver.network_builder.update_flavor_snat(
                     old_loadbalancer, loadbalancer, service
                 )
@@ -585,22 +589,9 @@ class LoadBalancerManager(ResourceManager):
         if self.driver.network_builder:
             self.driver.network_builder._annotate_service_route_domains(
                 service)
+            self.driver.network_builder.lb_netinfo_to_assure(service)
 
         loadbalancer = service["loadbalancer"]
-
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
-        for bigip in bigips:
-            self.all_subnet_hints[bigip.device_name] = \
-                {'check_for_delete_subnets': {},
-                 'do_not_delete_subnets': []}
-        self.driver.lbaas_builder._update_subnet_hints(
-            loadbalancer["provisioning_status"],
-            loadbalancer["vip_subnet_id"],
-            loadbalancer["network_id"],
-            self.all_subnet_hints,
-            False
-        )
-
         if self.driver.l3_binding:
             self.driver.l3_binding.unbind_address(
                 subnet_id=loadbalancer["vip_subnet_id"],
@@ -611,9 +602,8 @@ class LoadBalancerManager(ResourceManager):
         if self.driver.network_builder:
             self.driver.network_builder.remove_flavor_snat(service)
             self.driver.network_builder.post_service_networking(
-                service, self.all_subnet_hints)
-        self.tenant_manager.assure_tenant_cleanup(
-            service, self.all_subnet_hints)
+                service)
+        self.tenant_manager.assure_tenant_cleanup(service)
 
 
 class ListenerManager(ResourceManager):
@@ -1881,78 +1871,13 @@ class MemberManager(ResourceManager):
     def create(self, resource, service, **kwargs):
 
         self._check_nonshared_network(service)
-
-        create_in_bulk = False
-        if 'multiple' in service:
-            create_in_bulk = service.get('multiple')
-
-        if create_in_bulk is True:
-            self._create_multiple(resource, service, **kwargs)
-        else:
-            self._create_single(resource, service, **kwargs)
-        return
-
-    def _create_multiple(self, resource, service, **kwargs):
-
-        self.driver.prepare_network_for_member(service)
-        LOG.debug("Begin to create in batch %s %s",
-                  self._resource, resource['name'])
-        if not service.get(self._key):
-            self._search_element(resource, service)
-        member = service.get('member')
-        pool = {}
-        pool['id'] = member['pool_id']
-        self._pool_mgr._search_element(pool, service)
-        pool_payload = self._pool_mgr._create_payload(pool, service)
-
-        if 'members' not in pool_payload:
-            LOG.error("None members in pool")
-            return
-        pool_id = pool['id']
-        lbaas_members = service['members']
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
-        for bigip in bigips:
-            pool_resource = self._pool_mgr.pool_helper.load(
-                bigip,
-                name=urllib.quote(pool_payload['name']),
-                partition=pool_payload['partition']
-            )
-            bigip_members = pool_resource.members_s.get_collection()
-
-            del pool_payload['members']
-            new_payload = self._merge_members(
-                lbaas_members, bigip_members, pool_id, service)
-            pool_payload['members'] = new_payload
-            self._shrink_payload(pool_payload,
-                                 keys_to_keep=['partition',
-                                               'name', 'members',
-                                               'loadBalancingMode'])
-            self._pool_mgr._update(bigip, pool_payload, None, None, service)
-        LOG.debug("Finish to create in batch %s %s",
-                  self._resource, resource['name'])
+        self._create_single(resource, service, **kwargs)
 
     def _create_single(self, resource, service, **kwargs):
 
-        net_resource_create = True
-
-        if 'loadbalancer' in service:
-            loadbalancer = service['loadbalancer']
-            if loadbalancer['vip_subnet_id'] == resource['subnet_id']:
-                LOG.debug("Loadbalancer's subnet is the same as member's")
-                net_resource_create = False
-
-        if net_resource_create is True and 'members' in service:
-            for item in service['members']:
-                if item['id'] != resource['id'] and \
-                   item['subnet_id'] == resource['subnet_id']:
-                    LOG.debug("member %s has the same subnet", item['name'])
-                    net_resource_create = False
-                    break
-
-        if net_resource_create is True:
-            self.driver.prepare_network_for_member(service)
-        else:
-            self.driver.annotate_service_members(service)
+        if not self.driver.conf.f5_global_routed_mode:
+            self.driver.network_builder.prep_mb_network(
+                resource, service)
 
         if not service.get(self._key):
             self._search_element(resource, service)

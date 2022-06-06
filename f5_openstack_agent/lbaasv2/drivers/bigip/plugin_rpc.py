@@ -354,6 +354,23 @@ class LBaaSv2PluginRPC(object):
         return ports
 
     @log_helpers.log_method_call
+    def get_subnets_info(self, subnet_ids):
+        subnets_info = None
+
+        try:
+            subnets_info = self._call(
+                self.context,
+                self._make_msg('get_subnets_info',
+                               subnet_ids=subnet_ids),
+                topic=self.topic
+            )
+        except Exception as e:
+            LOG.error(
+                "Exception: get_subnets_info: %s", e.message)
+
+        return subnets_info
+
+    @log_helpers.log_method_call
     def create_port_on_subnet(self, subnet_id=None,
                               mac_address=None, name=None,
                               fixed_address_count=1,
