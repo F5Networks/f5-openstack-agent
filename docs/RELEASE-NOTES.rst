@@ -5,6 +5,32 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.50 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2406] Disable ESD refresh job
+* [OPENSTACK-2426] Flavor snatpool function
+* [OPENSTACK-2426] Dual stack and flavour SNAT with one Netron Port
+* [OPENSTACK-2440] Enable ftp, https TOA
+* [OPENSTACK-2440] Change https listener to standard model
+* [OPENSTACK-2426] Remove member config snat ip
+* [OPENSTACK-2474] Change port number
+* [OPENSTACK-2482] Remove certs and keys as removing ssl profiles
+* [OPENSTACK-2479] Dual-stack-snat
+* [OPENSTACK-2479] Change member and add route
+* [OPENSTACK-2381] Only update interval from api side
+* [OPENSTACK-2425] Per dest addr
+
+Bug Fixes
+`````````
+* [OPENSTACK-2483] Fix confusing logs to avoid misunderstanding.
+
+Limitations
+```````````
+
 v9.9.40.patch2 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
