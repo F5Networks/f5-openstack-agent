@@ -321,6 +321,16 @@ class ListenerServiceBuilder(object):
                 except Exception as e:
                     LOG.debug("failed to discover chain: %s." % e.message)
 
+                try:
+                    ca_pt, ca_name = get_partition_name(pobj.caFile)
+                    LOG.debug("deleting profile's caFile: %s" % ca_name)
+                    certcls = bigip.tm.sys.crypto.certs.cert
+                    if certcls.exists(name=ca_name, partition=ca_pt):
+                        obj = certcls.load(name=ca_name, partition=ca_pt)
+                        del_objs.append(obj)
+                except Exception as e:
+                    LOG.debug("failed to discover ca: %s." % e.message)
+
                 for obj in del_objs:
                     obj.delete()
 
