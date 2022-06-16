@@ -5,6 +5,20 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.51 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+
+Bug Fixes
+`````````
+* [OPENSTACK-2482] delete cafile for mtls profile.
+
+Limitations
+```````````
+
 v9.9.50 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
