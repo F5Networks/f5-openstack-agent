@@ -91,6 +91,49 @@ UPDATE = 'update'
 L2POPULATION = 'l2population'
 AGENT = 'q-agent-notifier'
 FLAVOR_SNAT_MAP = {
-    4: {1: 2, 2: 2, 3: 2, 4: 4, 5: 8, 6: 16},
-    6: {1: 1, 2: 1, 3: 1, 4: 3, 5: 7, 6: 15}
+    4: {1: 2, 2: 2, 3: 2, 4: 4, 5: 8, 6: 16, 11: 1, 12: 1, 13: 1},
+    6: {1: 1, 2: 1, 3: 1, 4: 3, 5: 7, 6: 15, 11: 1, 12: 1, 13: 1}
+}
+
+FLAVOR_CONN_MAP = {
+    "1": {
+        'connection_limit': 5000,
+        'rate_limit': 3000
+    },
+    "2": {
+        'connection_limit': 50000,
+        'rate_limit': 5000
+    },
+    "3": {
+        'connection_limit': 100000,
+        'rate_limit': 10000
+    },
+    "4": {
+        'connection_limit': 200000,
+        'rate_limit': 20000
+    },
+    "5": {
+        'connection_limit': 500000,
+        'rate_limit': 50000
+    },
+    "6": {
+        'connection_limit': 1000000,
+        'rate_limit': 100000
+    },
+    "7": {
+        'connection_limit': 8000000,
+        'rate_limit': 100000
+    },
+    "11": {
+        'connection_limit': 3000,
+        'rate_limit': 1000
+    },
+    "12": {
+        'connection_limit': 5000,
+        'rate_limit': 3000
+    },
+    "13": {
+        'connection_limit': 50000,
+        'rate_limit': 5000
+    }
 }

@@ -20,6 +20,7 @@ import re
 import urllib
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.acl import ACLHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
     import FTPProfileHelper
@@ -468,9 +469,6 @@ class LoadBalancerManager(ResourceManager):
                     (tenant_id, net_project_id))
 
     def _update_2_limits(self, old_loadbalancer, loadbalancer, service):
-        # TODO(xie): delete following lines, 4 test
-        # old_loadbalancer['flavor'] = 4
-        # loadbalancer['flavor'] = 5
 
         LOG.info('inside _update_2_limits')
         old_flavor = old_loadbalancer.get('flavor')
@@ -478,41 +476,13 @@ class LoadBalancerManager(ResourceManager):
         LOG.debug(old_flavor)
         LOG.debug(new_flavor)
 
-        if not new_flavor or int(new_flavor) < 0 or int(new_flavor) > 7:
+        flavor_dict = constants_v2.FLAVOR_CONN_MAP
+
+        try:
+            new_limit = flavor_dict[str(new_flavor)]
+        except KeyError:
             LOG.error('flavor id not expected. neglect only')
             return
-
-        # refactor
-        flavor_dict = {
-            "1": {
-                'connection_limit': 5000,
-                'rate_limit': 3000
-            },
-            "2": {
-                'connection_limit': 50000,
-                'rate_limit': 5000
-            },
-            "3": {
-                'connection_limit': 100000,
-                'rate_limit': 10000
-            },
-            "4": {
-                'connection_limit': 200000,
-                'rate_limit': 20000
-            },
-            "5": {
-                'connection_limit': 500000,
-                'rate_limit': 50000
-            },
-            "6": {
-                'connection_limit': 1000000,
-                'rate_limit': 100000
-            },
-            "7": {
-                'connection_limit': 8000000,
-                'rate_limit': 100000
-            }
-        }
 
         # add some checks
         if not old_flavor or old_flavor != new_flavor:
@@ -526,16 +496,15 @@ class LoadBalancerManager(ResourceManager):
                 LOG.debug(ratio2)
 
                 listener_connection_limit = \
-                    flavor_dict[str(new_flavor)]['connection_limit'] / ratio1
+                    new_limit['connection_limit'] / ratio1
 
                 listener_rate_limit = \
-                    flavor_dict[str(new_flavor)]['rate_limit'] / ratio2
+                    new_limit['rate_limit'] / ratio2
 
-            LOG.info('listener_connection_limit to use:')
-            LOG.info(listener_connection_limit)
+            LOG.info('listener_connection_limit to use: %s',
+                     listener_connection_limit)
 
-            LOG.info('listener_rate_limit to use:')
-            LOG.info(listener_rate_limit)
+            LOG.info('listener_rate_limit to use: ', listener_rate_limit)
 
             if 'listeners' in service.keys():
                 bigips = self.driver.get_config_bigips()

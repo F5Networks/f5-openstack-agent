@@ -543,41 +543,18 @@ class ServiceModelAdapter(object):
             else:
                 # predefined table is not using 1024 etc. seems fine though.
                 # convenient to be divided by 5, by default.
-                flavor_dict = {
-                    "1": {
-                        'connection_limit': 5000,
-                        'rate_limit': 3000
-                    },
-                    "2": {
-                        'connection_limit': 50000,
-                        'rate_limit': 5000
-                    },
-                    "3": {
-                        'connection_limit': 100000,
-                        'rate_limit': 10000
-                    },
-                    "4": {
-                        'connection_limit': 200000,
-                        'rate_limit': 20000
-                    },
-                    "5": {
-                        'connection_limit': 500000,
-                        'rate_limit': 50000
-                    },
-                    "6": {
-                        'connection_limit': 1000000,
-                        'rate_limit': 100000
-                    },
-                    "7": {
-                        'connection_limit': 8000000,
-                        'rate_limit': 100000
-                    }
-                }
+                flavor_dict = constants_v2.FLAVOR_CONN_MAP
+
+                try:
+                    limit_value = flavor_dict[str(flavor_id)]
+                except KeyError:
+                    LOG.error("Flavor is invalid. Skip to configure limit.")
+                    return vip
 
                 listener_connection_limit = \
-                    flavor_dict[str(flavor_id)]['connection_limit'] / ratio1
+                    limit_value['connection_limit'] / ratio1
                 listener_rate_limit = \
-                    flavor_dict[str(flavor_id)]['rate_limit'] / ratio2
+                    limit_value['rate_limit'] / ratio2
 
                 vip["connectionLimit"] = listener_connection_limit
                 LOG.info("connectionLimit:")
