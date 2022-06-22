@@ -124,6 +124,10 @@ FLAVOR_CONN_MAP = {
         'connection_limit': 8000000,
         'rate_limit': 100000
     },
+    "8": {
+        'connection_limit': 4000000,
+        'rate_limit': 500000
+    },
     "11": {
         'connection_limit': 3000,
         'rate_limit': 1000

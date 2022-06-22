@@ -224,7 +224,8 @@ class LoadBalancerManager(ResourceManager):
         self.mutable_props = {
             "name": "description",
             "description": "description",
-            "admin_state_up": "enabled"
+            "admin_state_up": "enabled",
+            "flavor": "connectionLimit"
         }
         self.all_subnet_hints = {}
 
@@ -487,35 +488,21 @@ class LoadBalancerManager(ResourceManager):
         # add some checks
         if not old_flavor or old_flavor != new_flavor:
             if new_flavor == 0:
-                listener_connection_limit = 0
                 listener_rate_limit = 0
             else:
-                ratio1 = self.driver.conf.connection_limit_ratio
-                LOG.debug(ratio1)
-                ratio2 = self.driver.conf.connection_rate_limit_ratio
-                LOG.debug(ratio2)
-
-                listener_connection_limit = \
-                    new_limit['connection_limit'] / ratio1
-
+                ratio = self.driver.conf.connection_rate_limit_ratio
                 listener_rate_limit = \
-                    new_limit['rate_limit'] / ratio2
-
-            LOG.info('listener_connection_limit to use: %s',
-                     listener_connection_limit)
+                    new_limit['rate_limit'] / ratio
 
             LOG.info('listener_rate_limit to use: ', listener_rate_limit)
 
             if 'listeners' in service.keys():
                 bigips = self.driver.get_config_bigips()
                 for bigip in bigips:
-                    LOG.info(bigip)
                     for listener in service['listeners']:
                         vs_payload = self.driver.service_adapter.\
                             _init_virtual_name(loadbalancer, listener)
 
-                        vs_payload['connectionLimit'] = \
-                            listener_connection_limit
                         vs_payload['rateLimit'] = listener_rate_limit
                         self.vs_helper.update(bigip, vs_payload)
 

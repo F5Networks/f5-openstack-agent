@@ -478,11 +478,6 @@ class ServiceModelAdapter(object):
         else:
             vip['pool'] = ""
 
-        # should not be using this value
-        vip["connectionLimit"] = listener.get("connection_limit", 0)
-        if vip["connectionLimit"] < 0:
-            vip["connectionLimit"] = 0
-
         port = listener.get("protocol_port", None)
         ip_address = loadbalancer.get("vip_address", None)
         if ip_address and port >= 0:
@@ -526,19 +521,12 @@ class ServiceModelAdapter(object):
         if policies:
             self._apply_l7_and_esd_policies(listener, policies, vip)
 
-        # TODO(xie): delete this line, 4 test
-        # loadbalancer['flavor'] = 2
-
-        # TODO(xie): consider 9.8
-        if self.conf.connection_limit_ratio and \
-                self.conf.connection_rate_limit_ratio and \
+        if self.conf.connection_rate_limit_ratio and \
                 loadbalancer.get('flavor') is not None:
-            ratio1 = self.conf.connection_limit_ratio
-            ratio2 = self.conf.connection_rate_limit_ratio
+            ratio = self.conf.connection_rate_limit_ratio
             flavor_id = loadbalancer['flavor']
 
             if flavor_id == 0:
-                listener_connection_limit = 0
                 listener_rate_limit = 0
             else:
                 # predefined table is not using 1024 etc. seems fine though.
@@ -551,18 +539,10 @@ class ServiceModelAdapter(object):
                     LOG.error("Flavor is invalid. Skip to configure limit.")
                     return vip
 
-                listener_connection_limit = \
-                    limit_value['connection_limit'] / ratio1
                 listener_rate_limit = \
-                    limit_value['rate_limit'] / ratio2
-
-                vip["connectionLimit"] = listener_connection_limit
-                LOG.info("connectionLimit:")
-                LOG.info(vip["connectionLimit"])
+                    limit_value['rate_limit'] / ratio
 
                 vip["rateLimit"] = listener_rate_limit
-                LOG.info("rateLimit:")
-                LOG.info(vip["rateLimit"])
 
                 vip['rateLimitMode'] = 'destination'
                 if ip_version.version == 4:
@@ -572,6 +552,9 @@ class ServiceModelAdapter(object):
 
         else:
             LOG.info('limit part is not run this time.')
+
+        vip['connectionLimit'] = 0
+
         return vip
 
     def _apply_l7_and_esd_policies(self, listener, policies, vip):
