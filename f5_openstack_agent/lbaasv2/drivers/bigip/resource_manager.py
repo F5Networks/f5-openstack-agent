@@ -38,6 +38,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.tcp_profile \
 from f5_openstack_agent.lbaasv2.drivers.bigip import tenants
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
+from f5_openstack_agent.lbaasv2.drivers.bigip.vs_connection \
+    import VSConnectionHelper
 from icontrol.exceptions import iControlUnexpectedHTTPError
 
 from oslo_log import helpers as log_helpers
@@ -227,6 +229,7 @@ class LoadBalancerManager(ResourceManager):
             "admin_state_up": "enabled"
         }
         self.all_subnet_hints = {}
+        self.vs_conn_helper = VSConnectionHelper()
 
     def _create_payload(self, loadbalancer, service):
         vip = virtual_address.VirtualAddress(self.driver.service_adapter,
@@ -487,40 +490,29 @@ class LoadBalancerManager(ResourceManager):
         # add some checks
         if not old_flavor or old_flavor != new_flavor:
             if new_flavor == 0:
-                listener_connection_limit = 0
                 listener_rate_limit = 0
             else:
-                ratio1 = self.driver.conf.connection_limit_ratio
-                LOG.debug(ratio1)
-                ratio2 = self.driver.conf.connection_rate_limit_ratio
-                LOG.debug(ratio2)
-
-                listener_connection_limit = \
-                    new_limit['connection_limit'] / ratio1
-
+                ratio = self.driver.conf.connection_rate_limit_ratio
                 listener_rate_limit = \
-                    new_limit['rate_limit'] / ratio2
-
-            LOG.info('listener_connection_limit to use: %s',
-                     listener_connection_limit)
+                    new_limit['rate_limit'] / ratio
 
             LOG.info('listener_rate_limit to use: ', listener_rate_limit)
 
             if 'listeners' in service.keys():
                 bigips = self.driver.get_config_bigips()
                 for bigip in bigips:
-                    LOG.info(bigip)
                     for listener in service['listeners']:
                         vs_payload = self.driver.service_adapter.\
                             _init_virtual_name(loadbalancer, listener)
 
-                        vs_payload['connectionLimit'] = \
-                            listener_connection_limit
                         vs_payload['rateLimit'] = listener_rate_limit
                         vs_payload['rateLimitMode'] = 'destination'
                         vs_payload['rateLimitDstMask'] = 32
                         LOG.info(vs_payload)
                         self.vs_helper.update(bigip, vs_payload)
+
+                    self.vs_conn_helper.refresh_con_limit(
+                        bigip, loadbalancer)
 
     @serialized('LoadBalancerManager.update')
     @log_helpers.log_method_call
@@ -596,6 +588,7 @@ class ListenerManager(ResourceManager):
             resource_helper.ResourceType.rule)
         self.tcp_helper = TCPProfileHelper()
         self.tcp_irule_helper = iRuleHelper()
+        self.vs_conn_helper = VSConnectionHelper()
 
         self.mutable_props = {
             "name": "description",
@@ -1266,6 +1259,9 @@ class ListenerManager(ResourceManager):
 
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
+        self.vs_conn_helper.refresh_con_limit(
+            bigip, loadbalancer)
+
         if self._isRedirect(listener):
             self._create_redirect_policy(bigip, vs, listener)
 
@@ -1388,6 +1384,10 @@ class ListenerManager(ResourceManager):
             self.tcp_irule_helper.remove_iRule(
                 service, vs, bigip
             )
+
+        loadbalancer = service.get("loadbalancer")
+        self.vs_conn_helper.refresh_con_limit(
+            bigip, loadbalancer)
 
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
