@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.52 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+
+* [OPENSTACK-2490] Support flavor 11-13
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+
 v9.9.51 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
