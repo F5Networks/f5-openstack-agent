@@ -114,6 +114,11 @@ OPTS = [
         help=('availability_zone for agent reporting')
     ),
     cfg.StrOpt(
+        'vtep_ip',
+        default=None,
+        help=('vtep ip with service leaf')
+    ),
+    cfg.StrOpt(
         'agent_id',
         default=None,
         help=('static agent ID to use with Neutron')
@@ -465,8 +470,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.plugin_rpc = plugin_rpc.LBaaSv2PluginRPC(
             topic,
             self.context,
-            self.conf.environment_prefix,
-            self.conf.environment_group_number,
+            self.conf,
             self.agent_host
         )
 
