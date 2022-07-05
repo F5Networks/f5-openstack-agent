@@ -26,7 +26,7 @@ before_install:
     - docker load -i f5devcentral_containthedocs:latest.tar.gz
     - docker load -i ubuntu:trusty.tar.gz
 install:
-    - python -m pip install pip==19.0.3
+    - python -m pip install pip==20.3
     - pip install tox
     - pip install -r requirements.style.txt
 script:
