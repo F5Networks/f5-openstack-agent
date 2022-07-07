@@ -30,7 +30,7 @@ class LBaaSv2PluginRPC(object):
 
     RPC_API_NAMESPACE = None
 
-    def __init__(self, topic, context, env, group, host):
+    def __init__(self, topic, context, conf, host):
         """Initialize LBaaSv2PluginRPC."""
         super(LBaaSv2PluginRPC, self).__init__()
 
@@ -44,8 +44,9 @@ class LBaaSv2PluginRPC(object):
         self._client = rpc.get_client(self.target, version_cap=None)
 
         self.context = context
-        self.env = env
-        self.group = group
+        self.conf = conf
+        self.env = self.conf.environment_prefix
+        self.group = self.conf.environment_group_number
         self.host = host
 
     def _make_msg(self, method, **kwargs):
@@ -379,6 +380,11 @@ class LBaaSv2PluginRPC(object):
                               binding_profile={},
                               host_passed=None):
         """Add a neutron port to the subnet."""
+        if self.conf.vtep_ip:
+            binding_profile["local_link_information"] = [
+                {"node_vtep_ip": self.conf.vtep_ip}
+            ]
+
         port = None
         try:
             port = self._call(
@@ -429,6 +435,11 @@ class LBaaSv2PluginRPC(object):
                                vnic_type="normal",
                                binding_profile={}):
         """Add a neutron port to the network."""
+        if self.conf.vtep_ip:
+            binding_profile["local_link_information"] = [
+                {"node_vtep_ip": self.conf.vtep_ip}
+            ]
+
         port = None
         try:
             port = self._call(

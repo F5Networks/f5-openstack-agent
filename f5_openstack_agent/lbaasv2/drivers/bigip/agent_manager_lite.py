@@ -208,6 +208,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
              'environment_group_number': self.conf.environment_group_number,
              'global_routed_mode': self.conf.f5_global_routed_mode}
         )
+
+        if self.conf.vtep_ip:
+            llinfo = []
+            llinfo.append({"node_vtep_ip": self.conf.vtep_ip})
+            agent_configurations["local_link_information"] = llinfo
+
         if self.conf.static_agent_configuration_data:
             entries = str(self.conf.static_agent_configuration_data).split(',')
             for entry in entries:
@@ -308,8 +314,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.plugin_rpc = plugin_rpc.LBaaSv2PluginRPC(
             topic,
             self.context,
-            self.conf.environment_prefix,
-            self.conf.environment_group_number,
+            self.conf,
             self.agent_host
         )
 
