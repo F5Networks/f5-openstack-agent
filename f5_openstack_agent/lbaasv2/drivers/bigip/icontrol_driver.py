@@ -993,6 +993,15 @@ class iControlDriver(LBaaSBaseDriver):
         ic_host['device_name'] = bigip.device_name
         ic_host['platform'] = self.system_helper.get_platform(bigip)
         ic_host['serial_number'] = self.system_helper.get_serial_number(bigip)
+
+        ic_host['license'] = {}
+        modules = self.system_helper.get_active_modules(bigip)
+        for module in modules:
+            a = module.find(",")
+            b = module.find("|")
+            if a > 0 and a+2 < b:
+                ic_host['license'][module[0:a]] = module[a+2:b]
+
         ic_host['status'] = bigip.status
         ic_host['status_message'] = bigip.status_message
         ic_host['failover_state'] = self.get_failover_state(bigip)

@@ -85,7 +85,20 @@ class SystemHelper(object):
         return None
 
     def get_platform(self, bigip):
+        devices = bigip.tm.cm.devices.get_collection()
+        for device in devices:
+            if device.selfDevice == 'true':
+                return device.platformId
+
         return ''
+
+    def get_active_modules(self, bigip):
+        devices = bigip.tm.cm.devices.get_collection()
+        for device in devices:
+            if device.selfDevice == 'true':
+                return device.activeModules
+
+        return []
 
     def get_tunnel_sync(self, bigip):
         db = bigip.tm.sys.dbs.db.load(name='iptunnel.configsync')
