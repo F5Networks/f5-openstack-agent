@@ -517,9 +517,6 @@ class LoadBalancerManager(ResourceManager):
                         vs_payload['connectionLimit'] = \
                             listener_connection_limit
                         vs_payload['rateLimit'] = listener_rate_limit
-                        vs_payload['rateLimitMode'] = 'destination'
-                        vs_payload['rateLimitDstMask'] = 32
-                        LOG.info(vs_payload)
                         self.vs_helper.update(bigip, vs_payload)
 
     @serialized('LoadBalancerManager.update')

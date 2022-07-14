@@ -565,7 +565,11 @@ class ServiceModelAdapter(object):
                 LOG.info(vip["rateLimit"])
 
                 vip['rateLimitMode'] = 'destination'
-                vip['rateLimitDstMask'] = 32
+                if ip_version.version == 4:
+                    vip['rateLimitDstMask'] = 32
+                else:
+                    vip['rateLimitDstMask'] = 128
+
         else:
             LOG.info('limit part is not run this time.')
         return vip
