@@ -17,6 +17,7 @@
 from oslo_log import log as logging
 from requests import HTTPError
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 
 
@@ -52,6 +53,8 @@ class VirtualAddress(object):
         else:
             self.enabled = 'no'
 
+        self.ct_limit = self.get_connection_limit(loadbalancer)
+
     def model(self):
         model = {"name": self.name,
                  "partition": self.partition,
@@ -59,7 +62,8 @@ class VirtualAddress(object):
                  "description": self.description,
                  "trafficGroup": self.traffic_group,
                  "autoDelete": self.auto_delete,
-                 "enabled": self.enabled}
+                 "enabled": self.enabled,
+                 "connectionLimit": self.ct_limit}
 
         return model
 
@@ -123,3 +127,15 @@ class VirtualAddress(object):
             self.delete(bigip)
         elif not self.exists(bigip):
             self.create(bigip)
+
+    def get_connection_limit(self, loadbalancer):
+        flavor = loadbalancer.get("flavor")
+        if flavor is not None:
+
+            if str(flavor) not in constants_v2.FLAVOR_CONN_MAP:
+                raise Exception("Cannot find flavor %s in flavor map %s" % (
+                    flavor, constants_v2.FLAVOR_CONN_MAP))
+
+            ct_limit = constants_v2.FLAVOR_CONN_MAP[
+                str(flavor)]['connection_limit']
+            return ct_limit
