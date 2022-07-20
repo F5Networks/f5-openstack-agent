@@ -129,6 +129,7 @@ class VirtualAddress(object):
             self.create(bigip)
 
     def get_connection_limit(self, loadbalancer):
+        ct_limit = 0
         flavor = loadbalancer.get("flavor")
         if flavor is not None:
 
@@ -138,4 +139,4 @@ class VirtualAddress(object):
 
             ct_limit = constants_v2.FLAVOR_CONN_MAP[
                 str(flavor)]['connection_limit']
-            return ct_limit
+        return ct_limit
