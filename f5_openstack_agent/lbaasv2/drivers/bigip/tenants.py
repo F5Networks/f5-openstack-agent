@@ -207,7 +207,8 @@ class BigipTenantManager(object):
         except Exception as err:
             LOG.debug(
                 "Folder deletion exception for tenant partition %s occurred. "
-                "Manual cleanup might be required." % (tenant_id))
+                "Manual cleanup might be required: %s" %
+                (tenant_id, err.message))
 
     def _partition_empty(self, bigip, partition):
         virtual_addresses = self.va_helper.get_resources(

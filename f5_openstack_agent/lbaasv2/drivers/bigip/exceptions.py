@@ -522,7 +522,7 @@ class F5NeutronException(F5AgentException):
 
     if six.PY2:
         def __unicode__(self):
-            return unicode(self.msg)
+            return self.msg
 
     def __str__(self):
         return self.msg
