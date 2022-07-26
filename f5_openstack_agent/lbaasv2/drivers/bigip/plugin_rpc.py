@@ -311,6 +311,143 @@ class LBaaSv2PluginRPC(object):
         )
 
     @log_helpers.log_method_call
+    def create_network(self, **kwargs):
+        """Add a neutron network."""
+        network = None
+        try:
+            network = self._call(
+                self.context,
+                self._make_msg('create_network', **kwargs),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "create_network")
+
+        return network
+
+    @log_helpers.log_method_call
+    def get_network_by_id(self, id):
+        """Get a neutron network."""
+        network = None
+        try:
+            network = self._call(
+                self.context,
+                self._make_msg('get_network_by_id', id=id),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "get_network_by_id")
+
+        return network
+
+    @log_helpers.log_method_call
+    def delete_network_by_name(self, name=None):
+        """Delete a neutron network."""
+        networks = None
+        try:
+            networks = self._call(
+                self.context,
+                self._make_msg('delete_network_by_name', name=name),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "delete_network_by_name")
+
+        return networks
+
+    @log_helpers.log_method_call
+    def create_subnet(self, **kwargs):
+        """Add a neutron subnet to the network."""
+        subnet = None
+        try:
+            subnet = self._call(
+                self.context,
+                self._make_msg('create_subnet', **kwargs),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "create_subnet")
+
+        return subnet
+
+    @log_helpers.log_method_call
+    def delete_subnet_by_name(self, name=None):
+        """Delete a neutron subnet."""
+        try:
+            self._call(
+                self.context,
+                self._make_msg('delete_subnet_by_name', name=name),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "delete_subnet_by_name")
+
+    @log_helpers.log_method_call
+    def get_subnet_by_name(self, name=None):
+        """Get subnet by name."""
+        try:
+            subnets = self._call(
+                self.context,
+                self._make_msg('get_subnet_by_name', name=name),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "get_subnet_by_name")
+
+        return subnets
+
+    @log_helpers.log_method_call
+    def get_router_id_by_subnet(self, subnet_id=None):
+        """Delete a neutron subnet."""
+        try:
+            return self._call(
+                self.context,
+                self._make_msg('get_router_id_by_subnet', subnet_id=subnet_id),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "get_router_id_by_subnet")
+
+    @log_helpers.log_method_call
+    def attach_subnet_to_router(self, router_id=None, subnet_id=None):
+        """Attach a neutron subnet to a router."""
+        try:
+            self._call(
+                self.context,
+                self._make_msg('attach_subnet_to_router',
+                               router_id=router_id,
+                               subnet_id=subnet_id),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "attach_subnet_to_router")
+
+    @log_helpers.log_method_call
+    def detach_subnet_from_router(self, router_id=None, subnet_id=None,
+                                  subnet_name=None):
+        """Detach a neutron subnet from a router."""
+        try:
+            self._call(
+                self.context,
+                self._make_msg('detach_subnet_from_router',
+                               router_id=router_id,
+                               subnet_id=subnet_id,
+                               subnet_name=subnet_name),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "detach_subnet_from_router")
+
+    @log_helpers.log_method_call
     def get_ports_for_mac_addresses(self, mac_addresses=None):
         """Get a list of ports that correspond to the mac addrs."""
         ports = []
@@ -461,10 +598,15 @@ class LBaaSv2PluginRPC(object):
         return port
 
     @log_helpers.log_method_call
-    def delete_port_by_name(self, port_name=None):
+    def delete_port_by_name(self, port_name=None, cast=True):
         """Delete ports with the given name."""
+        if cast:
+            invoke = self._cast
+        else:
+            invoke = self._call
+
         try:
-            return self._cast(
+            return invoke(
                 self.context,
                 self._make_msg('delete_port_by_name',
                                port_name=port_name),

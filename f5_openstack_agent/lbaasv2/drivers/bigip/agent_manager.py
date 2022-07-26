@@ -222,6 +222,16 @@ OPTS = [
         help=('Maximum MBtyes value of bandwidth')
     ),
     cfg.StrOpt(
+        'snat_subnetpool_v4',
+        default='',
+        help=('Reserved SNAT IPv4 subnetpool id')
+    ),
+    cfg.StrOpt(
+        'snat_subnetpool_v6',
+        default='',
+        help=('Reserved SNAT IPv6 subnetpool id')
+    ),
+    cfg.StrOpt(
         'f5_request_logging_profile',
         default='/Common/request-log',
         help=('The request logging profile path on bigip')
