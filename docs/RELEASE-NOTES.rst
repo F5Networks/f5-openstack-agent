@@ -5,6 +5,25 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.54 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+
+* [OPENSTACK-2514] vip connection limit
+* [OPENSTACK-2516] Include LTM license in agent configuration
+* [OPENSTACK-2500] Support large SNAT pool
+
+Bug Fixes
+`````````
+
+* [OPENSTACK-2513] fix ipv6 connection rate limit
+
+Limitations
+```````````
+
 v9.9.53 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
