@@ -133,9 +133,16 @@ class VirtualAddress(object):
         flavor = loadbalancer.get("flavor")
         if flavor is not None:
 
-            if str(flavor) not in constants_v2.FLAVOR_CONN_MAP:
-                raise Exception("Cannot find flavor %s in flavor map %s" % (
-                    flavor, constants_v2.FLAVOR_CONN_MAP))
+            if loadbalancer['provisioning_status'] in [
+                    constants_v2.PENDING_CREATE,
+                    constants_v2.PENDING_UPDATE
+            ]:
+                if str(flavor) not in constants_v2.FLAVOR_CONN_MAP:
+                    raise Exception(
+                        "Cannot find flavor %s in flavor map %s" % (
+                            flavor, constants_v2.FLAVOR_CONN_MAP
+                        )
+                    )
 
             ct_limit = constants_v2.FLAVOR_CONN_MAP[
                 str(flavor)]['connection_limit']
