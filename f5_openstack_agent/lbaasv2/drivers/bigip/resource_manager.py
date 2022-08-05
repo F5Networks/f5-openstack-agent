@@ -474,8 +474,8 @@ class LoadBalancerManager(ResourceManager):
         LOG.info('inside _update_2_limits')
         old_flavor = old_loadbalancer.get('flavor')
         new_flavor = loadbalancer.get('flavor')
-        LOG.debug(old_flavor)
-        LOG.debug(new_flavor)
+        LOG.debug("Old flavor is %s" % old_flavor)
+        LOG.debug("New flavor is %s" % new_flavor)
 
         flavor_dict = constants_v2.FLAVOR_CONN_MAP
 
