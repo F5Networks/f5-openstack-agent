@@ -343,6 +343,7 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
+            self.driver.network_builder.update_vip_port_mac(service)
             self.driver.network_builder.config_selfips(service)
             self.driver.network_builder.config_snat(service)
             self.driver.network_builder.config_lb_default_route(
