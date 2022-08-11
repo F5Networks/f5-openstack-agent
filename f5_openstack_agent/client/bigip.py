@@ -4,6 +4,8 @@ from osc_lib.command import command
 from osc_lib import utils
 import six
 
+from clientmanager import make_client
+
 LOG = logging.getLogger(__name__)
 
 
@@ -43,15 +45,10 @@ class CreateBigip(command.ShowOne):
         """
         usage: f5agent bigip-create
         """
-        LOG.info("parsed_args: {}".format(parsed_args))
-        self.app.stdout.write('create a bigip \n')
-        f5agent_client = self.app.client_manager.f5agent
+        LOG.debug("parsed_args: {}".format(parsed_args))
+        f5agent_client = make_client()
         user_id = utils.find_resource(f5agent_client.users, parsed_args.user).id
-
-        if parsed_args.project:
-            project = utils.find_resource(f5agent_client.projects, parsed_args.project).id
-        else:
-            project = None
+        project = utils.find_resource(f5agent_client.projects, parsed_args.project).id
 
         data = {
             "data": parsed_args.hostname
@@ -62,6 +59,6 @@ class CreateBigip(command.ShowOne):
             blob=data,
             project=project)
 
+        LOG.debug("credential info: %s" % credential)
         credential._info.pop('links')
         return zip(*sorted(six.iteritems(credential._info)))
-

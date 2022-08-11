@@ -1,33 +1,29 @@
-from osc_lib.clientmanager import ClientCache, ClientManager
-from osc_lib import utils
+import os
+
 from oslo_log import log as logging
+from keystoneauth1.identity import v3
+from keystoneauth1 import session
+from keystoneclient.v3 import client
 
 LOG = logging.getLogger(__name__)
 
 
-API_NAME = 'f5agent'
-API_VERSIONS = {
-    '3': 'keystoneclient.v3.client.Client',
-}
+def build_session():
+    auth_url = os.environ['OS_AUTH_URL']
+    username = os.environ['OS_USERNAME']
+    password = os.environ['OS_PASSWORD']
+    project_name = os.environ['OS_PROJECT_NAME']
+    user_domain_name = os.environ.get('OS_USER_DOMAIN_NAME', None)
+    project_domain_name = os.environ.get('OS_PROJECT_DOMAIN_NAME', None)
+    LOG.debug("f5agent session,auth_url: %s, username: %s, password: %s, project_name: %s, user_domain_name: %s, "
+              "project_domain_name: %s" % (auth_url, username, password, project_name, user_domain_name,
+                                           project_domain_name))
+    auth = v3.Password(auth_url=auth_url, username=username, password=password, project_name=project_name,
+                       user_domain_name=user_domain_name, project_domain_name=project_domain_name)
+
+    sess = session.Session(auth=auth)
+    return sess
 
 
-def make_client(instance):
-    """Returns an identity service client."""
-    f5agent_client = utils.get_client_class(
-        api_name=API_NAME,
-        version=instance._api_version[API_NAME],
-        version_map=API_VERSIONS
-    )
-    LOG.debug('Instantiating f5agent client: %s', f5agent_client)
-
-    kwargs = utils.build_kwargs_dict('interface', instance.interface)
-
-    client = f5agent_client(
-        session=instance.session,
-        region_name=instance.region_name,
-        **kwargs
-    )
-    return client
-
-
-setattr(ClientManager, API_NAME, ClientCache(make_client))
+def make_client():
+    return client.Client(session=build_session())
