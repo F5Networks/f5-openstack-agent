@@ -1,8 +1,10 @@
+import six
+
+import json
 from oslo_log import log as logging
 from openstackclient.i18n import _
 from osc_lib.command import command
 from osc_lib import utils
-import six
 
 from clientmanager import make_client
 
@@ -46,7 +48,7 @@ class CreateBigip(command.ShowOne):
         credential = f5agent_client.credentials.create(
             user=user_id,
             type=CREDENTIAL_TYPE,
-            blob=data,
+            blob=json.dumps(data),
             project=project)
 
         LOG.debug("credential info: %s" % credential)
