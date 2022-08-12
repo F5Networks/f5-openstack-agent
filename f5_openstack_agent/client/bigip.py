@@ -1,3 +1,5 @@
+import os
+
 from oslo_log import log as logging
 from openstackclient.i18n import _
 from osc_lib.command import command
@@ -13,31 +15,16 @@ class CreateBigip(command.ShowOne):
 
     def get_parser(self, prog_name):
         parser = super(CreateBigip, self).get_parser(prog_name)
-        parser.add_argument(
-            '--user',
-            metavar='<user>',
-            default='neutron',
-            choices=['neutron'],
-            help=_('user that owns the credential (name or ID)'),
-        )
-        parser.add_argument(
-            '--type',
-            default='bigip',
-            metavar='<type>',
-            choices=['bigip'],
-            help=_('New credential type:bigip'),
-        )
 
         parser.add_argument(
             'project',
             metavar='<project>',
-            help=_('Project which limits the scope of '
-                   'the credential (name or ID)'),
+            help=_('Project which bigip device belong to'),
         )
         parser.add_argument(
-            'hostname',
-            metavar='<hostname>',
-            help=_('bigip hostname'),
+            'icontrol_hostname',
+            metavar='<icontrol_hostname>',
+            help=_('bigip device icontrol_hostname'),
         )
         return parser
 
@@ -47,15 +34,18 @@ class CreateBigip(command.ShowOne):
         """
         LOG.debug("parsed_args: {}".format(parsed_args))
         f5agent_client = make_client()
-        user_id = utils.find_resource(f5agent_client.users, parsed_args.user).id
+
+        username = 'neutron'
+        user_id = utils.find_resource(f5agent_client.users, username).id
         project = utils.find_resource(f5agent_client.projects, parsed_args.project).id
 
+        credential_type = "bigip"
         data = {
-            "data": parsed_args.hostname
+            "data": parsed_args.icontrol_hostname
         }
         credential = f5agent_client.credentials.create(
             user=user_id,
-            type=parsed_args.type,
+            type=credential_type,
             blob=data,
             project=project)
 
