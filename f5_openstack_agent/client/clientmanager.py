@@ -8,7 +8,7 @@ from keystoneclient.v3 import client
 LOG = logging.getLogger(__name__)
 
 
-# todo: make session from config
+# TODO(seven): make session from os_client_config
 def build_session():
     auth_url = os.environ['OS_AUTH_URL']
     username = os.environ['OS_USERNAME']
