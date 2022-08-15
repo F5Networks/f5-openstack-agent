@@ -5,6 +5,10 @@ from keystoneauth1.identity import v3
 from keystoneauth1 import session
 from keystoneclient.v3 import client
 
+from f5.bigip import ManagementRoot
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
+from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import ClusterManager
+
 LOG = logging.getLogger(__name__)
 
 
@@ -28,3 +32,26 @@ def build_session():
 
 def make_client():
     return client.Client(session=build_session())
+
+
+class IControlClient:
+    def __init__(self, icontrol_hostname, icontrol_username, icontrol_password, icontrol_port):
+        self.icontrol_hostname = icontrol_hostname
+        self.icontrol_username = icontrol_username
+        self.icontrol_password = icontrol_password
+        self.bigip = ManagementRoot(self.icontrol_hostname,
+                                    self.icontrol_username,
+                                    self.icontrol_password,
+                                    port=icontrol_port,
+                                    timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
+
+        self.cluster_manager = ClusterManager()
+
+    def get_bigip_info(self):
+        info = {
+            "username": self.icontrol_username,
+            "password": self.icontrol_password,
+            "device_name": self.cluster_manager.get_device_name(self.bigip)
+        }
+        return info
+
