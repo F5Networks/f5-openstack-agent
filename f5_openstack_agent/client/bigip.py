@@ -45,10 +45,16 @@ class CreateBigip(command.ShowOne):
             help=_('ID of credential(s) to delete'),
         )
         parser.add_argument(
+            '--availability_zone',
+            metavar='<availability_zone>',
+            default=None,
+            help=_('availability_zone which the agent is belong'),
+        )
+        parser.add_argument(
             '--icontrol_port',
             default="443",
-            metavar='<icontrol_port to communicate with bigip>',
-            help=_('port of '),
+            metavar='<icontrol_port>',
+            help=_('port of to communicate with bigip'),
         )
 
         return parser
@@ -88,6 +94,8 @@ class CreateBigip(command.ShowOne):
             new_credential = utils.find_resource(f5agent_client.credentials, parsed_args.credential)
         else:
             blob = {
+                "admin_state_up": True,
+                "availability_zone": parsed_args.availability_zone,
                 "bigips": {
                     icontrol_hostname: ic.get_bigip_info()
                 },
