@@ -50,7 +50,10 @@ setuptools.setup(
             'f5agent = f5_openstack_agent.client.shell:main',
         ],
         'f5agent.cli': [
-            'bigip-create = f5_openstack_agent.client.bigip:CreateBigip'
+            'bigip-create = f5_openstack_agent.client.bigip:CreateBigip',
+            'bigip-delete = f5_openstack_agent.client.bigip:DeleteBigip',
+            'bigip-update = f5_openstack_agent.client.bigip:UpdateBigip',
+            'bigip-refresh = f5_openstack_agent.client.bigip:RefreshBigip',
         ]
     },
     install_requires=['f5-sdk==3.0.11.4']

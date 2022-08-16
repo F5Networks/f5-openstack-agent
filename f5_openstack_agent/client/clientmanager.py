@@ -39,6 +39,7 @@ class IControlClient:
         self.icontrol_hostname = icontrol_hostname
         self.icontrol_username = icontrol_username
         self.icontrol_password = icontrol_password
+        self.icontrol_port = icontrol_port
         self.bigip = ManagementRoot(self.icontrol_hostname,
                                     self.icontrol_username,
                                     self.icontrol_password,
@@ -51,6 +52,7 @@ class IControlClient:
         info = {
             "username": self.icontrol_username,
             "password": self.icontrol_password,
+            "port": self.icontrol_port,
             "device_name": self.cluster_manager.get_device_name(self.bigip)
         }
         return info
