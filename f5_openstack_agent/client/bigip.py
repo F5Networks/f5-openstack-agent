@@ -7,7 +7,7 @@ import json
 from oslo_log import log as logging
 from openstackclient.i18n import _
 from osc_lib.command import command
-from osc_lib import utils
+from osc_lib import utils, exceptions
 
 from clientmanager import make_client, IControlClient
 
@@ -15,6 +15,7 @@ LOG = logging.getLogger(__name__)
 
 CREDENTIAL_USERNAME = 'neutron'
 CREDENTIAL_TYPE = 'bigip'
+INDENT = 4
 
 
 class CreateBigip(command.ShowOne):
@@ -71,23 +72,32 @@ class CreateBigip(command.ShowOne):
         ic = IControlClient(icontrol_hostname, icontrol_username, icontrol_password, icontrol_port)
 
         if parsed_args.credential:
-            # 在已有credential中添加设备信息
-            #
-            pass
+            credential = utils.find_resource(f5agent_client.credentials, parsed_args.credential)
+            if not credential:
+                msg = (_("credential: %(credential)s not exist in keystone") % {'credential': parsed_args.credential})
+                raise exceptions.CommandError(msg)
+
+            blob = json.loads(credential._info['blob'])
+            blob["bigips"][icontrol_hostname] = ic.get_bigip_info()
+
+            f5agent_client.credentials.update(parsed_args.credential,
+                                              user=user_id,
+                                              type=CREDENTIAL_TYPE,
+                                              blob=json.dumps(blob, indent=INDENT),
+                                              project=project)
+            new_credential = utils.find_resource(f5agent_client.credentials, parsed_args.credential)
         else:
-            # create new credential
             blob = {
                 "bigips": {
                     icontrol_hostname: ic.get_bigip_info()
                 },
             }
-
-            credential = f5agent_client.credentials.create(
+            new_credential = f5agent_client.credentials.create(
                 user=user_id,
                 type=CREDENTIAL_TYPE,
-                blob=json.dumps(blob),
+                blob=json.dumps(blob, indent=INDENT),
                 project=project)
 
-            LOG.debug("credential info: %s" % credential)
-            credential._info.pop('links')
-            return zip(*sorted(six.iteritems(credential._info)))
+        LOG.debug("credential info: %s" % new_credential)
+        new_credential._info.pop('links')
+        return zip(*sorted(six.iteritems(new_credential._info)))
