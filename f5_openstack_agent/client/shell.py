@@ -20,7 +20,7 @@ class AgentShell(app.App):
         )
 
     def initialize_app(self, argv):
-        LOG.info('initialize agent cli')
+        LOG.debug('initialize agent cli')
 
 
 def main(argv=None):

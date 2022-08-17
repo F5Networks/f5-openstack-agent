@@ -4,6 +4,9 @@ from oslo_log import log as logging
 from keystoneauth1.identity import v3
 from keystoneauth1 import session
 from keystoneclient.v3 import client
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const

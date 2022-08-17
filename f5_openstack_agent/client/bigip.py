@@ -70,7 +70,7 @@ class CreateBigip(BipipCommand):
             help=_('password of icontrol_hostname'),
         )
         parser.add_argument(
-            '--credential',
+            '--id',
             metavar='<credential-id>',
             help=_('ID of credential(s) to delete'),
         )
@@ -99,12 +99,12 @@ class CreateBigip(BipipCommand):
                                                                                  parsed_args.icontrol_port
         ic = IControlClient(icontrol_hostname, icontrol_username, icontrol_password, icontrol_port)
 
-        if parsed_args.credential:
-            credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.credential)
+        if parsed_args.id:
+            credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
             blob = json.loads(credential._info['blob'])
             blob["bigips"][icontrol_hostname] = ic.get_bigip_info()
-            self.update_credential(parsed_args.credential, blob)
-            new_credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.credential)
+            self.update_credential(parsed_args.id, blob)
+            new_credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
         else:
             blob = {
                 "admin_state_up": True,
@@ -127,7 +127,7 @@ class DeleteBigip(BipipCommand):
         parser = super(DeleteBigip, self).get_parser(prog_name)
 
         parser.add_argument(
-            'credential',
+            'id',
             metavar='<credential-id>',
             help=_('ID of credential(s) to delete'),
         )
@@ -140,19 +140,19 @@ class DeleteBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.credential)
+        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
         blob = json.loads(credential._info['blob'])
         bigips = blob.get("bigips", None)
 
         icontrol_hostname = parsed_args.icontrol_hostname
-        if icontrol_hostname not in blob:
+        if icontrol_hostname not in bigips:
             msg = (_("bigip: %(hostname)s not in credential") % {'hostname': icontrol_hostname})
             raise exceptions.CommandError(msg)
         del bigips[icontrol_hostname]
         blob['bigips'] = bigips
 
-        self.update_credential(parsed_args.credential, blob)
-        return self.show_credential(parsed_args.credential)
+        self.update_credential(parsed_args.id, blob)
+        return self.show_credential(parsed_args.id)
 
 
 class UpdateBigip(BipipCommand):
@@ -162,7 +162,7 @@ class UpdateBigip(BipipCommand):
         parser = super(UpdateBigip, self).get_parser(prog_name)
 
         parser.add_argument(
-            'credential',
+            'id',
             metavar='<credential-id>',
             help=_('ID of credential(s) to delete'),
         )
@@ -182,15 +182,14 @@ class UpdateBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.credential)
+        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
         blob = json.loads(credential._info['blob'])
-        if parsed_args.admin_state:
-            blob["admin_state_up"] = False
+        blob["admin_state_up"] = parsed_args.admin_state if parsed_args is not None else True
         if parsed_args.availability_zone:
             blob["availability_zone"] = parsed_args.availability_zone
 
-        self.update_credential(parsed_args.credential, blob)
-        return self.show_credential(parsed_args.credential)
+        self.update_credential(parsed_args.id, blob)
+        return self.show_credential(parsed_args.id)
 
 
 class RefreshBigip(BipipCommand):
@@ -200,7 +199,7 @@ class RefreshBigip(BipipCommand):
         parser = super(RefreshBigip, self).get_parser(prog_name)
 
         parser.add_argument(
-            'credential',
+            'id',
             metavar='<credential-id>',
             help=_('ID of credential(s) to delete'),
         )
@@ -209,19 +208,20 @@ class RefreshBigip(BipipCommand):
             metavar='<icontrol_hostname>',
             help=_('icontrol_hostname of BIG-IP device'),
         )
+        return parser
 
     def take_action(self, parsed_args):
-        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.credential)
+        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
         blob = json.loads(credential._info['blob'])
         bigips = blob.get("bigips", None)
         icontrol_hostname = parsed_args.icontrol_hostname
-        if icontrol_hostname not in blob:
+        if icontrol_hostname not in bigips:
             msg = (_("bigip: %(hostname)s not in credential") % {'hostname': icontrol_hostname})
             raise exceptions.CommandError(msg)
 
         bigip_info = bigips[icontrol_hostname]
         ic = IControlClient(icontrol_hostname, bigip_info['username'], bigip_info['password'], bigip_info['port'])
         blob["bigips"][icontrol_hostname] = ic.get_bigip_info()
-        self.update_credential(parsed_args.credential, blob)
+        self.update_credential(parsed_args.id, blob)
 
-        return self.show_credential(parsed_args.credential)
+        return self.show_credential(parsed_args.id)
