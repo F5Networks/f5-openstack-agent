@@ -472,10 +472,12 @@ class L2ServiceBuilder(object):
                 vlan_name,
                 partition=network_folder
             )
-        except Exception as err:
-            LOG.exception(err)
-            LOG.error(
-                "Failed to delete vlan: %s" % vlan_name)
+        except HTTPError as err:
+            if err.response.status_code == 404:
+                LOG.info("vlan %s is not exist: %s, ignored.." % (
+                        vlan_name, err.message))
+            else:
+                raise err
 
         if self.vlan_binding:
             interface = self.interface_mapping['default']
