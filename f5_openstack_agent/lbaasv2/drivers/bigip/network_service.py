@@ -627,7 +627,7 @@ class NetworkServiceBuilder(object):
                     )
 
                     if not selfip_address:
-                        LOG.error(
+                        LOG.warning(
                             "Failed to get self IP address %s in cleanup.",
                             local_selfip_name
                         )
