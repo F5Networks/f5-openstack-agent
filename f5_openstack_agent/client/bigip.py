@@ -21,7 +21,6 @@ INDENT = 4
 class BipipCommand(command.ShowOne):
     def __init__(self, app, app_args):
         super(BipipCommand, self).__init__(app, app_args)
-        # TODO(seven): MAKE session and get project from os_client_config
         self.f5agent_client = make_client()
         self.user_id = utils.find_resource(self.f5agent_client.users, CREDENTIAL_USERNAME).id
         self.project = utils.find_resource(self.f5agent_client.projects, os.environ['OS_PROJECT_NAME']).id
