@@ -15,7 +15,7 @@ class AgentShell(app.App):
         super(AgentShell, self).__init__(
             description=__doc__.strip(),
             version="1.0",
-            command_manager=CommandManager(namespace="f5agent.cli"),
+            command_manager=CommandManager(namespace="bigip_onboard.cli"),
             deferred_help=True
         )
 
