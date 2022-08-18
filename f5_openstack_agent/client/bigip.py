@@ -87,19 +87,19 @@ class CreateBigip(BipipCommand):
         parser.add_argument(
             '--id',
             metavar='<credential-id>',
-            help=_('ID of credential(s) to delete'),
+            help=_('ID of credential'),
         )
         parser.add_argument(
             '--availability_zone',
             metavar='<availability_zone>',
             default=None,
-            help=_('availability_zone which the agent is belong'),
+            help=_('availability_zone which the BIG-IP is belong'),
         )
         parser.add_argument(
             '--icontrol_port',
             default="443",
             metavar='<icontrol_port>',
-            help=_('port of to communicate with bigip'),
+            help=_('port to communicate with BIG-IP'),
         )
 
         return parser
@@ -135,7 +135,7 @@ class CreateBigip(BipipCommand):
 
 
 class DeleteBigip(BipipCommand):
-    _description = _("Remove a existing bigip from an existing device group")
+    _description = _("Remove an existing BIG-IP from an existing device group")
 
     def get_parser(self, prog_name):
         parser = super(DeleteBigip, self).get_parser(prog_name)
@@ -143,7 +143,7 @@ class DeleteBigip(BipipCommand):
         parser.add_argument(
             'id',
             metavar='<credential-id>',
-            help=_('ID of credential(s) to delete'),
+            help=_('ID of credential'),
         )
 
         parser.add_argument(
@@ -176,7 +176,7 @@ class UpdateBigip(BipipCommand):
         parser.add_argument(
             'id',
             metavar='<credential-id>',
-            help=_('ID of credential(s) to delete'),
+            help=_('ID of credential'),
         )
         parser.add_argument(
             '--admin-state-down',
@@ -188,7 +188,7 @@ class UpdateBigip(BipipCommand):
             '--availability_zone',
             metavar='<availability_zone>',
             default=None,
-            help=_('availability_zone which the agent is belong'),
+            help=_('availability zone which the BIG-IP is belong'),
         )
 
         return parser
@@ -211,12 +211,12 @@ class RefreshBigip(BipipCommand):
         parser.add_argument(
             'id',
             metavar='<credential-id>',
-            help=_('ID of credential(s) to delete'),
+            help=_('ID of credential'),
         )
         parser.add_argument(
             'icontrol_hostname',
             metavar='<icontrol_hostname>',
-            help=_('icontrol_hostname of BIG-IP device'),
+            help=_('icontrol_hostname of BIG-IP'),
         )
         return parser
 

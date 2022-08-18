@@ -1,3 +1,4 @@
+# coding=utf-8
 import os
 import logging as std_logging
 
@@ -71,7 +72,7 @@ class IControlClient:
         return info
 
     def _get_dynamic_info(self):
-        device_info = {
+        dynamic_info = {
             "version": self.system_helper.get_version(self.bigip) if self.bigip else "",
             "device_name": self.cluster_manager.get_device_name(self.bigip) if self.bigip else "",
             "platform": self.system_helper.get_platform(self.bigip) if self.bigip else "",
@@ -81,7 +82,7 @@ class IControlClient:
             "status_message": "BIG-IP ready for provisioning" if self.bigip else "Fail to connect to BIG-IP",
             "failover_state": self._get_failover_state() if self.bigip else "",
         }
-        return device_info
+        return dynamic_info
 
     def _get_bigip_license(self):
         license = {}

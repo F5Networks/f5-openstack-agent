@@ -1,6 +1,5 @@
-"""
-Command-line interface to the f5-openstack-agent APIs
-"""
+"""Command-line interface to the f5-openstack-agent APIs"""
+# coding=utf-8
 import sys
 
 from cliff import app
