@@ -1,7 +1,5 @@
 NextGen Inventory CLI
 
-NextGen design doc: https://gitswarm.f5net.com/qzhao/misc/-/blob/master/docs/lbaasv2-ng.md
-
 ### 1. bigip-onboard create
 usage: Create BIG-IP to device group
 
