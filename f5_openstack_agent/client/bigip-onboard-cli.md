@@ -3,7 +3,7 @@ NextGen Inventory CLI
 NextGen design doc: https://gitswarm.f5net.com/qzhao/misc/-/blob/master/docs/lbaasv2-ng.md
 
 ### 1. bigip-onboard create
-usage: add BIG-IP to credential
+usage: Create BIG-IP to device group
 
 required params:
 - icontrol_hostname: BIG-IP icontrol API hostname
@@ -16,47 +16,47 @@ positional params:
 - icontrol_port: BIP-IP icontrol API port, default 443.
 
 command example:
-1. add a new BIG-IP to a new device group
+1. Create a new bigip to a new device group
 
-`bigip-onboard create 10.145.76.72 admin admin@f5.com --availability_zone nova 
+    `bigip-onboard create 10.145.76.72 admin admin@f5.com --availability_zone nova 
 `
-2. add a new BIG-IP to a existing group
+2. Create a new bigip to an existing device group
 
-`bigip-onboard create 10.145.75.174 admin admin@f5.com --id 7f293e491d2445048c8ce894bd027ccb 
-`
+    `bigip-onboard create 10.145.75.174 admin admin@f5.com --id 7f293e491d2445048c8ce894bd027ccb`
+
 ### 2. bigip-onboard delete
-usage: removing BIG-IP from existing group
+usage: Remove a existing bigip from an existing device group
 
 required params:
-- id: credential id of BIG-IP device group which 
+- id: credential id of BIG-IP device group
 - icontrol_hostname: hostname of BIG-IP to be removed
 
 command example:
 
-`bigip-onboard delete 7f293e491d2445048c8ce894bd027ccb 10.145.75.174 
-`
+`bigip-onboard delete 7f293e491d2445048c8ce894bd027ccb 10.145.75.174`
+
 ### 3. bigip-onboard update
-usage: update admin properties of BIG-IP group
+usage: Modify the admin properties of an existing bigip in an existing device group
 
 required params:
 - id: credential id of BIG-IP group
 
 positional params:
-- admin-state-down: when this param exist in the command, admin_state_up property will be set _false_. 
+- admin-state-down: when this param exist in the command, `admin_state_up` property will be set `false`. 
 (The updating logic is same as `neutron agent-update`)
 - availability_zone: availability zone of BIG-IP group
 
 command example:
-1. updating admin_state_up to false.
+1. update admin_state_up to `false`.
 
-`bigip-onboard update 7f293e491d2445048c8ce894bd027ccb --admin-state-down`
+    `bigip-onboard update 7f293e491d2445048c8ce894bd027ccb --admin-state-down`
 
-2. updating availability_zone
+2. update availability_zone to `test`
 
-`bigip-onboard update 7f293e491d2445048c8ce894bd027ccb --availability_zone test`
+    `bigip-onboard update 7f293e491d2445048c8ce894bd027ccb --availability_zone test`
 
 ### 4. bigip-onboard refresh
-usage: refresh device properties of BIG-IP
+usage: Refresh the device properties of an existing bigip in an existing device group
 
 required params:
 - id: credential id of BIG-IP group
