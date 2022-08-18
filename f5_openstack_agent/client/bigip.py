@@ -1,6 +1,5 @@
 # coding=utf-8
 import os
-
 import six
 
 import json
@@ -21,18 +20,28 @@ INDENT = 4
 class BipipCommand(command.ShowOne):
     def __init__(self, app, app_args):
         super(BipipCommand, self).__init__(app, app_args)
-        self.f5agent_client = make_client()
-        self.user_id = utils.find_resource(self.f5agent_client.users, CREDENTIAL_USERNAME).id
-        self.project = utils.find_resource(self.f5agent_client.projects, os.environ['OS_PROJECT_NAME']).id
+        self.keystone_client = None
+        self.user_id = None
+        self.project = None
+
+    def _active_keystone_session(self):
+        if not self.keystone_client:
+            self.keystone_client = make_client()
+        if not self.user_id:
+            self.user_id = utils.find_resource(self.keystone_client.users, CREDENTIAL_USERNAME).id
+        if not self.project:
+            self.project = utils.find_resource(self.keystone_client.projects, os.environ['OS_PROJECT_NAME']).id
 
     def show_credential(self, credential):
-        new_credential = utils.find_resource(self.f5agent_client.credentials, credential)
+        self._active_keystone_session()
+        new_credential = utils.find_resource(self.keystone_client.credentials, credential)
         LOG.debug("credential info: %s" % new_credential)
         new_credential._info.pop('links')
         return zip(*sorted(six.iteritems(new_credential._info)))
 
     def create_credential(self, blob):
-        new_credential = self.f5agent_client.credentials.create(
+        self._active_keystone_session()
+        new_credential = self.keystone_client.credentials.create(
             user=self.user_id,
             type=CREDENTIAL_TYPE,
             blob=json.dumps(blob, indent=INDENT),
@@ -40,15 +49,22 @@ class BipipCommand(command.ShowOne):
         return new_credential
 
     def update_credential(self, credential, blob):
-        self.f5agent_client.credentials.update(credential,
-                                               user=self.user_id,
-                                               type=CREDENTIAL_TYPE,
-                                               blob=json.dumps(blob, indent=INDENT),
-                                               project=self.project)
+        self._active_keystone_session()
+        self.keystone_client.credentials.update(credential,
+                                                user=self.user_id,
+                                                type=CREDENTIAL_TYPE,
+                                                blob=json.dumps(blob, indent=INDENT),
+                                                project=self.project)
+
+    def get_blob(self, credential_id):
+        self._active_keystone_session()
+        credential = utils.find_resource(self.keystone_client.credentials, credential_id)
+        blob = json.loads(credential._info['blob'])
+        return blob
 
 
 class CreateBigip(BipipCommand):
-    _description = _("Create new bigip credential")
+    _description = _("Create a new bigip to a device group")
 
     def get_parser(self, prog_name):
         parser = super(CreateBigip, self).get_parser(prog_name)
@@ -99,11 +115,10 @@ class CreateBigip(BipipCommand):
         ic = IControlClient(icontrol_hostname, icontrol_username, icontrol_password, icontrol_port)
 
         if parsed_args.id:
-            credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
-            blob = json.loads(credential._info['blob'])
+            blob = self.get_blob(parsed_args.id)
             blob["bigips"][icontrol_hostname] = ic.get_bigip_info()
             self.update_credential(parsed_args.id, blob)
-            new_credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
+            new_credential = utils.find_resource(self.keystone_client.credentials, parsed_args.id)
         else:
             blob = {
                 "admin_state_up": True,
@@ -139,10 +154,8 @@ class DeleteBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
-        blob = json.loads(credential._info['blob'])
+        blob = self.get_blob(parsed_args.id)
         bigips = blob.get("bigips", None)
-
         icontrol_hostname = parsed_args.icontrol_hostname
         if icontrol_hostname not in bigips:
             msg = (_("bigip: %(hostname)s not in credential") % {'hostname': icontrol_hostname})
@@ -181,12 +194,10 @@ class UpdateBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
-        blob = json.loads(credential._info['blob'])
+        blob = self.get_blob(parsed_args.id)
         blob["admin_state_up"] = parsed_args.admin_state if parsed_args is not None else True
         if parsed_args.availability_zone:
             blob["availability_zone"] = parsed_args.availability_zone
-
         self.update_credential(parsed_args.id, blob)
         return self.show_credential(parsed_args.id)
 
@@ -210,8 +221,7 @@ class RefreshBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        credential = utils.find_resource(self.f5agent_client.credentials, parsed_args.id)
-        blob = json.loads(credential._info['blob'])
+        blob = self.get_blob(parsed_args.id)
         bigips = blob.get("bigips", None)
         icontrol_hostname = parsed_args.icontrol_hostname
         if icontrol_hostname not in bigips:
@@ -220,7 +230,7 @@ class RefreshBigip(BipipCommand):
 
         bigip_info = bigips[icontrol_hostname]
         ic = IControlClient(icontrol_hostname, bigip_info['username'], bigip_info['password'], bigip_info['port'])
-        blob["bigips"][icontrol_hostname] = ic.get_bigip_info()
+        blob["bigips"][icontrol_hostname] = ic.get_refresh_info()
         self.update_credential(parsed_args.id, blob)
 
         return self.show_credential(parsed_args.id)

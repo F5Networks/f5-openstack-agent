@@ -69,10 +69,14 @@ class IControlClient:
             "password": self.icontrol_password,
             "port": self.icontrol_port,
         }
-        info.update(self._get_device_info())
         return info
 
-    def _get_device_info(self):
+    def get_refresh_info(self):
+        info = self.get_bigip_info()
+        info.update(self._get_dynamic_info())
+        return info
+
+    def _get_dynamic_info(self):
         device_info = {
             "version": self.system_helper.get_version(self.bigip) if self.bigip else "",
             "device_name": self.cluster_manager.get_device_name(self.bigip) if self.bigip else "",
@@ -82,7 +86,6 @@ class IControlClient:
             "status": "active" if self.bigip else "error",
             "status_message": "BIG-IP ready for provisioning" if self.bigip else "Fail to connect to BIG-IP",
             "failover_state": self._get_failover_state() if self.bigip else "",
-            "local_ip": "VTEP disabled",
         }
         return device_info
 
