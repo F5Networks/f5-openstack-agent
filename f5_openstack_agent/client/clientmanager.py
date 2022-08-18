@@ -8,13 +8,12 @@ from keystoneclient.v3 import client
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
 
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 std_logging.getLogger("requests.packages.urllib3").setLevel(std_logging.ERROR)
 LOG = logging.getLogger(__name__)
 
@@ -51,17 +50,12 @@ class IControlClient:
         self.system_helper = SystemHelper()
 
     def _open_bigip(self):
-        try:
-            bigip = ManagementRoot(self.icontrol_hostname,
-                                   self.icontrol_username,
-                                   self.icontrol_password,
-                                   port=self.icontrol_port,
-                                   timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
-            return bigip
-        except Exception as exc:
-            LOG.error('could not communicate with ' + 'iControl device: %s, error: %s' %
-                      (self.icontrol_hostname, str(exc)))
-            return None
+        bigip = ManagementRoot(self.icontrol_hostname,
+                               self.icontrol_username,
+                               self.icontrol_password,
+                               port=self.icontrol_port,
+                               timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
+        return bigip
 
     def get_bigip_info(self):
         info = {
