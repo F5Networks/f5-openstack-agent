@@ -227,7 +227,7 @@ class RefreshBigip(BipipCommand):
         bigips = blob.get("bigips", None)
         icontrol_hostname = parsed_args.icontrol_hostname
         if icontrol_hostname not in bigips:
-            msg = (_("bigip: %(hostname)s not in group") % {'hostname': icontrol_hostname})
+            msg = (_("bigip: %(hostname) not in group") % {'hostname': icontrol_hostname})
             raise exceptions.CommandError(msg)
 
         bigip_info = bigips[icontrol_hostname]
