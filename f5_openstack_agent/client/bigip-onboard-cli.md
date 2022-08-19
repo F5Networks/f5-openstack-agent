@@ -9,7 +9,7 @@ required params:
 - icontrol_password: BIG-IP icontrol API password
 
 positional params:
-- id: credential id of BIG-IP device group, id should be specified when add new BIG-IP to existing group.
+- id: ID of BIG-IP device group, it should be specified when add new BIG-IP to an existing group.
 - availability_zone: availability zone of BIG-IP group, default null.
 - icontrol_port: BIP-IP icontrol API port, default 443.
 
@@ -20,24 +20,24 @@ command example:
 `
 2. Create a new bigip to an existing device group
 
-    `bigip-onboard create 10.145.75.174 admin admin@f5.com --id 7f293e491d2445048c8ce894bd027ccb`
+    `bigip-onboard create 10.145.75.174 admin admin@f5.com --id 8842dbbb-8041-4318-9517-f09cd29a3f55`
 
 ### 2. bigip-onboard delete
 usage: Remove a existing bigip from an existing device group
 
 required params:
-- id: credential id of BIG-IP device group
+- id: ID of BIG-IP device group
 - icontrol_hostname: hostname of BIG-IP to be removed
 
 command example:
 
-`bigip-onboard delete 7f293e491d2445048c8ce894bd027ccb 10.145.75.174`
+`bigip-onboard delete 8842dbbb-8041-4318-9517-f09cd29a3f55 10.145.75.174`
 
 ### 3. bigip-onboard update
 usage: Modify the admin properties of an existing bigip in an existing device group
 
 required params:
-- id: credential id of BIG-IP group
+- id: ID of BIG-IP group
 
 positional params:
 - admin-state-down: when this param exist in the command, `admin_state_up` property will be set `false`. 
@@ -47,20 +47,36 @@ positional params:
 command example:
 1. update admin_state_up to `false`.
 
-    `bigip-onboard update 7f293e491d2445048c8ce894bd027ccb --admin-state-down`
+    `bigip-onboard update 8842dbbb-8041-4318-9517-f09cd29a3f55 --admin-state-down`
 
 2. update availability_zone to `test`
 
-    `bigip-onboard update 7f293e491d2445048c8ce894bd027ccb --availability_zone test`
+    `bigip-onboard update 8842dbbb-8041-4318-9517-f09cd29a3f55 --availability_zone test`
 
 ### 4. bigip-onboard refresh
 usage: Refresh the device properties of an existing bigip in an existing device group
 
 required params:
-- id: credential id of BIG-IP group
+- id: ID of BIG-IP group
 - icontrol_hostname: hostname of BIG-IP to be refreshed
 
 command example:
 
-`bigip-onboard refresh 7f293e491d2445048c8ce894bd027ccb 10.145.75.174`
+`bigip-onboard refresh 8842dbbb-8041-4318-9517-f09cd29a3f55 10.145.75.174`
+
+### 5. bigip-onboard list
+usage: List all BIG-IP in the inventory
+
+no required params and positional params.
+
+### 6. bigip-onboard show
+usage: Show the specific group of BIG-IP inventory
+
+required params:
+- id: ID of BIG-IP group
+
+command example:
+
+`bigip-onboard show 8842dbbb-8041-4318-9517-f09cd29a3f55`
+
 

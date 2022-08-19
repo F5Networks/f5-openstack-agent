@@ -1,66 +1,70 @@
 # coding=utf-8
 import os
-import six
-
 import json
+import uuid
+
 from oslo_log import log as logging
 from openstackclient.i18n import _
 from osc_lib.command import command
-from osc_lib import utils, exceptions
+from osc_lib import exceptions
 
-from clientmanager import make_client, IControlClient
+from clientmanager import IControlClient
 
 LOG = logging.getLogger(__name__)
 
-CREDENTIAL_USERNAME = 'neutron'
-CREDENTIAL_TYPE = 'bigip'
+
 INDENT = 4
+INVENTORY_PATH = '/etc/neutron/bigip_inventory.json'
 
 
 class BipipCommand(command.ShowOne):
     def __init__(self, app, app_args):
         super(BipipCommand, self).__init__(app, app_args)
-        self.keystone_client = None
-        self.user_id = None
-        self.project = None
+        self.filepath = INVENTORY_PATH
+        self._check_file()
 
-    def _active_keystone_session(self):
-        if not self.keystone_client:
-            self.keystone_client = make_client()
-        if not self.user_id:
-            self.user_id = utils.find_resource(self.keystone_client.users, CREDENTIAL_USERNAME).id
-        if not self.project:
-            self.project = utils.find_resource(self.keystone_client.projects, os.environ['OS_PROJECT_NAME']).id
+    def _check_file(self):
+        if not os.path.isfile(self.filepath):
+            with open(self.filepath, 'w') as f:
+                f.write(json.dumps({}))
 
-    def show_credential(self, credential):
-        self._active_keystone_session()
-        new_credential = utils.find_resource(self.keystone_client.credentials, credential)
-        LOG.debug("credential info: %s" % new_credential)
-        new_credential._info.pop('links')
-        return zip(*sorted(six.iteritems(new_credential._info)))
+    def _load_inventory(self):
+        with open(self.filepath, 'r') as f:
+            inventory = json.load(f)
+        return inventory
 
-    def create_credential(self, blob):
-        self._active_keystone_session()
-        new_credential = self.keystone_client.credentials.create(
-            user=self.user_id,
-            type=CREDENTIAL_TYPE,
-            blob=json.dumps(blob, indent=INDENT),
-            project=self.project)
-        return new_credential
+    def _write_inventory(self, data):
+        with open(self.filepath, 'w') as f:
+            f.write(data)
 
-    def update_credential(self, credential, blob):
-        self._active_keystone_session()
-        self.keystone_client.credentials.update(credential,
-                                                user=self.user_id,
-                                                type=CREDENTIAL_TYPE,
-                                                blob=json.dumps(blob, indent=INDENT),
-                                                project=self.project)
+    def create_bigip(self, blob):
+        data = self._load_inventory()
+        group_id = str(uuid.uuid4())
+        data[group_id] = blob
+        self._write_inventory(data)
+        return group_id
 
-    def get_blob(self, credential_id):
-        self._active_keystone_session()
-        credential = utils.find_resource(self.keystone_client.credentials, credential_id)
-        blob = json.loads(credential._info['blob'])
-        return blob
+    def update_bigip(self, group_id, blob):
+        data = self._load_inventory()
+        data[group_id] = blob
+        self._write_inventory(data)
+
+    def get_blob(self, group_id):
+        data = self._load_inventory()
+        if group_id not in data:
+            msg = (_("id: %(id) not in inventory") % {'id': group_id})
+            raise exceptions.CommandError(msg)
+        return data[group_id]
+
+    def show_inventory(self, group_id=None):
+        if group_id:
+            blob = self.get_blob(group_id)
+            return (('ID', 'GROUP'),
+                    (group_id, json.dumps(blob, indent=INDENT)))
+        else:
+            inventory = self._load_inventory()
+            return (('ID', 'GROUP'),
+                    ((k, json.dumps(v, indent=INDENT)) for k, v in inventory.items()))
 
 
 class CreateBigip(BipipCommand):
@@ -86,8 +90,8 @@ class CreateBigip(BipipCommand):
         )
         parser.add_argument(
             '--id',
-            metavar='<credential-id>',
-            help=_('ID of credential'),
+            metavar='<id>',
+            help=_('ID of BIG-IP group'),
         )
         parser.add_argument(
             '--availability_zone',
@@ -117,8 +121,8 @@ class CreateBigip(BipipCommand):
         if parsed_args.id:
             blob = self.get_blob(parsed_args.id)
             blob["bigips"][icontrol_hostname] = ic.get_bigip_info()
-            self.update_credential(parsed_args.id, blob)
-            new_credential = utils.find_resource(self.keystone_client.credentials, parsed_args.id)
+            self.update_bigip(parsed_args.id, blob)
+            return self.show_inventory(parsed_args.id)
         else:
             blob = {
                 "admin_state_up": True,
@@ -127,11 +131,8 @@ class CreateBigip(BipipCommand):
                     icontrol_hostname: ic.get_bigip_info()
                 },
             }
-            new_credential = self.create_credential(blob)
-
-        LOG.debug("credential info: %s" % new_credential)
-        new_credential._info.pop('links')
-        return zip(*sorted(six.iteritems(new_credential._info)))
+            group_id = self.create_bigip(blob)
+            return self.show_inventory(group_id)
 
 
 class DeleteBigip(BipipCommand):
@@ -142,8 +143,8 @@ class DeleteBigip(BipipCommand):
 
         parser.add_argument(
             'id',
-            metavar='<credential-id>',
-            help=_('ID of credential'),
+            metavar='<id>',
+            help=_('ID of BIG-IP group'),
         )
 
         parser.add_argument(
@@ -158,13 +159,13 @@ class DeleteBigip(BipipCommand):
         bigips = blob.get("bigips", None)
         icontrol_hostname = parsed_args.icontrol_hostname
         if icontrol_hostname not in bigips:
-            msg = (_("bigip: %(hostname)s not in credential") % {'hostname': icontrol_hostname})
+            msg = (_("bigip: %(hostname)s not in group") % {'hostname': icontrol_hostname})
             raise exceptions.CommandError(msg)
         del bigips[icontrol_hostname]
         blob['bigips'] = bigips
+        self.update_bigip(parsed_args.id, blob)
 
-        self.update_credential(parsed_args.id, blob)
-        return self.show_credential(parsed_args.id)
+        return self.show_inventory(parsed_args.id)
 
 
 class UpdateBigip(BipipCommand):
@@ -175,8 +176,8 @@ class UpdateBigip(BipipCommand):
 
         parser.add_argument(
             'id',
-            metavar='<credential-id>',
-            help=_('ID of credential'),
+            metavar='<id>',
+            help=_('ID of BIG-IP group'),
         )
         parser.add_argument(
             '--admin-state-down',
@@ -198,8 +199,9 @@ class UpdateBigip(BipipCommand):
         blob["admin_state_up"] = parsed_args.admin_state if parsed_args is not None else True
         if parsed_args.availability_zone:
             blob["availability_zone"] = parsed_args.availability_zone
-        self.update_credential(parsed_args.id, blob)
-        return self.show_credential(parsed_args.id)
+        self.update_bigip(parsed_args.id, blob)
+
+        return self.show_inventory(parsed_args.id)
 
 
 class RefreshBigip(BipipCommand):
@@ -210,8 +212,8 @@ class RefreshBigip(BipipCommand):
 
         parser.add_argument(
             'id',
-            metavar='<credential-id>',
-            help=_('ID of credential'),
+            metavar='<id>',
+            help=_('ID of BIG-IP group'),
         )
         parser.add_argument(
             'icontrol_hostname',
@@ -225,12 +227,36 @@ class RefreshBigip(BipipCommand):
         bigips = blob.get("bigips", None)
         icontrol_hostname = parsed_args.icontrol_hostname
         if icontrol_hostname not in bigips:
-            msg = (_("bigip: %(hostname)s not in credential") % {'hostname': icontrol_hostname})
+            msg = (_("bigip: %(hostname)s not in group") % {'hostname': icontrol_hostname})
             raise exceptions.CommandError(msg)
 
         bigip_info = bigips[icontrol_hostname]
         ic = IControlClient(icontrol_hostname, bigip_info['username'], bigip_info['password'], bigip_info['port'])
         blob["bigips"][icontrol_hostname] = ic.get_refresh_info()
-        self.update_credential(parsed_args.id, blob)
+        self.update_bigip(parsed_args.id, blob)
 
-        return self.show_credential(parsed_args.id)
+        return self.show_inventory(parsed_args.id)
+
+
+class ListBigip(BipipCommand):
+    _description = _("List all BIG-IP in the inventory")
+
+    def take_action(self, parsed_args):
+        return self.show_inventory()
+
+
+class ShowBigip(BipipCommand):
+    _description = _("Show the specific group of BIG-IP inventory")
+
+    def get_parser(self, prog_name):
+        parser = super(ShowBigip, self).get_parser(prog_name)
+
+        parser.add_argument(
+            'id',
+            metavar='<id>',
+            help=_('ID of BIG-IP group'),
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        return self.show_inventory(parsed_args.id)
