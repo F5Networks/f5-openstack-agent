@@ -1,6 +1,6 @@
-"""Agent manager to handle plugin to agent RPC and periodic tasks."""
+"""Agent manager lite to handle plugin to agent RPC and periodic tasks."""
 # coding=utf-8
-# Copyright (c) 2016-2018, F5 Networks, Inc.
+# Copyright (c) 2020, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 #
 
 import datetime
+import re
 import sys
 import uuid
 
@@ -36,209 +37,22 @@ except ImportError:
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+from f5_openstack_agent.lbaasv2.drivers.bigip import opts
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
+
+from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
+    SystemHelper
+
+from icontrol.exceptions import iControlUnexpectedHTTPError
+from requests import HTTPError
+
 
 LOG = logging.getLogger(__name__)
 
-# XXX OPTS is used in (at least) agent.py Maybe move/rename to agent.py
-OPTS = [
-    cfg.StrOpt(
-        'f5_agent_mode',
-        default='normal',
-        help='Select agent mode between normal and lite'
-    ),
-    cfg.IntOpt(
-        'periodic_interval',
-        default=600,
-        help='Seconds between periodic task runs'
-    ),
-    cfg.IntOpt(
-        'resync_interval',
-        default=-1,
-        help='Seconds interval for resync task'
-    ),
-    cfg.IntOpt(
-        'config_save_interval',
-        default=60,
-        help='Seconds interval for config save'
-    ),
-    cfg.IntOpt(
-        'scrub_interval',
-        default=-1,
-        help='Seconds interval for resync task'
-    ),
-    cfg.BoolOpt(
-        'start_agent_admin_state_up',
-        default=True,
-        help='Should the agent force its admin_state_up to True on boot'
-    ),
-    cfg.StrOpt(  # XXX should we use this with internal classes?
-        'f5_bigip_lbaas_device_driver',  # XXX maybe remove "device" and "f5"?
-        default=('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'
-                 'iControlDriver'),
-        help=('The driver used to provision BigIPs')
-    ),
-    cfg.BoolOpt(
-        'l2_population',
-        default=False,
-        help=('Use L2 Populate service for fdb entries on the BIG-IP')
-    ),
-    cfg.BoolOpt(
-        'f5_global_routed_mode',
-        default=True,
-        help=('Disable all L2 and L3 integration in favor of global routing')
-    ),
-    cfg.BoolOpt(
-        'use_namespaces',
-        default=True,
-        help=('Allow overlapping IP addresses for tenants')
-    ),
-    cfg.BoolOpt(
-        'f5_snat_mode',
-        default=True,
-        help=('use SNATs, not direct routed mode')
-    ),
-    cfg.IntOpt(
-        'f5_snat_addresses_per_subnet',
-        default=1,
-        help=('Interface and VLAN for the VTEP overlay network')
-    ),
-    cfg.StrOpt(
-        'provider_name',
-        default=None,
-        help=('provider_name for snat pool addresses')
-    ),
-    cfg.StrOpt(
-        'availability_zone',
-        default=None,
-        help=('availability_zone for agent reporting')
-    ),
-    cfg.StrOpt(
-        'vtep_ip',
-        default=None,
-        help=('vtep ip with service leaf')
-    ),
-    cfg.StrOpt(
-        'agent_id',
-        default=None,
-        help=('static agent ID to use with Neutron')
-    ),
-    cfg.StrOpt(
-        'static_agent_configuration_data',
-        default=None,
-        help=('static name:value entries to add to the agent configurations')
-    ),
-    cfg.IntOpt(
-        'service_resync_interval',
-        default=86400,
-        help=('Number of seconds between service refresh checks')
-    ),
-    cfg.IntOpt(
-        'member_update_interval',
-        default=300,
-        help=('Number of seconds between member status update')
-    ),
-    cfg.IntOpt(
-        'member_update_mode',
-        default=2,
-        help=('Mode of the member status update')
-    ),
-    cfg.IntOpt(
-        'member_update_number',
-        default=-1,
-        help=('number of members in one batch send to neutron'
-              ' negative means send all members in on batch')
-    ),
-    cfg.IntOpt(
-        'member_update_agent_number',
-        default=1,
-        help=('Total number of the agents for thie project')
-    ),
-    cfg.IntOpt(
-        'member_update_agent_order',
-        default=0,
-        help=('Order of this agent for thie project')
-    ),
-    cfg.StrOpt(
-        'environment_prefix',
-        default='Project',
-        help=('The object name prefix for this environment')
-    ),
-    cfg.BoolOpt(
-        'environment_specific_plugin',
-        default=True,
-        help=('Use environment specific plugin topic')
-    ),
-    cfg.IntOpt(
-        'environment_group_number',
-        default=1,
-        help=('Agent group number for the environment')
-    ),
-    cfg.DictOpt(
-        'capacity_policy',
-        default={},
-        help=('Metrics to measure capacity and their limits')
-    ),
-    cfg.IntOpt(
-        'f5_pending_services_timeout',
-        default=60,
-        help=(
-            'Amount of time to wait for a pending service to become active')
-    ),
-    cfg.IntOpt(
-        'f5_errored_services_timeout',
-        default=60,
-        help=(
-            'Amount of time to wait for a errored service to become active')
-    ),
-    cfg.BoolOpt(
-        'password_cipher_mode',
-        default=False,
-        help='The flag indicating the password is plain text or not.'
-    ),
-    cfg.BoolOpt(
-        'esd_auto_refresh',
-        default=False,
-        help='Enable ESD file periodic refresh'
-    ),
-    cfg.StrOpt(
-        'f5_extended_profile',
-        default='',
-        help=('The file name of extended profiles definition of a listener')
-    ),
-    cfg.StrOpt(
-        'f5_cipher_policy',
-        default='',
-        help=('The file name of TLS cipher suites policy definition')
-    ),
-    cfg.IntOpt(
-        'f5_bandwidth_default',
-        default=200,
-        help=('Default MBtyes value of bandwidth')
-    ),
-    cfg.IntOpt(
-        'f5_bandwidth_max',
-        default=10000,
-        help=('Maximum MBtyes value of bandwidth')
-    ),
-    cfg.StrOpt(
-        'snat_subnetpool_v4',
-        default='',
-        help=('Reserved SNAT IPv4 subnetpool id')
-    ),
-    cfg.StrOpt(
-        'snat_subnetpool_v6',
-        default='',
-        help=('Reserved SNAT IPv6 subnetpool id')
-    ),
-    cfg.StrOpt(
-        'f5_request_logging_profile',
-        default='/Common/request-log',
-        help=('The request logging profile path on bigip')
-    ),
-]
+opts.register_f5_opts()
 
-PERIODIC_TASK_INTERVAL = 10
 PERIODIC_MEMBER_UPDATE_INTERVAL = 30
 
 
@@ -343,32 +157,30 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.context = ncontext.get_admin_context_without_session()
         self.serializer = None
 
-        global PERIODIC_TASK_INTERVAL
-        PERIODIC_TASK_INTERVAL = self.conf.periodic_interval
-
-        global PERIODIC_MEMBER_UPDATE_INTERVAL
-        PERIODIC_MEMBER_UPDATE_INTERVAL = self.conf.member_update_interval
-
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
-        self.last_member_update = datetime.datetime.now()
+        self.last_scrub_agent = datetime.datetime.now()
+        self.last_member_update = datetime.datetime(1970, 1, 1, 0, 0, 0)
         self.needs_resync = False
         self.needs_member_update = True
+        self.member_update_base = datetime.datetime(1970, 1, 1, 0, 0, 0)
+        self.member_update_mode = self.conf.member_update_mode
+        self.member_update_number = self.conf.member_update_number
+        self.member_update_interval = self.conf.member_update_interval
+        self.member_update_agent_number = self.conf.member_update_agent_number
+        self.member_update_agent_order = self.conf.member_update_agent_order
         self.plugin_rpc = None
         self.tunnel_rpc = None
         self.l2_pop_rpc = None
         self.state_rpc = None
+        self.system_helper = None
         self.pending_services = {}
-
-        self.service_resync_interval = conf.service_resync_interval
+        self.scrub_interval = conf.scrub_interval
+        self.resync_interval = conf.resync_interval
+        self.config_save_interval = conf.config_save_interval
         LOG.debug('setting service resync intervl to %d seconds' %
-                  self.service_resync_interval)
-
-        if PERIODIC_MEMBER_UPDATE_INTERVAL == 0:
-            PERIODIC_MEMBER_UPDATE_INTERVAL = 60
-        LOG.debug('setting member update intervl to %d seconds' %
-                  PERIODIC_MEMBER_UPDATE_INTERVAL)
+                  self.resync_interval)
 
         # Load the driver.
         self._load_driver(conf)
@@ -393,6 +205,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
              'environment_group_number': self.conf.environment_group_number,
              'global_routed_mode': self.conf.f5_global_routed_mode}
         )
+
+        if self.conf.vtep_ip:
+            llinfo = []
+            llinfo.append({"node_vtep_ip": self.conf.vtep_ip})
+            agent_configurations["local_link_information"] = llinfo
+
         if self.conf.static_agent_configuration_data:
             entries = str(self.conf.static_agent_configuration_data).split(',')
             for entry in entries:
@@ -430,7 +248,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         # Set the flag to resync tunnels/services
         self.needs_resync = True
-
+        self.system_helper = SystemHelper()
         # Mark this agent admin_state_up per startup policy
         if(self.admin_state_up):
             self.plugin_rpc.set_agent_admin_state(self.admin_state_up)
@@ -438,9 +256,22 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Start state reporting of agent to Neutron
         report_interval = self.conf.AGENT.report_interval
         if report_interval:
-            heartbeat = loopingcall.FixedIntervalLoopingCall(
+            reportbeat = loopingcall.FixedIntervalLoopingCall(
                 self._report_state)
+            heartbeat = loopingcall.FixedIntervalLoopingCall(
+                self.connect_driver)
+            reportbeat.start(interval=report_interval)
             heartbeat.start(interval=report_interval)
+
+        member_update_interval = self.conf.member_update_interval
+        if member_update_interval > 0:
+            LOG.debug('Starting the member status update task.')
+            member_update_task = loopingcall.FixedIntervalLoopingCall(
+                self.update_member_status_task)
+            member_update_task.start(interval=30)
+        else:
+            LOG.debug('The member update interval %d is negative.' %
+                      member_update_interval)
 
         if self.lbdriver:
             self.lbdriver.connect()
@@ -603,20 +434,18 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         started_by.conn.create_consumer(
             node_topic, endpoints, fanout=False)
 
-    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
-    def connect_driver(self, context):
+    def connect_driver(self):
         """Trigger driver connect attempts to all devices."""
         if self.lbdriver:
             self.lbdriver.connect()
 
-    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
+    @periodic_task.periodic_task(spacing=cfg.CONF.periodic_interval)
     def refresh_esd(self, context):
         """Refresh ESD files."""
         if self.lbdriver.esd_processor and self.conf.esd_auto_refresh:
             LOG.info("refresh ESD files automatically")
             self.lbdriver.init_esd()
 
-    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def recover_errored_devices(self, context):
         """Try to reconnect to errored devices."""
         if self.lbdriver:
@@ -624,20 +453,394 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.recover_errored_devices()
 
     @periodic_task.periodic_task(
-        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
+        spacing=cfg.CONF.scrub_interval)
     def scrub_dead_agents_in_env_and_group(self, context):
         """Triggering a dead agent scrub on the controller."""
         LOG.debug("running periodic scrub_dead_agents_in_env_and_group")
         if not self.plugin_rpc:
             return
 
+        now = datetime.datetime.now()
+        if ((now - self.last_scrub_agent).seconds < self.scrub_interval):
+            LOG.debug('The scrub interval value is not met yet.')
+            return
+
+        LOG.debug("Perform scrub agents at %s." % now)
+        self.last_scrub_agent = now
         self.plugin_rpc.scrub_dead_agents(self.conf.environment_prefix,
                                           self.conf.environment_group_number)
+
+    @staticmethod
+    def is_valid_uuid(uuid_str):
+        match_obj = re.match(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+                             '[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+                             uuid_str, re.I)
+        if match_obj:
+            return True
+
+        return False
+
+    @staticmethod
+    def calculate_member_status(member):
+        member_status = None
+        session = None
+        status = None
+        if 'state' in member:
+            status = member['state']
+        if 'session' in member:
+            session = member['session']
+
+        if status == 'unchecked':
+            member_status = constants_v2.F5_NO_MONITOR
+        elif status == 'down':
+            if session == 'user-disabled':
+                member_status = constants_v2.F5_DISABLED
+            else:
+                member_status = constants_v2.F5_OFFLINE
+        elif status == 'up':
+            if session == 'user-disabled':
+                member_status = constants_v2.F5_DISABLED
+            else:
+                member_status = constants_v2.F5_ONLINE
+        elif status == 'checking':
+            if session == 'monitor-enabled':
+                member_status = constants_v2.F5_CHECKING
+        else:
+            LOG.warning("Unexpected status %s and session %s",
+                        status, session)
+        return member_status
+
+    def append_one_member_by_description(self, pool_id, member, all_members):
+        """append one member """
+        if not member:
+            LOG.debug("member is empty.")
+            return
+
+        if 'description' in member:
+            description = member['description']
+            if not description:
+                LOG.debug("member's description is empty.")
+                return
+            member_parts = description.split('_', 1)
+            if len(member_parts) == 2:
+                # member_prefix = member_parts[0].strip()
+                member_id = member_parts[1].strip()
+                if not self.is_valid_uuid(str(member_id)):
+                    LOG.debug("member_id %s isn't uuid format."
+                              % member_id)
+                    return
+            else:
+                LOG.debug("membe description %s is wrong.", description)
+                return
+
+            member_info = {}
+            member_info['id'] = member_id
+            member_info['state'] = \
+                self.calculate_member_status(member)
+            if member_info['state'] is not None and \
+               member_info['state'] != constants_v2.F5_CHECKING:
+                LOG.debug("append member %s with statue %s",
+                          member_id,
+                          member_info['state'])
+                all_members.append(member_info)
+        else:
+            LOG.debug("neither description nor name exists.")
+
+        return
+
+    def append_one_member(self, member, pool_id, all_members):
+        """append one member """
+        if not member:
+            LOG.debug("member is empty.")
+            return
+
+        if 'name' in member:
+            name = member['name']
+            if not name:
+                LOG.debug("member's name is empty.")
+                return
+
+            match_obj = re.match(r'(.*)[:|.][1-9]\d*', name, re.M | re.I)
+            if match_obj:
+                address = match_obj.group(1)
+                if "%" in address:
+                    address = address.split("%")[0]
+            else:
+                LOG.debug("name %s format is wrong.", name)
+                return
+
+            port = name[len(address):]
+
+            if ":" in port:
+                port = port.split(":")[1]
+            elif "." in port:
+                port = port.split(".")[1]
+            else:
+                LOG.debug("port format is invalid.")
+                return
+
+            member_info = {}
+            member_info['pool_id'] = pool_id
+            member_info['address'] = address
+            member_info['protocol_port'] = int(port)
+            member_info['state'] = \
+                self.calculate_member_status(member)
+            if member_info['state'] is not None and \
+               member_info['state'] != constants_v2.F5_CHECKING:
+                all_members.append(member_info)
+        else:
+            LOG.debug("member name doesn't exist.")
+        return
+
+    def append_members_one_pool(self, bigip, pool, all_members):
+        """update the members' status in one pool """
+        if not bigip:
+            LOG.debug("bigip is empty.")
+            return
+
+        try:
+            tenant_id = pool['tenant_id']
+            pool_id = pool['id']
+            pool_name = self.conf.environment_prefix + '_' + pool_id
+            partition = self.conf.environment_prefix + '_' + tenant_id
+            pool = resource_helper.BigIPResourceHelper(
+                resource_helper.ResourceType.pool).load(
+                   bigip, name=pool_name, partition=partition)
+            members = pool.members_s.get_collection()
+            # figure out the members in this pool and send
+            # the members and their statuses to driver in batch
+            LOG.debug("The member length is %d for pool %s.",
+                      len(members), pool_name)
+            for member in members:
+                self.append_one_member(member.__dict__, pool_id,
+                                       all_members)
+        except HTTPError as err:
+            if err.response.status_code == 404:
+                LOG.debug('pool %s not on BIG-IP %s.'
+                          % (pool_id, bigip.hostname))
+        except Exception as exc:
+            LOG.exception('Exception get members %s' % str(exc))
+
+        return
+
+    @log_helpers.log_method_call
+    def update_all_member_status_by_folders(self, bigip, folders):
+        """update the members in all pools """
+        if not bigip:
+            LOG.debug("bigip is empty.")
+            return
+        prefix_name = self.conf.environment_prefix
+        batch_number = self.conf.member_update_number
+        prefix_len = len(prefix_name)
+        all_members = []
+        member_number = 0
+        folder_number = len(folders)
+        for folder in folders:
+            LOG.debug("The folder is %s." % folder)
+            # tenant_id = folder[len(self.conf.environment_prefix):]
+            try:
+                if not str(folder).startswith(prefix_name):
+                    LOG.debug("folder %s doesn't start with prefix.",
+                              str(folder))
+                    continue
+
+                resource = resource_helper.BigIPResourceHelper(
+                    resource_helper.ResourceType.pool)
+                deployed_pools = resource.get_resources(bigip, folder, True)
+                if deployed_pools:
+                    LOG.debug("get %d pool(s) for %s.",
+                              len(deployed_pools), str(folder))
+                    for pool in deployed_pools:
+                        # retrieve and append members in pool
+                        reference = pool.membersReference
+                        if 'items' not in reference:
+                            LOG.debug("no items attribute for pool %s",
+                                      pool.name)
+                            continue
+
+                        if not str(pool.name).startswith(prefix_name):
+                            LOG.debug("folder %s doesn't start with prefix.",
+                                      str(pool.name))
+                            continue
+
+                        members = reference['items']
+                        pool_id = pool.name[prefix_len + 1:]
+                        LOG.debug("Get %d members.", len(members))
+                        for member in members:
+                            self.append_one_member(
+                                member,
+                                pool_id,
+                                all_members
+                            )
+
+                # check after one folder
+                if batch_number > 0 and len(all_members) >= batch_number:
+                    member_number += len(all_members)
+                    LOG.debug("update member status in batch %d",
+                              len(all_members))
+                    self.plugin_rpc.update_member_status_in_batch(
+                        all_members)
+                    all_members[:] = []
+
+            except Exception as e:
+                all_members[:] = []
+                LOG.error("Unable to update member state: %s" % e.message)
+
+        if len(all_members) > 0:
+            member_number += len(all_members)
+            LOG.debug("last round update member status in batch %d",
+                      len(all_members))
+            self.plugin_rpc.update_member_status_in_batch(
+                     all_members)
+            all_members[:] = []
+
+        LOG.debug("Totally update %u folders %u members",
+                  folder_number, member_number)
+
+        return
+
+    @log_helpers.log_method_call
+    def update_all_member_status_by_pools(self, bigip, pools):
+        """update the members in all pools """
+        if not bigip:
+            LOG.debug("bigip is empty.")
+            return
+
+        batch_number = self.conf.member_update_number
+        all_members = []
+        pool_number = len(pools)
+        member_number = 0
+
+        for pool_id in pools:
+            pool = pools.get(pool_id, None)
+            if not pool:
+                LOG.debug("couldn't find pool %s.", pool_id)
+                continue
+
+            self.append_members_one_pool(bigip, pool, all_members)
+            if batch_number > 0 and len(all_members) >= batch_number:
+                member_number += len(all_members)
+                LOG.debug("update member status in batch %d",
+                          len(all_members))
+                self.plugin_rpc.update_member_status_in_batch(
+                    all_members)
+                all_members[:] = []
+
+        if len(all_members):
+            member_number += len(all_members)
+            LOG.debug("update member status in batch %d",
+                      len(all_members))
+            self.plugin_rpc.update_member_status_in_batch(
+                all_members)
+            all_members[:] = []
+
+        LOG.debug("Totally update %u pools %u members",
+                  pool_number, member_number)
+
+        return
+
+    def update_member_status_task(self):
+        """Update pool member operational status from devices to controller."""
+
+        if not self.conf.member_update_mode:
+            LOG.debug("Using the traditional way to update.")
+            return
+
+        if not self.plugin_rpc:
+            LOG.debug("update member status exits.")
+            return
+
+        if not self.needs_member_update:
+            LOG.debug("The previous task is still running.")
+            return
+
+        if self.member_update_interval < 0:
+            LOG.debug('The interval is negative %d' %
+                      self.member_update_interval)
+            return
+
+        if self.member_update_agent_order < 0:
+            LOG.debug('The agent order is negative %d' %
+                      self.member_update_agent_order)
+            return
+
+        now = datetime.datetime.now()
+        time_delta = (now - self.last_member_update).seconds
+        if time_delta < self.member_update_interval:
+            LOG.debug('The interval %d (%d) is not met yet.',
+                      time_delta, self.member_update_interval)
+            return
+
+        time_delta = (now - self.member_update_base).seconds
+        order = time_delta % (self.member_update_agent_number *
+                              self.member_update_interval)
+        order /= self.member_update_interval
+
+        if (order != self.member_update_agent_order):
+            LOG.debug("Not the order %u for this agent %u to be runnning",
+                      order, self.member_update_agent_order)
+            return
+
+        """ we only update the member status when:
+         1) the order is the right.
+         2) the time passed since last update is no less than interval.
+        """
+
+        LOG.debug("Begin updating member status at %s." % now)
+        self.last_member_update = now
+        self.needs_member_update = False
+
+        """ the logic is, we retrieve all the members from bigip directly
+        and update the neutron server in batch with the members' statuses.
+
+        two modes for the update. One is per pool and the other is
+        per folder. """
+
+        try:
+            bigip = self.lbdriver.get_active_bigip()
+            if not bigip:
+                self.needs_member_update = True
+                LOG.debug('no available bigip.')
+                return
+
+            if self.conf.member_update_mode == 1:
+                # logic of update member by pools
+                pools = self.lbdriver.get_all_pools_for_one_bigip(bigip)
+                if pools:
+                    LOG.debug("%d pool(s) found", len(pools))
+                    self.update_all_member_status_by_pools(bigip, pools)
+                else:
+                    LOG.debug("no vailable pools")
+            elif self.conf.member_update_mode == 2:
+                # logic of update member by folders
+                folders = self.system_helper.get_folders(bigip)
+                if folders:
+                    LOG.debug("%d folder(s) found", len(folders))
+                    self.update_all_member_status_by_folders(bigip, folders)
+                else:
+                    LOG.debug("no vailable folders")
+            else:
+                LOG.debug("member update mode %d isnt' supported.",
+                          self.conf.member_update_mode)
+        except Exception as e:
+            self.needs_member_update = True
+            LOG.error("Unable to update member state: %s" % e.message)
+
+        self.needs_member_update = True
+        now = datetime.datetime.now()
+        LOG.debug("End updating member status at %s." % now)
+
+        return
 
     @periodic_task.periodic_task(
         spacing=PERIODIC_MEMBER_UPDATE_INTERVAL)
     def update_operating_status(self, context):
         """Update pool member operational status from devices to controller."""
+
+        if self.conf.member_update_mode:
+            LOG.debug("Using the optimized way to update.")
+            return
+
         if not self.plugin_rpc:
             LOG.debug("update member status exits.")
             return
@@ -656,8 +859,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
            PERIODIC_MEMBER_UPDATE_INTERVAL:
             LOG.debug('The interval value is not met yet.')
             return
-
-        LOG.debug("Perform update member status at %s." % now)
+        LOG.debug("Begin updating member status at %s." % now)
         self.last_member_update = now
         self.needs_member_update = False
         active_loadbalancers = \
@@ -677,22 +879,40 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     LOG.exception('Error updating status %s.', e.message)
 
         self.needs_member_update = True
+        now = datetime.datetime.now()
+        LOG.debug("End updating member status at %s." % now)
+        return
 
     # setup a period task to decide if it is time empty the local service
     # cache and resync service definitions form the controller
-    @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
+    @periodic_task.periodic_task(spacing=cfg.CONF.config_save_interval)
+    def periodic_config_save(self, context):
+        """Config save task."""
+        if self.resync_interval > 0:
+            LOG.debug("skip config save since resync tasking is running.")
+            return
+
+        LOG.debug("periodic config save task is running.")
+        # serialize config and save to disk
+        self.lbdriver.backup_configuration()
+        return
+
+    # setup a period task to decide if it is time empty the local service
+    # cache and resync service definitions form the controller
+    @periodic_task.periodic_task(spacing=cfg.CONF.resync_interval)
     def periodic_resync(self, context):
         """Determine if it is time to resync services from controller."""
+        LOG.debug("periodic resync task is running.")
         now = datetime.datetime.now()
 
         # check if a resync has not been requested by the driver
         if not self.needs_resync:
             # check if we hit the resync interval
-            if (now - self.last_resync).seconds > self.service_resync_interval:
+            if (now - self.last_resync).seconds > self.resync_interval:
                 self.needs_resync = True
                 LOG.debug(
                     'forcing resync of services on resync timer (%d seconds).'
-                    % self.service_resync_interval)
+                    % self.resync_interval)
                 self.cache.services = {}
                 self.last_resync = now
                 self.lbdriver.flush_cache()
@@ -706,8 +926,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if self.tunnel_sync():
                 self.needs_resync = True
             # synchronize LBaaS objects from controller
-            if self.sync_state():
-                self.needs_resync = True
+            # Agent lite does not sync LBaaS objects
+            # if self.sync_state():
+            #     self.needs_resync = True
             # clean any objects orphaned on devices and persist configs
             if self.clean_orphaned_objects_and_save_device_config():
                 self.needs_resync = True
@@ -1132,48 +1353,105 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to create_loadbalancer."""
+        id = loadbalancer['id']
         try:
-            service_pending = \
-                self.lbdriver.create_loadbalancer(loadbalancer,
-                                                  service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.LoadBalancerManager(self.lbdriver)
+            mgr.create(loadbalancer, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create loadbalancer %s", id)
+        except Exception as ex:
+            LOG.error("Fail to create loadbalancer %s "
+                      "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_loadbalancer_status(
+                    id, provision_status,
+                    operating_status
+                )
+                LOG.debug("Finish to update status of loadbalancer %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of loadbalancer %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_loadbalancer(self, context, old_loadbalancer,
                             loadbalancer, service):
         """Handle RPC cast from plugin to update_loadbalancer."""
+        id = loadbalancer['id']
         try:
-            service_pending = self.lbdriver.update_loadbalancer(
-                old_loadbalancer,
-                loadbalancer, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.LoadBalancerManager(self.lbdriver)
+            mgr.update(old_loadbalancer, loadbalancer, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to update loadbalancer %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update loadbalancer %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_loadbalancer_status(
+                    id, provision_status,
+                    operating_status
+                )
+                LOG.debug("Finish to update status of loadbalancer %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of loadbalancer %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to delete_loadbalancer."""
+        id = loadbalancer['id']
         try:
-            service_pending = \
-                self.lbdriver.delete_loadbalancer(loadbalancer, service)
-            self.cache.remove_by_loadbalancer_id(loadbalancer['id'])
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.LoadBalancerManager(self.lbdriver)
+            mgr.delete(loadbalancer, service)
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete loadbalancer %s", id)
+        except iControlUnexpectedHTTPError as ex:
+            fd_matched = re.search(
+                "The requested folder (.*) was not found.",
+                ex.response.content
+            )
+            rd_matched = re.search(
+                "The requested route domain (.*) was not found.",
+                ex.response.content
+            )
+            provision_status = constants_v2.F5_ERROR
+            if ex.response.status_code == 400 and fd_matched:
+                LOG.warning("Not Found Exception to delete loadbalancer %s "
+                            "by exception: %s, delete loadbalancer in Neutron",
+                            id, ex.response.content)
+                provision_status = constants_v2.F5_ACTIVE
+            if ex.response.status_code == 404 and rd_matched:
+                LOG.warning("Not Found Exception to delete loadbalancer %s "
+                            "by exception: %s, delete loadbalancer in Neutron",
+                            id, ex.response.content)
+                provision_status = constants_v2.F5_ACTIVE
+        except f5_ex.ProjectIDException as ex:
+            LOG.debug("Delete loadbalancer with ProjectIDException")
+            provision_status = constants_v2.F5_ACTIVE
+        except Exception as ex:
+            LOG.error("Fail to delete loadbalancer %s "
+                      "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.loadbalancer_destroyed(id)
+                else:
+                    self.plugin_rpc.update_loadbalancer_status(
+                        id, provision_status,
+                        loadbalancer['operating_status']
+                    )
+                LOG.debug("Finish to update status of loadbalancer %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of loadbalancer %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_loadbalancer_stats(self, context, loadbalancer, service):
@@ -1189,174 +1467,471 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def create_listener(self, context, listener, service):
         """Handle RPC cast from plugin to create_listener."""
+        loadbalancer = service['loadbalancer']
+        id = listener['id']
         try:
-            service_pending = \
-                self.lbdriver.create_listener(listener, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.create(listener, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create listener %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create listener %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_listener_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of listener %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of listener %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_listener(self, context, old_listener, listener, service):
         """Handle RPC cast from plugin to update_listener."""
+        loadbalancer = service['loadbalancer']
+        id = listener['id']
         try:
-            service_pending = \
-                self.lbdriver.update_listener(old_listener, listener, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.update(old_listener, listener, service)
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update listener %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update listener %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_listener_status(
+                    id, provision_status,
+                    listener['operating_status']
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of listener %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of listener %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_listener(self, context, listener, service):
         """Handle RPC cast from plugin to delete_listener."""
+        loadbalancer = service['loadbalancer']
+        id = listener['id']
         try:
-            service_pending = \
-                self.lbdriver.delete_listener(listener, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_listener: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_listener: Exception: %s" % exc.message)
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.delete(listener, service)
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete listener %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete listener %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.listener_destroyed(id)
+                else:
+                    self.plugin_rpc.update_listener_status(
+                        id, provision_status,
+                        listener['operating_status']
+                    )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of listener %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of listener %s "
+                              "Exception: %s", id, ex.message)
+
+    @log_helpers.log_method_call
+    def update_acl_bind(self, context, listener, acl_bind, service):
+        """Handle RPC cast from plugin to update_acl_bind."""
+        loadbalancer = service['loadbalancer']
+        id = listener['id']
+        try:
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.update_acl_bind(listener, acl_bind, service)
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update ACL bind of listener %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update ACL bind of listener %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_listener_status(
+                    id, provision_status,
+                    listener['operating_status']
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of listener %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of listener %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def create_pool(self, context, pool, service):
         """Handle RPC cast from plugin to create_pool."""
+        loadbalancer = service['loadbalancer']
+        id = pool['id']
         try:
-            service_pending = self.lbdriver.create_pool(pool, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.PoolManager(self.lbdriver)
+            mgr.create(pool, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create pool %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create pool %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_pool_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of pool %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of pool %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_pool(self, context, old_pool, pool, service):
         """Handle RPC cast from plugin to update_pool."""
+        loadbalancer = service['loadbalancer']
+        id = pool['id']
         try:
-            service_pending = \
-                self.lbdriver.update_pool(old_pool, pool, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.PoolManager(self.lbdriver)
+            mgr.update(old_pool, pool, service)
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update pool %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to uppdate pool %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_pool_status(
+                    id, provision_status,
+                    pool['operating_status']
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of pool %s", id)
+            except Exception as ex:
+                LOG.error("Fail to update status of pool %s "
+                          "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_pool(self, context, pool, service):
         """Handle RPC cast from plugin to delete_pool."""
+        loadbalancer = service['loadbalancer']
+        id = pool['id']
         try:
-            service_pending = self.lbdriver.delete_pool(pool, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_pool: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_pool: Exception: %s" % exc.message)
+            mgr = resource_manager.PoolManager(self.lbdriver)
+            mgr.delete(pool, service)
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to delete pool %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete pool %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.pool_destroyed(id)
+                else:
+                    self.plugin_rpc.update_pool_status(
+                        id, provision_status,
+                        pool['operating_status']
+                    )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of pool %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of pool %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def create_member(
-        self, context, member, service, the_port_id=None
+        self, context, member, service, the_port_id=None,
+        the_port_ids=[]
     ):
         """Handle RPC cast from plugin to create_member."""
+        loadbalancer = service['loadbalancer']
+        multiple = service.get("multiple", False)
+        id = member['id']
         try:
-            service_pending = \
-                self.lbdriver.create_member(member, service, the_port_id)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("create_member: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("create_member: Exception: %s" % exc.message)
+            mgr = resource_manager.MemberManager(self.lbdriver)
+            mgr.create(member, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            if multiple:
+                LOG.debug("Finish to create multiple members")
+            else:
+                LOG.debug("Finish to create member %s", id)
+        except Exception as ex:
+            if multiple:
+                LOG.error("Fail to create multiple members "
+                          "Exception: %s", ex.message)
+            else:
+                LOG.error("Fail to create member %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                members = []
+                if not multiple:
+                    members.append(member)
+                else:
+                    for m in service['members']:
+                        if m['provisioning_status'] == \
+                           constants_v2.F5_PENDING_CREATE:
+                            members.append(m)
+
+                for m in members:
+                    self.plugin_rpc.update_member_status(
+                        m['id'], provision_status, operating_status
+                    )
+
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                if multiple:
+                    LOG.debug("Finish to update status of multiple members")
+                else:
+                    LOG.debug("Finish to update status of member %s", id)
+
+                if the_port_id:
+                    LOG.info(the_port_id)
+                    self.plugin_rpc.delete_port(port_id=the_port_id)
+                if the_port_ids:
+                    LOG.info(the_port_ids)
+                    for each in the_port_ids:
+                        self.plugin_rpc.delete_port(port_id=each)
+            except Exception as ex:
+                if multiple:
+                    LOG.exception("Fail to update status of multiple members "
+                                  "Exception: %s", ex.message)
+                else:
+                    LOG.exception("Fail to update status of member %s "
+                                  "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
         """Handle RPC cast from plugin to update_member."""
+        loadbalancer = service['loadbalancer']
+        id = member['id']
         try:
-            service_pending = \
-                self.lbdriver.update_member(old_member, member, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("update_member: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("update_member: Exception: %s" % exc.message)
+            mgr = resource_manager.MemberManager(self.lbdriver)
+            mgr.update(old_member, member, service)
+            provision_status = constants_v2.F5_ACTIVE
+            LOG.debug("Finish to update member %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update member %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                self.plugin_rpc.update_member_status(
+                    id, provision_status,
+                    member['operating_status']
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of member %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of member %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_member(self, context, member, service):
         """Handle RPC cast from plugin to delete_member."""
+        loadbalancer = service['loadbalancer']
+        multiple = service.get("multiple", False)
+        id = member['id']
         try:
-            service_pending = self.lbdriver.delete_member(member, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_member: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_member: Exception: %s" % exc.message)
+            mgr = resource_manager.MemberManager(self.lbdriver)
+            mgr.delete(member, service)
+            provision_status = constants_v2.F5_ACTIVE
+            if multiple:
+                LOG.debug("Finish to delete multiple members")
+            else:
+                LOG.debug("Finish to delete member %s", id)
+        except f5_ex.ProjectIDException as ex:
+            LOG.debug("Delete Member with ProjectIDException")
+            provision_status = constants_v2.F5_ACTIVE
+        except Exception as ex:
+            if multiple:
+                LOG.error("Fail to delete multiple members "
+                          "Exception: %s", ex.message)
+            else:
+                LOG.error("Fail to delete member %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+        finally:
+            try:
+                members = []
+                if not multiple:
+                    members.append(member)
+                else:
+                    for m in service['members']:
+                        if m['provisioning_status'] == \
+                           constants_v2.F5_PENDING_DELETE:
+                            members.append(m)
+
+                for m in members:
+                    if provision_status == constants_v2.F5_ACTIVE:
+                        self.plugin_rpc.member_destroyed(m['id'])
+                    else:
+                        self.plugin_rpc.update_member_status(
+                            m['id'], provision_status,
+                            m['operating_status']
+                        )
+
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                if multiple:
+                    LOG.debug("Finish to update status of multiple members")
+                else:
+                    LOG.debug("Finish to update status of member %s", id)
+            except Exception as ex:
+                if multiple:
+                    LOG.exception("Fail to update status of multiple members "
+                                  "Exception: %s", ex.message)
+                else:
+                    LOG.exception("Fail to update status of member %s "
+                                  "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def create_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to create_pool_health_monitor."""
+        loadbalancer = service['loadbalancer']
+        id = health_monitor['id']
         try:
-            service_pending = \
-                self.lbdriver.create_health_monitor(health_monitor, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("create_pool_health_monitor: NeutronException: %s"
-                      % exc.msg)
-        except Exception as exc:
-            LOG.error("create_pool_health_monitor: Exception: %s"
-                      % exc.message)
+            mgr = resource_manager.MonitorManager(
+                self.lbdriver, type=health_monitor['type']
+            )
+            mgr.create(health_monitor, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create monitor %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create monitor %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_health_monitor_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of health_monitor %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of health_monitor %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_health_monitor(self, context, old_health_monitor,
                               health_monitor, service):
         """Handle RPC cast from plugin to update_health_monitor."""
+        loadbalancer = service['loadbalancer']
+        id = health_monitor['id']
         try:
-            service_pending = \
-                self.lbdriver.update_health_monitor(old_health_monitor,
-                                                    health_monitor,
-                                                    service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("update_health_monitor: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("update_health_monitor: Exception: %s" % exc.message)
+            mgr = resource_manager.MonitorManager(
+                self.lbdriver, type=health_monitor['type']
+            )
+            mgr.update(old_health_monitor, health_monitor, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to update health_monitor %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update health_monitor %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_health_monitor_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of health_monitor %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of health_monitor %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to delete_health_monitor."""
+        loadbalancer = service['loadbalancer']
+        id = health_monitor['id']
         try:
-            service_pending = \
-                self.lbdriver.delete_health_monitor(health_monitor, service)
-            self.cache.put(service, self.agent_host)
-            if service_pending:
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_health_monitor: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_health_monitor: Exception: %s" % exc.message)
+            mgr = resource_manager.MonitorManager(
+                self.lbdriver, type=health_monitor['type']
+            )
+            mgr.delete(health_monitor, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to delete health_monitor %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete health_monitor %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.health_monitor_destroyed(id)
+                else:
+                    self.plugin_rpc.update_health_monitor_status(
+                        id, provision_status, operating_status
+                    )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of health_monitor %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of health_monitor %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def agent_updated(self, context, payload):
@@ -1428,65 +2003,222 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def create_l7policy(self, context, l7policy, service):
         """Handle RPC cast from plugin to create_l7policy."""
+        loadbalancer = service['loadbalancer']
+        id = l7policy['id']
         try:
-            self.lbdriver.create_l7policy(l7policy, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.L7PolicyManager(self.lbdriver)
+            mgr.create(l7policy, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create l7policy %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create l7policy %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_l7policy_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7policy %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7policy %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_l7policy(self, context, old_l7policy, l7policy, service):
         """Handle RPC cast from plugin to update_l7policy."""
+        loadbalancer = service['loadbalancer']
+        id = l7policy['id']
         try:
-            self.lbdriver.update_l7policy(old_l7policy, l7policy, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.L7PolicyManager(self.lbdriver)
+            mgr.update(old_l7policy, l7policy, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to update l7policy %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update l7policy %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_l7policy_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7policy %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7policy %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_l7policy(self, context, l7policy, service):
         """Handle RPC cast from plugin to delete_l7policy."""
+        loadbalancer = service['loadbalancer']
+        id = l7policy['id']
         try:
-            self.lbdriver.delete_l7policy(l7policy, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_l7policy: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_l7policy: Exception: %s" % exc.message)
+            mgr = resource_manager.L7PolicyManager(self.lbdriver)
+            mgr.delete(l7policy, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to delete l7policy %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete l7policy %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.l7policy_destroyed(id)
+                else:
+                    self.plugin_rpc.update_l7policy_status(
+                        id, provision_status, operating_status
+                    )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7policy %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7policy %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def create_l7rule(self, context, l7rule, service):
         """Handle RPC cast from plugin to create_l7rule."""
+        loadbalancer = service['loadbalancer']
+        id = l7rule['id']
         try:
-            self.lbdriver.create_l7rule(l7rule, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.L7RuleManager(self.lbdriver)
+            mgr.create(l7rule, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to create l7rule %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to create l7rule %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_l7rule_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7rule %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7rule %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def update_l7rule(self, context, old_l7rule, l7rule, service):
         """Handle RPC cast from plugin to update_l7rule."""
+        loadbalancer = service['loadbalancer']
+        id = l7rule['id']
         try:
-            self.lbdriver.update_l7rule(old_l7rule, l7rule, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            mgr = resource_manager.L7RuleManager(self.lbdriver)
+            mgr.update(old_l7rule, l7rule, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to update l7rule %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to update l7rule %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_l7rule_status(
+                    id, provision_status, operating_status
+                )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7rule %s", id)
+            except Exception as ex:
+                LOG.exception("Fail to update status of l7 rule %s "
+                              "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
     def delete_l7rule(self, context, l7rule, service):
         """Handle RPC cast from plugin to delete_l7rule."""
+        loadbalancer = service['loadbalancer']
+        id = l7rule['id']
         try:
-            self.lbdriver.delete_l7rule(l7rule, service)
-            self.cache.put(service, self.agent_host)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_l7rule: NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.error("delete_l7rule: Exception: %s" % exc.message)
+            # TODO(qzhao): Deploy config to BIG-IP
+            mgr = resource_manager.L7RuleManager(self.lbdriver)
+            mgr.delete(l7rule, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+            LOG.debug("Finish to delete l7rule %s", id)
+        except Exception as ex:
+            LOG.exception("Fail to delete l7rule %s "
+                          "Exception: %s", id, ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.l7rule_destroyed(id)
+                else:
+                    self.plugin_rpc.update_l7rule_status(
+                        id, provision_status, operating_status
+                    )
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.debug("Finish to update status of l7rule %s", id)
+            except Exception as ex:
+                LOG.exception("Failt to updte status of l7rule %s "
+                              "Exception: %s", id, ex.message)
+
+    @log_helpers.log_method_call
+    def create_acl_group(self, context, acl_group):
+        """Handle RPC cast from plugin to create ACL Group."""
+        id = acl_group['id']
+        try:
+            mgr = resource_manager.ACLGroupManager(self.lbdriver)
+            mgr.create(acl_group)
+            LOG.debug("Finish to create acl_group %s", id)
+        except Exception as ex:
+            LOG.error("Fail to create acl_group %s "
+                      "Exception: %s", id, ex.message)
+
+    @log_helpers.log_method_call
+    def delete_acl_group(self, context, acl_group):
+        """Handle RPC cast from plugin to delete ACL Group."""
+        try:
+            mgr = resource_manager.ACLGroupManager(self.lbdriver)
+            mgr.delete(acl_group)
+            LOG.debug("Finish to delete ACL Group %s", id)
+        except Exception as ex:
+            LOG.error("Fail to delete ACL Group %s "
+                      "Exception: %s", id, ex.message)
+
+    @log_helpers.log_method_call
+    def update_acl_group(self, context, acl_group):
+        """Handle RPC cast from plugin to update ACL Group."""
+        id = acl_group['id']
+        old_acl_group = dict()
+        try:
+            mgr = resource_manager.ACLGroupManager(self.lbdriver)
+            mgr.update(old_acl_group, acl_group)
+            LOG.debug("Finish to update acl_group %s", id)
+        except Exception as ex:
+            LOG.error("Fail to update loadbalancer %s "
+                      "Exception: %s", id, ex.message)
