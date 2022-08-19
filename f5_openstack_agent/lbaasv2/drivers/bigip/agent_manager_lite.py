@@ -37,6 +37,7 @@ except ImportError:
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+from f5_openstack_agent.lbaasv2.drivers.bigip import opts
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
@@ -50,11 +51,7 @@ from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
-OPTS = [
-
-]
-
-cfg.CONF.register_opts(OPTS)
+opts.register_f5_opts()
 
 PERIODIC_MEMBER_UPDATE_INTERVAL = 30
 
