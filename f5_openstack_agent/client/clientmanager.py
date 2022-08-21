@@ -1,4 +1,8 @@
 # coding=utf-8
+import logging as std_logging
+
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from oslo_log import log as logging
 from f5.bigip import ManagementRoot
 
@@ -6,6 +10,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
 
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+std_logging.getLogger("requests.packages.urllib3").setLevel(std_logging.ERROR)
 LOG = logging.getLogger(__name__)
 
 

@@ -35,7 +35,7 @@ class BipipCommand(command.ShowOne):
 
     def _write_inventory(self, data):
         with open(self.filepath, 'w') as f:
-            f.write(data)
+            f.write(json.dumps(data))
 
     def create_bigip(self, blob):
         data = self._load_inventory()
