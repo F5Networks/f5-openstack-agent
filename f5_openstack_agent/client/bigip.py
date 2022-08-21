@@ -171,6 +171,7 @@ class DeleteBigip(BipipCommand):
 
             return self.show_inventory(parsed_args.id)
         else:
+            #  TODO: delete group, how to show
             self.delete_group(parsed_args.id)
             msg = 'delete group: %s successful' % parsed_args.id
             return (('MESSAGE'), (msg))
