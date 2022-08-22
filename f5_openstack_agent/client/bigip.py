@@ -4,8 +4,8 @@ import os
 import uuid
 
 from openstackclient.i18n import _
-from osc_lib import exceptions
 from osc_lib.command import command
+from osc_lib import exceptions
 from oslo_log import log as logging
 
 from f5_openstack_agent.client.clientmanager import IControlClient
