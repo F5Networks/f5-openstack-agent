@@ -45,6 +45,15 @@ setuptools.setup(
         'console_scripts': [
             'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main',
             'update-lb = f5_openstack_agent.lbaasv2.drivers.bigip.update_lb:update_lb'
+            'bigip-onboard = f5_openstack_agent.client.shell:main',
+        ],
+        'bigip_onboard.cli': [
+            'create = f5_openstack_agent.client.bigip:CreateBigip',
+            'delete = f5_openstack_agent.client.bigip:DeleteBigip',
+            'update = f5_openstack_agent.client.bigip:UpdateBigip',
+            'refresh = f5_openstack_agent.client.bigip:RefreshBigip',
+            'list = f5_openstack_agent.client.bigip:ListBigip',
+            'show = f5_openstack_agent.client.bigip:ShowBigip',
         ]
     },
     install_requires=['f5-sdk==3.0.11.4']
