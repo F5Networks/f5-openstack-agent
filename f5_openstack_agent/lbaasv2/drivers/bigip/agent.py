@@ -86,14 +86,7 @@ def main():
         manager=mgr
     )
 
-    def handler(*args):
-        LOG.info("receive signal to refresh ESD files!")
-        if mgr.lbdriver.esd_processor:
-            mgr.lbdriver.init_esd()
-            LOG.info("ESD has been refreshed")
-
     service_launch = service_launcher.F5ServiceLauncher(cfg.CONF)
-    service_launch.signal_handler.add_handler('SIGUSR1', handler)
     service_launch.launch_service(svc)
     service_launch.wait()
 
