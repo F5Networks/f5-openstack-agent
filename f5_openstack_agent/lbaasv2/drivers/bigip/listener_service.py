@@ -46,7 +46,7 @@ class ListenerServiceBuilder(object):
         LOG.debug("ListenerServiceBuilder: using parent_ssl_profile %s ",
                   self.parent_ssl_profile)
 
-    def create_listener(self, service, bigips, esd=None):
+    def create_listener(self, service, bigips):
         u"""Create listener on set of BIG-IPs.
 
         Create a BIG-IP virtual server to represent an LBaaS
