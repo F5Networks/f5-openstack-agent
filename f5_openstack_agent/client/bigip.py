@@ -1,14 +1,14 @@
 # coding=utf-8
-import os
 import json
+import os
 import uuid
 
-from oslo_log import log as logging
 from openstackclient.i18n import _
-from osc_lib.command import command
 from osc_lib import exceptions
+from osc_lib.command import command
+from oslo_log import log as logging
 
-from clientmanager import IControlClient
+from f5_openstack_agent.client.clientmanager import IControlClient
 
 LOG = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ INDENT = 4
 INVENTORY_PATH = '/etc/neutron/bigip_inventory.json'
 
 
-class BipipCommand:
+class BipipCommand(object):
     def __init__(self):
         self.filepath = INVENTORY_PATH
         self._check_file()
@@ -62,7 +62,8 @@ class BipipCommand:
         else:
             inventory = self._load_inventory()
             return (('ID', 'GROUP'),
-                    ((k, json.dumps(v, indent=INDENT)) for k, v in inventory.items())
+                    ((k, json.dumps(v, indent=INDENT))
+                     for k, v in inventory.items())
                     )
 
     def delete_group(self, group_id):
@@ -116,19 +117,16 @@ class CreateBigip(command.ShowOne):
         return parser
 
     def take_action(self, parsed_args):
-        """
-        usage: f5agent bigip-create project icontrol_hostname
-        """
         commander = BipipCommand()
-        icontrol_hostname, icontrol_username, icontrol_password, icontrol_port = parsed_args.icontrol_hostname, \
-                                                                                 parsed_args.icontrol_username, \
-                                                                                 parsed_args.icontrol_password, \
-                                                                                 parsed_args.icontrol_port
-        ic = IControlClient(icontrol_hostname, icontrol_username, icontrol_password, icontrol_port)
+        hostname, username, password, port = (parsed_args.icontrol_hostname,
+                                              parsed_args.icontrol_username,
+                                              parsed_args.icontrol_password,
+                                              parsed_args.icontrol_port)
+        ic = IControlClient(hostname, username, password, port)
 
         if parsed_args.id:
             blob = commander.get_blob(parsed_args.id)
-            blob["bigips"][icontrol_hostname] = ic.get_bigip_info()
+            blob["bigips"][hostname] = ic.get_bigip_info()
             commander.update_bigip(parsed_args.id, blob)
             return commander.show_inventory(parsed_args.id)
         else:
@@ -136,7 +134,7 @@ class CreateBigip(command.ShowOne):
                 "admin_state_up": True,
                 "availability_zone": parsed_args.availability_zone,
                 "bigips": {
-                    icontrol_hostname: ic.get_bigip_info()
+                    hostname: ic.get_bigip_info()
                 },
             }
             group_id = commander.create_bigip(blob)
@@ -208,7 +206,8 @@ class UpdateBigip(command.ShowOne):
     def take_action(self, parsed_args):
         commander = BipipCommand()
         blob = commander.get_blob(parsed_args.id)
-        blob["admin_state_up"] = parsed_args.admin_state if parsed_args is not None else True
+        blob["admin_state_up"] = parsed_args.admin_state \
+            if parsed_args is not None else True
         if parsed_args.availability_zone:
             blob["availability_zone"] = parsed_args.availability_zone
         commander.update_bigip(parsed_args.id, blob)
@@ -217,7 +216,8 @@ class UpdateBigip(command.ShowOne):
 
 
 class RefreshBigip(command.ShowOne):
-    _description = _("Refresh the device properties of an existing bigip in an existing device group")
+    _description = _("Refresh the device properties of an existing "
+                     "bigip in an existing device group")
 
     def get_parser(self, prog_name):
         parser = super(RefreshBigip, self).get_parser(prog_name)
@@ -244,7 +244,8 @@ class RefreshBigip(command.ShowOne):
             raise exceptions.CommandError(msg)
 
         bigip_info = bigips[icontrol_hostname]
-        ic = IControlClient(icontrol_hostname, bigip_info['username'], bigip_info['password'], bigip_info['port'])
+        ic = IControlClient(icontrol_hostname, bigip_info['username'],
+                            bigip_info['password'], bigip_info['port'])
         blob["bigips"][icontrol_hostname] = ic.get_refresh_info()
         commander.update_bigip(parsed_args.id, blob)
 

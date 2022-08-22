@@ -1,22 +1,26 @@
 # coding=utf-8
 import logging as std_logging
 
+from f5.bigip import ManagementRoot
+from oslo_log import log as logging
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from oslo_log import log as logging
-from f5.bigip import ManagementRoot
 
-from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
-from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import ClusterManager
-from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager \
+    import ClusterManager
+from f5_openstack_agent.lbaasv2.drivers.bigip \
+    import constants_v2 as f5const
+from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper \
+    import SystemHelper
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 std_logging.getLogger("requests.packages.urllib3").setLevel(std_logging.ERROR)
 LOG = logging.getLogger(__name__)
 
 
-class IControlClient:
-    def __init__(self, icontrol_hostname, icontrol_username, icontrol_password, icontrol_port):
+class IControlClient(object):
+    def __init__(self, icontrol_hostname, icontrol_username,
+                 icontrol_password, icontrol_port):
         self.icontrol_hostname = icontrol_hostname
         self.icontrol_username = icontrol_username
         self.icontrol_password = icontrol_password
@@ -48,13 +52,18 @@ class IControlClient:
 
     def _get_dynamic_info(self):
         dynamic_info = {
-            "version": self.system_helper.get_version(self.bigip) if self.bigip else "",
-            "device_name": self.cluster_manager.get_device_name(self.bigip) if self.bigip else "",
-            "platform": self.system_helper.get_platform(self.bigip) if self.bigip else "",
-            "serial_number": self.system_helper.get_serial_number(self.bigip) if self.bigip else "",
+            "version": self.system_helper.get_version(self.bigip)
+            if self.bigip else "",
+            "device_name": self.cluster_manager.get_device_name(self.bigip)
+            if self.bigip else "",
+            "platform": self.system_helper.get_platform(self.bigip)
+            if self.bigip else "",
+            "serial_number": self.system_helper.get_serial_number(self.bigip)
+            if self.bigip else "",
             "license": self._get_bigip_license() if self.bigip else "",
             "status": "active" if self.bigip else "error",
-            "status_message": "BIG-IP ready for provisioning" if self.bigip else "Fail to connect to BIG-IP",
+            "status_message": "BIG-IP ready for provisioning"
+            if self.bigip else "Fail to connect to BIG-IP",
             "failover_state": self._get_failover_state() if self.bigip else "",
         }
         return dynamic_info
@@ -74,5 +83,6 @@ class IControlClient:
             fs = self.bigip.tm.sys.dbs.db.load(name='failover.state')
             return fs.value
         except Exception as exc:
-            LOG.exception('Error getting %s failover state, error: %s' % (self.bigip.hostname, str(exc)))
+            LOG.exception('Error getting %s failover state, error: %s'
+                          % (self.bigip.hostname, str(exc)))
             return ""
