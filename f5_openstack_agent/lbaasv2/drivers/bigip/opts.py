@@ -190,11 +190,6 @@ OPTS = [
         default=False,
         help='The flag indicating the password is plain text or not.'
     ),
-    cfg.BoolOpt(
-        'esd_auto_refresh',
-        default=False,
-        help='Enable ESD file periodic refresh'
-    ),
     cfg.StrOpt(
         'f5_extended_profile',
         default='',

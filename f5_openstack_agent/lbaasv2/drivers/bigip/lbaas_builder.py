@@ -20,8 +20,6 @@ from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import l7policy_service
-from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_service import \
-    LbaasServiceObject
 from f5_openstack_agent.lbaasv2.drivers.bigip import listener_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import pool_service
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
@@ -47,13 +45,6 @@ class LBaaSBuilder(object):
             self.service_adapter
         )
         self.l7service = l7policy_service.L7PolicyService(conf)
-        self.esd = None
-
-    def init_esd(self, esd):
-        self.esd = esd
-
-    def is_esd(self, esd):
-        return self.esd.is_esd(esd)
 
     def assure_service(self, service, traffic_group, all_subnet_hints):
         """Assure that a service is configured on the BIGIP."""
@@ -75,10 +66,6 @@ class LBaaSBuilder(object):
 
         self._assure_members(service, all_subnet_hints)
 
-        LOG.debug("assuring l7 policies")
-
-        self._assure_l7policies_created(service)
-
         LOG.debug("assuring listeners")
 
         self._assure_listeners_created(service)
@@ -86,10 +73,6 @@ class LBaaSBuilder(object):
         LOG.debug("deleting listeners")
 
         self._assure_listeners_deleted(service)
-
-        LOG.debug("deleting l7 policies")
-
-        self._assure_l7policies_deleted(service)
 
         LOG.debug("deleting pools")
 
@@ -426,127 +409,6 @@ class LBaaSBuilder(object):
             return False
 
         return True
-
-    def _assure_l7policies_created(self, service):
-        if 'l7policies' not in service:
-            return
-
-        listener_policy_map = dict()
-        bigips = self.driver.get_config_bigips()
-        lbaas_service = LbaasServiceObject(service)
-        service['irules'] = dict()
-
-        l7policies = service['l7policies']
-        LOG.debug("L7 debug: processing policies: %s", l7policies)
-        for l7policy in l7policies:
-            LOG.debug("L7 debug: assuring policy: %s", l7policy)
-            name = l7policy.get('name', None)
-
-            if not self.esd.is_esd(name):
-                listener_id = l7policy.get('listener_id', None)
-                if not listener_id or listener_id in listener_policy_map:
-                    LOG.debug(
-                        "L7 debug: listener policies already added: %s",
-                        listener_id)
-                    continue
-                listener_policy_map[listener_id] = \
-                    self.l7service.build_policy(l7policy, lbaas_service)
-
-        for listener_id, policy in listener_policy_map.items():
-            error = False
-            if policy['f5_policy'].get('rules', list()):
-                error = self.l7service.create_l7policy(
-                    policy['f5_policy'], bigips)
-
-            if policy.get('iRules'):
-                error = self.l7service.create_irule(
-                    policy['iRules'], bigips)
-
-            for p in service['l7policies']:
-                if self._is_not_pending_delete(p):
-                    if not error:
-                        self._set_status_as_active(p, force=True)
-                    else:
-                        self._set_status_as_error(p)
-
-            loadbalancer = service.get('loadbalancer', {})
-            if not error:
-                listener = lbaas_service.get_listener(listener_id)
-                if listener:
-                    listener['f5_policy'] = policy['f5_policy']
-                service['irules'][listener_id] = policy.get('iRules')
-            else:
-                loadbalancer['provisioning_status'] = \
-                    constants_v2.F5_ERROR
-
-    def _assure_l7policies_deleted(self, service):
-        if 'l7policies' not in service:
-            return
-        listener_policy_map = dict()
-        bigips = self.driver.get_config_bigips()
-        lbaas_service = LbaasServiceObject(service)
-
-        l7policies = service['l7policies']
-        for l7policy in l7policies:
-            name = l7policy.get('name', None)
-            if not self.esd.is_esd(name):
-                listener_id = l7policy.get('listener_id', None)
-                if not listener_id or listener_id in listener_policy_map:
-                    continue
-                listener_policy_map[listener_id] = \
-                    self.l7service.build_policy(l7policy, lbaas_service)
-
-        # Clean wrapper policy this is the legacy name of a policy
-        loadbalancer = service.get('loadbalancer', dict())
-        tenant_id = loadbalancer.get('tenant_id', "")
-        try:
-            wrapper_policy = {
-                'name': 'wrapper_policy',
-                'partition': self.service_adapter.get_folder_name(
-                    tenant_id)}
-
-            self.l7service.delete_l7policy(wrapper_policy, bigips)
-        except HTTPError as err:
-            if err.response.status_code != 404:
-                LOG.error("Failed to remove wrapper policy: %s",
-                          err.message)
-        except Exception as err:
-            LOG.error("Failed to remove wrapper policy: %s",
-                      err.message)
-
-        for _, policy in listener_policy_map.items():
-            error = False
-            if not policy['f5_policy'].get('rules', list()):
-                error = self.l7service.delete_l7policy(
-                    policy['f5_policy'], bigips)
-
-            delete_irules = []
-            for rule in (policy['l7rules']):
-                if rule.get('provisioning_status') == 'PENDING_DELETE':
-                    tenant_id = rule.get('tenant_id')
-                    partition = self.service_adapter.get_folder_name(
-                        tenant_id
-                    )
-                    name = 'irule_' + rule.get('id')
-                    delete_rule = {
-                        "name": name,
-                        "partition": partition
-                    }
-                    delete_irules.append(delete_rule)
-
-            if delete_irules:
-                error = self.l7service.delete_irule(
-                    delete_irules, bigips)
-
-            for p in policy['l7policies']:
-                if self._is_not_pending_delete(p):
-                    if not error:
-                        self._set_status_as_active(p, force=True)
-                    else:
-                        self._set_status_as_error(p)
-                else:
-                    if error:
-                        self._set_status_as_error(p)
 
     def get_listener_stats(self, service, stats):
         """Get statistics for a loadbalancer service.

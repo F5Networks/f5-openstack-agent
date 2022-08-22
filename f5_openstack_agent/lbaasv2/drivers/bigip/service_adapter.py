@@ -19,7 +19,6 @@ import ast
 import hashlib
 import netaddr
 
-from operator import itemgetter
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
@@ -48,11 +47,6 @@ class ServiceModelAdapter(object):
             self.prefix = self.conf.environment_prefix + '_'
         else:
             self.prefix = utils.OBJ_PREFIX + '_'
-
-        self.esd = None
-
-    def init_esd(self, esd):
-        self.esd = esd
 
     def _get_pool_monitor(self, pool, service):
         """Return a reference to the pool monitor definition."""
@@ -158,9 +152,6 @@ class ServiceModelAdapter(object):
         listener_l7policy_ids = listener.get('l7_policies', list())
         LOG.debug("L7 debug: listener policies: %s", listener_l7policy_ids)
         for policy in listener_l7policy_ids:
-            if self.is_esd(policy.get('name')):
-                continue
-
             listener_policy = lbaas_service.get_l7policy(policy['id'])
             LOG.debug("L7 debug: listener policy: %s", listener_policy)
             if not listener_policy:
@@ -518,8 +509,6 @@ class ServiceModelAdapter(object):
         irules += existed_irules
         vip['rules'] = irules
         vip['policies'] = list()
-        if policies:
-            self._apply_l7_and_esd_policies(listener, policies, vip)
 
         if self.conf.connection_rate_limit_ratio and \
                 loadbalancer.get('flavor') is not None:
@@ -556,45 +545,6 @@ class ServiceModelAdapter(object):
         vip['connectionLimit'] = 0
 
         return vip
-
-    def _apply_l7_and_esd_policies(self, listener, policies, vip):
-        if not policies:
-            return
-
-        partition = self.get_folder_name(listener['tenant_id'])
-        policy_name = "wrapper_policy_" + str(listener['id'])
-        bigip_policy = listener.get('f5_policy', {})
-        if bigip_policy.get('rules', list()):
-            vip['policies'] = [{'name': policy_name,
-                                'partition': partition}]
-
-        esd_composite = dict()
-        for policy in sorted(
-                policies, key=itemgetter('position'), reverse=True):
-            if policy['provisioning_status'] == "PENDING_DELETE":
-                continue
-
-            policy_name = policy.get('name', None)
-            esd = self.esd.get_esd(policy_name)
-
-            if isinstance(esd, dict):
-                esd_composite.update(esd)
-
-        # TCP with source ip transmission will not go to
-        # apply_fastl4_esd logical.
-        if listener['protocol'] == 'TCP':
-            self._apply_fastl4_esd(vip, esd_composite)
-        else:
-            self._apply_esd(vip, esd_composite)
-
-    def get_esd(self, name):
-        if self.esd:
-            return self.esd.get_esd(name)
-
-        return None
-
-    def is_esd(self, name):
-        return self.esd.get_esd(name) is not None
 
     def parse_descript_opts(self, listener):
         extra_opts = {}
@@ -822,158 +772,3 @@ class ServiceModelAdapter(object):
 
     def get_name(self, uuid):
         return self.prefix + str(uuid)
-
-    def _apply_fastl4_esd(self, vip, esd):
-        if not esd:
-            return
-
-        # Application of ESD implies some type of L7 traffic routing.  Add
-        # an HTTP profile.
-        if 'lbaas_http_profile' in esd:
-            if "/Common/fastL4" in vip['profiles']:
-                vip['profiles'] = ["/Common/" + esd['lbaas_http_profile'],
-                                   "/Common/fastL4"]
-            else:
-                vip['profiles'] = ["/Common/" + esd['lbaas_http_profile']]
-
-        # for standard type tcp listener
-        if "/Common/fastL4" not in vip['profiles']:
-            if 'lbaas_stcp' in esd:
-                # set serverside tcp profile
-                vip['profiles'].append({'name': esd['lbaas_stcp'],
-                                        'partition': 'Common',
-                                        'context': 'serverside'})
-                # restrict client profile
-                ctcp_context = 'clientside'
-            else:
-                # no serverside profile; use client profile for both
-                ctcp_context = 'all'
-
-            # must define client profile; default to tcp if not in ESD
-            if 'lbaas_ctcp' in esd:
-                ctcp_profile = esd['lbaas_ctcp']
-            else:
-                ctcp_profile = 'tcp'
-
-            if '/Common/tcp' in vip['profiles']:
-                vip['profiles'].remove('/Common/tcp')
-
-            vip['profiles'].append({'name':  ctcp_profile,
-                                    'partition': 'Common',
-                                    'context': ctcp_context})
-
-        # persistence
-        if 'lbaas_persist' in esd:
-            if vip.get('persist'):
-                LOG.warning("Overwriting the existing VIP persist profile: %s",
-                            vip['persist'])
-            vip['persist'] = [{'name': esd['lbaas_persist']}]
-
-        if 'lbaas_fallback_persist' in esd and vip.get('persist'):
-            if vip.get('fallbackPersistence'):
-                LOG.warning(
-                    "Overwriting the existing VIP fallback persist "
-                    "profile: %s", vip['fallbackPersistence'])
-            vip['fallbackPersistence'] = esd['lbaas_fallback_persist']
-
-        # iRules
-        if 'lbaas_irule' in esd:
-            irules = vip.get('rules', [])
-            for irule in esd['lbaas_irule']:
-                irules.append('/Common/' + irule)
-            vip['rules'] = irules
-
-        # L7 policies
-        if 'lbaas_policy' in esd:
-            if vip.get('policies'):
-                LOG.warning(
-                    "LBaaS L7 policies and rules will be overridden "
-                    "by ESD policies")
-                vip['policies'] = list()
-
-            policies = list()
-            for policy in esd['lbaas_policy']:
-                policies.append({'name': policy, 'partition': 'Common'})
-            vip['policies'] = policies
-
-    def _apply_esd(self, vip, esd):
-        if not esd:
-            return
-
-        profiles = vip['profiles']
-
-        # start with server tcp profile
-        if 'lbaas_stcp' in esd:
-            # set serverside tcp profile
-            profiles.append({'name': esd['lbaas_stcp'],
-                             'partition': 'Common',
-                             'context': 'serverside'})
-            # restrict client profile
-            ctcp_context = 'clientside'
-        else:
-            # no serverside profile; use client profile for both
-            ctcp_context = 'all'
-
-        # must define client profile; default to tcp if not in ESD
-        if 'lbaas_ctcp' in esd:
-            ctcp_profile = esd['lbaas_ctcp']
-        else:
-            ctcp_profile = 'tcp'
-
-        # in case of udp listener cahanges back to 'tcp'
-        if '/Common/udp' not in vip["profiles"]:
-            profiles.append({'name':  ctcp_profile,
-                             'partition': 'Common',
-                             'context': ctcp_context})
-
-        if 'lbaas_oneconnect_profile' in esd:
-            profiles.remove('/Common/oneconnect')
-            profiles.append('/Common/' + esd['lbaas_oneconnect_profile'])
-
-        # SSL profiles
-        if 'lbaas_cssl_profile' in esd:
-            profiles.append({'name': esd['lbaas_cssl_profile'],
-                             'partition': 'Common',
-                             'context': 'clientside'})
-        if 'lbaas_sssl_profile' in esd:
-            profiles.append({'name': esd['lbaas_sssl_profile'],
-                             'partition': 'Common',
-                             'context': 'serverside'})
-
-        if 'lbaas_http_profile' in esd:
-            profiles.remove('/Common/http')
-            profiles.append('/Common/' + esd['lbaas_http_profile'])
-
-        # persistence
-        if 'lbaas_persist' in esd:
-            if vip.get('persist', None):
-                LOG.warning("Overwriting the existing VIP persist profile: %s",
-                            vip['persist'])
-            vip['persist'] = [{'name': esd['lbaas_persist']}]
-
-        if 'lbaas_fallback_persist' in esd and vip.get('persist'):
-            if vip.get('fallbackPersistence', None):
-                LOG.warning(
-                    "Overwriting the existing VIP fallback persist "
-                    "profile: %s", vip['fallbackPersistence'])
-            vip['fallbackPersistence'] = esd['lbaas_fallback_persist']
-
-        # iRules
-        if 'lbaas_irule' in esd:
-            irules = vip.get('rules', [])
-            for irule in esd['lbaas_irule']:
-                irules.append('/Common/' + irule)
-            vip['rules'] = irules
-
-        # L7 policies
-        if 'lbaas_policy' in esd:
-            if vip.get('policies'):
-                LOG.warning(
-                    "LBaaS L7 policies and rules will be overridden "
-                    "by ESD policies")
-                vip['policies'] = list()
-
-            policies = list()
-            for policy in esd['lbaas_policy']:
-                policies.append({'name': policy, 'partition': 'Common'})
-            vip['policies'] = policies
