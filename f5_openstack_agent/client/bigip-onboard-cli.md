@@ -14,24 +14,32 @@ positional params:
 - icontrol_port: BIP-IP icontrol API port, default 443.
 
 command example:
-1. Create a new bigip to a new device group
+1. Create a new BIG-IP to a new device group
 
-    `bigip-onboard create 10.145.76.72 admin admin@f5.com --availability_zone nova 
-`
-2. Create a new bigip to an existing device group
+    `bigip-onboard create 10.145.76.72 admin admin@f5.com --availability_zone nova`
+2. Create a new BIG-IP to an existing device group
 
     `bigip-onboard create 10.145.75.174 admin admin@f5.com --id 8842dbbb-8041-4318-9517-f09cd29a3f55`
 
 ### 2. bigip-onboard delete
-usage: Remove a existing bigip from an existing device group
+usage: Remove an existing BIG-IP or an existing device group
 
 required params:
 - id: ID of BIG-IP device group
+
+positional params:
 - icontrol_hostname: hostname of BIG-IP to be removed
 
 command example:
+1. Remove an existing BIG-IP from an existing group
 
 `bigip-onboard delete 8842dbbb-8041-4318-9517-f09cd29a3f55 10.145.75.174`
+
+2. Remove an existing group
+
+`bigip-onboard delete 8842dbbb-8041-4318-9517-f09cd29a3f55`
+
+
 
 ### 3. bigip-onboard update
 usage: Modify the admin properties of an existing bigip in an existing device group

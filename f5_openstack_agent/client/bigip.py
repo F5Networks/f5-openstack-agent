@@ -16,9 +16,8 @@ INDENT = 4
 INVENTORY_PATH = '/etc/neutron/bigip_inventory.json'
 
 
-class BipipCommand(command.ShowOne):
-    def __init__(self, app, app_args):
-        super(BipipCommand, self).__init__(app, app_args)
+class BipipCommand:
+    def __init__(self):
         self.filepath = INVENTORY_PATH
         self._check_file()
 
@@ -56,9 +55,15 @@ class BipipCommand(command.ShowOne):
         return data[group_id]
 
     def show_inventory(self, group_id=None):
-        blob = self.get_blob(group_id)
-        return (('ID', 'GROUP'),
-                (group_id, json.dumps(blob, indent=INDENT)))
+        if group_id:
+            blob = self.get_blob(group_id)
+            return (('ID', 'GROUP'),
+                    (group_id, json.dumps(blob, indent=INDENT)))
+        else:
+            inventory = self._load_inventory()
+            return (('ID', 'GROUP'),
+                    ((k, json.dumps(v, indent=INDENT)) for k, v in inventory.items())
+                    )
 
     def delete_group(self, group_id):
         inventory = self._load_inventory()
@@ -69,7 +74,7 @@ class BipipCommand(command.ShowOne):
         self._write_inventory(inventory)
 
 
-class CreateBigip(BipipCommand):
+class CreateBigip(command.ShowOne):
     _description = _("Create a new bigip to a device group")
 
     def get_parser(self, prog_name):
@@ -114,6 +119,7 @@ class CreateBigip(BipipCommand):
         """
         usage: f5agent bigip-create project icontrol_hostname
         """
+        commander = BipipCommand()
         icontrol_hostname, icontrol_username, icontrol_password, icontrol_port = parsed_args.icontrol_hostname, \
                                                                                  parsed_args.icontrol_username, \
                                                                                  parsed_args.icontrol_password, \
@@ -121,10 +127,10 @@ class CreateBigip(BipipCommand):
         ic = IControlClient(icontrol_hostname, icontrol_username, icontrol_password, icontrol_port)
 
         if parsed_args.id:
-            blob = self.get_blob(parsed_args.id)
+            blob = commander.get_blob(parsed_args.id)
             blob["bigips"][icontrol_hostname] = ic.get_bigip_info()
-            self.update_bigip(parsed_args.id, blob)
-            return self.show_inventory(parsed_args.id)
+            commander.update_bigip(parsed_args.id, blob)
+            return commander.show_inventory(parsed_args.id)
         else:
             blob = {
                 "admin_state_up": True,
@@ -133,11 +139,11 @@ class CreateBigip(BipipCommand):
                     icontrol_hostname: ic.get_bigip_info()
                 },
             }
-            group_id = self.create_bigip(blob)
-            return self.show_inventory(group_id)
+            group_id = commander.create_bigip(blob)
+            return commander.show_inventory(group_id)
 
 
-class DeleteBigip(BipipCommand):
+class DeleteBigip(command.Command):
     _description = _("Remove an existing BIG-IP from an existing device group")
 
     def get_parser(self, prog_name):
@@ -158,26 +164,22 @@ class DeleteBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        if parsed_args.icontrol_hostname:
-            blob = self.get_blob(parsed_args.id)
+        commander = BipipCommand()
+        icontrol_hostname = parsed_args.icontrol_hostname
+        if icontrol_hostname:
+            blob = commander.get_blob(parsed_args.id)
             bigips = blob.get("bigips", None)
-            icontrol_hostname = parsed_args.icontrol_hostname
             if icontrol_hostname not in bigips:
                 msg = _("bigip: %s not in group" % icontrol_hostname)
                 raise exceptions.CommandError(msg)
             del bigips[icontrol_hostname]
             blob['bigips'] = bigips
-            self.update_bigip(parsed_args.id, blob)
-
-            return self.show_inventory(parsed_args.id)
+            commander.update_bigip(parsed_args.id, blob)
         else:
-            #  TODO: delete group, how to show
-            self.delete_group(parsed_args.id)
-            msg = 'delete group: %s successful' % parsed_args.id
-            return (('MESSAGE'), (msg))
+            commander.delete_group(parsed_args.id)
 
 
-class UpdateBigip(BipipCommand):
+class UpdateBigip(command.ShowOne):
     _description = _("Modify the admin properties of an existing device group")
 
     def get_parser(self, prog_name):
@@ -204,16 +206,17 @@ class UpdateBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        blob = self.get_blob(parsed_args.id)
+        commander = BipipCommand()
+        blob = commander.get_blob(parsed_args.id)
         blob["admin_state_up"] = parsed_args.admin_state if parsed_args is not None else True
         if parsed_args.availability_zone:
             blob["availability_zone"] = parsed_args.availability_zone
-        self.update_bigip(parsed_args.id, blob)
+        commander.update_bigip(parsed_args.id, blob)
 
-        return self.show_inventory(parsed_args.id)
+        return commander.show_inventory(parsed_args.id)
 
 
-class RefreshBigip(BipipCommand):
+class RefreshBigip(command.ShowOne):
     _description = _("Refresh the device properties of an existing bigip in an existing device group")
 
     def get_parser(self, prog_name):
@@ -232,7 +235,8 @@ class RefreshBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        blob = self.get_blob(parsed_args.id)
+        commander = BipipCommand()
+        blob = commander.get_blob(parsed_args.id)
         bigips = blob.get("bigips", None)
         icontrol_hostname = parsed_args.icontrol_hostname
         if icontrol_hostname not in bigips:
@@ -242,23 +246,20 @@ class RefreshBigip(BipipCommand):
         bigip_info = bigips[icontrol_hostname]
         ic = IControlClient(icontrol_hostname, bigip_info['username'], bigip_info['password'], bigip_info['port'])
         blob["bigips"][icontrol_hostname] = ic.get_refresh_info()
-        self.update_bigip(parsed_args.id, blob)
+        commander.update_bigip(parsed_args.id, blob)
 
-        return self.show_inventory(parsed_args.id)
+        return commander.show_inventory(parsed_args.id)
 
 
 class ListBigip(command.Lister):
     _description = _("List all BIG-IP in the inventory")
 
     def take_action(self, parsed_args):
-        with open(INVENTORY_PATH, 'r') as f:
-            inventory = json.load(f)
-        return (('ID', 'GROUP'),
-                ((k, json.dumps(v, indent=INDENT)) for k, v in inventory.items())
-                )
+        commander = BipipCommand()
+        return commander.show_inventory()
 
 
-class ShowBigip(BipipCommand):
+class ShowBigip(command.ShowOne):
     _description = _("Show the specific group of BIG-IP inventory")
 
     def get_parser(self, prog_name):
@@ -272,4 +273,5 @@ class ShowBigip(BipipCommand):
         return parser
 
     def take_action(self, parsed_args):
-        return self.show_inventory(parsed_args.id)
+        commander = BipipCommand()
+        return commander.show_inventory(parsed_args.id)
