@@ -31,18 +31,18 @@ positional params:
 - icontrol_hostname: hostname of BIG-IP to be removed
 
 command example:
-1. Remove an existing BIG-IP from an existing group
+1. Remove an existing BIG-IP from an existing group, icontrol_hostname should be specified.
 
-`bigip-onboard delete 8842dbbb-8041-4318-9517-f09cd29a3f55 10.145.75.174`
+`bigip-onboard delete 8842dbbb-8041-4318-9517-f09cd29a3f55 --icontrol_hostname 10.145.75.174`
 
-2. Remove an existing group
+2. Remove an existing group.
 
 `bigip-onboard delete 8842dbbb-8041-4318-9517-f09cd29a3f55`
 
 
 
 ### 3. bigip-onboard update
-usage: Modify the admin properties of an existing bigip in an existing device group
+usage: Modify the admin properties of an existing BIG-IP in an existing device group
 
 required params:
 - id: ID of BIG-IP group
@@ -62,7 +62,7 @@ command example:
     `bigip-onboard update 8842dbbb-8041-4318-9517-f09cd29a3f55 --availability_zone test`
 
 ### 4. bigip-onboard refresh
-usage: Refresh the device properties of an existing bigip in an existing device group
+usage: Refresh the device properties of an existing BIG-IP in an existing device group
 
 required params:
 - id: ID of BIG-IP group
