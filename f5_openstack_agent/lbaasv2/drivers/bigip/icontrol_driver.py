@@ -38,8 +38,6 @@ from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
-from f5_openstack_agent.lbaasv2.drivers.bigip.esd_filehandler import \
-    EsdTagProcessor
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
     LBaaSBuilder
@@ -309,11 +307,6 @@ OPTS = [  # XXX maybe we should make this a dictionary
         default=False,
         help='whether to use separate host'
     ),
-    cfg.BoolOpt(
-        'report_esd_names_in_agent',
-        default=False,
-        help='whether or not to add valid esd names during report.'
-    ),
     cfg.IntOpt(
         'persistence_timeout',
         default=1800,
@@ -399,10 +392,6 @@ class iControlDriver(LBaaSBaseDriver):
         self.agent_configurations['device_drivers'] = [self.driver_name]
         self.agent_configurations['icontrol_endpoints'] = {}
 
-        # to store the verified esd names
-        self.esd_names = []
-        self.esd_processor = None
-
         # service component managers
         self.tenant_manager = None
         self.cluster_manager = None
@@ -486,11 +475,6 @@ class iControlDriver(LBaaSBaseDriver):
                       % str(exc))
             self._set_agent_status(False)
 
-    def get_valid_esd_names(self):
-        LOG.debug("verified esd names in get_valid_esd_names():")
-        LOG.debug(self.esd_names)
-        return self.esd_names
-
     def _init_bigip_managers(self):
 
         if self.conf.vlan_binding_driver:
@@ -530,11 +514,6 @@ class iControlDriver(LBaaSBaseDriver):
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
         self.lbaas_builder = LBaaSBuilder(self.conf, self)
-
-        # Set esd_processor object as soon as ServiceModelAdapter and
-        # LBaaSBuilder class instantiated, otherwise manager RPC exception
-        # will break setting esd_porcessor procedure.
-        self.init_esd()
 
         if self.conf.f5_global_routed_mode:
             self.network_builder = None
@@ -876,31 +855,6 @@ class iControlDriver(LBaaSBaseDriver):
 
         self._set_agent_status(False)
 
-    def init_esd(self):
-        # read all esd file from esd dir
-        # init esd object in lbaas_builder
-        # init esd object in service_adapter
-        esd_dir = os.path.join(self.get_config_dir(), 'esd')
-        # EsdTagProcessor is a singleton, so nothing new
-        self.esd_processor = EsdTagProcessor()
-        try:
-            self.esd_processor.process_esd(self.get_all_bigips(), esd_dir)
-            self.lbaas_builder.init_esd(self.esd_processor)
-            self.service_adapter.init_esd(self.esd_processor)
-
-        except f5ex.esdJSONFileInvalidException as err:
-            LOG.error("unable to initialize ESD. Error: %s.", err.message)
-        except IOError as ioe:
-            LOG.error("unable to process ESD file. Error: %s.", ioe.message)
-        except Exception as exc:
-            LOG.error("unknown Error happens. Error: %s.", exc.message)
-
-        LOG.debug('ESD details here after process_esd(): ')
-        LOG.debug(self.esd_processor)
-        self.esd_names = self.esd_processor.esd_dict.keys() or []
-        LOG.debug('self.esd_names obtainded here:')
-        LOG.debug(self.esd_names)
-
     def _validate_ha(self, bigip):
         # if there was only one address supplied and
         # this is not a standalone device, get the
@@ -1019,10 +973,6 @@ class iControlDriver(LBaaSBaseDriver):
                 'icontrol_endpoints'][bigip.hostname][
                     'status_message'] = bigip.status_message
 
-            if self.conf.report_esd_names_in_agent:
-                LOG.debug('adding names to report:')
-                self.agent_configurations['esd_name'] = \
-                    self.get_valid_esd_names()
         # Policy - if any BIG-IP are active we're operational
         if self.get_active_bigips():
             self.operational = True
