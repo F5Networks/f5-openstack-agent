@@ -399,14 +399,16 @@ class BigipSelfIpManager(object):
                 obj = s.load(name=name, partition=partition)
                 obj.delete()
         except HTTPError as err:
-            LOG.exception("Error deleting selfip %s. "
-                          "Response status code: %s. Response "
-                          "message: %s." % (name,
-                                            err.response.status_code,
-                                            err.message))
-            raise f5_ex.SelfIPDeleteException(
-                "Failed to delete selfip %s." % name)
-
-        except Exception as err:
-            raise f5_ex.SelfIPDeleteException(
-                "Failed to delete selfip %s." % name)
+            if err.response.status_code == 404:
+                LOG.warning(
+                   "The deleting selfip"
+                   "is not found: %s", err.message
+                )
+            else:
+                LOG.exception("Error deleting selfip %s. "
+                              "Response status code: %s. Response "
+                              "message: %s." % (name,
+                                                err.response.status_code,
+                                                err.message))
+                raise f5_ex.SelfIPDeleteException(
+                    "Failed to delete selfip %s." % name)
