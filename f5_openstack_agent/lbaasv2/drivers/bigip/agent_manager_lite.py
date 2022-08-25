@@ -37,6 +37,7 @@ except ImportError:
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
+from f5_openstack_agent.lbaasv2.drivers.bigip import opts
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
@@ -50,11 +51,7 @@ from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
-OPTS = [
-
-]
-
-cfg.CONF.register_opts(OPTS)
+opts.register_f5_opts()
 
 PERIODIC_MEMBER_UPDATE_INTERVAL = 30
 
@@ -441,13 +438,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Trigger driver connect attempts to all devices."""
         if self.lbdriver:
             self.lbdriver.connect()
-
-    @periodic_task.periodic_task(spacing=cfg.CONF.periodic_interval)
-    def refresh_esd(self, context):
-        """Refresh ESD files."""
-        if self.lbdriver.esd_processor and self.conf.esd_auto_refresh:
-            LOG.info("refresh ESD files automatically")
-            self.lbdriver.init_esd()
 
     def recover_errored_devices(self, context):
         """Try to reconnect to errored devices."""

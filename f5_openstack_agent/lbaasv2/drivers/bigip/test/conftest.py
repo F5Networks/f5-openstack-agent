@@ -46,19 +46,6 @@ class TestingWithServiceConstructor(object):
         # blown...
         return str(uuid.uuid4())
 
-    @staticmethod
-    @pytest.fixture
-    def esd():
-        # Generate a esd mocked item that is pretty lame until more
-        # intelligence is needed.
-        return dict(lbaas_stcp='lbaas_stcp', lbaas_ctcp='lbaas_ctcp',
-                    lbaas_cssl_profile='lbaas_cssl_profile',
-                    lbaas_persist='lbaas_persist',
-                    lbaas_fallback_persist='lbaas_fallback_persist',
-                    lbaas_irule=['rule1', 'rule2'],
-                    lbaas_policy=['policy1', 'policy2'],
-                    lbaas_sssl_profile='lbaas_sssl_profile')
-
     @classmethod
     @pytest.fixture
     def service_with_network(cls, new_id):
