@@ -44,7 +44,7 @@ setuptools.setup(
     entry_points={
         'console_scripts': [
             'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main',
-            'update-lb = f5_openstack_agent.lbaasv2.drivers.bigip.update_lb:update_lb'
+            'update-lb = f5_openstack_agent.lbaasv2.drivers.bigip.update_lb:update_lb',
             'bigip-onboard = f5_openstack_agent.client.shell:main',
         ],
         'bigip_onboard.cli': [
