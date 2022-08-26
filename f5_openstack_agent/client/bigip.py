@@ -126,14 +126,14 @@ class CreateBigip(command.ShowOne):
 
         if parsed_args.id:
             blob = commander.get_blob(parsed_args.id)
-            blob["bigips"][hostname] = ic.get_bigip_info()
+            blob["bigip"][hostname] = ic.get_bigip_info()
             commander.update_bigip(parsed_args.id, blob)
             return commander.show_inventory(parsed_args.id)
         else:
             blob = {
                 "admin_state_up": True,
                 "availability_zone": parsed_args.availability_zone,
-                "bigips": {
+                "bigip": {
                     hostname: ic.get_bigip_info()
                 },
             }
@@ -166,12 +166,12 @@ class DeleteBigip(command.Command):
         icontrol_hostname = parsed_args.icontrol_hostname
         if icontrol_hostname:
             blob = commander.get_blob(parsed_args.id)
-            bigips = blob.get("bigips", None)
-            if icontrol_hostname not in bigips:
+            bigip = blob.get("bigip", None)
+            if icontrol_hostname not in bigip:
                 msg = _("bigip: %s not in group" % icontrol_hostname)
                 raise exceptions.CommandError(msg)
-            del bigips[icontrol_hostname]
-            blob['bigips'] = bigips
+            del bigip[icontrol_hostname]
+            blob['bigip'] = bigip
             commander.update_bigip(parsed_args.id, blob)
         else:
             commander.delete_group(parsed_args.id)
@@ -237,16 +237,16 @@ class RefreshBigip(command.ShowOne):
     def take_action(self, parsed_args):
         commander = BipipCommand()
         blob = commander.get_blob(parsed_args.id)
-        bigips = blob.get("bigips", None)
+        bigip = blob.get("bigip", None)
         icontrol_hostname = parsed_args.icontrol_hostname
-        if icontrol_hostname not in bigips:
+        if icontrol_hostname not in bigip:
             msg = _("bigip: %s not in group" % icontrol_hostname)
             raise exceptions.CommandError(msg)
 
-        bigip_info = bigips[icontrol_hostname]
+        bigip_info = bigip[icontrol_hostname]
         ic = IControlClient(icontrol_hostname, bigip_info['username'],
                             bigip_info['password'], bigip_info['port'])
-        blob["bigips"][icontrol_hostname] = ic.get_refresh_info()
+        blob["bigip"][icontrol_hostname] = ic.get_refresh_info()
         commander.update_bigip(parsed_args.id, blob)
 
         return commander.show_inventory(parsed_args.id)
