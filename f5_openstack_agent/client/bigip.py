@@ -13,7 +13,7 @@ from f5_openstack_agent.client.clientmanager import IControlClient
 LOG = logging.getLogger(__name__)
 
 INDENT = 4
-INVENTORY_PATH = '/etc/neutron/bigip_inventory.json'
+INVENTORY_PATH = '/etc/neutron/services/f5/inventory.json'
 
 
 class BipipCommand(object):
@@ -33,7 +33,7 @@ class BipipCommand(object):
 
     def _write_inventory(self, data):
         with open(self.filepath, 'w') as f:
-            f.write(json.dumps(data))
+            f.write(json.dumps(data, indent=INDENT))
 
     def create_bigip(self, blob):
         data = self._load_inventory()
