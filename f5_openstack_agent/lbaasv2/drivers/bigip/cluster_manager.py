@@ -50,10 +50,10 @@ class ClusterManager(object):
         return status['nestedStats']['entries']['status']['description']
 
     def get_traffic_groups(self, bigip):
-        traffic_groups = []
+        traffic_groups = dict()
         groups = bigip.tm.cm.traffic_groups.get_collection()
         for group in groups:
-            traffic_groups.append(group.name)
+            traffic_groups[group.name] = group
 
         return traffic_groups
 

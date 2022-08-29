@@ -545,7 +545,8 @@ class LBaaSv2PluginRPC(object):
 
     @log_helpers.log_method_call
     def update_port_on_subnet(self, port_id, port_name=None,
-                              subnet_id=None, fixed_address_count=0):
+                              subnet_id=None, mac_address=None,
+                              fixed_address_count=0):
         """Update a neutron port to the subnet."""
         try:
             port = self._call(
@@ -555,7 +556,8 @@ class LBaaSv2PluginRPC(object):
                     port_id=port_id,
                     port_name=port_name,
                     subnet_id=subnet_id,
-                    fixed_address_count=fixed_address_count
+                    fixed_address_count=fixed_address_count,
+                    mac_address=mac_address
                 ),
                 topic=self.topic
             )
