@@ -44,7 +44,8 @@ setuptools.setup(
     entry_points={
         'console_scripts': [
             'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main',
-            'update-lb = f5_openstack_agent.lbaasv2.drivers.bigip.update_lb:update_lb'
+            'update-lb = f5_openstack_agent.lbaasv2.drivers.bigip.update_lb:update_lb',
+            'masquerade_mac = f5_openstack_agent.bin.masquerade_mac:main'
         ]
     },
     install_requires=['f5-sdk==3.0.11.4']
