@@ -631,64 +631,6 @@ class iControlDriver(LBaaSBaseDriver):
             raise
         self._set_agent_status(force_resync=True)
 
-    def _init_errored_bigips(self):
-        try:
-            errored_bigips = self.get_errored_bigips_hostnames()
-            if errored_bigips:
-                LOG.debug('attempting to recover %s BIG-IPs' %
-                          len(errored_bigips))
-                for hostname in errored_bigips:
-                    # try to connect and set status
-                    bigip = self._open_bigip(hostname)
-                    if bigip.status == 'connected':
-                        # set the status down until we assure initialized
-                        bigip.status = 'initializing'
-                        bigip.status_message = 'initializing HA viability'
-                        LOG.debug('initializing HA viability %s' % hostname)
-                        LOG.debug('proceeding to initialize %s' % hostname)
-                        device_group_name = None
-                        if not self.ha_validated:
-                            device_group_name = self._validate_ha(bigip)
-                            LOG.debug('HA validated from %s with DSG %s' %
-                                      (hostname, device_group_name))
-                            self.ha_validated = True
-                        if not self.tg_initialized:
-                            self._init_traffic_groups(bigip)
-                            LOG.debug('known traffic groups initialized',
-                                      ' from %s as %s' %
-                                      (hostname, self.__traffic_groups))
-                            self.tg_initialized = True
-                        LOG.debug('initializing bigip %s' % hostname)
-                        self._init_bigip(bigip, hostname, device_group_name)
-                        LOG.debug('initializing agent configurations %s'
-                                  % hostname)
-                        self._init_agent_config(bigip)
-
-                        # Assure basic BIG-IP HA is operational
-                        LOG.debug('validating HA state for %s' % hostname)
-                        bigip.status = 'validating_HA'
-                        bigip.status_message = \
-                            'validating the current HA state'
-                        if self._validate_ha_operational(bigip):
-                            LOG.debug('setting status to active for %s'
-                                      % hostname)
-                            bigip.status = 'active'
-                            bigip.status_message = \
-                                'BIG-IP ready for provisioning'
-                            self._post_init()
-                            self._set_agent_status(True)
-                        else:
-                            LOG.debug('setting status to error for %s'
-                                      % hostname)
-                            bigip.status = 'error'
-                            bigip.status_message = 'BIG-IP is not operational'
-                            self._set_agent_status(False)
-            else:
-                LOG.debug('there are no BIG-IPs with error status')
-        except Exception as exc:
-            LOG.error('Invalid agent configuration: %s' % exc.message)
-            raise
-
     def _open_bigip(self, hostname):
         # Open bigip connection
         try:
@@ -2407,14 +2349,6 @@ class iControlDriver(LBaaSBaseDriver):
     # these are the refactored methods
     def get_active_bigips(self):
         return self.get_all_bigips()
-
-    def get_errored_bigips_hostnames(self):
-        return_hostnames = []
-        for host in list(self.__bigips):
-            bigip = self.__bigips[host]
-            if hasattr(bigip, 'status') and bigip.status == 'error':
-                return_hostnames.append(host)
-        return return_hostnames
 
     def get_inbound_throughput(self, bigip, global_statistics=None):
         return self.stat_helper.get_inbound_throughput(

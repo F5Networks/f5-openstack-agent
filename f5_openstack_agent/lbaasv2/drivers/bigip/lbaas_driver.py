@@ -67,10 +67,6 @@ class LBaaSBaseDriver(object):
         """Update pool member operational status from devices to controller."""
         raise NotImplementedError()
 
-    def recover_errored_devices(self):
-        """Trigger attempt to reconnect any errored devices."""
-        raise NotImplementedError()
-
     def get_stats(self, service):
         """Get Stats for a loadbalancer Service."""
         raise NotImplementedError()

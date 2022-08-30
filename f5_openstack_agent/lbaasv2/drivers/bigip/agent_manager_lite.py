@@ -439,12 +439,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if self.lbdriver:
             self.lbdriver.connect()
 
-    def recover_errored_devices(self, context):
-        """Try to reconnect to errored devices."""
-        if self.lbdriver:
-            LOG.debug("running periodic task to retry errored devices")
-            self.lbdriver.recover_errored_devices()
-
     @periodic_task.periodic_task(
         spacing=cfg.CONF.scrub_interval)
     def scrub_dead_agents_in_env_and_group(self, context):
