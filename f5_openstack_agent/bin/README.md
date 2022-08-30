@@ -4,9 +4,16 @@
 
 ### Usage:
 
+The command `masquerade_mac` can generate masquerade MAC based on Bigip Base MAC.
+
+
+The command follows the procedure of document [K3523](https://support.f5.com/csp/article/K3523) to generate masquerade MAC.
+
+Please read [K3523](https://support.f5.com/csp/article/K3523) for more details.
+
 ```bash
 [root@ci ~]# masquerade_mac -h
-masquerade -i <bigip_ip> -u <admin_username> -p <admin_password>
+masquerade_mac -i <bigip_ip> -u <admin_username> -p <admin_password>
 ```
 
 ### Required parameters:

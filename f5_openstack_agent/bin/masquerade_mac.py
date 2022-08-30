@@ -45,14 +45,14 @@ def input(inputs):
         )
     except getopt.GetoptError:
         print(
-            "masquerade -i <bigip_ip>" +
+            "masquerade_mac -i <bigip_ip>" +
             " -u <admin_username> -p <admin_password>"
         )
         sys.exit(2)
     for opt, arg in opts:
         if opt == "-h":
             print(
-                "masquerade -i <bigip_ip>" +
+                "masquerade_mac -i <bigip_ip>" +
                 " -u <admin_username> -p <admin_password>"
             )
             sys.exit()
