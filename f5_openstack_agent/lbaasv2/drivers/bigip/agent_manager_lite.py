@@ -175,7 +175,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.l2_pop_rpc = None
         self.state_rpc = None
         self.system_helper = None
-        self.pending_services = {}
         self.scrub_interval = conf.scrub_interval
         self.resync_interval = conf.resync_interval
         self.config_save_interval = conf.config_save_interval
@@ -912,10 +911,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # advertise devices as VTEPs if required
             if self.tunnel_sync():
                 self.needs_resync = True
-            # synchronize LBaaS objects from controller
-            # Agent lite does not sync LBaaS objects
-            # if self.sync_state():
-            #     self.needs_resync = True
             # clean any objects orphaned on devices and persist configs
             if self.clean_orphaned_objects_and_save_device_config():
                 self.needs_resync = True
@@ -924,130 +919,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Call into driver to advertise device tunnel endpoints."""
         LOG.debug("manager:tunnel_sync: calling driver tunnel_sync")
         return self.lbdriver.tunnel_sync()
-
-    @log_helpers.log_method_call
-    def sync_state(self):
-        """Synchronize device configuration from controller state."""
-        resync = False
-
-        if hasattr(self, 'lbdriver'):
-            if not self.lbdriver.backend_integrity():
-                return resync
-
-        known_services, owned_services = self._all_vs_known_services()
-
-        try:
-            # Get loadbalancers from the environment which are bound to
-            # this agent.
-            active_loadbalancers, active_loadbalancer_ids = \
-                self._get_remote_loadbalancers('get_active_loadbalancers',
-                                               host=self.agent_host)
-            all_loadbalancers, all_loadbalancer_ids = \
-                self._get_remote_loadbalancers('get_all_loadbalancers',
-                                               host=self.agent_host)
-
-            LOG.debug("plugin produced the list of active loadbalancer ids: %s"
-                      % list(active_loadbalancer_ids))
-            LOG.debug("currently known loadbalancer ids before sync are: %s"
-                      % list(known_services))
-
-            # Validate each service we own, i.e. loadbalancers to which this
-            # agent is bound, that does not exist in our service cache.
-            self._validate_services(all_loadbalancer_ids)
-
-            resync = self._refresh_pending_services()
-
-            # Get a list of any cached service we now know after
-            # refreshing services
-            owned_services, known_services = self._all_vs_known_services()
-            LOG.debug("currently known loadbalancer ids after sync: %s"
-                      % list(known_services))
-
-        except Exception as e:
-            LOG.exception("Unable to sync state: %s" % e.message)
-            resync = True
-
-        return resync
-
-    def _all_vs_known_services(self):
-        all_services = set()
-        known_services = set()
-        for lb_id, service in self.cache.services.iteritems():
-            all_services.add(lb_id)
-            if self.agent_host == service.agent_host:
-                known_services.add(lb_id)
-        return all_services, known_services
-
-    def _refresh_pending_services(self):
-        now = datetime.datetime.now()
-        resync = False
-        # This produces a list of loadbalancers with pending tasks to
-        # be performed.
-        pending_loadbalancers, pending_lb_ids = \
-            self._get_remote_loadbalancers('get_pending_loadbalancers',
-                                           host=self.agent_host)
-        LOG.debug(
-            "plugin produced the list of pending loadbalancer ids: %s"
-            % list(pending_lb_ids))
-
-        for lb_id in list(pending_lb_ids):
-            lb_pending = self.refresh_service(lb_id)
-            if lb_pending:
-                if lb_id not in self.pending_services:
-                    self.pending_services[lb_id] = now
-
-                time_added = self.pending_services[lb_id]
-                has_expired = bool((now - time_added).seconds >
-                                   self.conf.f5_pending_services_timeout)
-
-                if has_expired:
-                    lb_pending = False
-                    self.service_timeout(lb_id)
-
-            if not lb_pending:
-                try:
-                    del self.pending_services[lb_id]
-                except KeyError as e:
-                    LOG.debug("LB not found in pending services: {0}".format(
-                        e.message))
-
-        # If there are services in the pending cache resync
-        if self.pending_services:
-            resync = True
-        return resync
-
-    def _get_remote_loadbalancers(self, plugin_rpc_attr, host=None):
-        loadbalancers = getattr(self.plugin_rpc, plugin_rpc_attr)(host=host)
-        lb_ids = [lb['lb_id'] for lb in loadbalancers]
-        return tuple(loadbalancers), set(lb_ids)
-
-    def _validate_services(self, lb_ids):
-        for lb_id in lb_ids:
-            if not self.cache.get_by_loadbalancer_id(lb_id):
-                self.validate_service(lb_id)
-
-    @log_helpers.log_method_call
-    def validate_service(self, lb_id):
-
-        try:
-            service = self.plugin_rpc.get_service_by_loadbalancer_id(
-                lb_id
-            )
-            self.cache.put(service, self.agent_host)
-            if not self.lbdriver.service_exists(service) or \
-                    self.has_provisioning_status_of_error(service):
-                LOG.info("active loadbalancer '{}' is not on BIG-IP"
-                         " or has error state...syncing".format(lb_id))
-                self.lbdriver.sync(service)
-            else:
-                LOG.debug("Found service definition for '{}', state is ACTIVE"
-                          " move on.".format(lb_id))
-        except f5_ex.InvalidNetworkType as exc:
-            LOG.warning(exc.message)
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as exc:
-            LOG.exception("Service validation error: %s" % exc.message)
 
     @staticmethod
     def has_provisioning_status_of_error(service):
@@ -1086,23 +957,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if error_status:
             loadbalancer['provisioning_status'] = constants_v2.F5_ERROR
         return error_status
-
-    @log_helpers.log_method_call
-    def refresh_service(self, lb_id):
-        try:
-            service = self.plugin_rpc.get_service_by_loadbalancer_id(
-                lb_id
-            )
-            self.cache.put(service, self.agent_host)
-            if self.lbdriver.sync(service):
-                self.needs_resync = True
-        except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
-        except Exception as e:
-            LOG.error("Exception: %s" % e.message)
-            self.needs_resync = True
-
-        return self.needs_resync
 
     @log_helpers.log_method_call
     def service_timeout(self, lb_id):
