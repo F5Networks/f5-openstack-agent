@@ -160,7 +160,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
-        self.last_scrub_agent = datetime.datetime.now()
         self.last_member_update = datetime.datetime(1970, 1, 1, 0, 0, 0)
         self.needs_resync = False
         self.needs_member_update = True
@@ -175,7 +174,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.l2_pop_rpc = None
         self.state_rpc = None
         self.system_helper = None
-        self.scrub_interval = conf.scrub_interval
         self.resync_interval = conf.resync_interval
         self.config_save_interval = conf.config_save_interval
         LOG.debug('setting service resync intervl to %d seconds' %
@@ -438,24 +436,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Trigger driver connect attempts to all devices."""
         if self.lbdriver:
             self.lbdriver.connect()
-
-    @periodic_task.periodic_task(
-        spacing=cfg.CONF.scrub_interval)
-    def scrub_dead_agents_in_env_and_group(self, context):
-        """Triggering a dead agent scrub on the controller."""
-        LOG.debug("running periodic scrub_dead_agents_in_env_and_group")
-        if not self.plugin_rpc:
-            return
-
-        now = datetime.datetime.now()
-        if ((now - self.last_scrub_agent).seconds < self.scrub_interval):
-            LOG.debug('The scrub interval value is not met yet.')
-            return
-
-        LOG.debug("Perform scrub agents at %s." % now)
-        self.last_scrub_agent = now
-        self.plugin_rpc.scrub_dead_agents(self.conf.environment_prefix,
-                                          self.conf.environment_group_number)
 
     @staticmethod
     def is_valid_uuid(uuid_str):
