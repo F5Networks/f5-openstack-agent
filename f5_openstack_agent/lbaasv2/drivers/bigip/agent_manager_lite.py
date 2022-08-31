@@ -256,10 +256,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if report_interval:
             reportbeat = loopingcall.FixedIntervalLoopingCall(
                 self._report_state)
-            heartbeat = loopingcall.FixedIntervalLoopingCall(
-                self.connect_driver)
             reportbeat.start(interval=report_interval)
-            heartbeat.start(interval=report_interval)
 
         member_update_interval = self.conf.member_update_interval
         if member_update_interval > 0:
