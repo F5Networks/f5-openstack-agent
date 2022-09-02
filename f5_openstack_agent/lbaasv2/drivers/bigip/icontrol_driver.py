@@ -378,7 +378,7 @@ class iControlDriver(LBaaSBaseDriver):
         #
 
         # BIG-IPs which currectly active
-        self.__bigips = {}
+        self._bigips = {}
         self.__last_connect_attempt = None
 
         # HA and traffic group validation
@@ -548,7 +548,7 @@ class iControlDriver(LBaaSBaseDriver):
 
         # initialize per host agent_configurations
         for hostname in self.hostnames:
-            self.__bigips[hostname] = bigip = type('', (), {})()
+            self._bigips[hostname] = bigip = type('', (), {})()
             bigip.hostname = hostname
             bigip.status = 'creating'
             bigip.status_message = 'creating BIG-IP from iControl hostnames'
@@ -634,7 +634,7 @@ class iControlDriver(LBaaSBaseDriver):
     def _open_bigip(self, hostname):
         # Open bigip connection
         try:
-            bigip = self.__bigips[hostname]
+            bigip = self._bigips[hostname]
             # active creating connected initializing validating_HA
             # error connecting. If status is e.g. 'initializing' etc,
             # seems should try to connect again, otherwise status stucks
@@ -655,7 +655,7 @@ class iControlDriver(LBaaSBaseDriver):
                                    debug=self.conf.debug)
             bigip.status = 'connected'
             bigip.status_message = 'connected to BIG-IP'
-            self.__bigips[hostname] = bigip
+            self._bigips[hostname] = bigip
             return bigip
         except Exception as exc:
             LOG.error('could not communicate with ' +
@@ -668,7 +668,7 @@ class iControlDriver(LBaaSBaseDriver):
             errbigip.hostname = hostname
             errbigip.status = 'error'
             errbigip.status_message = str(exc)[:80]
-            self.__bigips[hostname] = errbigip
+            self._bigips[hostname] = errbigip
             return errbigip
 
     def _init_bigip(self, bigip, hostname, check_group_name=None):
@@ -754,10 +754,6 @@ class iControlDriver(LBaaSBaseDriver):
         return bigip
 
     def _post_init(self):
-        # After we have a connection to the BIG-IPs, initialize vCMP
-        # on all connected BIG-IPs
-        if self.network_builder:
-            self.network_builder.initialize_vcmp()
 
         self.agent_configurations['network_segment_physical_network'] = \
             self.conf.f5_network_segment_physical_network
@@ -776,21 +772,6 @@ class iControlDriver(LBaaSBaseDriver):
         if self.l3_binding:
             LOG.debug('getting BIG-IP MAC Address for L3 Binding')
             self.l3_binding.register_bigip_mac_addresses()
-
-        # endpoints = self.agent_configurations['icontrol_endpoints']
-        # for ic_host in endpoints.keys():
-        for hostbigip in self.get_all_bigips():
-
-            # hostbigip = self.__bigips[ic_host]
-            mac_addrs = [mac_addr for interface, mac_addr in
-                         hostbigip.device_interfaces.items()
-                         if interface != "mgmt"]
-            ports = self.plugin_rpc.get_ports_for_mac_addresses(
-                mac_addresses=mac_addrs)
-            if ports:
-                self.agent_configurations['nova_managed'] = True
-            else:
-                self.agent_configurations['nova_managed'] = False
 
         if self.network_builder:
             self.network_builder.post_init()
@@ -906,8 +887,8 @@ class iControlDriver(LBaaSBaseDriver):
                 self.network_builder.interface_mapping
 
     def _set_agent_status(self, force_resync=False):
-        for hostname in self.__bigips:
-            bigip = self.__bigips[hostname]
+        for hostname in self._bigips:
+            bigip = self._bigips[hostname]
             self.agent_configurations[
                 'icontrol_endpoints'][bigip.hostname][
                     'status'] = bigip.status
@@ -939,8 +920,8 @@ class iControlDriver(LBaaSBaseDriver):
             return 'error'
 
     def get_agent_configurations(self):
-        for hostname in self.__bigips:
-            bigip = self.__bigips[hostname]
+        for hostname in self._bigips:
+            bigip = self._bigips[hostname]
             if bigip.status == 'active':
                 failover_state = self.get_failover_state(bigip)
                 self.agent_configurations[
@@ -1130,34 +1111,6 @@ class iControlDriver(LBaaSBaseDriver):
                                     'l7_policy': l7_policy
                                 }
         return deployed_virtual_dict
-
-    @serialized('purge_orphaned_nodes')
-    @is_operational
-    @log_helpers.log_method_call
-    def purge_orphaned_nodes(self, tenant_members):
-        node_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.node)
-        node_dict = dict()
-        for bigip in self.get_all_bigips():
-            for tenant_id, members in tenant_members.iteritems():
-                partition = self.service_adapter.prefix + tenant_id
-                nodes = node_helper.get_resources(bigip, partition=partition)
-                for n in nodes:
-                    node_dict[n.name] = n
-
-                for member in members:
-                    rd = self.network_builder.find_subnet_route_domain(
-                        tenant_id, member.get('subnet_id', None))
-                    node_name = "{}%{}".format(member['address'], rd)
-                    node_dict.pop(node_name, None)
-
-                for node_name, node in node_dict.iteritems():
-                    try:
-                        node_helper.delete(bigip, name=urllib.quote(node_name),
-                                           partition=partition)
-                    except HTTPError as error:
-                        if error.response.status_code == 400:
-                            LOG.error(error.response)
 
     @serialized('get_all_pools_for_one_bigip')
     @is_operational
@@ -2308,23 +2261,6 @@ class iControlDriver(LBaaSBaseDriver):
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
-
-    # these functions should return only active BIG-IP
-    # not errored BIG-IPs.
-    def get_bigip(self):
-        hostnames = sorted(list(self.__bigips))
-        for host in hostnames:
-            if hasattr(self.__bigips[host], 'status') and \
-               self.__bigips[host].status == 'active':
-                return self.__bigips[host]
-
-    def get_bigip_hosts(self):
-        return_hosts = []
-        for host in list(self.__bigips):
-            if hasattr(self.__bigips[host], 'status') and \
-               self.__bigips[host].status == 'active':
-                return_hosts.append(host)
-        return sorted(return_hosts)
 
     def get_all_bigips(self, **kwargs):
         return_bigips = []

@@ -118,7 +118,7 @@ class LBaaSBuilder(object):
     def _assure_loadbalancer_created(self, service, all_subnet_hints):
         if 'loadbalancer' not in service:
             return
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         loadbalancer = service["loadbalancer"]
         set_active = True
 
@@ -160,7 +160,7 @@ class LBaaSBuilder(object):
         l7policies = service.get("l7policies", list())
         l7rules = service.get("l7policy_rules", list())
         irules = service.get("irules", dict())
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
 
         for listener in listeners:
             error = False
@@ -198,7 +198,7 @@ class LBaaSBuilder(object):
              if monitor['provisioning_status'] !=
              constants_v2.F5_PENDING_DELETE]
 
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         error = None
         for pool in pools:
             if pool['provisioning_status'] != constants_v2.F5_PENDING_DELETE:
@@ -226,7 +226,7 @@ class LBaaSBuilder(object):
     def _assure_monitors_created(self, service):
         monitors = service.get("healthmonitors", list())
         loadbalancer = service.get("loadbalancer", dict())
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         force_active_status = True
 
         for monitor in monitors:
@@ -243,7 +243,7 @@ class LBaaSBuilder(object):
     def _assure_monitors_deleted(self, service):
         monitors = service.get("healthmonitors", list())
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
 
         for monitor in monitors:
             svc = {"loadbalancer": loadbalancer,
@@ -259,7 +259,7 @@ class LBaaSBuilder(object):
 
         members = service["members"]
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
 
         # Group the members by pool.
         pool_to_member_map = dict()
@@ -314,7 +314,7 @@ class LBaaSBuilder(object):
             return
 
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
 
         if self.driver.l3_binding:
             self.driver.l3_binding.unbind_address(
@@ -334,7 +334,7 @@ class LBaaSBuilder(object):
 
         pools = service["pools"]
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         service_members = service.get('members', list())
 
         for pool in pools:
@@ -352,7 +352,7 @@ class LBaaSBuilder(object):
                     pool['provisioning_status'] = constants_v2.F5_ERROR
 
     def _assure_listeners_deleted(self, service):
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         if 'listeners' in service:
             listeners = service["listeners"]
             loadbalancer = service["loadbalancer"]
@@ -381,7 +381,7 @@ class LBaaSBuilder(object):
 
     def _update_subnet_hints(self, status, subnet_id,
                              network_id, all_subnet_hints, is_member):
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         for bigip in bigips:
             subnet_hints = all_subnet_hints[bigip.device_name]
 
@@ -429,7 +429,7 @@ class LBaaSBuilder(object):
         """
         listeners = service["listeners"]
         loadbalancer = service["loadbalancer"]
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
 
         collected_stats = {}
         for stat in stats:

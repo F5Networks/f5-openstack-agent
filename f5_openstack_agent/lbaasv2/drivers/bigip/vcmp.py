@@ -99,6 +99,7 @@ class VcmpManager(object):
                 raise(ex)
 
             for guest in guests:
+                # NOTE remove in future
                 if utils.strip_cidr_netmask(
                         guest.managementIp) in self.driver.get_bigip_hosts():
                     vcmp_host['guests'].append(guest)

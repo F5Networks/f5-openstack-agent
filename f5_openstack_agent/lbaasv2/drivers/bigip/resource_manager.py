@@ -162,7 +162,7 @@ class ResourceManager(object):
             payload['partition'] = create_payload['partition']
 
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             self._create(bigip, payload, resource, service)
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
@@ -185,7 +185,7 @@ class ResourceManager(object):
             payload['partition'] = create_payload['partition']
 
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             self._update(bigip, payload, old_resource, resource, service)
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
@@ -197,7 +197,7 @@ class ResourceManager(object):
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             self._delete(bigip, payload, resource, service)
         LOG.debug("Finish to delete %s %s", self._resource, payload['name'])
@@ -237,6 +237,7 @@ class LoadBalancerManager(ResourceManager):
     @serialized('LoadBalancerManager.create')
     @log_helpers.log_method_call
     def create(self, loadbalancer, service, **kwargs):
+
         self._pre_create(service)
         super(LoadBalancerManager, self).create(
             service["loadbalancer"], service)
@@ -429,7 +430,7 @@ class LoadBalancerManager(ResourceManager):
     def _update_bwc(self, old_loadbalancer, loadbalancer, service):
         operate = self.__get_update_operation(old_loadbalancer, loadbalancer)
         LOG.debug("bwc operation is %s.", operate)
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         bandwidth = self.get_bandwidth_value(self.driver.conf, loadbalancer)
         for bigip in bigips:
             if operate == 'Add':
@@ -497,7 +498,7 @@ class LoadBalancerManager(ResourceManager):
             LOG.info('listener_rate_limit to use: ', listener_rate_limit)
 
             if 'listeners' in service.keys():
-                bigips = self.driver.get_config_bigips()
+                bigips = service['bigips']
                 for bigip in bigips:
                     for listener in service['listeners']:
                         vs_payload = self.driver.service_adapter.\
@@ -509,6 +510,7 @@ class LoadBalancerManager(ResourceManager):
     @serialized('LoadBalancerManager.update')
     @log_helpers.log_method_call
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
+
         self._update_bwc(old_loadbalancer, loadbalancer, service)
         self._update_2_limits(old_loadbalancer, loadbalancer, service)
         self._update_flavor_snat(old_loadbalancer, loadbalancer, service)
@@ -530,6 +532,7 @@ class LoadBalancerManager(ResourceManager):
     @serialized('LoadBalancerManager.delete')
     @log_helpers.log_method_call
     def delete(self, loadbalancer, service, **kwargs):
+
         self._pre_delete(service)
         super(LoadBalancerManager, self).delete(loadbalancer, service)
         self._post_delete(service)
@@ -1207,7 +1210,7 @@ class ListenerManager(ResourceManager):
 
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
-        self.driver.service_adapter.get_vlan(vs, bigip, network_id)
+        # self.driver.service_adapter.get_vlan(vs, bigip, network_id)
 
         # Create the following profiles required by this VS:
         #   HTTP profile (if listener is HTTP or TERMINATED_HTTPS)
@@ -1376,6 +1379,7 @@ class ListenerManager(ResourceManager):
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
     def create(self, listener, service, **kwargs):
+
         loadbalancer = service.get("loadbalancer", None)
         traffic_group = self.driver.service_to_traffic_group(service)
         loadbalancer['traffic_group'] = traffic_group
@@ -1389,6 +1393,7 @@ class ListenerManager(ResourceManager):
     @serialized('ListenerManager.update')
     @log_helpers.log_method_call
     def update(self, old_listener, listener, service, **kwargs):
+
         super(ListenerManager, self).update(
             old_listener, listener, service)
 
@@ -1400,7 +1405,7 @@ class ListenerManager(ResourceManager):
     @log_helpers.log_method_call
     def update_acl_bind(self, listener, acl_bind, service, **kwargs):
         enable = self.acl_helper.enable_acl(acl_bind)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
 
         # force to used service although it is bad
         service["listener"] = listener
@@ -1445,6 +1450,7 @@ class ListenerManager(ResourceManager):
     @serialized('ListenerManager.delete')
     @log_helpers.log_method_call
     def delete(self, listener, service, **kwargs):
+
         self._search_element(listener, service)
         payload = self.driver.service_adapter.get_virtual_name(service)
         super(ListenerManager, self).delete(listener, service, payload=payload)
@@ -1604,16 +1610,19 @@ class PoolManager(ResourceManager):
     @serialized('PoolManager.create')
     @log_helpers.log_method_call
     def create(self, pool, service, **kwargs):
+
         super(PoolManager, self).create(pool, service)
 
     @serialized('PoolManager.update')
     @log_helpers.log_method_call
     def update(self, old_pool, pool, service, **kwargs):
+
         super(PoolManager, self).update(old_pool, pool, service)
 
     @serialized('PoolManager.delete')
     @log_helpers.log_method_call
     def delete(self, pool, service, **kwargs):
+
         self.driver.annotate_service_members(service)
         super(PoolManager, self).delete(pool, service)
 
@@ -1842,7 +1851,7 @@ class MemberManager(ResourceManager):
         pool_payload = self._pool_mgr._create_payload(pool, service)
 
         payload = self._create_payload(member, service)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
@@ -1921,7 +1930,7 @@ class MemberManager(ResourceManager):
         pool_payload = self._pool_mgr._create_payload(pool, service)
 
         loadbalancer = service.get('loadbalancer')
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             try:
                 pool_resource = self._pool_mgr.pool_helper.load(
@@ -1981,7 +1990,7 @@ class MemberManager(ResourceManager):
             LOG.debug("Do not need to update %s", self._resource)
             return
 
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
@@ -2122,16 +2131,19 @@ class L7PolicyManager(ResourceManager):
     @serialized('L7PolicyManager.create')
     @log_helpers.log_method_call
     def create(self, l7policy, service, **kwargs):
+
         super(L7PolicyManager, self).create(l7policy, service)
 
     @serialized('L7PolicyManager.update')
     @log_helpers.log_method_call
     def update(self, old_l7policy, l7policy, service, **kwargs):
+
         super(L7PolicyManager, self).create(l7policy, service)
 
     @serialized('L7PolicyManager.delete')
     @log_helpers.log_method_call
     def delete(self, l7policy, service, **kwargs):
+
         super(L7PolicyManager, self).delete(l7policy, service)
 
 
@@ -2240,6 +2252,7 @@ class L7RuleManager(ResourceManager):
 
     @log_helpers.log_method_call
     def create(self, l7rule, service, **kwargs):
+
         self._search_l7policy_and_listener(l7rule, service)
         if l7rule['compare_type'] == "REGEX":
             # Create iRule
@@ -2250,6 +2263,7 @@ class L7RuleManager(ResourceManager):
 
     @log_helpers.log_method_call
     def update(self, old_l7rule, l7rule, service, **kwargs):
+
         self._search_l7policy_and_listener(l7rule, service)
         # Neutron LBaaS may have bugs. The old_l7rule and l7rule are always
         # identical, so that we are not able to identify the detail infomation.
@@ -2264,6 +2278,7 @@ class L7RuleManager(ResourceManager):
 
     @log_helpers.log_method_call
     def delete(self, l7rule, service, **kwargs):
+
         self._search_l7policy_and_listener(l7rule, service)
         if l7rule['compare_type'] == "REGEX":
             # Delete iRule

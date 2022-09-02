@@ -47,6 +47,7 @@ class VLANBindingBase(object):
         # Delayed binding BIG-IP ports will be called
         # after BIG-IP endpoints are registered.
         if not self.__initialized__bigip_ports:
+            # NOTE remove in future
             for bigip in self.driver.get_all_bigips():
 
                 LOG.debug('Request Port information for MACs: %s'
@@ -71,6 +72,7 @@ class VLANBindingBase(object):
             self.__initialized__bigip_ports = True
             LOG.debug('interface bindings after initialization are: %s'
                       % self.interface_binding_mappings)
+            # NOTE rmeove in future
             for bigip in self.driver.get_all_bigips():
                 if bigip.device_name not in self.interface_binding_mappings:
                     example = {bigip.device_name: {}}

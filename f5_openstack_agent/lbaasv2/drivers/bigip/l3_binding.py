@@ -61,6 +61,7 @@ class L3BindingBase(object):
         # Delayed binding BIG-IP ports will be called
         # after BIG-IP endpoints are registered.
         if not self.__initialized__bigip_ports:
+            # NOTE remove in future
             for bigip in self.driver.get_all_bigips():
                 LOG.debug('Request Port information for MACs: %s'
                           % bigip.mac_addresses)
