@@ -65,7 +65,7 @@ class BigipTenantManager(object):
         # create tenant folder
         folder_name = self.service_adapter.get_folder_name(tenant_id)
         LOG.debug("Creating tenant folder %s" % folder_name)
-        for bigip in self.driver.get_config_bigips():
+        for bigip in service['bigips']:
             if not self.system_helper.folder_exists(bigip, folder_name):
                 folder = self.service_adapter.get_folder(service)
                 # This folder is a dict config obj, that can be passed to
@@ -90,7 +90,7 @@ class BigipTenantManager(object):
         """Delete tenant partition."""
         # Called for every bigip only in replication mode,
         # otherwise called once.
-        for bigip in self.driver.get_config_bigips():
+        for bigip in service['bigips']:
             self._assure_bigip_tenant_cleanup(bigip, service)
 
     # called for every bigip only in replication mode.

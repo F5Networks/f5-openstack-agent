@@ -35,6 +35,7 @@ try:
 except ImportError:
     from neutron import context as ncontext
 
+from f5_openstack_agent.lbaasv2.drivers.bigip import bigip_device
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import opts
@@ -870,7 +871,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def create_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to create_loadbalancer."""
         id = loadbalancer['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.create(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -897,7 +902,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                             loadbalancer, service):
         """Handle RPC cast from plugin to update_loadbalancer."""
         id = loadbalancer['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.update(old_loadbalancer, loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -923,7 +932,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     def delete_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to delete_loadbalancer."""
         id = loadbalancer['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.delete(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -972,7 +985,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def update_loadbalancer_stats(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to get stats."""
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             self.lbdriver.get_stats(service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
@@ -985,7 +1002,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to create_listener."""
         loadbalancer = service['loadbalancer']
         id = listener['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.ListenerManager(self.lbdriver)
             mgr.create(listener, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1015,7 +1036,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to update_listener."""
         loadbalancer = service['loadbalancer']
         id = listener['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.ListenerManager(self.lbdriver)
             mgr.update(old_listener, listener, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1044,7 +1069,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to delete_listener."""
         loadbalancer = service['loadbalancer']
         id = listener['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.ListenerManager(self.lbdriver)
             mgr.delete(listener, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1076,7 +1105,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to update_acl_bind."""
         loadbalancer = service['loadbalancer']
         id = listener['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.ListenerManager(self.lbdriver)
             mgr.update_acl_bind(listener, acl_bind, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1105,7 +1138,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to create_pool."""
         loadbalancer = service['loadbalancer']
         id = pool['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.PoolManager(self.lbdriver)
             mgr.create(pool, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1135,8 +1172,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to update_pool."""
         loadbalancer = service['loadbalancer']
         id = pool['id']
+
         try:
             # TODO(qzhao): Deploy config to BIG-IP
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.PoolManager(self.lbdriver)
             mgr.update(old_pool, pool, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1165,7 +1206,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to delete_pool."""
         loadbalancer = service['loadbalancer']
         id = pool['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.PoolManager(self.lbdriver)
             mgr.delete(pool, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1201,7 +1246,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         multiple = service.get("multiple", False)
         id = member['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.MemberManager(self.lbdriver)
             mgr.create(member, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1264,7 +1313,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to update_member."""
         loadbalancer = service['loadbalancer']
         id = member['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.MemberManager(self.lbdriver)
             mgr.update(old_member, member, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1294,7 +1347,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
         multiple = service.get("multiple", False)
         id = member['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.MemberManager(self.lbdriver)
             mgr.delete(member, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1354,7 +1411,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to create_pool_health_monitor."""
         loadbalancer = service['loadbalancer']
         id = health_monitor['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
@@ -1387,7 +1448,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to update_health_monitor."""
         loadbalancer = service['loadbalancer']
         id = health_monitor['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
@@ -1419,7 +1484,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to delete_health_monitor."""
         loadbalancer = service['loadbalancer']
         id = health_monitor['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
@@ -1521,7 +1590,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to create_l7policy."""
         loadbalancer = service['loadbalancer']
         id = l7policy['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.L7PolicyManager(self.lbdriver)
             mgr.create(l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1551,7 +1624,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to update_l7policy."""
         loadbalancer = service['loadbalancer']
         id = l7policy['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.L7PolicyManager(self.lbdriver)
             mgr.update(old_l7policy, l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1581,7 +1658,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to delete_l7policy."""
         loadbalancer = service['loadbalancer']
         id = l7policy['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.L7PolicyManager(self.lbdriver)
             mgr.delete(l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1614,7 +1695,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to create_l7rule."""
         loadbalancer = service['loadbalancer']
         id = l7rule['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.L7RuleManager(self.lbdriver)
             mgr.create(l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1644,7 +1729,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to update_l7rule."""
         loadbalancer = service['loadbalancer']
         id = l7rule['id']
+
         try:
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.L7RuleManager(self.lbdriver)
             mgr.update(old_l7rule, l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1674,8 +1763,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to delete_l7rule."""
         loadbalancer = service['loadbalancer']
         id = l7rule['id']
+
         try:
             # TODO(qzhao): Deploy config to BIG-IP
+            bigip_dev = bigip_device.BigipDevice(service['device'])
+            service['bigips'] = bigip_dev.get_all_bigips()
+
             mgr = resource_manager.L7RuleManager(self.lbdriver)
             mgr.delete(l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
