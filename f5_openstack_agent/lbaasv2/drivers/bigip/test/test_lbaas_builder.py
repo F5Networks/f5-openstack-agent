@@ -288,6 +288,7 @@ def l7policy_and_rules():
 @pytest.fixture
 def service():
     return {
+        u"bigips": [],
         u"listeners": [{
             u"admin_state_up": True,
             u"connection_limit": -1,
@@ -1079,7 +1080,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
 
-        expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
             constants_v2.F5_PENDING_UPDATE
         loadbalancer['provisioning_status'] = \
@@ -1091,7 +1091,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             l7policy_rules=[], listener=listener,
                             irules=[], networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
-            expected_svc, expected_bigips)
+            expected_svc, list())
         assert listener['provisioning_status'] == "ACTIVE"
         assert loadbalancer['provisioning_status'] == "PENDING_UPDATE"
 
@@ -1105,7 +1105,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
 
-        expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
             constants_v2.F5_PENDING_CREATE
         loadbalancer['provisioning_status'] = \
@@ -1116,7 +1115,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             l7policies=[], l7policy_rules=[], irules=[],
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
-            expected_svc, expected_bigips)
+            expected_svc, list())
         assert listener['provisioning_status'] == "ACTIVE"
         assert loadbalancer['provisioning_status'] == "PENDING_UPDATE"
 
@@ -1130,7 +1129,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = "error"
 
-        expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
             constants_v2.F5_PENDING_CREATE
         loadbalancer['provisioning_status'] = \
@@ -1141,7 +1139,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             l7policies=[], l7policy_rules=[], irules=[],
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
-            expected_svc, expected_bigips)
+            expected_svc, list())
         assert listener['provisioning_status'] == "ERROR"
         assert loadbalancer['provisioning_status'] == "ERROR"
 
@@ -1156,7 +1154,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target.listener_builder = Mock()
         target.listener_builder.create_listener.return_value = None
 
-        expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
             constants_v2.F5_ERROR
         loadbalancer['provisioning_status'] = \
@@ -1167,7 +1164,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
                             l7policies=[], l7policy_rules=[], irules=[],
                             listener=listener, networks=service['networks'])
         target.listener_builder.create_listener.assert_called_once_with(
-            expected_svc, expected_bigips)
+            expected_svc, list())
         assert listener['provisioning_status'] == "ACTIVE"
         assert loadbalancer['provisioning_status'] == "ACTIVE"
 
@@ -1182,7 +1179,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target.listener_builder = Mock()
         target.listener_builder.delete_listener.return_value = None
 
-        expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
             constants_v2.F5_PENDING_DELETE
         loadbalancer['provisioning_status'] = \
@@ -1192,7 +1188,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         expected_svc = dict(loadbalancer=loadbalancer,
                             listener=listener)
         target.listener_builder.delete_listener.assert_called_once_with(
-            expected_svc, expected_bigips)
+            expected_svc, list())
         assert listener['provisioning_status'] == "PENDING_DELETE"
         assert loadbalancer['provisioning_status'] == "ACTIVE"
 
@@ -1207,7 +1203,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         target.listener_builder = Mock()
         target.listener_builder.delete_listener.return_value = "error"
 
-        expected_bigips = target.driver.get_config_bigips()
         listener['provisioning_status'] = \
             constants_v2.F5_PENDING_DELETE
         loadbalancer['provisioning_status'] = \
@@ -1217,7 +1212,7 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
         expected_svc = dict(loadbalancer=loadbalancer,
                             listener=listener)
         target.listener_builder.delete_listener.assert_called_once_with(
-            expected_svc, expected_bigips)
+            expected_svc, list())
         assert listener['provisioning_status'] == "ERROR"
         assert loadbalancer['provisioning_status'] == "ACTIVE"
 
@@ -1360,57 +1355,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
             builder._assure_members(service, mock.MagicMock())
             assert mock_log.warning.call_args_list == []
-
-    @mock.patch(POOL_BLDR_PATH + '.delete_pool')
-    def test_assure_pools_deleted(self, mock_delete, shared_pool_service):
-        '''Test assure pools does not iterate of pool's listeners.'''
-        shared_pool_service['pools'][0]['provisioning_status'] = \
-            'PENDING_DELETE'
-        pool = shared_pool_service['pools'][0]
-        mock_driver = mock.MagicMock(name='driver')
-        mock_bigip = mock.MagicMock(name='bigip')
-        mock_driver.get_config_bigips.return_value = [mock_bigip]
-        mock_delete.return_value = None
-
-        builder = LBaaSBuilder(mock.MagicMock(), mock_driver)
-        builder._assure_pools_deleted(shared_pool_service)
-
-        assert mock_delete.called
-        assert pool['provisioning_status'] == "PENDING_DELETE"
-
-    @mock.patch(POOL_BLDR_PATH + '.delete_pool')
-    def test_assure_pools_deleted_error(self, mock_delete,
-                                        shared_pool_service):
-        '''Test assure pools does not iterate of pool's listeners.'''
-        shared_pool_service['pools'][0]['provisioning_status'] = \
-            'PENDING_DELETE'
-        pool = shared_pool_service['pools'][0]
-        mock_driver = mock.MagicMock(name='driver')
-        mock_bigip = mock.MagicMock(name='bigip')
-        mock_driver.get_config_bigips.return_value = [mock_bigip]
-        mock_delete.return_value = "error"
-
-        builder = LBaaSBuilder(mock.MagicMock(), mock_driver)
-        builder._assure_pools_deleted(shared_pool_service)
-
-        assert mock_delete.called
-        assert pool['provisioning_status'] == "ERROR"
-
-    @mock.patch(POOL_BLDR_PATH + '.delete_pool')
-    def test_assure_pools_deleted_create_pool(self, mock_delete,
-                                              shared_pool_service):
-        '''Test assure pools does not iterate of pool's listeners.'''
-        pool = shared_pool_service['pools'][0]
-        mock_driver = mock.MagicMock(name='driver')
-        mock_bigip = mock.MagicMock(name='bigip')
-        mock_driver.get_config_bigips.return_value = [mock_bigip]
-        mock_delete.return_value = None
-
-        builder = LBaaSBuilder(mock.MagicMock(), mock_driver)
-        builder._assure_pools_deleted(shared_pool_service)
-
-        assert not mock_delete.called
-        assert pool['provisioning_status'] == "PENDING_CREATE"
 
     @mock.patch(POOL_BLDR_PATH + '.delete_healthmonitor')
     def test_assure_monitors_deleted_active(
@@ -1733,81 +1677,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             builder._assure_loadbalancer_created(svc, mock.MagicMock())
             assert not mock_vaddr.assure.called
 
-    def test_assure_loadbalancer_created_active_to_active(self, service):
-        svc = service
-        loadbalancer = svc.get('loadbalancer')
-        loadbalancer['provisioning_status'] = 'ACTIVE'
-
-        bigips = [Mock()]
-
-        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
-        builder._update_subnet_hints = Mock()
-        builder.driver.get_config_bigips.return_value = bigips
-
-        mock_vaddr = Mock()
-        virtual_address = str(
-            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
-            'VirtualAddress')
-        with patch(virtual_address, return_value=mock_vaddr):
-
-            builder._assure_loadbalancer_created(svc, mock.MagicMock())
-            assert mock_vaddr.assure.called
-
-        assert loadbalancer['provisioning_status'] == 'ACTIVE'
-
-    def test_assure_loadbalancer_created_pending_to_active(self, service):
-        svc = service
-        loadbalancer = svc.get('loadbalancer')
-        loadbalancer['provisioning_status'] = 'PENDING_CREATE'
-
-        bigips = [Mock()]
-
-        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
-        builder._update_subnet_hints = Mock()
-        builder.driver.get_config_bigips.return_value = bigips
-
-        mock_vaddr = Mock()
-        virtual_address = str(
-            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
-            'VirtualAddress')
-        with patch(virtual_address, return_value=mock_vaddr):
-
-            builder._assure_loadbalancer_created(svc, mock.MagicMock())
-            assert mock_vaddr.assure.called
-
-        assert loadbalancer['provisioning_status'] == 'ACTIVE'
-
-        loadbalancer['provisioning_status'] = 'PENDING_UPDATE'
-
-        mock_vaddr.reset_mock()
-        with patch(virtual_address, return_value=mock_vaddr):
-            builder._assure_loadbalancer_created(svc, mock.MagicMock())
-            assert mock_vaddr.assure.called
-
-        assert loadbalancer['provisioning_status'] == 'ACTIVE'
-
-    def test_assure_loadbalancer_created_error_to_active(self, service):
-        svc = service
-        loadbalancer = svc.get('loadbalancer')
-        loadbalancer['provisioning_status'] = 'ERROR'
-
-        bigips = [Mock()]
-
-        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
-        builder._update_subnet_hints = Mock()
-        builder.driver.get_config_bigips.return_value = bigips
-
-        mock_vaddr = Mock()
-        virtual_address = str(
-            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
-            'VirtualAddress')
-        with patch(virtual_address, return_value=mock_vaddr):
-
-            builder._assure_loadbalancer_created(svc, mock.MagicMock())
-            assert mock_vaddr.assure.called
-
-        assert loadbalancer['provisioning_status'] == 'ACTIVE'
-
     def test_assure_loadbalancer_created_pending_delete(self, service):
         svc = service
         loadbalancer = svc.get('loadbalancer')
@@ -1829,30 +1698,6 @@ class TestLbaasBuilder(TestLBaaSBuilderConstructor):
             assert not mock_vaddr.assure.called
 
         assert loadbalancer['provisioning_status'] == 'PENDING_DELETE'
-
-    def test_assure_loadbalancer_created_error(self, service):
-        svc = service
-        loadbalancer = svc.get('loadbalancer')
-        loadbalancer['provisioning_status'] = 'PENDING_CREATE'
-
-        bigips = [Mock()]
-
-        builder = LBaaSBuilder(mock.MagicMock(), mock.MagicMock())
-        builder._update_subnet_hints = Mock()
-        builder.driver.get_config_bigips.return_value = bigips
-
-        mock_vaddr = Mock()
-        mock_vaddr.assure.side_effect = MockHTTPError(
-            MockHTTPErrorResponse500())
-        virtual_address = str(
-            'f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address.'
-            'VirtualAddress')
-        with patch(virtual_address, return_value=mock_vaddr):
-
-            builder._assure_loadbalancer_created(svc, mock.MagicMock())
-            assert mock_vaddr.assure.called
-
-        assert loadbalancer['provisioning_status'] == 'ERROR'
 
     def test_assure_loadbalancer_deleted_pending_delete(self, service):
         svc = service

@@ -1723,7 +1723,7 @@ class iControlDriver(LBaaSBaseDriver):
         if not service['loadbalancer']:
             return False
 
-        bigips = self.get_config_bigips()
+        bigips = service['bigips']
         loadbalancer = service['loadbalancer']
 
         # Does the correctly named virtual address exist?
@@ -1743,7 +1743,7 @@ class iControlDriver(LBaaSBaseDriver):
         if not service['loadbalancer']:
             return False
 
-        bigips = self.get_config_bigips()
+        bigips = service['bigips']
         loadbalancer = service['loadbalancer']
         folder_name = self.service_adapter.get_folder_name(
             loadbalancer['tenant_id']
@@ -1811,7 +1811,7 @@ class iControlDriver(LBaaSBaseDriver):
             loadbalancer['tenant_id']
         )
 
-        for bigip in self.get_config_bigips():
+        for bigip in service['bigips']:
             # Does the tenant folder exist?
             if not self.system_helper.folder_exists(bigip, folder_name):
                 LOG.debug("Folder %s does not exist on bigip: %s" %
@@ -1823,7 +1823,7 @@ class iControlDriver(LBaaSBaseDriver):
             self.network_builder._annotate_service_route_domains(service)
 
         # Foreach bigip in the cluster:
-        for bigip in self.get_config_bigips():
+        for bigip in service['bigips']:
 
             # Get the virtual address
             virtual_address = VirtualAddress(self.service_adapter,
@@ -1995,7 +1995,7 @@ class iControlDriver(LBaaSBaseDriver):
                                   "took %.5f secs" % (time() - start_time))
 
             all_subnet_hints = {}
-            for bigip in self.get_config_bigips():
+            for bigip in service['bigips']:
                 # check_for_delete_subnets:
                 #     keep track of which subnets we should check to delete
                 #     for a deleted vip or member
@@ -2342,9 +2342,6 @@ class iControlDriver(LBaaSBaseDriver):
             raise Exception("No active bigips!")
 
         return return_bigips
-
-    def get_config_bigips(self, **kwargs):
-        return self.get_all_bigips(**kwargs)
 
     # these are the refactored methods
     def get_active_bigips(self):

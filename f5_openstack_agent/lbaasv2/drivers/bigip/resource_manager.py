@@ -162,7 +162,7 @@ class ResourceManager(object):
             payload['partition'] = create_payload['partition']
 
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             self._create(bigip, payload, resource, service)
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
@@ -185,7 +185,7 @@ class ResourceManager(object):
             payload['partition'] = create_payload['partition']
 
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             self._update(bigip, payload, old_resource, resource, service)
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
@@ -197,7 +197,7 @@ class ResourceManager(object):
         payload = kwargs.get("payload",
                              self._create_payload(resource, service))
         LOG.debug("%s payload is %s", self._resource, payload)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             self._delete(bigip, payload, resource, service)
         LOG.debug("Finish to delete %s %s", self._resource, payload['name'])
@@ -429,7 +429,7 @@ class LoadBalancerManager(ResourceManager):
     def _update_bwc(self, old_loadbalancer, loadbalancer, service):
         operate = self.__get_update_operation(old_loadbalancer, loadbalancer)
         LOG.debug("bwc operation is %s.", operate)
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         bandwidth = self.get_bandwidth_value(self.driver.conf, loadbalancer)
         for bigip in bigips:
             if operate == 'Add':
@@ -497,7 +497,7 @@ class LoadBalancerManager(ResourceManager):
             LOG.info('listener_rate_limit to use: ', listener_rate_limit)
 
             if 'listeners' in service.keys():
-                bigips = self.driver.get_config_bigips()
+                bigips = service['bigips']
                 for bigip in bigips:
                     for listener in service['listeners']:
                         vs_payload = self.driver.service_adapter.\
@@ -1400,7 +1400,7 @@ class ListenerManager(ResourceManager):
     @log_helpers.log_method_call
     def update_acl_bind(self, listener, acl_bind, service, **kwargs):
         enable = self.acl_helper.enable_acl(acl_bind)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
 
         # force to used service although it is bad
         service["listener"] = listener
@@ -1842,7 +1842,7 @@ class MemberManager(ResourceManager):
         pool_payload = self._pool_mgr._create_payload(pool, service)
 
         payload = self._create_payload(member, service)
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
@@ -1921,7 +1921,7 @@ class MemberManager(ResourceManager):
         pool_payload = self._pool_mgr._create_payload(pool, service)
 
         loadbalancer = service.get('loadbalancer')
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             try:
                 pool_resource = self._pool_mgr.pool_helper.load(
@@ -1981,7 +1981,7 @@ class MemberManager(ResourceManager):
             LOG.debug("Do not need to update %s", self._resource)
             return
 
-        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        bigips = service['bigips']
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,

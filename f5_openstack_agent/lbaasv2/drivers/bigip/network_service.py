@@ -249,7 +249,7 @@ class NetworkServiceBuilder(object):
             self.lb_netinfo,
             self.l2_service
         )
-        bigips = self.driver.get_config_bigips()
+        bigips = service['bigips']
         for bigip in bigips:
             route_helper.create_route_for_net(bigip)
 
@@ -522,7 +522,7 @@ class NetworkServiceBuilder(object):
 
         # Delete shared config objects
         deleted_names = set()
-        for bigip in self.driver.get_config_bigips():
+        for bigip in service['bigips']:
             deleted_names |= self._delete_shared_nets_config(
                 bigip, service)
 
@@ -875,7 +875,7 @@ class SNATHelper(object):
         partition = self.driver.service_adapter.get_folder_name(
             self.service['loadbalancer'].get('tenant_id')
         )
-        bigips = self.driver.get_config_bigips()
+        bigips = self.service['bigips']
 
         result = False
         for bigip in bigips:
@@ -889,7 +889,7 @@ class SNATHelper(object):
                 )
 
     def snat_create(self):
-        bigips = self.driver.get_config_bigips()
+        bigips = self.service['bigips']
         self.lb_snat_create(bigips)
 
     def lb_snat_create(self, bigips):
@@ -970,7 +970,7 @@ class SNATHelper(object):
         return self.FLAVOR_MAP[ipversion][flavor]
 
     def snat_remove(self):
-        bigips = self.driver.get_config_bigips()
+        bigips = self.service['bigips']
         self.snat_pools_exist()
         self.lb_snat_delete(bigips)
 
@@ -1007,7 +1007,7 @@ class SNATHelper(object):
     def snat_update(
         self, old_loadbalancer, loadbalancer
     ):
-        bigips = self.driver.get_config_bigips()
+        bigips = self.service['bigips']
         self.snat_pools_exist()
         self.lb_snat_update(
             bigips, old_loadbalancer, loadbalancer
@@ -1081,7 +1081,7 @@ class SNATHelper(object):
             partition = self.partition
 
         if new_snat_addrs:
-            bigips = self.driver.get_config_bigips()
+            bigips = self.service['bigips']
             for bigip in bigips:
                 self.snat_manager.update_flavor_snats(
                     bigip, partition, pool_name,
@@ -1215,7 +1215,7 @@ class LargeSNATHelper(SNATHelper):
         # Only create snat vlan in VIP route domain
         self.large_snat_network["route_domain_id"] = \
             self.snat_net["network"]["route_domain_id"]
-        bigips = self.driver.get_config_bigips()
+        bigips = self.service['bigips']
         for bigip in bigips:
             self.l2_service.assure_bigip_network(
                  bigip, self.large_snat_network)
@@ -1247,7 +1247,7 @@ class LargeSNATHelper(SNATHelper):
         self.driver.plugin_rpc.detach_subnet_from_router(
             router_id=router_id, subnet_name=subnet_v6_name)
 
-        bigips = self.driver.get_config_bigips()
+        bigips = self.service['bigips']
 
         # Delete SelfIP of SNAT subnet
         for name in [subnet_v4_name, subnet_v6_name]:
