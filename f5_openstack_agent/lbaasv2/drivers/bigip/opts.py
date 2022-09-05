@@ -56,11 +56,6 @@ OPTS = [
         default=60,
         help='Seconds interval for config save'
     ),
-    cfg.BoolOpt(
-        'start_agent_admin_state_up',
-        default=True,
-        help='Should the agent force its admin_state_up to True on boot'
-    ),
     cfg.StrOpt(  # XXX should we use this with internal classes?
         'f5_bigip_lbaas_device_driver',  # XXX maybe remove "device" and "f5"?
         default=('f5_openstack_agent.lbaasv2.drivers.bigip.icontrol_driver.'

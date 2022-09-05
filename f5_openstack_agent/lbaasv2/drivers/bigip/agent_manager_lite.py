@@ -216,9 +216,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 if len(nv) > 1:
                     agent_configurations[nv[0]] = nv[1]
 
-        # Initialize agent-state to a default values
-        self.admin_state_up = self.conf.start_agent_admin_state_up
-
         self.agent_state = {
             'binary': constants_v2.AGENT_BINARY_NAME,
             'host': self.agent_host,
@@ -247,9 +244,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         # Set the flag to resync tunnels/services
         self.needs_resync = True
         self.system_helper = SystemHelper()
-        # Mark this agent admin_state_up per startup policy
-        if(self.admin_state_up):
-            self.plugin_rpc.set_agent_admin_state(self.admin_state_up)
 
         # NOTE(pzhang): agent state update
         # Start state reporting of agent to Neutron
@@ -323,10 +317,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         #     tunnel_sync - used to advertise the driver VTEP endpoints
         #                   and optionally learn about other VTEP endpoints
         #
-        #     update - used to get updates to agent state triggered by
-        #              the controller, like setting admin_state_up
-        #              the agent
-        #
         #     l2_populateion - used to get updates on neturon SDN topology
         #                      changes
         #
@@ -371,24 +361,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.needs_resync = True
                 self.cache.services = {}
                 self.lbdriver.flush_cache()
-            # use the admin_state_up to notify the
-            # controller if all backend devices
-            # are functioning properly. If not
-            # automatically set the admin_state_up
-            # for this agent to False
             if self.lbdriver:
                 if not self.lbdriver.backend_integrity():
                     self.needs_resync = True
                     self.cache.services = {}
                     self.lbdriver.flush_cache()
-                    self.plugin_rpc.set_agent_admin_state(False)
-                    self.admin_state_up = False
-                else:
-                    # if we are transitioning from down to up,
-                    # change the controller state for this agent
-                    if not self.admin_state_up:
-                        self.plugin_rpc.set_agent_admin_state(True)
-                        self.admin_state_up = True
 
             if self.lbdriver:
                 self.agent_state['configurations'].update(
@@ -1521,16 +1498,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def agent_updated(self, context, payload):
         """Handle the agent_updated notification event."""
-        if payload['admin_state_up'] != self.admin_state_up:
-            LOG.info("agent administration status updated %s!", payload)
-            self.admin_state_up = payload['admin_state_up']
-            # the agent transitioned to down to up and the
-            # driver reports healthy, trash the cache
-            # and force an update to update agent scheduler
-            if self.lbdriver.backend_integrity() and self.admin_state_up:
-                self._report_state(True)
-            else:
-                self._report_state(False)
+        LOG.info("agent administration status updated %s!", payload)
+        # the agent transitioned to down to up and the
+        # driver reports healthy, trash the cache
+        # and force an update to update agent scheduler
+        if self.lbdriver.backend_integrity():
+            self._report_state(True)
+        else:
+            self._report_state(False)
 
     @log_helpers.log_method_call
     def tunnel_update(self, context, **kwargs):
