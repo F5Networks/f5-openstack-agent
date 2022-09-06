@@ -59,10 +59,6 @@ class LBaaSBaseDriver(object):
         """Persist backend configuratoins."""
         raise NotImplementedError()
 
-    def generate_capacity_score(self, capacity_policy):
-        """Generate the capacity score of connected devices."""
-        raise NotImplementedError()
-
     def update_operating_status(self):
         """Update pool member operational status from devices to controller."""
         raise NotImplementedError()

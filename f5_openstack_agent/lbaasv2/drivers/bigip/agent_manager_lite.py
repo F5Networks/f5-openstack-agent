@@ -199,9 +199,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         # Initialize agent configurations
         agent_configurations = (
-            {'environment_prefix': self.conf.environment_prefix,
-             'environment_group_number': self.conf.environment_group_number,
-             'global_routed_mode': self.conf.f5_global_routed_mode}
+            {'environment_prefix': self.conf.environment_prefix}
         )
 
         if self.conf.vtep_ip:
@@ -366,26 +364,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     self.needs_resync = True
                     self.cache.services = {}
                     self.lbdriver.flush_cache()
-
-            if self.lbdriver:
-                self.agent_state['configurations'].update(
-                    self.lbdriver.get_agent_configurations()
-                )
-
-            # add the capacity score, used by the scheduler
-            # for horizontal scaling of an environment, from
-            # the driver
-            if self.conf.capacity_policy:
-                env_score = (
-                    self.lbdriver.generate_capacity_score(
-                        self.conf.capacity_policy
-                    )
-                )
-                self.agent_state['configurations'][
-                    'environment_capaciy_score'] = env_score
-            else:
-                self.agent_state['configurations'][
-                    'environment_capacity_score'] = 0
 
             LOG.debug("reporting state of agent as: %s" % self.agent_state)
             self.state_rpc.report_state(self.context, self.agent_state)
