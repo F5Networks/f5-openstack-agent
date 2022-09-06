@@ -733,10 +733,6 @@ class iControlDriver(LBaaSBaseDriver):
         return bigip
 
     def _post_init(self):
-        # After we have a connection to the BIG-IPs, initialize vCMP
-        # on all connected BIG-IPs
-        if self.network_builder:
-            self.network_builder.initialize_vcmp()
 
         LOG.info('iControlDriver initialized to %d bigips with username:%s'
                  % (len(self.get_active_bigips()),

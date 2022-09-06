@@ -98,9 +98,6 @@ class NetworkServiceBuilder(object):
         # Provide FDB Connector with ML2 RPC access
         self.l2_service.set_l2pop_rpc(l2pop_rpc)
 
-    def initialize_vcmp(self):
-        self.l2_service.initialize_vcmp_manager()
-
     def initialize_tunneling(self, bigip):
         # setup tunneling
         vtep_folder = self.conf.f5_vtep_folder
