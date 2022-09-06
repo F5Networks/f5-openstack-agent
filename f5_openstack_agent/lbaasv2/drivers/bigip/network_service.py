@@ -358,21 +358,6 @@ class NetworkServiceBuilder(object):
     def is_common_network(self, network):
         return self.l2_service.is_common_network(network)
 
-    # NOTE(pzhang) we can delete this?
-    def find_subnet_route_domain(self, tenant_id, subnet_id):
-        rd_id = 0
-        bigip = self.driver.get_bigip()
-        partition_id = self.service_adapter.get_folder_name(
-            tenant_id)
-        try:
-            tenant_rd = self.network_helper.get_route_domain(
-                bigip, partition=partition_id)
-            rd_id = tenant_rd.id
-        except HTTPError as error:
-            LOG.error(error)
-
-        return rd_id
-
     def assign_delete_route_domain(self, tenant_id, network):
         LOG.info("Assgin route domain for deleting")
         if self.l2_service.is_common_network(network):
