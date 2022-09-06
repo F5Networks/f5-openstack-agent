@@ -124,7 +124,6 @@ class TestLbaasAgentManagerMockBuilder(mock_builder_base_class.MockBuilderBase,
              'environment_group_number': 'environment_group_number',
              'global_routed_mode': 'f5_global_routed_mode'}
         )
-        mocked_target.admin_state_up = 'start_agent_admin_state_up'
 
         mocked_target.agent_state = {
             'binary': 'AGENT_BINARY_NAME',
