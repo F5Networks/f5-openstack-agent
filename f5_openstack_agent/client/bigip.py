@@ -74,6 +74,29 @@ class BipipCommand(object):
         del inventory[group_id]
         self._write_inventory(inventory)
 
+    def refresh_bigip(self, group_id, hostname):
+        blob = self.get_blob(group_id)
+
+        bigip = blob.get("bigip", None)
+        if hostname not in bigip:
+            msg = _("bigip: %s not in group: %s" % (hostname, group_id))
+            raise exceptions.CommandError(msg)
+
+        bigip_info = bigip[hostname]
+        ic = IControlClient(hostname, bigip_info['username'],
+                            bigip_info['password'], bigip_info['port'])
+        blob["bigip"][hostname] = ic.get_refresh_info()
+        self.update_bigip(group_id, blob)
+
+    def check_hostname_exists(self, hostname):
+        inventory = self._load_inventory()
+        for group_id, group in inventory.items():
+            bigip = group['bigip']
+            if hostname in bigip:
+                msg = _("bigip: %s already exists in group: %s" %
+                        (hostname, group_id))
+                raise exceptions.CommandError(msg)
+
 
 class CreateBigip(command.ShowOne):
     _description = _("Create a new bigip to a device group")
@@ -113,6 +136,12 @@ class CreateBigip(command.ShowOne):
             metavar='<icontrol_port>',
             help=_('port to communicate with BIG-IP'),
         )
+        parser.add_argument(
+            '--vtep_ip',
+            default=None,
+            metavar='<vtep_id>',
+            help=_('vtep ip for agent'),
+        )
 
         return parser
 
@@ -124,9 +153,10 @@ class CreateBigip(command.ShowOne):
                                               parsed_args.icontrol_port)
         ic = IControlClient(hostname, username, password, port)
 
+        commander.check_hostname_exists(hostname)
         if parsed_args.id:
             blob = commander.get_blob(parsed_args.id)
-            blob["bigip"][hostname] = ic.get_bigip_info()
+            blob["bigip"][hostname] = ic.get_refresh_info()
             commander.update_bigip(parsed_args.id, blob)
             return commander.show_inventory(parsed_args.id)
         else:
@@ -134,9 +164,13 @@ class CreateBigip(command.ShowOne):
                 "admin_state_up": True,
                 "availability_zone": parsed_args.availability_zone,
                 "bigip": {
-                    hostname: ic.get_bigip_info()
+                    hostname: ic.get_refresh_info()
                 },
             }
+            if parsed_args.vtep_ip:
+                blob['local_link_information'] = \
+                    [{"node_vtep_ip": parsed_args.vtep_ip}]
+
             group_id = commander.create_bigip(blob)
             return commander.show_inventory(group_id)
 
@@ -200,6 +234,12 @@ class UpdateBigip(command.ShowOne):
             default=None,
             help=_('availability zone which the BIG-IP is belong'),
         )
+        parser.add_argument(
+            '--vtep_ip',
+            default=None,
+            metavar='<vtep_id>',
+            help=_('vtep ip for agent'),
+        )
 
         return parser
 
@@ -210,6 +250,9 @@ class UpdateBigip(command.ShowOne):
             if parsed_args is not None else True
         if parsed_args.availability_zone:
             blob["availability_zone"] = parsed_args.availability_zone
+        if parsed_args.vtep_ip:
+            blob['local_link_information'] = \
+                [{"node_vtep_ip": parsed_args.vtep_ip}]
         commander.update_bigip(parsed_args.id, blob)
 
         return commander.show_inventory(parsed_args.id)
@@ -228,7 +271,7 @@ class RefreshBigip(command.ShowOne):
             help=_('ID of BIG-IP group'),
         )
         parser.add_argument(
-            'icontrol_hostname',
+            '--icontrol_hostname',
             metavar='<icontrol_hostname>',
             help=_('icontrol_hostname of BIG-IP'),
         )
@@ -236,18 +279,14 @@ class RefreshBigip(command.ShowOne):
 
     def take_action(self, parsed_args):
         commander = BipipCommand()
-        blob = commander.get_blob(parsed_args.id)
-        bigip = blob.get("bigip", None)
         icontrol_hostname = parsed_args.icontrol_hostname
-        if icontrol_hostname not in bigip:
-            msg = _("bigip: %s not in group" % icontrol_hostname)
-            raise exceptions.CommandError(msg)
-
-        bigip_info = bigip[icontrol_hostname]
-        ic = IControlClient(icontrol_hostname, bigip_info['username'],
-                            bigip_info['password'], bigip_info['port'])
-        blob["bigip"][icontrol_hostname] = ic.get_refresh_info()
-        commander.update_bigip(parsed_args.id, blob)
+        if icontrol_hostname:
+            commander.refresh_bigip(parsed_args.id, icontrol_hostname)
+        else:
+            blob = commander.get_blob(parsed_args.id)
+            bigip = blob['bigip']
+            for hostname, info in bigip.items():
+                commander.refresh_bigip(parsed_args.id, hostname)
 
         return commander.show_inventory(parsed_args.id)
 
