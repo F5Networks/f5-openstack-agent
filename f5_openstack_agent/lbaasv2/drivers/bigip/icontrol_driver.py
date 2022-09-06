@@ -389,8 +389,6 @@ class iControlDriver(LBaaSBaseDriver):
 
         # base configurations to report to Neutron agent state reports
         self.agent_configurations = {}  # overrides base, same value
-        self.agent_configurations['device_drivers'] = [self.driver_name]
-        self.agent_configurations['icontrol_endpoints'] = {}
 
         # service component managers
         self.tenant_manager = None
@@ -437,21 +435,13 @@ class iControlDriver(LBaaSBaseDriver):
                          ' and pool members must be routable through'
                          ' pre-provisioned SelfIPs.')
                 self.conf.use_namespaces = False
-                self.agent_configurations['tunnel_types'] = []
-                self.agent_configurations['bridge_mappings'] = {}
             else:
-                self.agent_configurations['tunnel_types'] = \
-                    self.conf.advertised_tunnel_types
                 for net_id in self.conf.common_network_ids:
                     LOG.debug('network %s will be mapped to /Common/%s'
                               % (net_id, self.conf.common_network_ids[net_id]))
 
-                self.agent_configurations['common_networks'] = \
-                    self.conf.common_network_ids
                 LOG.debug('Setting static ARP population to %s'
                           % self.conf.f5_populate_static_arp)
-                self.agent_configurations['f5_common_external_networks'] = \
-                    self.conf.f5_common_external_networks
                 f5const.FDB_POPULATE_STATIC_ARP = \
                     self.conf.f5_populate_static_arp
 
@@ -546,22 +536,12 @@ class iControlDriver(LBaaSBaseDriver):
         self.hostnames = [item.strip() for item in self.hostnames]
         self.hostnames = sorted(self.hostnames)
 
-        # initialize per host agent_configurations
         for hostname in self.hostnames:
             self.__bigips[hostname] = bigip = type('', (), {})()
             bigip.hostname = hostname
             bigip.status = 'creating'
             bigip.status_message = 'creating BIG-IP from iControl hostnames'
             bigip.device_interfaces = dict()
-            self.agent_configurations[
-                'icontrol_endpoints'][hostname] = {}
-            self.agent_configurations[
-                'icontrol_endpoints'][hostname]['failover_state'] = \
-                'undiscovered'
-            self.agent_configurations[
-                'icontrol_endpoints'][hostname]['status'] = 'unknown'
-            self.agent_configurations[
-                'icontrol_endpoints'][hostname]['status_message'] = ''
 
     def _init_bigips(self):
         # Connect to all BIG-IPs
@@ -607,7 +587,6 @@ class iControlDriver(LBaaSBaseDriver):
                     self._init_bigip(bigip, hostname, device_group_name)
                     LOG.debug('initializing agent configurations %s'
                               % hostname)
-                    self._init_agent_config(bigip)
                     # Assure basic BIG-IP HA is operational
                     LOG.debug('validating HA state for %s' % hostname)
                     bigip.status = 'validating_HA'
@@ -759,14 +738,9 @@ class iControlDriver(LBaaSBaseDriver):
         if self.network_builder:
             self.network_builder.initialize_vcmp()
 
-        self.agent_configurations['network_segment_physical_network'] = \
-            self.conf.f5_network_segment_physical_network
-
         LOG.info('iControlDriver initialized to %d bigips with username:%s'
                  % (len(self.get_active_bigips()),
                     self.conf.icontrol_username))
-        LOG.info('iControlDriver dynamic agent configurations:%s'
-                 % self.agent_configurations)
 
         if self.vlan_binding:
             LOG.debug(
@@ -776,21 +750,6 @@ class iControlDriver(LBaaSBaseDriver):
         if self.l3_binding:
             LOG.debug('getting BIG-IP MAC Address for L3 Binding')
             self.l3_binding.register_bigip_mac_addresses()
-
-        # endpoints = self.agent_configurations['icontrol_endpoints']
-        # for ic_host in endpoints.keys():
-        for hostbigip in self.get_all_bigips():
-
-            # hostbigip = self.__bigips[ic_host]
-            mac_addrs = [mac_addr for interface, mac_addr in
-                         hostbigip.device_interfaces.items()
-                         if interface != "mgmt"]
-            ports = self.plugin_rpc.get_ports_for_mac_addresses(
-                mac_addresses=mac_addrs)
-            if ports:
-                self.agent_configurations['nova_managed'] = True
-            else:
-                self.agent_configurations['nova_managed'] = False
 
         if self.network_builder:
             self.network_builder.post_init()
@@ -875,45 +834,7 @@ class iControlDriver(LBaaSBaseDriver):
             else:
                 return True
 
-    def _init_agent_config(self, bigip):
-        # Init agent config
-        ic_host = {}
-        ic_host['version'] = self.system_helper.get_version(bigip)
-        ic_host['device_name'] = bigip.device_name
-        ic_host['platform'] = self.system_helper.get_platform(bigip)
-        ic_host['serial_number'] = self.system_helper.get_serial_number(bigip)
-
-        ic_host['license'] = {}
-        modules = self.system_helper.get_active_modules(bigip)
-        for module in modules:
-            a = module.find(",")
-            b = module.find("|")
-            if a > 0 and a+2 < b:
-                ic_host['license'][module[0:a]] = module[a+2:b]
-
-        ic_host['status'] = bigip.status
-        ic_host['status_message'] = bigip.status_message
-        ic_host['failover_state'] = self.get_failover_state(bigip)
-        if hasattr(bigip, 'local_ip') and bigip.local_ip:
-            ic_host['local_ip'] = bigip.local_ip
-        else:
-            ic_host['local_ip'] = 'VTEP disabled'
-            self.agent_configurations['tunnel_types'] = list()
-        self.agent_configurations['icontrol_endpoints'][bigip.hostname] = \
-            ic_host
-        if self.network_builder:
-            self.agent_configurations['bridge_mappings'] = \
-                self.network_builder.interface_mapping
-
     def _set_agent_status(self, force_resync=False):
-        for hostname in self.__bigips:
-            bigip = self.__bigips[hostname]
-            self.agent_configurations[
-                'icontrol_endpoints'][bigip.hostname][
-                    'status'] = bigip.status
-            self.agent_configurations[
-                'icontrol_endpoints'][bigip.hostname][
-                    'status_message'] = bigip.status_message
 
         # Policy - if any BIG-IP are active we're operational
         if self.get_active_bigips():
@@ -922,42 +843,6 @@ class iControlDriver(LBaaSBaseDriver):
             self.operational = False
         if self.agent_report_state:
             self.agent_report_state(force_resync=force_resync)
-
-    def get_failover_state(self, bigip):
-        try:
-            if hasattr(bigip, 'tm'):
-                fs = bigip.tm.sys.dbs.db.load(name='failover.state')
-                bigip.failover_state = fs.value
-                return bigip.failover_state
-            else:
-                return 'error'
-        except Exception as exc:
-            LOG.exception('Error getting %s failover state' % bigip.hostname)
-            bigip.status = 'error'
-            bigip.status_message = str(exc)[:80]
-            self._set_agent_status(False)
-            return 'error'
-
-    def get_agent_configurations(self):
-        for hostname in self.__bigips:
-            bigip = self.__bigips[hostname]
-            if bigip.status == 'active':
-                failover_state = self.get_failover_state(bigip)
-                self.agent_configurations[
-                    'icontrol_endpoints'][bigip.hostname][
-                        'failover_state'] = failover_state
-            else:
-                self.agent_configurations[
-                    'icontrol_endpoints'][bigip.hostname][
-                        'failover_state'] = 'unknown'
-            self.agent_configurations['icontrol_endpoints'][
-                bigip.hostname]['status'] = bigip.status
-            self.agent_configurations['icontrol_endpoints'][
-                bigip.hostname]['status_message'] = bigip.status_message
-            self.agent_configurations['operational'] = \
-                self.operational
-        LOG.debug('agent configurations are: %s' % self.agent_configurations)
-        return dict(self.agent_configurations)
 
     def recover_errored_devices(self):
         # trigger a retry on errored BIG-IPs
@@ -970,46 +855,6 @@ class iControlDriver(LBaaSBaseDriver):
         if self.operational:
             return True
         return False
-
-    def generate_capacity_score(self, capacity_policy=None):
-        """Generate the capacity score of connected devices."""
-        if capacity_policy:
-            highest_metric = 0.0
-            highest_metric_name = None
-            my_methods = dir(self)
-            bigips = self.get_all_bigips()
-            for metric in capacity_policy:
-                func_name = 'get_' + metric
-                if func_name in my_methods:
-                    max_capacity = int(capacity_policy[metric])
-                    metric_func = getattr(self, func_name)
-                    metric_value = 0
-                    for bigip in bigips:
-                        if bigip.status == 'active':
-                            global_stats = \
-                                self.stat_helper.get_global_statistics(bigip)
-                            value = int(
-                                metric_func(bigip=bigip,
-                                            global_statistics=global_stats)
-                            )
-                            LOG.debug('calling capacity %s on %s returned: %s'
-                                      % (func_name, bigip.hostname, value))
-                        else:
-                            value = 0
-                        if value > metric_value:
-                            metric_value = value
-                    metric_capacity = float(metric_value) / float(max_capacity)
-                    if metric_capacity > highest_metric:
-                        highest_metric = metric_capacity
-                        highest_metric_name = metric
-                else:
-                    LOG.warn('capacity policy has method '
-                             '%s which is not implemented in this driver'
-                             % metric)
-            LOG.debug('capacity score: %s based on %s'
-                      % (highest_metric, highest_metric_name))
-            return highest_metric
-        return 0
 
     def set_context(self, context):
         # Context to keep for database access
@@ -1659,9 +1504,10 @@ class iControlDriver(LBaaSBaseDriver):
 
     def tunnel_sync(self):
         # Only sync when supported types are present
-        if not [i for i in self.agent_configurations['tunnel_types']
-                if i in ['gre', 'vxlan']]:
-            return False
+        if not self.conf.f5_global_routed_mode:
+            if not [i for i in self.conf.advertised_tunnel_types
+                    if i in ['gre', 'vxlan']]:
+                return False
 
         tunnel_ips = []
         for bigip in self.get_all_bigips():
