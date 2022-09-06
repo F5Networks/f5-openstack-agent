@@ -972,34 +972,6 @@ class iControlDriver(LBaaSBaseDriver):
                                 }
         return deployed_virtual_dict
 
-    @serialized('purge_orphaned_nodes')
-    @is_operational
-    @log_helpers.log_method_call
-    def purge_orphaned_nodes(self, tenant_members):
-        node_helper = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.node)
-        node_dict = dict()
-        for bigip in self.get_all_bigips():
-            for tenant_id, members in tenant_members.iteritems():
-                partition = self.service_adapter.prefix + tenant_id
-                nodes = node_helper.get_resources(bigip, partition=partition)
-                for n in nodes:
-                    node_dict[n.name] = n
-
-                for member in members:
-                    rd = self.network_builder.find_subnet_route_domain(
-                        tenant_id, member.get('subnet_id', None))
-                    node_name = "{}%{}".format(member['address'], rd)
-                    node_dict.pop(node_name, None)
-
-                for node_name, node in node_dict.iteritems():
-                    try:
-                        node_helper.delete(bigip, name=urllib.quote(node_name),
-                                           partition=partition)
-                    except HTTPError as error:
-                        if error.response.status_code == 400:
-                            LOG.error(error.response)
-
     @serialized('get_all_pools_for_one_bigip')
     @is_operational
     def get_all_pools_for_one_bigip(self, bigip):
@@ -2150,15 +2122,6 @@ class iControlDriver(LBaaSBaseDriver):
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
-
-    # these functions should return only active BIG-IP
-    # not errored BIG-IPs.
-    def get_bigip(self):
-        hostnames = sorted(list(self.__bigips))
-        for host in hostnames:
-            if hasattr(self.__bigips[host], 'status') and \
-               self.__bigips[host].status == 'active':
-                return self.__bigips[host]
 
     def get_bigip_hosts(self):
         return_hosts = []
