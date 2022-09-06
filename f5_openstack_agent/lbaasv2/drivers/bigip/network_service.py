@@ -235,7 +235,7 @@ class NetworkServiceBuilder(object):
 
         # Per Device Network Connectivity (VLANs or Tunnels)
         self.lb_netinfo_to_assure(service)
-        bigips = self.driver.get_all_bigips()
+        bigips = service['bigips']
         for bigip in bigips:
             # Make sure the L2 network is established
             self.l2_service.assure_bigip_network(
@@ -266,7 +266,7 @@ class NetworkServiceBuilder(object):
         subnetinfo = {'network': lb_network}
         for subnet in lb_subnets:
             subnetinfo['subnet'] = subnet
-            for bigip in self.driver.get_all_bigips():
+            for bigip in service['bigips']:
                 self.bigip_selfip_manager.assure_bigip_selfip(
                     bigip, service, subnetinfo)
 
@@ -320,6 +320,7 @@ class NetworkServiceBuilder(object):
         # Add route domain notation to pool member and vip addresses.
         tenant_id = service['loadbalancer']['tenant_id']
         loadbalancer = service['loadbalancer']
+        bigips = service['bigips']
 
         if 'vip_address' in service['loadbalancer']:
             if 'network_id' in loadbalancer:
@@ -329,7 +330,8 @@ class NetworkServiceBuilder(object):
                         constants_v2.PENDING_DELETE, constants_v2.ERROR]:
                     self.assign_delete_route_domain(tenant_id, lb_network)
                 else:
-                    self.assign_route_domain(tenant_id, lb_network)
+                    self.assign_route_domain(
+                        tenant_id, lb_network, bigips)
                 rd_id = '%' + str(lb_network['route_domain_id'])
                 service['loadbalancer']['vip_address'] += rd_id
             else:
@@ -369,7 +371,7 @@ class NetworkServiceBuilder(object):
         LOG.info("Finish route domain %s for deleting" %
                  route_domain)
 
-    def assign_route_domain(self, tenant_id, network):
+    def assign_route_domain(self, tenant_id, network, bigips):
         LOG.info(
             "Start creating Route Domain of network %s "
             "for tenant: %s" % (network, tenant_id)
@@ -378,7 +380,6 @@ class NetworkServiceBuilder(object):
             network['route_domain_id'] = 0
             return
 
-        bigips = self.driver.get_all_bigips()
         for bigip in bigips:
             self.create_rd_by_net(bigip, tenant_id, network)
 
@@ -517,7 +518,7 @@ class NetworkServiceBuilder(object):
         loadbalancer = service['loadbalancer']
         service_adapter = self.service_adapter
 
-        bigips = self.driver.get_all_bigips()
+        bigips = service['bigips']
 
         update_members = list()
         delete_members = list()
