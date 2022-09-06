@@ -2123,15 +2123,6 @@ class iControlDriver(LBaaSBaseDriver):
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
 
-    # these functions should return only active BIG-IP
-    # not errored BIG-IPs.
-    def get_bigip(self):
-        hostnames = sorted(list(self.__bigips))
-        for host in hostnames:
-            if hasattr(self.__bigips[host], 'status') and \
-               self.__bigips[host].status == 'active':
-                return self.__bigips[host]
-
     def get_bigip_hosts(self):
         return_hosts = []
         for host in list(self.__bigips):
