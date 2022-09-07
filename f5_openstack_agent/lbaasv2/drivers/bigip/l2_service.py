@@ -29,7 +29,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
     ServiceModelAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
-from f5_openstack_agent.lbaasv2.drivers.bigip.vcmp import VcmpManager
 
 LOG = logging.getLogger(__name__)
 
@@ -105,11 +104,6 @@ class L2ServiceBuilder(object):
             self.tagging_mapping[net_key] = str(intmap[2]).strip()
             LOG.debug('physical_network %s = interface %s, tagged %s'
                       % (net_key, intmap[1], intmap[2]))
-
-    def initialize_vcmp_manager(self):
-        '''Intialize the vCMP manager when the driver is ready.'''
-
-        self.vcmp_manager = VcmpManager(self.driver)
 
     def post_init(self):
         if self.vlan_binding:
@@ -238,7 +232,6 @@ class L2ServiceBuilder(object):
         # Ensure bigip has configured flat vlan (untagged)
         vlan_name = ""
         interface = self.interface_mapping['default']
-        vlanid = 0
 
         # Do we have host specific mappings?
         net_key = network['provider:physical_network']
@@ -253,15 +246,6 @@ class L2ServiceBuilder(object):
         vlan_name = self.get_vlan_name(network,
                                        bigip.hostname)
 
-        self._assure_vcmp_device_network(bigip,
-                                         vlan={'name': vlan_name,
-                                               'folder': network_folder,
-                                               'id': vlanid,
-                                               'interface': interface,
-                                               'network': network})
-
-        if self.vcmp_manager and self.vcmp_manager.get_vcmp_host(bigip):
-            interface = None
         try:
             model = {'name': vlan_name,
                      'interface': interface,
@@ -304,15 +288,6 @@ class L2ServiceBuilder(object):
         vlan_name = self.get_vlan_name(network,
                                        bigip.hostname)
 
-        self._assure_vcmp_device_network(bigip,
-                                         vlan={'name': vlan_name,
-                                               'folder': network_folder,
-                                               'id': vlanid,
-                                               'interface': interface,
-                                               'network': network})
-
-        if self.vcmp_manager and self.vcmp_manager.get_vcmp_host(bigip):
-            interface = None
         try:
             model = {'name': vlan_name,
                      'interface': interface,
@@ -407,33 +382,6 @@ class L2ServiceBuilder(object):
 
         return tunnel_name
 
-    def _assure_vcmp_device_network(self, bigip, vlan):
-        if not self.vcmp_manager:
-            return
-
-        vcmp_host = self.vcmp_manager.get_vcmp_host(bigip)
-        if not vcmp_host:
-            return
-
-        # Create the VLAN on the vCMP Host
-        model = {'name': vlan['name'],
-                 'partition': 'Common',
-                 'tag': vlan['id'],
-                 'interface': vlan['interface'],
-                 'description': vlan['network']['id'],
-                 'route_domain_id': vlan['network']['route_domain_id']}
-        try:
-            self.network_helper.create_vlan(vcmp_host['bigip'], model)
-            LOG.debug(('Created VLAN %s on vCMP Host %s' %
-                       (vlan['name'], vcmp_host['bigip'].hostname)))
-        except Exception as exc:
-            LOG.error(
-                ('Exception creating VLAN %s on vCMP Host %s:%s' %
-                 (vlan['name'], vcmp_host['bigip'].hostname, exc)))
-
-        # Associate the VLAN with the vCMP Guest, if necessary
-        self.vcmp_manager.assoc_vlan_with_vcmp_guest(bigip, vlan)
-
     def delete_bigip_network(self, bigip, network):
         # Delete network on bigip
         if network['id'] in self.conf.common_network_ids:
@@ -506,8 +454,6 @@ class L2ServiceBuilder(object):
                 vlanid=vlanid
             )
 
-        self._delete_vcmp_device_network(bigip, vlan_name)
-
     def _delete_device_flat(self, bigip, network, network_folder):
         # Delete untagged vlan on specific bigip
         vlan_name = self.get_vlan_name(network,
@@ -522,8 +468,6 @@ class L2ServiceBuilder(object):
             LOG.exception(err)
             LOG.error(
                 "Failed to delete vlan: %s" % vlan_name)
-
-        self._delete_vcmp_device_network(bigip, vlan_name)
 
     def _delete_device_vxlan(self, bigip, network, network_folder):
         # Delete vxlan tunnel on specific bigip
@@ -571,20 +515,6 @@ class L2ServiceBuilder(object):
 
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_removed(network, bigip.local_ip)
-
-    def _delete_vcmp_device_network(self, bigip, vlan_name):
-        '''Disassociated VLAN with vCMP Guest, then delete it from vCMP Host
-
-        :param bigip: ManagementRoot object -- vCMP guest
-        :param vlan_name: str -- name of vlan
-        '''
-
-        if not self.vcmp_manager:
-            return
-        vcmp_host = self.vcmp_manager.get_vcmp_host(bigip)
-        if not vcmp_host:
-            return
-        self.vcmp_manager.disassoc_vlan_with_vcmp_guest(bigip, vlan_name)
 
     def add_bigip_fdb(self, bigip, fdb):
         # Add entries from the fdb relevant to the bigip
