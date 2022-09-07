@@ -1,10 +1,23 @@
 # -*- coding: utf-8 -*-
 
+import functools
+
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from oslo_log import log
 
 LOG = log.getLogger(__name__)
+
+
+def set_bigips(method):
+
+    @functools.wraps(method)
+    def wrapper(*args, **kwargs):
+        service = kwargs['service']
+        bigip_dev = BigipDevice(service['device'])
+        service['bigips'] = bigip_dev.get_all_bigips()
+        method(*args, **kwargs)
+    return wrapper
 
 
 class BigipDevice(object):

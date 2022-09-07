@@ -1479,15 +1479,6 @@ class iControlDriver(LBaaSBaseDriver):
         else:
             LOG.debug("Attempted sync of deleted pool")
 
-    @serialized('backup_configuration')
-    @is_operational
-    def backup_configuration(self):
-        # Save Configuration on Devices
-        for bigip in self.get_all_bigips():
-            LOG.debug('_backup_configuration: saving device %s.'
-                      % bigip.hostname)
-            self.cluster_manager.save_config(bigip)
-
     def _get_monitor_endpoint(self, bigip, service):
         monitor_type = self.service_adapter.get_monitor_type(service)
         if not monitor_type:
