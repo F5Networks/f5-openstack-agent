@@ -55,10 +55,6 @@ class LBaaSBaseDriver(object):
         """Return True, if the agent is be considered viable for services."""
         raise NotImplementedError()
 
-    def backup_configuration(self):
-        """Persist backend configuratoins."""
-        raise NotImplementedError()
-
     def update_operating_status(self):
         """Update pool member operational status from devices to controller."""
         raise NotImplementedError()
