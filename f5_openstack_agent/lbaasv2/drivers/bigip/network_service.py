@@ -81,12 +81,6 @@ class NetworkServiceBuilder(object):
         self.service_adapter = self.driver.service_adapter
         self.lb_netinfo = dict()
 
-    def post_init(self):
-        # Run and Post Initialization Tasks
-        # run any post initialized tasks, now that the agent
-        # is fully connected
-        self.l2_service.post_init()
-
     def tunnel_sync(self, tunnel_ips):
         self.l2_service.tunnel_sync(tunnel_ips)
 

@@ -142,11 +142,6 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='create static arp entries based on service entries'
     ),
     cfg.StrOpt(
-        'vlan_binding_driver',
-        default=None,
-        help='driver class for binding vlans to device ports'
-    ),
-    cfg.StrOpt(
         'interface_port_static_mappings',
         default=None,
         help='JSON encoded static mapping of'
@@ -396,7 +391,6 @@ class iControlDriver(LBaaSBaseDriver):
         self.system_helper = None
         self.lbaas_builder = None
         self.service_adapter = None
-        self.vlan_binding = None
         self.l3_binding = None
         self.cert_manager = None  # overrides register_OPTS
 
@@ -466,14 +460,6 @@ class iControlDriver(LBaaSBaseDriver):
             self._set_agent_status(False)
 
     def _init_bigip_managers(self):
-
-        if self.conf.vlan_binding_driver:
-            try:
-                self.vlan_binding = importutils.import_object(
-                    self.conf.vlan_binding_driver, self.conf, self)
-            except ImportError:
-                LOG.error('Failed to import VLAN binding driver: %s'
-                          % self.conf.vlan_binding_driver)
 
         if self.conf.l3_binding_driver:
             try:
@@ -738,17 +724,9 @@ class iControlDriver(LBaaSBaseDriver):
                  % (len(self.get_active_bigips()),
                     self.conf.icontrol_username))
 
-        if self.vlan_binding:
-            LOG.debug(
-                'getting BIG-IP device interface for VLAN Binding')
-            self.vlan_binding.register_bigip_interfaces()
-
         if self.l3_binding:
             LOG.debug('getting BIG-IP MAC Address for L3 Binding')
             self.l3_binding.register_bigip_mac_addresses()
-
-        if self.network_builder:
-            self.network_builder.post_init()
 
         self._set_agent_status(False)
 

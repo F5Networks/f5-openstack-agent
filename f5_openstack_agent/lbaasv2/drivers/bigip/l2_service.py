@@ -19,7 +19,6 @@ from requests import HTTPError
 from time import time
 
 from oslo_log import log as logging
-from oslo_utils import importutils
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.fdb_connector_ml2 \
@@ -74,7 +73,6 @@ class L2ServiceBuilder(object):
         self.conf = driver.conf
         self.driver = driver
         self.f5_global_routed_mode = f5_global_routed_mode
-        self.vlan_binding = None
         self.fdb_connector = None
         self.interface_mapping = {}
         self.tagging_mapping = {}
@@ -84,15 +82,6 @@ class L2ServiceBuilder(object):
 
         if not f5_global_routed_mode:
             self.fdb_connector = FDBConnectorML2(self.conf)
-
-        if self.conf.vlan_binding_driver:
-            try:
-                self.vlan_binding = importutils.import_object(
-                    self.conf.vlan_binding_driver, self.conf, self)
-            except ImportError:
-                LOG.error('Failed to import VLAN binding driver: %s'
-                          % self.conf.vlan_binding_driver)
-                raise
 
         # map format is  phynet:interface:tagged
         for maps in self.conf.f5_external_physical_mappings:
@@ -104,12 +93,6 @@ class L2ServiceBuilder(object):
             self.tagging_mapping[net_key] = str(intmap[2]).strip()
             LOG.debug('physical_network %s = interface %s, tagged %s'
                       % (net_key, intmap[1], intmap[2]))
-
-    def post_init(self):
-        if self.vlan_binding:
-            LOG.debug(
-                'Getting BIG-IP device interface for VLAN Binding')
-            self.vlan_binding.register_bigip_interfaces()
 
     def tunnel_sync(self, tunnel_ips):
         if self.fdb_connector:
@@ -308,13 +291,6 @@ class L2ServiceBuilder(object):
                 "Failed to create vlan: %s" % vlan_name
             )
 
-        if self.vlan_binding:
-            self.vlan_binding.allow_vlan(
-                device_name=bigip.device_name,
-                interface=interface,
-                vlanid=vlanid
-            )
-
         return vlan_name
 
     def _assure_device_network_vxlan(self, network, bigip, partition):
@@ -426,33 +402,6 @@ class L2ServiceBuilder(object):
                         vlan_name, err.message))
             else:
                 raise err
-
-        if self.vlan_binding:
-            interface = self.interface_mapping['default']
-            tagged = self.tagging_mapping['default']
-            vlanid = 0
-            # Do we have host specific mappings?
-            net_key = network['provider:physical_network']
-            if net_key and net_key + ':' + bigip.hostname in \
-                    self.interface_mapping:
-                interface = self.interface_mapping[
-                    net_key + ':' + bigip.hostname]
-                tagged = self.tagging_mapping[
-                    net_key + ':' + bigip.hostname]
-            # Do we have a mapping for this network
-            elif net_key and net_key in self.interface_mapping:
-                interface = self.interface_mapping[net_key]
-                tagged = self.tagging_mapping[net_key]
-            if tagged:
-                vlanid = network['provider:segmentation_id']
-            else:
-                vlanid = 0
-
-            self.vlan_binding.prune_vlan(
-                device_name=bigip.device_name,
-                interface=interface,
-                vlanid=vlanid
-            )
 
     def _delete_device_flat(self, bigip, network, network_folder):
         # Delete untagged vlan on specific bigip
