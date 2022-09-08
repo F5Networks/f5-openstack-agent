@@ -97,23 +97,6 @@ class BipipCommand(object):
                         (hostname, group_id))
                 raise exceptions.CommandError(msg)
 
-    def get_active_bigips(self, availability_zone):
-        inventory = self._load_inventory()
-        bigips = []
-        for group_id, group in inventory.items():
-            if group['availability_zone'] == availability_zone:
-                bigip = group['bigip']
-                for host, info in bigip.items():
-                    if info['failover_state'] == 'active':
-                        bigips.append({
-                            'group_id': group_id,
-                            'hostname': host,
-                            'username': info['username'],
-                            'password': info['password'],
-                            'port': info['port'],
-                        })
-        return bigips
-
 
 class CreateBigip(command.ShowOne):
     _description = _("Create a new bigip to a device group")
