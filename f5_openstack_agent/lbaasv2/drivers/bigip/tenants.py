@@ -58,7 +58,7 @@ class BigipTenantManager(object):
         suppose this is the other way.
         """
         tenant_id = service['loadbalancer']['tenant_id']
-        traffic_group = self.driver.service_to_traffic_group(service)
+        traffic_group = self.driver.get_traffic_group_1()
         traffic_group = '/Common/' + traffic_group
         service["traffic_group"] = traffic_group  # modify the passed dict
 
