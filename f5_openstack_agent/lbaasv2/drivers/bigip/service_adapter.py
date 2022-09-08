@@ -15,8 +15,6 @@
 #
 
 import ast
-
-import hashlib
 import netaddr
 
 from oslo_log import log as logging
@@ -190,15 +188,6 @@ class ServiceModelAdapter(object):
 
         return dict(name=name, partition=partition)
 
-    def get_traffic_group(self, service):
-        tg = "traffic-group-local-only"
-        loadbalancer = service["loadbalancer"]
-
-        if "traffic_group" in loadbalancer:
-            tg = loadbalancer["traffic_group"]
-
-        return tg
-
     @staticmethod
     def _pending_delete(resource):
         return (
@@ -266,12 +255,6 @@ class ServiceModelAdapter(object):
             name = "Common"
 
         return name
-
-    def tenant_to_traffic_group(self, tenant_id, traffic_groups):
-        # Hash tenant id to index of traffic group
-        hexhash = hashlib.md5(tenant_id).hexdigest()
-        tg_index = int(hexhash, 16) % len(traffic_groups)
-        return traffic_groups[tg_index]
 
     def _map_healthmonitor(self, loadbalancer, lbaas_healthmonitor):
         healthmonitor = self.init_monitor_name(loadbalancer,
