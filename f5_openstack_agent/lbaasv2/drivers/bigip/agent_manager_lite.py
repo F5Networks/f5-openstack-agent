@@ -34,6 +34,7 @@ try:
 except ImportError:
     from neutron import context as ncontext
 
+from f5_openstack_agent.client.bigip import BipipCommand
 from f5_openstack_agent.lbaasv2.drivers.bigip import bigip_device
 from f5_openstack_agent.lbaasv2.drivers.bigip.bigip_device import set_bigips
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
@@ -47,7 +48,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
-from f5_openstack_agent.client.bigip import BipipCommand
 
 from icontrol.exceptions import iControlUnexpectedHTTPError
 
