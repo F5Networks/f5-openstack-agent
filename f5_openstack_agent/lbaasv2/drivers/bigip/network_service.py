@@ -559,7 +559,7 @@ class NetworkServiceBuilder(object):
         loadbalancer = service['loadbalancer']
         provisioning_status = loadbalancer.get(
             'provisioning_status', None)
-        mac = self.driver.get_traffic_mac()
+        mac = self.driver.get_traffic_mac(service)
         lb_id = loadbalancer['id']
 
         if provisioning_status == constants_v2.F5_PENDING_CREATE:
@@ -876,7 +876,7 @@ class SNATHelper(object):
         self.snat_manager = snat_manager
         self.l2_service = l2_service
         self.flavor = service['loadbalancer'].get('flavor')
-        self.traffic_group = self.driver.service_to_traffic_group(service)
+        self.traffic_group = self.driver.get_traffic_group_1()
         self.partition = self.driver.service_adapter.get_folder_name(
             service['loadbalancer'].get('tenant_id')
         )
@@ -939,7 +939,7 @@ class SNATHelper(object):
                 )
 
                 if len(port) == 0:
-                    mac = self.driver.get_traffic_mac()
+                    mac = self.driver.get_traffic_mac(self.service)
                     port = self.driver.plugin_rpc.create_port_on_subnet(
                         subnet_id=subnet['id'],
                         mac_address=mac,
