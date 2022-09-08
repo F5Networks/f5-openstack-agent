@@ -20,6 +20,7 @@ import re
 import sys
 import uuid
 
+from f5.bigip import ManagementRoot
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging
@@ -594,7 +595,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug("get %s active bigips" % len(bigips))
             for info in bigips:
                 LOG.debug("bigip info: %s" % info)
-                from f5.bigip import ManagementRoot
                 bigip = ManagementRoot(info['hostname'],
                                        info['username'],
                                        info['password'],
