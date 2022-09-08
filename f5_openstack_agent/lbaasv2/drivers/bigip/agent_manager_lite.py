@@ -50,7 +50,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
 from f5_openstack_agent.client.bigip import BipipCommand
 
 from icontrol.exceptions import iControlUnexpectedHTTPError
-from requests import HTTPError
 
 
 LOG = logging.getLogger(__name__)
