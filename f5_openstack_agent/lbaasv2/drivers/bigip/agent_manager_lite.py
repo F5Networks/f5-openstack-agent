@@ -20,6 +20,7 @@ import re
 import sys
 import uuid
 
+from f5.bigip import ManagementRoot
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging
@@ -34,6 +35,7 @@ try:
 except ImportError:
     from neutron import context as ncontext
 
+from f5_openstack_agent.client.bigip import BipipCommand
 from f5_openstack_agent.lbaasv2.drivers.bigip import bigip_device
 from f5_openstack_agent.lbaasv2.drivers.bigip.bigip_device import set_bigips
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
@@ -393,16 +395,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.connect()
 
     @staticmethod
-    def is_valid_uuid(uuid_str):
-        match_obj = re.match(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
-                             '[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-                             uuid_str, re.I)
-        if match_obj:
-            return True
-
-        return False
-
-    @staticmethod
     def calculate_member_status(member):
         member_status = None
         session = None
@@ -431,44 +423,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.warning("Unexpected status %s and session %s",
                         status, session)
         return member_status
-
-    def append_one_member_by_description(self, pool_id, member, all_members):
-        """append one member """
-        if not member:
-            LOG.debug("member is empty.")
-            return
-
-        if 'description' in member:
-            description = member['description']
-            if not description:
-                LOG.debug("member's description is empty.")
-                return
-            member_parts = description.split('_', 1)
-            if len(member_parts) == 2:
-                # member_prefix = member_parts[0].strip()
-                member_id = member_parts[1].strip()
-                if not self.is_valid_uuid(str(member_id)):
-                    LOG.debug("member_id %s isn't uuid format."
-                              % member_id)
-                    return
-            else:
-                LOG.debug("membe description %s is wrong.", description)
-                return
-
-            member_info = {}
-            member_info['id'] = member_id
-            member_info['state'] = \
-                self.calculate_member_status(member)
-            if member_info['state'] is not None and \
-               member_info['state'] != constants_v2.F5_CHECKING:
-                LOG.debug("append member %s with statue %s",
-                          member_id,
-                          member_info['state'])
-                all_members.append(member_info)
-        else:
-            LOG.debug("neither description nor name exists.")
-
-        return
 
     def append_one_member(self, member, pool_id, all_members):
         """append one member """
@@ -663,15 +617,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     def update_member_status_task(self):
         """Update pool member operational status from devices to controller."""
-
-        if not self.conf.member_update_mode:
-            LOG.debug("Using the traditional way to update.")
-            return
-
-        if not self.plugin_rpc:
-            LOG.debug("update member status exits.")
-            return
-
         if not self.needs_member_update:
             LOG.debug("The previous task is still running.")
             return
@@ -719,31 +664,36 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         per folder. """
 
         try:
-            bigip = self.lbdriver.get_active_bigip()
-            if not bigip:
-                self.needs_member_update = True
-                LOG.debug('no available bigip.')
-                return
+            commander = BipipCommand()
+            bigips = commander.get_active_bigips(self.conf.availability_zone)
+            LOG.debug("get %s active bigips" % len(bigips))
+            for info in bigips:
+                LOG.debug("bigip info: %s" % info)
+                bigip = ManagementRoot(info['hostname'],
+                                       info['username'],
+                                       info['password'],
+                                       port=info['port'])
 
-            if self.conf.member_update_mode == 1:
-                # logic of update member by pools
-                pools = self.lbdriver.get_all_pools_for_one_bigip(bigip)
-                if pools:
-                    LOG.debug("%d pool(s) found", len(pools))
-                    self.update_all_member_status_by_pools(bigip, pools)
+                if self.conf.member_update_mode == 1:
+                    # logic of update member by pools
+                    pools = self.lbdriver.get_all_pools_for_one_bigip(bigip)
+                    if pools:
+                        LOG.debug("%d pool(s) found", len(pools))
+                        self.update_all_member_status_by_pools(bigip, pools)
+                    else:
+                        LOG.debug("no vailable pools")
+                elif self.conf.member_update_mode == 2:
+                    # logic of update member by folders
+                    folders = self.system_helper.get_folders(bigip)
+                    if folders:
+                        LOG.debug("%d folder(s) found", len(folders))
+                        self.update_all_member_status_by_folders(
+                            bigip, folders)
+                    else:
+                        LOG.debug("no vailable folders")
                 else:
-                    LOG.debug("no vailable pools")
-            elif self.conf.member_update_mode == 2:
-                # logic of update member by folders
-                folders = self.system_helper.get_folders(bigip)
-                if folders:
-                    LOG.debug("%d folder(s) found", len(folders))
-                    self.update_all_member_status_by_folders(bigip, folders)
-                else:
-                    LOG.debug("no vailable folders")
-            else:
-                LOG.debug("member update mode %d isnt' supported.",
-                          self.conf.member_update_mode)
+                    LOG.debug("member update mode %d isnt' supported.",
+                              self.conf.member_update_mode)
         except Exception as e:
             self.needs_member_update = True
             LOG.error("Unable to update member state: %s" % e.message)
@@ -752,57 +702,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         now = datetime.datetime.now()
         LOG.debug("End updating member status at %s." % now)
 
-        return
-
-    @periodic_task.periodic_task(
-        spacing=PERIODIC_MEMBER_UPDATE_INTERVAL)
-    def update_operating_status(self, context):
-        """Update pool member operational status from devices to controller."""
-
-        if self.conf.member_update_mode:
-            LOG.debug("Using the optimized way to update.")
-            return
-
-        if not self.plugin_rpc:
-            LOG.debug("update member status exits.")
-            return
-
-        if not self.needs_member_update:
-            LOG.debug("The previous task is still running.")
-            return
-
-        if PERIODIC_MEMBER_UPDATE_INTERVAL < 0:
-            LOG.debug('The interval is negative %d' %
-                      PERIODIC_MEMBER_UPDATE_INTERVAL)
-            return
-
-        now = datetime.datetime.now()
-        if (now - self.last_member_update).seconds < \
-           PERIODIC_MEMBER_UPDATE_INTERVAL:
-            LOG.debug('The interval value is not met yet.')
-            return
-        LOG.debug("Begin updating member status at %s." % now)
-        self.last_member_update = now
-        self.needs_member_update = False
-        active_loadbalancers = \
-            self.plugin_rpc.get_active_loadbalancers(host=self.agent_host)
-        for loadbalancer in active_loadbalancers:
-            if self.agent_host == loadbalancer['agent_host']:
-                try:
-                    lb_id = loadbalancer['lb_id']
-                    LOG.debug(
-                        'getting operating status for loadbalancer %s.', lb_id)
-                    svc = self.plugin_rpc.get_service_by_loadbalancer_id(
-                        lb_id)
-                    self.lbdriver.update_operating_status(svc)
-
-                except Exception as e:
-                    self.needs_member_update = True
-                    LOG.exception('Error updating status %s.', e.message)
-
-        self.needs_member_update = True
-        now = datetime.datetime.now()
-        LOG.debug("End updating member status at %s." % now)
         return
 
     ######################################################################
