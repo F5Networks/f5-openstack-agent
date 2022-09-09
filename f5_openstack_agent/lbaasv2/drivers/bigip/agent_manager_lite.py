@@ -18,7 +18,6 @@
 import datetime
 import re
 import sys
-import uuid
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -189,15 +188,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         if self.conf.agent_id:
             self.agent_host = self.conf.agent_id
             LOG.debug('setting agent host to %s' % self.agent_host)
-        else:
-            # If not set statically, add the driver agent env hash
-            agent_hash = str(
-                uuid.uuid5(uuid.NAMESPACE_DNS,
-                           self.conf.environment_prefix +
-                           '.' + self.lbdriver.hostnames[0])
-                )
-            self.agent_host = conf.host + ":" + agent_hash
-            LOG.debug('setting agent host to %s' % self.agent_host)
 
         # Initialize agent configurations
         agent_configurations = (
@@ -262,9 +252,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         else:
             LOG.debug('The member update interval %d is negative.' %
                       member_update_interval)
-
-        if self.lbdriver:
-            self.lbdriver.connect()
 
     def _load_driver(self, conf):
         self.lbdriver = None
@@ -386,11 +373,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         endpoints = [started_by.manager]
         started_by.conn.create_consumer(
             node_topic, endpoints, fanout=False)
-
-    def connect_driver(self):
-        """Trigger driver connect attempts to all devices."""
-        if self.lbdriver:
-            self.lbdriver.connect()
 
     @staticmethod
     def is_valid_uuid(uuid_str):
