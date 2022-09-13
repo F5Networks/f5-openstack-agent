@@ -1,9 +1,11 @@
 # coding=utf-8
+import json
 import logging as std_logging
 
 from f5.bigip import ManagementRoot
 from oslo_log import log as logging
 import requests
+from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager \
@@ -64,7 +66,7 @@ class IControlClient(object):
             "status": "active" if self.bigip else "error",
             "status_message": "BIG-IP ready for provisioning"
             if self.bigip else "Fail to connect to BIG-IP",
-            "failover_state": self._get_failover_state() if self.bigip else "",
+            "failover_state": self.get_failover_state() if self.bigip else "",
         }
         return dynamic_info
 
@@ -78,7 +80,7 @@ class IControlClient(object):
                 license[module[0:a]] = module[a + 2:b]
         return license
 
-    def _get_failover_state(self):
+    def get_failover_state(self):
         try:
             fs = self.bigip.tm.sys.dbs.db.load(name='failover.state')
             return fs.value
@@ -86,3 +88,55 @@ class IControlClient(object):
             LOG.exception('Error getting %s failover state, error: %s'
                           % (self.bigip.hostname, str(exc)))
             return ""
+
+    def _get_base_mac(self):
+        url = "https://" + self.icontrol_hostname + "/mgmt/tm/util/bash"
+        payload = {
+            "command": "run",
+            "utilCmdArgs": "-c \"tmsh show sys hardware" +
+                           " field-fmt | grep base-mac\""
+        }
+        auth = HTTPBasicAuth(self.icontrol_username, self.icontrol_password)
+        verify = False
+        resp = requests.post(url, json=payload, verify=verify, auth=auth)
+        data = json.loads(resp.content)
+        base_mac = data['commandResult'].split()[1]
+        LOG.debug('base mac is %s' % base_mac)
+        return base_mac
+
+    def _hex_binary(self, value):
+        int_value = int(value, base=16)
+        bin_value = bin(int_value)[2:].zfill(8)
+        return bin_value
+
+    def _binary_hex(self, value):
+        int_value = int(value, base=2)
+        hex_value = hex(int_value)[2:].zfill(2)
+        return hex_value
+
+    def _gen_masquerade_mac(self):
+        mac = self._get_base_mac()
+        temp_mac = mac.split(":")
+
+        first_byte = temp_mac[0]
+        binary = self._hex_binary(first_byte)
+        binary = binary[:6] + "1" + binary[-1]
+        hexa = self._binary_hex(binary)
+
+        temp_mac = [hexa] + temp_mac[1:]
+        masquerade_mac = ":".join(temp_mac)
+        return masquerade_mac
+
+    def get_traffic_group_1(self):
+        traffic_groups = self.bigip.tm.cm.traffic_groups.get_collection()
+        for group in traffic_groups:
+            if group.name == 'traffic-group-1':
+                return group
+
+    def update_traffic_group1_mac(self):
+        masquerade_mac = self._gen_masquerade_mac()
+        traffic_group_1 = self.get_traffic_group_1()
+        LOG.debug('traffic-group-1 original mac is %s' % traffic_group_1.mac)
+        traffic_group_1.modify(mac=masquerade_mac)
+        LOG.debug('traffic-group-1 masquerade mac is %s' % masquerade_mac)
+        return masquerade_mac

@@ -156,13 +156,30 @@ class CreateBigip(command.ShowOne):
         commander.check_hostname_exists(hostname)
         if parsed_args.id:
             blob = commander.get_blob(parsed_args.id)
+            bigip_num = len(blob["bigip"])
+            if bigip_num == 2:
+                msg = _("device group already have two bigips")
+                raise exceptions.CommandError(msg)
+            if bigip_num == 1:
+                if ic.get_failover_state() != "standby":
+                    msg = _("The failover_state of second BIG-IP you "
+                            "create should be standby")
+                    raise exceptions.CommandError(msg)
+            if bigip_num == 0:
+                blob["masquerade_mac"] = ic.update_traffic_group1_mac()
+
             blob["bigip"][hostname] = ic.get_refresh_info()
             commander.update_bigip(parsed_args.id, blob)
             return commander.show_inventory(parsed_args.id)
         else:
+            if ic.get_failover_state() != "active":
+                msg = _("The failover_state of first BIG-IP "
+                        "you create should be active")
+                raise exceptions.CommandError(msg)
             blob = {
                 "admin_state_up": True,
                 "availability_zone": parsed_args.availability_zone,
+                "masquerade_mac": ic.update_traffic_group1_mac(),
                 "bigip": {
                     hostname: ic.get_refresh_info()
                 },
