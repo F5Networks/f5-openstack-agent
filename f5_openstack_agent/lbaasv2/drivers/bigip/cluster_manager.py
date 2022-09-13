@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import functools
 
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
@@ -21,30 +20,6 @@ from requests.exceptions import HTTPError
 from f5.multi_device.device_group import DeviceGroup
 
 LOG = logging.getLogger(__name__)
-
-
-def persist_config(method):
-
-    cluster_manager = ClusterManager()
-
-    @functools.wraps(method)
-    def wrapper(*args, **kwargs):
-        service = kwargs['service']
-        bigips = service['bigips']
-        method_name = method.__name__
-
-        method(*args, **kwargs)
-
-        for bigip in bigips:
-            LOG.info(
-                "Persist %s config on device %s" %
-                (method_name, bigip.hostname)
-            )
-            try:
-                cluster_manager.save_config(bigip)
-            except Exception as exc:
-                raise exc
-    return wrapper
 
 
 class BigIPClusterSyncFailure(Exception):
