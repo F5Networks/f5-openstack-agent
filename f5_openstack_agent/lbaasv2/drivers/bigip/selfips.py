@@ -183,7 +183,6 @@ class BigipSelfIpManager(object):
 
             port = self.driver.plugin_rpc.create_port_on_subnet(
                 subnet_id=subnet['id'],
-                mac_address=None,
                 name=selfip_name,
                 fixed_address_count=1,
                 device_id=device_id,

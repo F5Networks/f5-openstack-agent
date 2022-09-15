@@ -38,8 +38,6 @@ except ImportError:
 from f5_openstack_agent.client.bigip import BipipCommand
 from f5_openstack_agent.lbaasv2.drivers.bigip import bigip_device
 from f5_openstack_agent.lbaasv2.drivers.bigip.bigip_device import set_bigips
-from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
-    persist_config
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import opts
@@ -709,14 +707,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     # handlers for all in bound requests and notifications from controller
     #
     ######################################################################
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to create_loadbalancer."""
         id = loadbalancer['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.create(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -738,8 +735,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of loadbalancer %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def update_loadbalancer(self, context, old_loadbalancer,
                             loadbalancer, service):
@@ -747,6 +742,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = loadbalancer['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.update(old_loadbalancer, loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -768,14 +764,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of loadbalancer %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def delete_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to delete_loadbalancer."""
         id = loadbalancer['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.delete(loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -837,8 +832,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def create_listener(self, context, listener, service):
         """Handle RPC cast from plugin to create_listener."""
@@ -846,6 +839,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = listener['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.ListenerManager(self.lbdriver)
             mgr.create(listener, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -870,8 +864,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of listener %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def update_listener(self, context, old_listener, listener, service):
         """Handle RPC cast from plugin to update_listener."""
@@ -879,6 +871,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = listener['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.ListenerManager(self.lbdriver)
             mgr.update(old_listener, listener, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -902,8 +895,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of listener %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def delete_listener(self, context, listener, service):
         """Handle RPC cast from plugin to delete_listener."""
@@ -911,6 +902,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = listener['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.ListenerManager(self.lbdriver)
             mgr.delete(listener, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -939,8 +931,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of listener %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def update_acl_bind(self, context, listener, acl_bind, service):
         """Handle RPC cast from plugin to update_acl_bind."""
@@ -948,6 +938,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = listener['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.ListenerManager(self.lbdriver)
             mgr.update_acl_bind(listener, acl_bind, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -973,8 +964,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of listener %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def create_pool(self, context, pool, service):
         """Handle RPC cast from plugin to create_pool."""
@@ -982,6 +971,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = pool['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.PoolManager(self.lbdriver)
             mgr.create(pool, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1006,8 +996,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of pool %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def update_pool(self, context, old_pool, pool, service):
         """Handle RPC cast from plugin to update_pool."""
@@ -1015,6 +1003,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = pool['id']
 
         try:
+            set_bigips(service)
             # TODO(qzhao): Deploy config to BIG-IP
             mgr = resource_manager.PoolManager(self.lbdriver)
             mgr.update(old_pool, pool, service)
@@ -1039,8 +1028,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.error("Fail to update status of pool %s "
                           "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def delete_pool(self, context, pool, service):
         """Handle RPC cast from plugin to delete_pool."""
@@ -1048,6 +1035,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = pool['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.PoolManager(self.lbdriver)
             mgr.delete(pool, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1074,8 +1062,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of pool %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def create_member(
         self, context, member, service, the_port_id=None,
@@ -1087,6 +1073,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = member['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.MemberManager(self.lbdriver)
             mgr.create(member, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1144,8 +1131,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     LOG.exception("Fail to update status of member %s "
                                   "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
         """Handle RPC cast from plugin to update_member."""
@@ -1153,6 +1138,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = member['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.MemberManager(self.lbdriver)
             mgr.update(old_member, member, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1176,8 +1162,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of member %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def delete_member(self, context, member, service):
         """Handle RPC cast from plugin to delete_member."""
@@ -1186,6 +1170,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = member['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.MemberManager(self.lbdriver)
             mgr.delete(member, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1240,8 +1225,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     LOG.exception("Fail to update status of member %s "
                                   "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def create_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to create_pool_health_monitor."""
@@ -1249,6 +1232,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = health_monitor['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
@@ -1277,8 +1261,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of health_monitor %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def update_health_monitor(self, context, old_health_monitor,
                               health_monitor, service):
@@ -1287,6 +1269,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = health_monitor['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
@@ -1313,8 +1296,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of health_monitor %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def delete_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to delete_health_monitor."""
@@ -1322,6 +1303,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = health_monitor['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
@@ -1424,8 +1406,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         except Exception as exc:
             LOG.error("update_fdb_entries: Exception: %s" % exc.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def create_l7policy(self, context, l7policy, service):
         """Handle RPC cast from plugin to create_l7policy."""
@@ -1433,6 +1413,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7policy['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.L7PolicyManager(self.lbdriver)
             mgr.create(l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1457,8 +1438,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7policy %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def update_l7policy(self, context, old_l7policy, l7policy, service):
         """Handle RPC cast from plugin to update_l7policy."""
@@ -1466,6 +1445,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7policy['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.L7PolicyManager(self.lbdriver)
             mgr.update(old_l7policy, l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1490,8 +1470,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7policy %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def delete_l7policy(self, context, l7policy, service):
         """Handle RPC cast from plugin to delete_l7policy."""
@@ -1499,6 +1477,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7policy['id']
 
         try:
+            set_bigips(service)
             bigip_dev = bigip_device.BigipDevice(service['device'])
             service['bigips'] = bigip_dev.get_all_bigips()
 
@@ -1529,8 +1508,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7policy %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def create_l7rule(self, context, l7rule, service):
         """Handle RPC cast from plugin to create_l7rule."""
@@ -1538,6 +1515,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7rule['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.L7RuleManager(self.lbdriver)
             mgr.create(l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1562,8 +1540,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7rule %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def update_l7rule(self, context, old_l7rule, l7rule, service):
         """Handle RPC cast from plugin to update_l7rule."""
@@ -1571,6 +1547,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7rule['id']
 
         try:
+            set_bigips(service)
             mgr = resource_manager.L7RuleManager(self.lbdriver)
             mgr.update(old_l7rule, l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
@@ -1595,8 +1572,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7 rule %s "
                               "Exception: %s", id, ex.message)
 
-    @set_bigips
-    @persist_config
     @log_helpers.log_method_call
     def delete_l7rule(self, context, l7rule, service):
         """Handle RPC cast from plugin to delete_l7rule."""
@@ -1604,6 +1579,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7rule['id']
 
         try:
+            set_bigips(service)
             # TODO(qzhao): Deploy config to BIG-IP
             mgr = resource_manager.L7RuleManager(self.lbdriver)
             mgr.delete(l7rule, service)

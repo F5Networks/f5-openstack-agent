@@ -16,7 +16,6 @@
 
 import base64
 import datetime
-import hashlib
 import json
 import logging as std_logging
 import os
@@ -378,9 +377,6 @@ class iControlDriver(LBaaSBaseDriver):
 
         # HA and traffic group validation
         self.ha_validated = False
-        self.tg_initialized = False
-        # traffic groups discovered from BIG-IPs for service placement
-        self.__traffic_groups = []
 
         # base configurations to report to Neutron agent state reports
         self.agent_configurations = {}  # overrides base, same value
@@ -564,12 +560,6 @@ class iControlDriver(LBaaSBaseDriver):
                         LOG.debug('HA validated from %s with DSG %s' %
                                   (hostname, device_group_name))
                         self.ha_validated = True
-                    if not self.tg_initialized:
-                        self._init_traffic_groups(bigip)
-                        LOG.debug('learned traffic groups from %s as %s' %
-                                  (hostname, self.__traffic_groups))
-                        self.tg_initialized = True
-                    LOG.debug('initializing bigip %s' % hostname)
                     self._init_bigip(bigip, hostname, device_group_name)
                     LOG.debug('initializing agent configurations %s'
                               % hostname)
@@ -1749,7 +1739,7 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.debug("    _assure_tenant_created took %.5f secs" %
                       (time() - start_time))
 
-            traffic_group = self.service_to_traffic_group(service)
+            traffic_group = self.get_traffic_group_1()
             loadbalancer['traffic_group'] = traffic_group
 
             if self.network_builder:
@@ -2080,17 +2070,36 @@ class iControlDriver(LBaaSBaseDriver):
         # if can't determine active, default to first one
         return bigips[0]
 
-    def service_to_traffic_group(self, service):
-        # Hash service tenant id to index of traffic group
-        # return which iControlDriver.__traffic_group that tenant is "in?"
-        return self.tenant_to_traffic_group(
-            service['loadbalancer']['tenant_id'])
+    def get_traffic_group_1(self):
+        return "traffic-group-1"
 
-    def tenant_to_traffic_group(self, tenant_id):
-        # Hash tenant id to index of traffic group
-        hexhash = hashlib.md5(tenant_id).hexdigest()
-        tg_index = int(hexhash, 16) % len(self.__traffic_groups)
-        return self.__traffic_groups[tg_index]
+    def get_traffic_mac(self, service):
+        # only return mac of traffic-group-1
+        bigip = service['bigips'][0]
+
+        try:
+            traffic_groups = \
+                self.cluster_manager.get_traffic_groups(bigip)
+            LOG.debug(
+                "Retrieved traffic groups %s from %s" %
+                (traffic_groups, bigip.hostname)
+            )
+        except Exception as exc:
+            raise exc
+
+        traffic_group_1 = traffic_groups.get('traffic-group-1')
+        if traffic_group_1 is None:
+            raise Exception(
+                "Can not find traffic-group-1 in hostname %s" %
+                bigip.hostname
+            )
+
+        mac = traffic_group_1.mac
+        LOG.info("Get mac %s from traffic-group-1" % mac)
+        if mac == 'none':
+            return None
+
+        return mac
 
     def get_all_bigips(self, **kwargs):
         return_bigips = []
@@ -2150,23 +2159,6 @@ class iControlDriver(LBaaSBaseDriver):
 
     def get_route_domain_count(self, bigip=None, global_statistics=None):
         return self.network_helper.get_route_domain_count(bigip)
-
-    def _init_traffic_groups(self, bigip):
-        try:
-            LOG.debug('retrieving traffic groups from %s' % bigip.hostname)
-            self.__traffic_groups = \
-                self.cluster_manager.get_traffic_groups(bigip)
-            if 'traffic-group-local-only' in self.__traffic_groups:
-                LOG.debug('removing reference to non-floating traffic group')
-                self.__traffic_groups.remove('traffic-group-local-only')
-            self.__traffic_groups.sort()
-            LOG.debug('service placement will done on traffic group(s): %s'
-                      % self.__traffic_groups)
-        except Exception:
-            bigip.status = 'error'
-            bigip.status_message = \
-                'could not determine traffic groups for service placement'
-            raise
 
     def _validate_bigip_version(self, bigip, hostname):
         # Ensure the BIG-IP has sufficient version

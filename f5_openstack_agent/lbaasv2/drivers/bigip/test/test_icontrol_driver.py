@@ -74,7 +74,7 @@ class TestiControlDriverMockBuilder(mock_builder_base_class.MockBuilderBase,
         mocked_target.__last_connect_attempt = None
         mocked_target.ha_validated = False
         mocked_target.tg_initialized = False
-        mocked_target.__traffic_groups = []
+        mocked_target._traffic_groups = dict()
         mocked_target.agent_configurations = {}
         mocked_target.agent_configurations['device_drivers'] = \
             ['mocked_target.driver_name']
