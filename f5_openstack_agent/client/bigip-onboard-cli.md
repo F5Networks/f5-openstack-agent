@@ -80,6 +80,10 @@ command example:
 
    `bigip-onboard refresh 8842dbbb-8041-4318-9517-f09cd29a3f55`
 
+3. refresh all device group in the inventory.
+
+   `bigip-onboard refresh all`
+
 ### 5. bigip-onboard list
 usage: List all BIG-IP in the inventory
 

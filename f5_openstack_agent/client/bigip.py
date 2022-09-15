@@ -74,6 +74,17 @@ class BipipCommand(object):
         del inventory[group_id]
         self._write_inventory(inventory)
 
+    def refresh_all(self):
+        inventory = self._load_inventory()
+        for group_id in inventory:
+            self.refresh_group(group_id)
+
+    def refresh_group(self, group_id):
+        blob = self.get_blob(group_id)
+        bigip = blob['bigip']
+        for hostname, info in bigip.items():
+            self.refresh_bigip(group_id, hostname)
+
     def refresh_bigip(self, group_id, hostname):
         blob = self.get_blob(group_id)
 
@@ -182,6 +193,8 @@ class CreateBigip(command.ShowOne):
                     msg = _("The failover_state of second BIG-IP you "
                             "create should be standby")
                     raise exceptions.CommandError(msg)
+                ic.update_traffic_group1_mac(blob["masquerade_mac"])
+
             if bigip_num == 0:
                 blob["masquerade_mac"] = ic.update_traffic_group1_mac()
 
@@ -314,15 +327,16 @@ class RefreshBigip(command.ShowOne):
     def take_action(self, parsed_args):
         commander = BipipCommand()
         icontrol_hostname = parsed_args.icontrol_hostname
-        if icontrol_hostname:
-            commander.refresh_bigip(parsed_args.id, icontrol_hostname)
+        group_id = parsed_args.id
+        if group_id == "all":
+            commander.refresh_all()
+            return {}, {}
         else:
-            blob = commander.get_blob(parsed_args.id)
-            bigip = blob['bigip']
-            for hostname, info in bigip.items():
-                commander.refresh_bigip(parsed_args.id, hostname)
-
-        return commander.show_inventory(parsed_args.id)
+            if icontrol_hostname:
+                commander.refresh_bigip(group_id, icontrol_hostname)
+            else:
+                commander.refresh_group(group_id)
+            return commander.show_inventory(group_id)
 
 
 class ListBigip(command.Lister):
