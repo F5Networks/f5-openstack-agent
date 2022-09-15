@@ -133,8 +133,9 @@ class IControlClient(object):
             if group.name == 'traffic-group-1':
                 return group
 
-    def update_traffic_group1_mac(self):
-        masquerade_mac = self._gen_masquerade_mac()
+    def update_traffic_group1_mac(self, masquerade_mac=None):
+        if not masquerade_mac:
+            masquerade_mac = self._gen_masquerade_mac()
         traffic_group_1 = self.get_traffic_group_1()
         LOG.debug('traffic-group-1 original mac is %s' % traffic_group_1.mac)
         traffic_group_1.modify(mac=masquerade_mac)
