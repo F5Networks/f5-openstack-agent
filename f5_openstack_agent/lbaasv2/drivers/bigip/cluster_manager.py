@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
