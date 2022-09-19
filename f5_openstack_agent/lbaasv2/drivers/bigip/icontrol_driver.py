@@ -111,10 +111,6 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'f5_device_type', default='external',
         help='What type of device onboarding'
     ),
-    cfg.StrOpt(
-        'f5_ha_type', default='pair',
-        help='Are we standalone, pair(active/standby), or scalen'
-    ),
     cfg.ListOpt(
         'f5_external_physical_mappings', default=['default:1.1:True'],
         help='Mapping between Neutron physical_network to interfaces'
@@ -454,84 +450,6 @@ class iControlDriver(LBaaSBaseDriver):
                 self.conf,
                 self,
                 self.l3_binding)
-
-    def _validate_ha(self, bigip):
-        # if there was only one address supplied and
-        # this is not a standalone device, get the
-        # devices trusted by this device.
-        device_group_name = None
-        if self.conf.f5_ha_type == 'standalone':
-            if len(self.hostnames) != 1:
-                bigip.status = 'error'
-                bigip.status_message = \
-                    'HA mode is standalone and %d hosts found.'\
-                    % len(self.hostnames)
-                raise f5ex.BigIPClusterInvalidHA(
-                    'HA mode is standalone and %d hosts found.'
-                    % len(self.hostnames))
-            device_group_name = 'standalone'
-        elif self.conf.f5_ha_type == 'pair':
-            device_group_name = self.cluster_manager.\
-                get_device_group(bigip)
-            if len(self.hostnames) != 2:
-                mgmt_addrs = []
-                devices = self.cluster_manager.devices(bigip)
-                for device in devices:
-                    mgmt_addrs.append(
-                        self.cluster_manager.get_mgmt_addr_by_device(
-                            bigip, device))
-                self.hostnames = mgmt_addrs
-            if len(self.hostnames) != 2:
-                bigip.status = 'error'
-                bigip.status_message = 'HA mode is pair and %d hosts found.' \
-                    % len(self.hostnames)
-                raise f5ex.BigIPClusterInvalidHA(
-                    'HA mode is pair and %d hosts found.'
-                    % len(self.hostnames))
-        elif self.conf.f5_ha_type == 'scalen':
-            device_group_name = self.cluster_manager.\
-                get_device_group(bigip)
-            if len(self.hostnames) < 2:
-                mgmt_addrs = []
-                devices = self.cluster_manager.devices(bigip)
-                for device in devices:
-                    mgmt_addrs.append(
-                        self.cluster_manager.get_mgmt_addr_by_device(
-                            bigip, device)
-                    )
-                self.hostnames = mgmt_addrs
-            if len(self.hostnames) < 2:
-                bigip.status = 'error'
-                bigip.status_message = 'HA mode is scale and 1 hosts found.'
-                raise f5ex.BigIPClusterInvalidHA(
-                    'HA mode is pair and 1 hosts found.')
-        return device_group_name
-
-    def _validate_ha_operational(self, bigip):
-        if self.conf.f5_ha_type == 'standalone':
-            return True
-        else:
-            # how many active BIG-IPs are there?
-            active_bigips = self.get_active_bigips()
-            if active_bigips:
-                sync_status = self.cluster_manager.get_sync_status(bigip)
-                if sync_status in ['Disconnected', 'Sync Failure']:
-                    if len(active_bigips) > 1:
-                        # the device should not be in the disconnected state
-                        return False
-                if len(active_bigips) > 1:
-                    # it should be in the same sync-failover group
-                    # as the rest of the active bigips
-                    device_group_name = \
-                        self.cluster_manager.get_device_group(bigip)
-                    for active_bigip in active_bigips:
-                        adgn = self.cluster_manager.get_device_group(
-                            active_bigip)
-                        if not adgn == device_group_name:
-                            return False
-                return True
-            else:
-                return True
 
     def _set_agent_status(self, force_resync=False):
 
