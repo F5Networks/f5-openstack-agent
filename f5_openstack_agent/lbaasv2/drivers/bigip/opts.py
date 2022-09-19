@@ -77,11 +77,6 @@ OPTS = [
         default=True,
         help=('use SNATs, not direct routed mode')
     ),
-    cfg.IntOpt(
-        'f5_snat_addresses_per_subnet',
-        default=1,
-        help=('Interface and VLAN for the VTEP overlay network')
-    ),
     cfg.StrOpt(
         'provider_name',
         default=None,
