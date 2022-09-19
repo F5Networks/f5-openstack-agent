@@ -42,11 +42,6 @@ OPTS = [
         help='Select agent mode between normal and lite'
     ),
     cfg.IntOpt(
-        'periodic_interval',
-        default=600,
-        help='Seconds between periodic task runs'
-    ),
-    cfg.IntOpt(
         'resync_interval',
         default=-1,
         help='Seconds interval for resync task'
@@ -111,11 +106,6 @@ OPTS = [
         'static_agent_configuration_data',
         default=None,
         help=('static name:value entries to add to the agent configurations')
-    ),
-    cfg.IntOpt(
-        'service_resync_interval',
-        default=86400,
-        help=('Number of seconds between service refresh checks')
     ),
     cfg.IntOpt(
         'member_update_interval',
