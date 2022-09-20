@@ -48,6 +48,5 @@ setuptools.setup(
             'masquerade_mac = f5_openstack_agent.bin.masquerade_mac:main'
         ]
     },
-    install_requires=['f5-sdk==3.0.11.4']
+    install_requires=['f5-sdk>=3.0.11.4']
 )
-
