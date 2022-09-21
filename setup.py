@@ -56,6 +56,5 @@ setuptools.setup(
             'show = f5_openstack_agent.client.bigip:ShowBigip',
         ]
     },
-    install_requires=['f5-sdk==3.0.11.4']
+    install_requires=['f5-sdk>=3.0.11.4']
 )
-
