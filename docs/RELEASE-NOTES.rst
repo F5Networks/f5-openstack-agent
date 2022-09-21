@@ -5,6 +5,20 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.40.patch3 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2587] Upgrade to python sdk 3.0.11.5
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+
 v9.9.40.patch2 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
