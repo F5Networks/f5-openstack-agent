@@ -5,6 +5,25 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.54.patch1 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2566] Reserve one floating ip in large snat subnet
+* [OPENSTACK-2587] Upgrade to python sdk 3.0.11.5
+
+Bug Fixes
+`````````
+* [OPENSTACK-2552] add snat port NoneType check
+* [OPENSTACK-2552] change log level for deleting lbs
+* [OPENSTACK-2533] purge ESD
+* [OPENSTACK-2587] ignore 404 for selfip deleting
+
+Limitations
+```````````
+
 v9.9.54 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.

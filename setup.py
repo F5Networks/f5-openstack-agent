@@ -27,7 +27,6 @@ setuptools.setup(
                      'etc/neutron/services/f5/f5-extended-profile.json',
                      'etc/neutron/services/f5/f5-cipher-policy.json'
                 ]),
-                ('/etc/neutron/services/f5/esd', ['etc/neutron/services/f5/esd/demo.json']),
                 ('/etc/init.d', ['etc/init.d/f5-oslbaasv2-agent']),
                 ('/usr/lib/systemd/system', ['lib/systemd/system/f5-openstack-agent.service']),
                 ('/usr/bin/f5', ['bin/debug_bundler.py'])],
@@ -45,10 +44,8 @@ setuptools.setup(
     entry_points={
         'console_scripts': [
             'f5-oslbaasv2-agent = f5_openstack_agent.lbaasv2.drivers.bigip.agent:main',
-            'refresh-esd = f5_openstack_agent.lbaasv2.drivers.bigip.refersh_esd:refresh_esd',
             'update-lb = f5_openstack_agent.lbaasv2.drivers.bigip.update_lb:update_lb'
         ]
     },
-    install_requires=['f5-sdk==3.0.11.4']
+    install_requires=['f5-sdk>=3.0.11.4']
 )
-

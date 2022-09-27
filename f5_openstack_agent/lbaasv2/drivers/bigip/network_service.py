@@ -627,7 +627,7 @@ class NetworkServiceBuilder(object):
                     )
 
                     if not selfip_address:
-                        LOG.error(
+                        LOG.warning(
                             "Failed to get self IP address %s in cleanup.",
                             local_selfip_name
                         )
@@ -938,7 +938,7 @@ class SNATHelper(object):
                     addr_info['ip_address'] for addr_info in port['fixed_ips']
                 }
 
-                if len(port['fixed_ips']) != snats_per_subnet:
+                if not port or len(port['fixed_ips']) != snats_per_subnet:
                     raise f5_ex.SNATCreationException(
                         "Unable to satisfy request to allocate %d "
                         "snats.  Actual SNAT count: %d SNATs"
