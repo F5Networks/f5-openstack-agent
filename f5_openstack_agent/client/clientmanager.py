@@ -138,6 +138,6 @@ class IControlClient(object):
             masquerade_mac = self._gen_masquerade_mac()
         traffic_group_1 = self.get_traffic_group_1()
         LOG.debug('traffic-group-1 original mac is %s' % traffic_group_1.mac)
-        traffic_group_1.modify(mac=masquerade_mac)
+        # traffic_group_1.modify(mac=masquerade_mac)
         LOG.debug('traffic-group-1 masquerade mac is %s' % masquerade_mac)
         return masquerade_mac
