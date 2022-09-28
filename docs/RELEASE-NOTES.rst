@@ -5,6 +5,60 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.1 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2557] Do not update mac automatically
+* [OPENSTACK-2587] Upgrade to python sdk 3.0.11.5
+* [OPENSTACK-2557] Clean f5_snat_addresses_per_subnet configuration option
+* [OPENSTACK-2557] Clean f5_ha_type configuration
+* [OPENSTACK-2557] Clean some configuration options
+* [OPENSTACK-2557] Persist configuration periodically
+* [OPENSTACK-2557] Update mac and refresh all
+* [OPENSTACK-2522] Remove bigip driver init and connection
+* [OPENSTACK-2522] Update mac for NG
+* [OPENSTACK-2522] Update mac
+* [OPENSTACK-2557] Fix resource pending
+* [OPENSTACK-2558] Member state collect
+* [OPENSTACK-2557] Mac address update
+* [OPENSTACK-2558] Collect member stats
+* [OPENSTACK-2559] Remove periodic config save
+* [OPENSTACK-2559] Remove vlan_binding
+* [OPENSTACK-2559] Replace get_all_bigips in network_service.py
+* [OPENSTACK-2559] Remove get bigip hosts
+* [OPENSTACK-2559] Remove vcmp configuration in l2_service
+* [OPENSTACK-2559] Remove get_bigip()
+* [OPENSTACK-2559] Remove unused purge_orphaned_nodes to avoid get_bigip()
+* [OPENSTACK-2559] Remove vcmp init to avoid calling get_bigip()
+* [OPENSTACK-2559] Remove some info of agent configuration
+* [OPENSTACK-2557] Adjust bigip-board command
+* [OPENSTACK-2559] Remove agent set admin_state_up
+* [OPENSTACK-2559] Agent uses driver bigip info to configure bigip
+* [OPENSTACK-2559] Purge bigip connection
+* [OPENSTACK-2559] Purge periodic-scrub
+* [OPENSTACK-2559] Purge periodic-resync
+* [OPENSTACK-2559] Purge service sync code
+* [OPENSTACK-2559] Purge bigip recover code
+* [OPENSTACK-2531] bigip-onboard CLI
+* [OPENSTACK-2566] Reserve one floating ip in large snat subnet
+* [OPENSTACK-2532] Bump up version number
+* [OPENSTACK-2533] Purge ESD
+* [OPENSTACK-2533] Remove agent manager
+
+Bug Fixes
+`````````
+* [OPENSTACK-2587] Ignore 404 for selfip deleting
+* [OPENSTACK-2552] Change log level for deleting lbs
+* [OPENSTACK-2552] Add snat port NoneType check
+* [OPENSTACK-2548] Check unavaliable flavors
+* [OPENSTACK-2548] Server check flavor, when client not to do it
+
+Limitations
+```````````
+
 v9.9.54 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
