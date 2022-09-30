@@ -1661,5 +1661,5 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr.update(old_acl_group, acl_group)
             LOG.debug("Finish to update acl_group %s", id)
         except Exception as ex:
-            LOG.error("Fail to update loadbalancer %s "
+            LOG.error("Fail to update acl_group %s "
                       "Exception: %s", id, ex.message)
