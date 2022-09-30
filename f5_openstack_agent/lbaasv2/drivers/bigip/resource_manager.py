@@ -32,6 +32,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_adapter \
     import L7PolicyServiceAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip.ltm_policy \
     import LTMPolicyRedirect
+from f5_openstack_agent.lbaasv2.drivers.bigip.network_service import \
+    get_route_domain
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tcp_profile \
     import TCPProfileHelper
@@ -1769,6 +1771,23 @@ class MemberManager(ResourceManager):
             "admin_state_up": "session",
         }
 
+    def _get_member_name(self, service):
+        member = service["member"]
+        address = member["address"]
+        port = member["protocol_port"]
+
+        if not self.driver.conf.f5_global_routed_mode:
+            lb = service["loadbalancer"]
+            lb_network_id = lb["network_id"]
+            lb_network = service["networks"][lb_network_id]
+            rd = get_route_domain(lb_network)
+            address = address + "%" + str(rd)
+
+        if ':' in address:
+            return address + '.' + str(port)
+        else:
+            return address + ':' + str(port)
+
     def _create_member_payload(self, loadbalancer, member):
         return self.driver.service_adapter._map_member(loadbalancer, member)
 
@@ -1905,16 +1924,12 @@ class MemberManager(ResourceManager):
     @serialized('MemberManager.delete')
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
-
-        self._check_nonshared_network(service)
-
-        self.driver.annotate_service_members(service)
         if not service.get(self._key):
             self._search_element(resource, service)
 
         LOG.debug("Begin to delete %s %s", self._resource, resource['id'])
-        member = service['member']
-        payload = self._create_payload(member, service)
+        member = service["member"]
+        member_name = self._get_member_name(service)
 
         pool = {}
         pool['id'] = member['pool_id']
@@ -1931,8 +1946,8 @@ class MemberManager(ResourceManager):
                     partition=pool_payload['partition']
                 )
                 member_resource = pool_resource.members_s.members.load(
-                    name=urllib.quote(payload['name']),
-                    partition=payload['partition']
+                    name=urllib.quote(member_name),
+                    partition=pool_payload['partition']
                 )
                 member_resource.delete()
             except HTTPError as err:
@@ -1946,10 +1961,17 @@ class MemberManager(ResourceManager):
                     # raise err
 
             self._pool_mgr._delete_member_node(loadbalancer, member, bigip)
-            self._shrink_payload(pool_payload,
-                                 keys_to_keep=['partition',
-                                               'name', 'loadBalancingMode'])
-            self._pool_mgr._update(bigip, pool_payload, None, None, service)
+
+            # Modify pool if its loadBalancingMode changes
+            if pool_resource.loadBalancingMode != \
+               pool_payload["loadBalancingMode"]:
+                self._shrink_payload(
+                    pool_payload,
+                    keys_to_keep=[
+                        'partition', 'name', 'loadBalancingMode'
+                    ])
+                self._pool_mgr._update(bigip, pool_payload,
+                                       None, None, service)
 
         LOG.debug("Finish to delete %s %s", self._resource, resource['id'])
 
