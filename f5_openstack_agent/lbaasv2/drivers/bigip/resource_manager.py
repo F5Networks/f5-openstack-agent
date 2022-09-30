@@ -1843,7 +1843,6 @@ class MemberManager(ResourceManager):
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
 
-        self._check_nonshared_network(service)
         self._create_single(resource, service, **kwargs)
 
     def _create_single(self, resource, service, **kwargs):
@@ -1885,41 +1884,13 @@ class MemberManager(ResourceManager):
             self._shrink_payload(pool_payload,
                                  keys_to_keep=['partition',
                                                'name', 'loadBalancingMode'])
-            self._pool_mgr._update(bigip, pool_payload, None, None, service)
+            # Modify pool if its loadBalancingMode changes
+            if pool_resource.loadBalancingMode != \
+               pool_payload["loadBalancingMode"]:
+                self._pool_mgr._update(bigip, pool_payload,
+                                       None, None, service)
 
         LOG.debug("Finish to create %s %s", self._resource, resource['id'])
-
-    def _check_nonshared_network(self, service):
-        loadbalancer = service["loadbalancer"]
-        tenant_id = loadbalancer["tenant_id"]
-
-        members = service["members"]
-        for meb in members:
-            meb_net_id = meb["network_id"]
-            network = self.driver.service_adapter.get_network_from_service(
-                service, meb_net_id)
-            net_project_id = network["project_id"]
-
-            if self.driver.conf.f5_global_routed_mode:
-                shared = network["shared"]
-                if not shared:
-                    if tenant_id != net_project_id:
-                        raise f5_ex.ProjectIDException(
-                            "The tenant project id is %s. "
-                            "The nonshared netwok/subnet project id is %s. "
-                            "They are not belong to the same tenant." %
-                            (tenant_id, net_project_id))
-                return
-
-            if not self.driver.network_builder.l2_service.is_common_network(
-                    network):
-                if tenant_id != net_project_id:
-                    raise f5_ex.ProjectIDException(
-                        "The tenant project id is %s. "
-                        "The nonshared netwok/subnet project id of "
-                        "member %s is %s. "
-                        "They are not belong to the same tenant." %
-                        (tenant_id, meb, net_project_id))
 
     @serialized('MemberManager.delete')
     @log_helpers.log_method_call
