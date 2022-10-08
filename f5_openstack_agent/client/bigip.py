@@ -7,6 +7,7 @@ from openstackclient.i18n import _
 from osc_lib.command import command
 from osc_lib import exceptions
 from oslo_log import log as logging
+from oslo_serialization import base64
 
 from f5_openstack_agent.client.clientmanager import IControlClient
 
@@ -94,8 +95,10 @@ class BipipCommand(object):
             raise exceptions.CommandError(msg)
 
         bigip_info = bigip[hostname]
-        ic = IControlClient(hostname, bigip_info['username'],
-                            bigip_info['password'], bigip_info['port'])
+        ic = IControlClient(hostname,
+                            base64.decode_as_text(bigip_info['username']),
+                            base64.decode_as_text(bigip_info['password']),
+                            bigip_info['port'])
         blob["bigip"][hostname] = ic.get_refresh_info()
         self.update_bigip(group_id, blob)
 
@@ -119,8 +122,10 @@ class BipipCommand(object):
                         bigips.append({
                             'group_id': group_id,
                             'hostname': host,
-                            'username': info['username'],
-                            'password': info['password'],
+                            'username':
+                                base64.decode_as_text(info['username']),
+                            'password':
+                                base64.decode_as_text(info['password']),
                             'port': info['port'],
                         })
         return bigips
