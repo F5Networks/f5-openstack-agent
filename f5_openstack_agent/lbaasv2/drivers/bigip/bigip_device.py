@@ -3,6 +3,7 @@
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from oslo_log import log
+from oslo_serialization import base64
 
 LOG = log.getLogger(__name__)
 
@@ -21,8 +22,12 @@ def build_connection(host, info):
     try:
         bigip = ManagementRoot(
             host,
-            info['username'],
-            info['password'],
+            base64.decode_as_text(
+                info['username']
+            ),
+            base64.decode_as_text(
+                info['password']
+            ),
             port=info['port'],
             timeout=constants_v2.DEVICE_CONNECTION_TIMEOUT,
             debug=True

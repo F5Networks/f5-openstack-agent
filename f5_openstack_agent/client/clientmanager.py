@@ -4,6 +4,8 @@ import logging as std_logging
 
 from f5.bigip import ManagementRoot
 from oslo_log import log as logging
+from oslo_serialization import base64
+
 import requests
 from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -41,8 +43,8 @@ class IControlClient(object):
 
     def get_bigip_info(self):
         info = {
-            "username": self.icontrol_username,
-            "password": self.icontrol_password,
+            "username": base64.encode_as_text(self.icontrol_username),
+            "password": base64.encode_as_text(self.icontrol_password),
             "port": self.icontrol_port,
         }
         return info
