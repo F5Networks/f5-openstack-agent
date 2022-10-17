@@ -334,20 +334,8 @@ class NetworkServiceBuilder(object):
         if 'members' in service:
             for member in service['members']:
                 if 'address' in member:
-                    LOG.debug("processing member %s" % member['address'])
-                    if 'network_id' in member and member['network_id']:
-                        member_network = (
-                            self.service_adapter.get_network_from_service(
-                                service,
-                                member['network_id']
-                            ))
-                        if member_network:
-                            self.set_network_route_domain(
-                                member_network,
-                                lb_network['route_domain_id']
-                            )
-                            rd_id = '%' + str(lb_network['route_domain_id'])
-                            member['address'] += rd_id
+                    if rd_id:
+                        member['address'] += rd_id
                     else:
                         member['address'] += '%0'
 
