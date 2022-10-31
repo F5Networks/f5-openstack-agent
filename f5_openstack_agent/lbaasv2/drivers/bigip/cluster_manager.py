@@ -104,7 +104,7 @@ class ClusterManager(object):
                 name=device_name, partition='Common')
             active = act.failoverState.lower() == 'active'
         except Exception as exc:
-            LOG.error("Unable to get device info. %s", exc.message)
+            LOG.error("Unable to get device info. %s", str(exc))
 
         return active
 

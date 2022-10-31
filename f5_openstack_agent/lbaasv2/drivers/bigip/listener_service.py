@@ -390,7 +390,7 @@ class ListenerServiceBuilder(object):
         try:
             timeout = int(persistence.get("persistence_timeout") or 0)
         except ValueError as ex:
-            LOG.warning(ex.message)
+            LOG.warning(str(ex))
             timeout = 0
         if timeout <= 0:
             timeout = self.conf.persistence_timeout

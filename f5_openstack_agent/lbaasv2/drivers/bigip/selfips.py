@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import constants_v2 as const
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as const
 import netaddr
 from oslo_log import log as logging
 

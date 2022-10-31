@@ -18,7 +18,6 @@ import copy
 import glob
 import json
 import os
-import types
 
 from oslo_log import log as logging
 
@@ -201,41 +200,41 @@ class EsdTagProcessor(object):
     valid_esd_tags = {
         'lbaas_ctcp': {
             'resource_type': ResourceType.tcp_profile,
-            'value_type': types.StringTypes},
+            'value_type': str},
 
         'lbaas_stcp': {
             'resource_type': ResourceType.tcp_profile,
-            'value_type': types.StringTypes},
+            'value_type': str},
 
         'lbaas_cssl_profile': {
             'resource_type': ResourceType.client_ssl_profile,
-            'value_type': types.StringTypes},
+            'value_type': str},
 
         'lbaas_sssl_profile': {
             'resource_type': ResourceType.server_ssl_profile,
-            'value_type': types.StringTypes},
+            'value_type': str},
 
         'lbaas_http_profile': {
             'resource_type': ResourceType.http_profile,
-            'value_type': types.StringTypes},
+            'value_type': str},
 
         'lbaas_irule': {
             'resource_type': ResourceType.rule,
-            'value_type': types.ListType},
+            'value_type': list},
 
         'lbaas_policy': {
             'resource_type': ResourceType.l7policy,
-            'value_type': types.ListType},
+            'value_type': list},
 
         'lbaas_persist': {
             'resource_type': ResourceType.persistence,
-            'value_type': types.StringTypes},
+            'value_type': str},
 
         'lbaas_fallback_persist': {
             'resource_type': ResourceType.persistence,
-            'value_type': types.StringTypes},
+            'value_type': str},
 
         'lbaas_oneconnect_profile': {
             'resource_type': ResourceType.oneconnect,
-            'value_type': types.StringTypes}
+            'value_type': str}
     }

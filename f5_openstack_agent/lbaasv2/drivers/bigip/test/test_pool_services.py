@@ -507,7 +507,7 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
         error = target._delete_member_node(loadbalancer, member, bigip)
 
         assert target.node_helper.delete.called_once_with(
-            bigip, urllib.quote(node['name']), node['partition'])
+            bigip, urllib.parse.quote(node['name']), node['partition'])
         assert not error
 
     def test_delete_member_node_404(self, target, pool_member_service,
@@ -523,7 +523,7 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
         error = target._delete_member_node(loadbalancer, member, bigip)
 
         assert target.node_helper.delete.called_once_with(
-            bigip, urllib.quote(node['name']), node['partition'])
+            bigip, urllib.parse.quote(node['name']), node['partition'])
         assert not error
 
     def test_delete_member_node_500(self, target, pool_member_service,
@@ -539,7 +539,7 @@ class TestPoolServiceBuilder(TestPoolServiceBuilderBuilder):
         error = target._delete_member_node(loadbalancer, member, bigip)
 
         assert target.node_helper.delete.called_once_with(
-            bigip, urllib.quote(node['name']), node['partition'])
+            bigip, urllib.parse.quote(node['name']), node['partition'])
         assert error
 
     def test_assure_pool_members_exists(self, target, pool_member_service):

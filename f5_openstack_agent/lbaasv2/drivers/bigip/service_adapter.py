@@ -268,6 +268,7 @@ class ServiceModelAdapter(object):
 
     def tenant_to_traffic_group(self, tenant_id, traffic_groups):
         # Hash tenant id to index of traffic group
+        tenant_id=tenant_id.encode('utf-8')
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(traffic_groups)
         return traffic_groups[tg_index]
@@ -426,7 +427,7 @@ class ServiceModelAdapter(object):
 
         member_has_weight = False
         for member in lbaas_members:
-            if 'weight' in member and member['weight'] > 1 and \
+            if 'weight' in member and int(member['weight']) > 1 and \
                     member['provisioning_status'] != 'PENDING_DELETE':
                 member_has_weight = True
                 break

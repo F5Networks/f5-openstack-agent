@@ -16,7 +16,7 @@
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from oslo_log import log as logging
 
-from fdb_connector import FDBConnector
+from f5_openstack_agent.lbaasv2.drivers.bigip.fdb_connector import FDBConnector
 
 LOG = logging.getLogger(__name__)
 

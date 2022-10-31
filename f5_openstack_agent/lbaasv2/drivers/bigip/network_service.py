@@ -131,7 +131,7 @@ class NetworkServiceBuilder(object):
         networks = service.get('networks', {})
         supported_net_types = ['vlan', 'vxlan', 'gre', 'opflex']
 
-        for (network_id, network) in networks.iteritems():
+        for (network_id, network) in networks.items():
             if network_id in self.conf.common_network_ids:
                 continue
 
@@ -180,7 +180,7 @@ class NetworkServiceBuilder(object):
                           "with route domain ID.")
                 self._annotate_service_route_domains(service)
             except f5_ex.InvalidNetworkType as exc:
-                LOG.warning(exc.message)
+                LOG.warning(str(exc))
             except Exception as err:
                 LOG.exception(err)
                 raise f5_ex.RouteDomainCreationException(
@@ -328,7 +328,7 @@ class NetworkServiceBuilder(object):
             network['route_domain_id'] = route_domain_id
             return
         except f5_ex.RouteDomainCacheMiss as exc:
-            LOG.debug(exc.message)
+            LOG.debug(str(exc))
 
         LOG.debug("assign route domain checking for available route domain")
         check_cidr = netaddr.IPNetwork(subnet['cidr'])
@@ -698,7 +698,7 @@ class NetworkServiceBuilder(object):
                 ermsg = 'Invalid default gateway for subnet %s:%s - %s.' \
                     % (subnet['id'],
                        subnet['gateway_ip'],
-                       exc.message)
+                       str(exc))
                 ermsg += " SNAT will not function and load balancing"
                 ermsg += " support will likely fail. Enable f5_snat_mode."
                 LOG.exception(ermsg)
@@ -813,10 +813,10 @@ class NetworkServiceBuilder(object):
                         in_use_subnetid, None)
             except f5_ex.F5NeutronException as exc:
                 LOG.error("assure_delete_nets_shared: exception: %s"
-                          % str(exc.msg))
+                          % str(str(exc)))
             except Exception as exc:
                 LOG.error("assure_delete_nets_shared: exception: %s"
-                          % str(exc.message))
+                          % str(str(exc)))
 
         return deleted_names
 
@@ -889,10 +889,10 @@ class NetworkServiceBuilder(object):
                         tenant_snat_subnets.remove(subnet['id'])
             except f5_ex.F5NeutronException as exc:
                 LOG.debug("assure_delete_nets_nonshared: exception: %s"
-                          % str(exc.msg))
+                          % str(str(exc)))
             except Exception as exc:
                 LOG.debug("assure_delete_nets_nonshared: exception: %s"
-                          % str(exc.message))
+                          % str(str(exc)))
 
         return deleted_names
 

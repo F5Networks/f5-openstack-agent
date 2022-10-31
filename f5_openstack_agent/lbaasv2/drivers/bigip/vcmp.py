@@ -88,7 +88,7 @@ class VcmpManager(object):
             except iControlUnexpectedHTTPError as ex:
                 if ex.response.status_code == 400 and \
                         'One of the following features must be licensed/' \
-                        'provisioned for the URI vcmp : vcmp' in ex.message:
+                        'provisioned for the URI vcmp : vcmp' in str(ex):
                     msg = 'VcmpManager::_init_vcmp_hosts: Given vCMP host ' \
                         '{0} is not licensed for vCMP. Device returned '\
                         'exception: {1}'.format(vcmp_hostname, ex)

@@ -801,11 +801,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.debug("Found service definition for '{}', state is ACTIVE"
                           " move on.".format(lb_id))
         except f5_ex.InvalidNetworkType as exc:
-            LOG.warning(exc.message)
+            LOG.warning(str(exc))
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.exception("Service validation error: %s" % exc.message)
+            LOG.exception("Service validation error: %s" % str(exc))
 
     @staticmethod
     def has_provisioning_status_of_error(service):
@@ -855,7 +855,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if self.lbdriver.sync(service):
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as e:
             LOG.error("Exception: %s" % e.message)
             self.needs_resync = True
@@ -871,7 +871,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.cache.put(service, self.agent_host)
             self.lbdriver.update_service_status(service, timed_out=True)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as e:
             LOG.error("Exception: %s" % e.message)
 
@@ -1107,9 +1107,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.needs_resync = True
 
         except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.NeutronException: %s" % exc.msg)
+            LOG.error("f5_ex.NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def update_loadbalancer(self, context, old_loadbalancer,
@@ -1123,9 +1123,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
+            LOG.error("f5_ex.F5NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def delete_loadbalancer(self, context, loadbalancer, service):
@@ -1137,9 +1137,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
+            LOG.error("f5_ex.F5NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def update_loadbalancer_stats(self, context, loadbalancer, service):
@@ -1148,9 +1148,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.get_stats(service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
+            LOG.error("f5_ex.F5NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def create_listener(self, context, listener, service):
@@ -1162,9 +1162,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
+            LOG.error("f5_ex.F5NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def update_listener(self, context, old_listener, listener, service):
@@ -1176,9 +1176,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)
+            LOG.error("f5_ex.F5NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def delete_listener(self, context, listener, service):
@@ -1190,9 +1190,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_listener: NeutronException: %s" % exc.msg)
+            LOG.error("delete_listener: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("delete_listener: Exception: %s" % exc.message)
+            LOG.error("delete_listener: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def create_pool(self, context, pool, service):
@@ -1203,9 +1203,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def update_pool(self, context, old_pool, pool, service):
@@ -1217,9 +1217,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def delete_pool(self, context, pool, service):
@@ -1230,9 +1230,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_pool: NeutronException: %s" % exc.msg)
+            LOG.error("delete_pool: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("delete_pool: Exception: %s" % exc.message)
+            LOG.error("delete_pool: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def create_member(
@@ -1246,9 +1246,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("create_member: NeutronException: %s" % exc.msg)
+            LOG.error("create_member: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("create_member: Exception: %s" % exc.message)
+            LOG.error("create_member: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
@@ -1260,9 +1260,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("update_member: NeutronException: %s" % exc.msg)
+            LOG.error("update_member: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("update_member: Exception: %s" % exc.message)
+            LOG.error("update_member: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def delete_member(self, context, member, service):
@@ -1273,9 +1273,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_member: NeutronException: %s" % exc.msg)
+            LOG.error("delete_member: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("delete_member: Exception: %s" % exc.message)
+            LOG.error("delete_member: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def create_health_monitor(self, context, health_monitor, service):
@@ -1288,10 +1288,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
             LOG.error("create_pool_health_monitor: NeutronException: %s"
-                      % exc.msg)
+                      % str(exc))
         except Exception as exc:
             LOG.error("create_pool_health_monitor: Exception: %s"
-                      % exc.message)
+                      % str(exc))
 
     @log_helpers.log_method_call
     def update_health_monitor(self, context, old_health_monitor,
@@ -1306,9 +1306,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("update_health_monitor: NeutronException: %s" % exc.msg)
+            LOG.error("update_health_monitor: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("update_health_monitor: Exception: %s" % exc.message)
+            LOG.error("update_health_monitor: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def delete_health_monitor(self, context, health_monitor, service):
@@ -1320,9 +1320,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             if service_pending:
                 self.needs_resync = True
         except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_health_monitor: NeutronException: %s" % exc.msg)
+            LOG.error("delete_health_monitor: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("delete_health_monitor: Exception: %s" % exc.message)
+            LOG.error("delete_health_monitor: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def agent_updated(self, context, payload):
@@ -1345,9 +1345,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.debug('received tunnel_update: %s' % kwargs)
             self.lbdriver.tunnel_update(**kwargs)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("tunnel_update: NeutronException: %s" % exc.msg)
+            LOG.error("tunnel_update: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("tunnel_update: Exception: %s" % exc.message)
+            LOG.error("tunnel_update: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def add_fdb_entries(self, context, fdb_entries, host=None):
@@ -1357,9 +1357,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       % (fdb_entries, host))
             self.lbdriver.fdb_add(fdb_entries)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("fdb_add: NeutronException: %s" % exc.msg)
+            LOG.error("fdb_add: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("fdb_add: Exception: %s" % exc.message)
+            LOG.error("fdb_add: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def remove_fdb_entries(self, context, fdb_entries, host=None):
@@ -1369,9 +1369,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       % (fdb_entries, host))
             self.lbdriver.fdb_remove(fdb_entries)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("remove_fdb_entries: NeutronException: %s" % exc.msg)
+            LOG.error("remove_fdb_entries: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("remove_fdb_entries: Exception: %s" % exc.message)
+            LOG.error("remove_fdb_entries: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def update_fdb_entries(self, context, fdb_entries, host=None):
@@ -1387,9 +1387,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                         "also recreate the member in neutron-lbaas with the "
                         "new address.")
         except f5_ex.F5NeutronException as exc:
-            LOG.error("update_fdb_entries: NeutronException: %s" % exc.msg)
+            LOG.error("update_fdb_entries: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("update_fdb_entries: Exception: %s" % exc.message)
+            LOG.error("update_fdb_entries: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def create_l7policy(self, context, l7policy, service):
@@ -1398,9 +1398,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.create_l7policy(l7policy, service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def update_l7policy(self, context, old_l7policy, l7policy, service):
@@ -1409,9 +1409,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.update_l7policy(old_l7policy, l7policy, service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def delete_l7policy(self, context, l7policy, service):
@@ -1420,9 +1420,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.delete_l7policy(l7policy, service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_l7policy: NeutronException: %s" % exc.msg)
+            LOG.error("delete_l7policy: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("delete_l7policy: Exception: %s" % exc.message)
+            LOG.error("delete_l7policy: Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def create_l7rule(self, context, l7rule, service):
@@ -1431,9 +1431,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.create_l7rule(l7rule, service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def update_l7rule(self, context, old_l7rule, l7rule, service):
@@ -1442,9 +1442,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.update_l7rule(old_l7rule, l7rule, service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("NeutronException: %s" % exc.msg)
+            LOG.error("NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("Exception: %s" % exc.message)
+            LOG.error("Exception: %s" % str(exc))
 
     @log_helpers.log_method_call
     def delete_l7rule(self, context, l7rule, service):
@@ -1453,6 +1453,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             self.lbdriver.delete_l7rule(l7rule, service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
-            LOG.error("delete_l7rule: NeutronException: %s" % exc.msg)
+            LOG.error("delete_l7rule: NeutronException: %s" % str(exc))
         except Exception as exc:
-            LOG.error("delete_l7rule: Exception: %s" % exc.message)
+            LOG.error("delete_l7rule: Exception: %s" % str(exc))

@@ -59,7 +59,7 @@ class ResourceManager(object):
 
     def _shrink_payload(self, payload, **kwargs):
         keys_to_keep = kwargs.get('keys_to_keep', [])
-        for key in payload.keys():
+        for key in list(payload):
             if key not in keys_to_keep:
                 del payload[key]
 
@@ -549,7 +549,7 @@ class ListenerManager(ResourceManager):
         try:
             timeout = int(persist.get("persistence_timeout") or 0)
         except ValueError as ex:
-            LOG.warning(ex.message)
+            LOG.warning(str(ex))
             timeout = 0
         if timeout <= 0:
             timeout = self.driver.conf.persistence_timeout
@@ -582,7 +582,7 @@ class ListenerManager(ResourceManager):
         try:
             timeout = int(persist.get("persistence_timeout") or 0)
         except ValueError as ex:
-            LOG.warning(ex.message)
+            LOG.warning(str(ex))
             timeout = 0
         if timeout <= 0:
             timeout = self.driver.conf.persistence_timeout
@@ -1016,7 +1016,7 @@ class PoolManager(ResourceManager):
         node = self.driver.service_adapter.get_member_node(svc)
         try:
             self.node_helper.delete(bigip,
-                                    name=urllib.quote(node['name']),
+                                    name=urllib.parse.quote(node['name']),
                                     partition=node['partition'])
         except HTTPError as err:
             # Possilbe error if node is shared with another member.
@@ -1027,10 +1027,10 @@ class PoolManager(ResourceManager):
                 LOG.debug("Failed to delete node 404: %s" % err.message)
             else:
                 LOG.error("Unexpected node deletion error: %s",
-                          urllib.quote(node['name']))
+                          urllib.parse.quote(node['name']))
                 error = f5_ex.NodeDeleteException(
                     "Unable to delete node {}".format(
-                        urllib.quote(node['name'])))
+                        urllib.parse.quote(node['name'])))
         return error
 
     def _create_payload(self, pool, service):
@@ -1395,7 +1395,7 @@ class MemberManager(ResourceManager):
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
-                name=urllib.quote(pool_payload['name']),
+                name=urllib.parse.quote(pool_payload['name']),
                 partition=pool_payload['partition']
             )
             bigip_members = pool_resource.members_s.get_collection()
@@ -1449,7 +1449,7 @@ class MemberManager(ResourceManager):
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
-                name=urllib.quote(pool_payload['name']),
+                name=urllib.parse.quote(pool_payload['name']),
                 partition=pool_payload['partition']
             )
 
@@ -1529,11 +1529,11 @@ class MemberManager(ResourceManager):
             try:
                 pool_resource = self._pool_mgr.pool_helper.load(
                     bigip,
-                    name=urllib.quote(pool_payload['name']),
+                    name=urllib.parse.quote(pool_payload['name']),
                     partition=pool_payload['partition']
                 )
                 member_resource = pool_resource.members_s.members.load(
-                    name=urllib.quote(payload['name']),
+                    name=urllib.parse.quote(payload['name']),
                     partition=payload['partition']
                 )
                 member_resource.delete()
@@ -1572,7 +1572,7 @@ class MemberManager(ResourceManager):
         pool_payload = self._pool_mgr._create_payload(pool, service)
 
         payload = self._update_payload(old_member, member, service)
-        if member['weight'] == 0:
+        if int(member['weight']) == 0:
             payload['session'] = 'user-disabled'
 
         self._shrink_payload(
@@ -1588,12 +1588,12 @@ class MemberManager(ResourceManager):
         for bigip in bigips:
             pool_resource = self._pool_mgr.pool_helper.load(
                 bigip,
-                name=urllib.quote(pool_payload['name']),
+                name=urllib.parse.quote(pool_payload['name']),
                 partition=pool_payload['partition']
             )
 
             member_resource = pool_resource.members_s.members.load(
-                name=urllib.quote(payload['name']),
+                name=urllib.parse.quote(payload['name']),
                 partition=payload['partition']
             )
 

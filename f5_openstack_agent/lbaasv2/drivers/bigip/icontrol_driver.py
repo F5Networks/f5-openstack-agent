@@ -643,7 +643,7 @@ class iControlDriver(LBaaSBaseDriver):
                               % (hostname, bigip.status, bigip.status_message))
                     self._set_agent_status(False)
         except Exception as exc:
-            LOG.error('Invalid agent configuration: %s' % exc.message)
+            LOG.error('Invalid agent configuration: %s' % str(exc))
             raise
         self._set_agent_status(force_resync=True)
 
@@ -702,7 +702,7 @@ class iControlDriver(LBaaSBaseDriver):
             else:
                 LOG.debug('there are no BIG-IPs with error status')
         except Exception as exc:
-            LOG.error('Invalid agent configuration: %s' % exc.message)
+            LOG.error('Invalid agent configuration: %s' % str(exc))
             raise
 
     def _open_bigip(self, hostname):
@@ -741,7 +741,7 @@ class iControlDriver(LBaaSBaseDriver):
             errbigip = type('', (), {})()
             errbigip.hostname = hostname
             errbigip.status = 'error'
-            errbigip.status_message = str(exc)[:80]
+            errbigip.status_message = str(exc)
             self.__bigips[hostname] = errbigip
             return errbigip
 
@@ -823,7 +823,7 @@ class iControlDriver(LBaaSBaseDriver):
                          major_version, minor_version))
         except Exception as exc:
             bigip.status = 'error'
-            bigip.status_message = str(exc)[:80]
+            bigip.status_message = str(exc)
             raise
         return bigip
 
@@ -888,7 +888,7 @@ class iControlDriver(LBaaSBaseDriver):
         except IOError as ioe:
             LOG.error("unable to process ESD file. Error: %s.", ioe.message)
         except Exception as exc:
-            LOG.error("unknown Error happens. Error: %s.", exc.message)
+            LOG.error("unknown Error happens. Error: %s.", str(exc))
 
         LOG.debug('ESD details here after process_esd(): ')
         LOG.debug(self.esd_processor)
@@ -1028,7 +1028,7 @@ class iControlDriver(LBaaSBaseDriver):
         except Exception as exc:
             LOG.exception('Error getting %s failover state' % bigip.hostname)
             bigip.status = 'error'
-            bigip.status_message = str(exc)[:80]
+            bigip.status_message = str(exc)
             self._set_agent_status(False)
             return 'error'
 
@@ -1058,7 +1058,7 @@ class iControlDriver(LBaaSBaseDriver):
         try:
             self._init_errored_bigips()
         except Exception as exc:
-            LOG.error('Could not recover devices: %s' % exc.message)
+            LOG.error('Could not recover devices: %s' % str(exc))
 
     def backend_integrity(self):
         if self.operational:
@@ -1247,7 +1247,7 @@ class iControlDriver(LBaaSBaseDriver):
 
                 for node_name, node in node_dict.iteritems():
                     try:
-                        node_helper.delete(bigip, name=urllib.quote(node_name),
+                        node_helper.delete(bigip, name=urllib.parse.quote(node_name),
                                            partition=partition)
                     except HTTPError as error:
                         if error.response.status_code == 400:
@@ -1351,7 +1351,7 @@ class iControlDriver(LBaaSBaseDriver):
                         node_name = member.address
                         try:
                             node_helper.delete(bigip,
-                                               name=urllib.quote(node_name),
+                                               name=urllib.parse.quote(node_name),
                                                partition=partition)
                         except HTTPError as e:
                             if e.response.status_code == 404:
@@ -2018,7 +2018,7 @@ class iControlDriver(LBaaSBaseDriver):
                           "with route domain ID.")
                 self.network_builder._annotate_service_route_domains(service)
             except f5ex.InvalidNetworkType as exc:
-                LOG.warning(exc.message)
+                LOG.warning(str(exc))
             except Exception as err:
                 LOG.exception(err)
                 raise f5ex.RouteDomainCreationException(
@@ -2397,7 +2397,7 @@ class iControlDriver(LBaaSBaseDriver):
                     self.network_builder._annotate_service_route_domains(
                         service)
                 except f5ex.InvalidNetworkType as exc:
-                    LOG.warning(exc.message)
+                    LOG.warning(str(exc))
                     return
 
             # get currrent member status
@@ -2434,6 +2434,7 @@ class iControlDriver(LBaaSBaseDriver):
 
     def tenant_to_traffic_group(self, tenant_id):
         # Hash tenant id to index of traffic group
+        tenant_id=tenant_id.encode('utf-8')
         hexhash = hashlib.md5(tenant_id).hexdigest()
         tg_index = int(hexhash, 16) % len(self.__traffic_groups)
         return self.__traffic_groups[tg_index]
@@ -2545,13 +2546,13 @@ class iControlDriver(LBaaSBaseDriver):
     def _validate_bigip_version(self, bigip, hostname):
         # Ensure the BIG-IP has sufficient version
         major_version = self.system_helper.get_major_version(bigip)
-        if major_version < f5const.MIN_TMOS_MAJOR_VERSION:
+        if int(major_version) < f5const.MIN_TMOS_MAJOR_VERSION:
             raise f5ex.MajorVersionValidateFailed(
                 'Device %s must be at least TMOS %s.%s'
                 % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
                    f5const.MIN_TMOS_MINOR_VERSION))
         minor_version = self.system_helper.get_minor_version(bigip)
-        if minor_version < f5const.MIN_TMOS_MINOR_VERSION:
+        if int(minor_version) < f5const.MIN_TMOS_MINOR_VERSION:
             raise f5ex.MinorVersionValidateFailed(
                 'Device %s must be at least TMOS %s.%s'
                 % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,

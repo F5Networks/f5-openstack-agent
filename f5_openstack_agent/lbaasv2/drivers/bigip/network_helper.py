@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-import constants_v2 as const
+from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as const
 import netaddr
 import os
 import urllib
@@ -584,7 +584,7 @@ class NetworkHelper(object):
                    ip_address,
                    partition=const.DEFAULT_PARTITION):
         if ip_address:
-            address = urllib.quote(self._remove_route_domain_zero(ip_address))
+            address = urllib.parse.quote(self._remove_route_domain_zero(ip_address))
             arp = bigip.tm.net.arps.arp
             try:
                 if arp.exists(name=address, partition=partition):
@@ -616,7 +616,7 @@ class NetworkHelper(object):
                 else:
                     network = netaddr.IPNetwork(subnet)
             except Exception as exc:
-                LOG.error('arp_delete_by_subnet', exc.message)
+                LOG.error('arp_delete_by_subnet', str(exc))
                 return []
         elif not mask:
             return []
@@ -628,7 +628,7 @@ class NetworkHelper(object):
                 else:
                     network = netaddr.IPNetwork(subnet + '/' + mask)
             except Exception as exc:
-                LOG.error('ARP', exc.message)
+                LOG.error('ARP', str(exc))
                 return []
 
         return self._arp_delete_by_network(bigip, partition, network)

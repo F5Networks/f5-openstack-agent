@@ -190,7 +190,7 @@ class PoolServiceBuilder(object):
         node = self.service_adapter.get_member_node(svc)
         try:
             self.node_helper.delete(bigip,
-                                    name=urllib.quote(node['name']),
+                                    name=urllib.parse.quote(node['name']),
                                     partition=node['partition'])
         except HTTPError as err:
             # Possilbe error if node is shared with another member.
@@ -201,10 +201,10 @@ class PoolServiceBuilder(object):
                 LOG.debug(str(err))
             else:
                 LOG.error("Unexpected node deletion error: %s",
-                          urllib.quote(node['name']))
+                          urllib.parse.quote(node['name']))
                 error = f5_ex.NodeDeleteException(
                     "Unable to delete node {}".format(
-                        urllib.quote(node['name'])))
+                        urllib.parse.quote(node['name'])))
 
         return error
 
@@ -236,7 +236,7 @@ class PoolServiceBuilder(object):
                 bigip_member = self.service_adapter.get_member(svc)
 
                 member_exists = pool_loaded and m.exists(
-                    name=urllib.quote(bigip_member["name"]),
+                    name=urllib.parse.quote(bigip_member["name"]),
                     partition=partition)
 
                 if not member_exists:
@@ -276,7 +276,7 @@ class PoolServiceBuilder(object):
                                       partition=part)
 
             m = p.members_s.members
-            if m.exists(name=urllib.quote(member["name"]), partition=part):
+            if m.exists(name=urllib.parse.quote(member["name"]), partition=part):
                 return True
         except Exception as e:
             # log error but continue on
@@ -306,8 +306,8 @@ class PoolServiceBuilder(object):
                                       partition=part)
 
             m = p.members_s.members
-            if m.exists(name=urllib.quote(member["name"]), partition=part):
-                m = m.load(name=urllib.quote(member["name"]), partition=part)
+            if m.exists(name=urllib.parse.quote(member["name"]), partition=part):
+                m = m.load(name=urllib.parse.quote(member["name"]), partition=part)
                 member_status = self.pool_helper.collect_stats(
                     m, stat_keys=status_keys)
             else:

@@ -16,7 +16,8 @@
 
 import errno
 import inspect
-import service_launcher
+from f5_openstack_agent.lbaasv2.drivers.bigip import service_launcher
+
 import sys
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.exceptions as exceptions
@@ -34,7 +35,7 @@ except ImportError as CriticalError:
 
 try:
     from neutron.common import config as common_config
-    from neutron.common import rpc as n_rpc
+    from neutron_lib import rpc as n_rpc
     try:
         from neutron.conf.agent import common as config
     except Exception:
