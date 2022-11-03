@@ -760,7 +760,8 @@ class ListenerManager(ResourceManager):
                 self._check_redirect_changed(old_listener, listener) or \
                 self._check_http2_changed(old_listener, listener) or \
                 self.tcp_helper.need_update_tcp(old_listener, listener) or \
-                self.http_helper.need_update_xff(old_listener, listener):
+                self.http_helper.need_update_xff(old_listener, listener) or \
+                self.tcp_helper.need_update_keepalive(old_listener, listener):
             return True
         return super(ListenerManager, self)._update_needed(
             payload, old_listener, listener)
@@ -1253,6 +1254,16 @@ class ListenerManager(ResourceManager):
                 ip_version=ip_version
             )
 
+        keepalive_enable = self.tcp_helper.enable_keepalive(service)
+        if keepalive_enable:
+            k_t = service.get('listener').get('keepalive_timeout')
+            self.tcp_helper.add_keepalive_tcp_profile(
+                service, vs, bigip,
+                keepalive_timeout=k_t,
+                side="server",
+                tcp_options=self.driver.conf.tcp_options
+            )
+
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
         if self._isRedirect(listener):
@@ -1329,6 +1340,18 @@ class ListenerManager(ResourceManager):
                 ip_version=ip_version
             )
 
+        keepalive_update = self.tcp_helper\
+            .need_update_keepalive(old_listener, listener)
+        if keepalive_update:
+            k_t = self.tcp_helper.get_keepalive_timeout(old_listener, listener)
+            LOG.debug('keepalive_timeout need update to {}'.format(k_t))
+            self.tcp_helper.add_keepalive_tcp_profile(
+                service, vs, bigip,
+                keepalive_timeout=k_t,
+                side="server",
+                tcp_options=self.driver.conf.tcp_options
+            )
+
         # If no vs property to update, do not call icontrol patch api.
         # This happens, when vs payload only contains 'customized'.
         if set(sorted(vs.keys())) > set(['name', 'partition']):
@@ -1377,6 +1400,7 @@ class ListenerManager(ResourceManager):
             self.tcp_irule_helper.remove_iRule(
                 service, vs, bigip
             )
+        self.tcp_helper.delete_keepalive_profile(service, vs, bigip)
 
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
