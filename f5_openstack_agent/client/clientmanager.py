@@ -4,12 +4,12 @@ import logging as std_logging
 
 from f5.bigip import ManagementRoot
 from oslo_log import log as logging
-from oslo_serialization import base64
 
 import requests
 from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
+from f5_openstack_agent.client.encrypt import encrypt_data
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager \
     import ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip \
@@ -41,17 +41,20 @@ class IControlClient(object):
                                timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
         return bigip
 
-    def get_bigip_info(self):
-        info = {
-            "username": base64.encode_as_text(self.icontrol_username),
-            "password": base64.encode_as_text(self.icontrol_password),
+    def _encrypt(self, serial_number):
+        connect_info = {
+            "username": encrypt_data(serial_number, self.icontrol_username)
+            if serial_number else "",
+            "password": encrypt_data(serial_number, self.icontrol_password)
+            if serial_number else "",
             "port": self.icontrol_port,
         }
-        return info
+        return connect_info
 
     def get_refresh_info(self):
-        info = self.get_bigip_info()
+        info = dict()
         info.update(self._get_dynamic_info())
+        info.update(self._encrypt(info["serial_number"]))
         return info
 
     def _get_dynamic_info(self):
