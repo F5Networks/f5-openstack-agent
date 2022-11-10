@@ -27,7 +27,7 @@ before_install:
     - docker load -i ubuntu:trusty.tar.gz
 install:
     - python -m pip install pip==19.0.3
-    - pip install tox
+    - pip install -Iv tox==3.25.1
     - pip install -r requirements.style.txt
 script:
     - pep257 ./test/functional/neutronless/esd/test_esd.py
