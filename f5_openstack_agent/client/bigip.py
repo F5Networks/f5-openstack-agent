@@ -7,9 +7,9 @@ from openstackclient.i18n import _
 from osc_lib.command import command
 from osc_lib import exceptions
 from oslo_log import log as logging
-from oslo_serialization import base64
 
 from f5_openstack_agent.client.clientmanager import IControlClient
+from f5_openstack_agent.client.encrypt import decrypt_data
 
 LOG = logging.getLogger(__name__)
 
@@ -95,10 +95,11 @@ class BipipCommand(object):
             raise exceptions.CommandError(msg)
 
         bigip_info = bigip[hostname]
-        ic = IControlClient(hostname,
-                            base64.decode_as_text(bigip_info['username']),
-                            base64.decode_as_text(bigip_info['password']),
-                            bigip_info['port'])
+        username = decrypt_data(bigip_info['serial_number'],
+                                bigip_info['username'])
+        password = decrypt_data(bigip_info['serial_number'],
+                                bigip_info['password'])
+        ic = IControlClient(hostname, username, password, bigip_info['port'])
         blob["bigip"][hostname] = ic.get_refresh_info()
         self.update_bigip(group_id, blob)
 
@@ -119,13 +120,15 @@ class BipipCommand(object):
                 bigip = group['bigip']
                 for host, info in bigip.items():
                     if info['failover_state'] == 'active':
+                        username = decrypt_data(info['serial_number'],
+                                                info['username'])
+                        password = decrypt_data(info['serial_number'],
+                                                info['password'])
                         bigips.append({
                             'group_id': group_id,
                             'hostname': host,
-                            'username':
-                                base64.decode_as_text(info['username']),
-                            'password':
-                                base64.decode_as_text(info['password']),
+                            'username': username,
+                            'password': password,
                             'port': info['port'],
                         })
         return bigips
