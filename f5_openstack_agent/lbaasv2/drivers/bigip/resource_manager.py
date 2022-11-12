@@ -432,7 +432,7 @@ class LoadBalancerManager(ResourceManager):
     def _update_bwc(self, old_loadbalancer, loadbalancer, service):
         operate = self.__get_update_operation(old_loadbalancer, loadbalancer)
         LOG.debug("bwc operation is %s.", operate)
-        bigips = self.driver.get_config_bigips()
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
         bandwidth = self.get_bandwidth_value(self.driver.conf, loadbalancer)
         for bigip in bigips:
             if operate == 'Add':
@@ -500,7 +500,7 @@ class LoadBalancerManager(ResourceManager):
             LOG.info('listener_rate_limit to use: ', listener_rate_limit)
 
             if 'listeners' in service.keys():
-                bigips = self.driver.get_config_bigips()
+                bigips = self.driver.get_config_bigips(no_bigip_exception=True)
                 for bigip in bigips:
                     for listener in service['listeners']:
                         vs_payload = self.driver.service_adapter.\
