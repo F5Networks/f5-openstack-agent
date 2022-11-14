@@ -1868,7 +1868,7 @@ class iControlDriver(LBaaSBaseDriver):
             loadbalancer['tenant_id']
         )
 
-        for bigip in self.get_config_bigips():
+        for bigip in self.get_config_bigips(no_bigip_exception=True):
             # Does the tenant folder exist?
             if not self.system_helper.folder_exists(bigip, folder_name):
                 LOG.debug("Folder %s does not exist on bigip: %s" %
@@ -1880,7 +1880,7 @@ class iControlDriver(LBaaSBaseDriver):
             self.network_builder._annotate_service_route_domains(service)
 
         # Foreach bigip in the cluster:
-        for bigip in self.get_config_bigips():
+        for bigip in self.get_config_bigips(no_bigip_exception=True):
 
             # Get the virtual address
             virtual_address = VirtualAddress(self.service_adapter,
@@ -2408,6 +2408,11 @@ class iControlDriver(LBaaSBaseDriver):
         if len(return_bigips) == 0 and \
            kwargs.get('no_bigip_exception') is True:
             raise Exception("No active bigips!")
+
+        if self.conf.f5_ha_type == 'pair' and \
+                kwargs.get('no_bigip_exception') is True \
+                and len(return_bigips) != 2:
+            raise Exception("Two bigips are not both active")
 
         return return_bigips
 
