@@ -5,6 +5,20 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.54.2 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+
+Bug Fixes
+`````````
+* [OPENSTACK-2626] Raise exception when two bigips status are not both active
+
+Limitations
+```````````
+
 v9.9.54.patch1 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
