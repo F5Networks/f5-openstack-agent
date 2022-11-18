@@ -761,6 +761,8 @@ class ListenerManager(ResourceManager):
                 self._check_http2_changed(old_listener, listener) or \
                 self.tcp_helper.need_update_tcp(old_listener, listener) or \
                 self.http_helper.need_update_xff(old_listener, listener) or \
+                self.tcp_irule_helper.need_update_proxy(old_listener,
+                                                        listener) or \
                 self.tcp_helper.need_update_keepalive(old_listener, listener):
             return True
         return super(ListenerManager, self)._update_needed(
@@ -1337,6 +1339,11 @@ class ListenerManager(ResourceManager):
                 service, vs, bigip,
                 tcp_options=self.driver.conf.tcp_options,
                 ip_version=ip_version
+            )
+        if self.tcp_irule_helper.need_update_proxy(old_listener, listener):
+            self.tcp_irule_helper.update_proxy_protocol_irule(
+                service, vs, bigip,
+                tcp_options=self.driver.conf.tcp_options,
             )
 
         # If no vs property to update, do not call icontrol patch api.

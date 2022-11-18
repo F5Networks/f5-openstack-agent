@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import netaddr
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from oslo_log import log as logging
@@ -30,7 +31,7 @@ class iRuleHelper(object):
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual
         )
-
+        self.proxy_allowed = ["TCP"]
         self.delete_iRule = False
 
     @staticmethod
@@ -96,18 +97,38 @@ class iRuleHelper(object):
 
         return template
 
+    @staticmethod
+    def proxy_protocol_irule_content():
+        template =\
+            """
+            when CLIENT_ACCEPTED {
+    set proxyheader "PROXY TCP[IP::version] \
+[getfield [IP::remote_addr] "%" 1] [getfield [IP::local_addr] "%" 1] \
+[TCP::remote_port] [TCP::local_port]\\r\\n"
+}
+when SERVER_CONNECTED {
+    TCP::respond $proxyheader
+}"""
+        return template
+
     def create_iRule(self, service, vip, bigip, **kwargs):
         tcp_options = kwargs.get("tcp_options")
         # pzhang we need to create iRule content for IPv6 and IPv4
         ip_version = kwargs.get("ip_version")
         payload = {}
 
-        if ip_version == 4:
-            irule_apiAnonymous = self.create_v4_iRule_content(
-                tcp_options)
+        listener = service.get('listener')
+        protocol = listener.get('protocol')
+        if listener.get('proxy_protocol') and protocol in self.proxy_allowed:
+            LOG.debug('create proxy protocol irule')
+            irule_apiAnonymous = self.proxy_protocol_irule_content()
         else:
-            irule_apiAnonymous = self.create_v6_iRule_content(
-                tcp_options)
+            if ip_version == 4:
+                irule_apiAnonymous = self.create_v4_iRule_content(
+                    tcp_options)
+            else:
+                irule_apiAnonymous = self.create_v6_iRule_content(
+                    tcp_options)
 
         irule_partition = vip['partition']
         irule_name = self.get_irule_name(service, "TOA")
@@ -236,3 +257,55 @@ class iRuleHelper(object):
         listener_id = service.get('listener').get('id')
         irule_name = prefix + '_' + listener_id
         return irule_name
+
+    def need_update_proxy(self, old_listener, listener):
+        if old_listener is None or listener is None:
+            return False
+        if listener['transparent'] is False:
+            return False
+        if old_listener['transparent'] is False \
+                and listener['transparent'] is True:
+            if listener.get('protocol') in self.proxy_allowed:
+                return True
+            else:
+                return False
+
+        if old_listener['proxy_protocol'] != listener['proxy_protocol']:
+            protocol = listener.get('protocol')
+            if protocol not in self.proxy_allowed:
+                return False
+            return True
+        else:
+            return False
+
+    def update_proxy_protocol_irule(self, service, vip, bigip, **kwargs):
+        tcp_options = kwargs.get("tcp_options")
+        new_listener = service.get("listener")
+        proxy_protocol = new_listener.get("proxy_protocol")
+        irule_partition = vip['partition']
+        irule_name = self.get_irule_name(service, "TOA")
+        irule_fullPath = "/" + irule_partition + "/" + irule_name
+
+        irule = self.irule_helper.load(bigip,
+                                       name=irule_name,
+                                       partition=irule_partition)
+        if proxy_protocol:
+            irule_apiAnonymous = self.proxy_protocol_irule_content()
+            LOG.info("Update proxy protocol iRule: {} for BIGIP: {}"
+                     .format(irule_fullPath, bigip.hostname))
+        else:
+            loadbalancer = service.get('loadbalancer', dict())
+            ip_address = loadbalancer.get("vip_address", None)
+            pure_ip_address = ip_address.split("%")[0]
+            ip_version = netaddr.IPAddress(pure_ip_address).version
+
+            if ip_version == 4:
+                irule_apiAnonymous = self.create_v4_iRule_content(
+                    tcp_options)
+            else:
+                irule_apiAnonymous = self.create_v6_iRule_content(
+                    tcp_options)
+            LOG.info("Update TOA iRule: {} for BIGIP: {}"
+                     .format(irule_fullPath, bigip.hostname))
+
+        irule.modify(apiAnonymous=irule_apiAnonymous)
