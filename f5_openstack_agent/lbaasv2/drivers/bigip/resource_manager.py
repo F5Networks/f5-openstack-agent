@@ -1256,11 +1256,8 @@ class ListenerManager(ResourceManager):
 
         keepalive_enable = self.tcp_helper.enable_keepalive(service)
         if keepalive_enable:
-            k_t = service.get('listener').get('keepalive_timeout')
             self.tcp_helper.add_keepalive_tcp_profile(
                 service, vs, bigip,
-                keepalive_timeout=k_t,
-                side="server",
                 tcp_options=self.driver.conf.tcp_options
             )
 
@@ -1340,18 +1337,6 @@ class ListenerManager(ResourceManager):
                 ip_version=ip_version
             )
 
-        keepalive_update = self.tcp_helper\
-            .need_update_keepalive(old_listener, listener)
-        if keepalive_update:
-            k_t = self.tcp_helper.get_keepalive_timeout(old_listener, listener)
-            LOG.debug('keepalive_timeout need update to {}'.format(k_t))
-            self.tcp_helper.add_keepalive_tcp_profile(
-                service, vs, bigip,
-                keepalive_timeout=k_t,
-                side="server",
-                tcp_options=self.driver.conf.tcp_options
-            )
-
         # If no vs property to update, do not call icontrol patch api.
         # This happens, when vs payload only contains 'customized'.
         if set(sorted(vs.keys())) > set(['name', 'partition']):
@@ -1362,6 +1347,14 @@ class ListenerManager(ResourceManager):
         # Only need to refresh profile when a real listener update occurs.
         if old_listener and listener and not extended_profile_updated:
             self._update_extended_profiles(bigip, old_listener, listener, vs)
+
+        keepalive_update = self.tcp_helper\
+            .need_update_keepalive(old_listener, listener)
+        if keepalive_update:
+            self.tcp_helper.update_keepalive_tcp_profile(
+                service, vs, bigip,
+                tcp_options=self.driver.conf.tcp_options
+            )
 
         if old_listener and \
            self._check_tls_changed(old_listener, listener) is True:
