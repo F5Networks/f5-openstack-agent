@@ -38,6 +38,7 @@ class IControlClient(object):
                                self.icontrol_username,
                                self.icontrol_password,
                                port=self.icontrol_port,
+                               token=True,
                                timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
         return bigip
 
