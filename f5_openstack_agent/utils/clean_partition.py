@@ -64,7 +64,8 @@ def parse_config(config_file):
         bigips.append(
             ManagementRoot(hostname=config_addr,
                            username=config_user,
-                           password=config_pass)
+                           password=config_pass,
+                           token=True)
         )
 
     return bigips
