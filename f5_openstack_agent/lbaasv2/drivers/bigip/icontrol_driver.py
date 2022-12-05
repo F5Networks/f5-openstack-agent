@@ -709,6 +709,7 @@ class iControlDriver(LBaaSBaseDriver):
                                    self.conf.icontrol_password,
                                    timeout=f5const.DEVICE_CONNECTION_TIMEOUT,
                                    port=self.conf.icontrol_port,
+                                   token=True,
                                    debug=self.conf.debug)
             bigip.status = 'connected'
             bigip.status_message = 'connected to BIG-IP'
