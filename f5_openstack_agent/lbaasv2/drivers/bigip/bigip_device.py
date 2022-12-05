@@ -26,6 +26,7 @@ def build_connection(host, info):
             decrypt_data(info['serial_number'], info['password']),
             port=info['port'],
             timeout=constants_v2.DEVICE_CONNECTION_TIMEOUT,
+            token=True,
             debug=True
         )
         bigip.device_name = info["device_name"]

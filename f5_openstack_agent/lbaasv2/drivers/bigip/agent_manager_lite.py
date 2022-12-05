@@ -693,7 +693,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 bigip = ManagementRoot(info['hostname'],
                                        info['username'],
                                        info['password'],
-                                       port=info['port'])
+                                       port=info['port'],
+                                       token=True)
 
                 if self.conf.member_update_mode == 1:
                     # logic of update member by pools
