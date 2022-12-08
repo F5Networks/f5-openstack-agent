@@ -1808,9 +1808,9 @@ class MemberManager(ResourceManager):
             address = address + "%" + str(rd)
 
         if ':' in address:
-            return address + '.' + str(port)
+            return address + '.' + str(port), address
         else:
-            return address + ':' + str(port)
+            return address + ':' + str(port), address
 
     def _create_member_payload(self, loadbalancer, member):
         return self.driver.service_adapter._map_member(loadbalancer, member)
@@ -1924,7 +1924,8 @@ class MemberManager(ResourceManager):
 
         LOG.debug("Begin to delete %s %s", self._resource, resource['id'])
         member = service["member"]
-        member_name = self._get_member_name(service)
+        member_name, member_addr = self._get_member_name(service)
+        member["address"] = member_addr
 
         pool = {}
         pool['id'] = member['pool_id']
