@@ -1300,8 +1300,10 @@ class ListenerManager(ResourceManager):
             orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
             if 'profiles' not in vs:
                 vs['profiles'] = list()
+            # clienside Common/tcp profile is bind when set keepalive_timeout
             vs['profiles'] += filter(
-                lambda x: x['context'] != 'clientside', orig_profiles['items'])
+                lambda x: x['context'] != 'clientside' or x['name'] == 'tcp',
+                orig_profiles['items'])
 
         if vs.get("persist") == []:
             LOG.debug("Need to remove persist profile from vs %s", vs['name'])
