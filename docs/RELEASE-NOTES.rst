@@ -5,6 +5,29 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.2 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2610] Listener support proxy protocol
+* [OPENSTACK-2441] Listener support keepalive_timeout
+* [OPENSTACK-2638] Enable iControl token authentication
+* [OPENSTACK-2603] Encrypt bigip username and password
+* [OPENSTACK-2573] Encode and decode username and password of bigip
+* [OPENSTACK-2571] Optimize creating member performance
+* [OPENSTACK-2571] Optimize deleting member performance
+
+Bug Fixes
+`````````
+* [OPENSTACK-2632] Fix when update http2 filtered clientside tcp profile
+* [OPENSTACK-2571] Append route domain id to member node name
+* [OPENSTACK-2571] Fix member route domain
+
+Limitations
+```````````
+
 v9.10.1 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
