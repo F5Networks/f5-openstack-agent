@@ -14,10 +14,9 @@
 # limitations under the License.
 #
 
-import service_launcher
-
 from oslo_config import cfg
 from oslo_log import log as oslo_logging
+from oslo_service import service
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager_lite \
     import LbaasAgentManager
@@ -86,9 +85,7 @@ def main():
         manager=mgr
     )
 
-    service_launch = service_launcher.F5ServiceLauncher(cfg.CONF)
-    service_launch.launch_service(svc)
-    service_launch.wait()
+    service.launch(cfg.CONF, svc).wait()
 
 
 if __name__ == '__main__':

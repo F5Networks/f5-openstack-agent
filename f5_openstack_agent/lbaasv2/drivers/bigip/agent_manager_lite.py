@@ -694,7 +694,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                                        info['username'],
                                        info['password'],
                                        port=info['port'],
-                                       token=True)
+                                       token=True,
+                                       timeout=constants_v2.
+                                       DEVICE_CONNECTION_TIMEOUT)
 
                 if self.conf.member_update_mode == 1:
                     # logic of update member by pools
