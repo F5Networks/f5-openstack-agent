@@ -497,7 +497,7 @@ class LoadBalancerManager(ResourceManager):
                 listener_rate_limit = \
                     new_limit['rate_limit'] / ratio
 
-            LOG.info('listener_rate_limit to use: ', listener_rate_limit)
+            LOG.info('listener_rate_limit to use: %s', listener_rate_limit)
 
             if 'listeners' in service.keys():
                 bigips = self.driver.get_config_bigips(no_bigip_exception=True)
