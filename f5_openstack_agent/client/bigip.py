@@ -113,10 +113,13 @@ class BipipCommand(object):
                 raise exceptions.CommandError(msg)
 
     def get_active_bigips(self, availability_zone):
+        zones = []
+        if availability_zone:
+            zones = availability_zone.split(",")
         inventory = self._load_inventory()
         bigips = []
         for group_id, group in inventory.items():
-            if group['availability_zone'] == availability_zone:
+            if group['availability_zone'] in zones:
                 bigip = group['bigip']
                 for host, info in bigip.items():
                     if info['failover_state'] == 'active':
