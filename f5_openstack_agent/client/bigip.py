@@ -100,7 +100,7 @@ class BipipCommand(object):
         password = decrypt_data(bigip_info['serial_number'],
                                 bigip_info['password'])
         ic = IControlClient(hostname, username, password, bigip_info['port'])
-        blob["bigip"][hostname] = ic.get_refresh_info(bigip_info)
+        blob["bigip"][hostname] = ic.get_refresh_info()
         self.update_bigip(group_id, blob)
 
     def check_hostname_exists(self, hostname):
@@ -191,9 +191,6 @@ class CreateBigip(command.ShowOne):
                                               parsed_args.icontrol_password,
                                               parsed_args.icontrol_port)
         ic = IControlClient(hostname, username, password, port)
-        if not ic.bigip:
-            msg = "fail to connect BIG-IP: {}".format(hostname)
-            raise exceptions.CommandError(msg)
 
         commander.check_hostname_exists(hostname)
         if parsed_args.id:
@@ -212,7 +209,7 @@ class CreateBigip(command.ShowOne):
             if bigip_num == 0:
                 blob["masquerade_mac"] = ic.update_traffic_group1_mac()
 
-            blob["bigip"][hostname] = ic.get_bigip_info()
+            blob["bigip"][hostname] = ic.get_refresh_info()
             commander.update_bigip(parsed_args.id, blob)
             return commander.show_inventory(parsed_args.id)
         else:
@@ -225,7 +222,7 @@ class CreateBigip(command.ShowOne):
                 "availability_zone": parsed_args.availability_zone,
                 "masquerade_mac": ic.update_traffic_group1_mac(),
                 "bigip": {
-                    hostname: ic.get_bigip_info()
+                    hostname: ic.get_refresh_info()
                 },
             }
             if parsed_args.vtep_ip:
