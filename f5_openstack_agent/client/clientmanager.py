@@ -34,18 +34,13 @@ class IControlClient(object):
         self.system_helper = SystemHelper()
 
     def _open_bigip(self):
-        try:
-            bigip = ManagementRoot(self.icontrol_hostname,
-                                   self.icontrol_username,
-                                   self.icontrol_password,
-                                   port=self.icontrol_port,
-                                   token=True,
-                                   timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
-            return bigip
-        except Exception as e:
-            LOG.error('fail to connect BIG-IP: {}, error: {}'
-                      .format(self.icontrol_hostname, e))
-            return None
+        bigip = ManagementRoot(self.icontrol_hostname,
+                               self.icontrol_username,
+                               self.icontrol_password,
+                               port=self.icontrol_port,
+                               token=True,
+                               timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
+        return bigip
 
     def _encrypt(self, serial_number):
         connect_info = {
@@ -57,33 +52,29 @@ class IControlClient(object):
         }
         return connect_info
 
-    def get_bigip_info(self):
+    def get_refresh_info(self):
         info = dict()
-        info.update(self._get_device_info())
+        info.update(self._get_dynamic_info())
         info.update(self._encrypt(info["serial_number"]))
         return info
 
-    def get_refresh_info(self, old_info):
-        update_info = {
+    def _get_dynamic_info(self):
+        dynamic_info = {
+            "version": self.system_helper.get_version(self.bigip)
+            if self.bigip else "",
+            "device_name": self.cluster_manager.get_device_name(self.bigip)
+            if self.bigip else "",
+            "platform": self.system_helper.get_platform(self.bigip)
+            if self.bigip else "",
+            "serial_number": self.system_helper.get_serial_number(self.bigip)
+            if self.bigip else "",
+            "license": self._get_bigip_license() if self.bigip else "",
             "status": "active" if self.bigip else "error",
             "status_message": "BIG-IP ready for provisioning"
             if self.bigip else "Fail to connect to BIG-IP",
+            "failover_state": self.get_failover_state() if self.bigip else "",
         }
-        old_info.update(update_info)
-        return old_info
-
-    def _get_device_info(self):
-        device_info = {
-            "version": self.system_helper.get_version(self.bigip),
-            "device_name": self.cluster_manager.get_device_name(self.bigip),
-            "platform": self.system_helper.get_platform(self.bigip),
-            "serial_number": self.system_helper.get_serial_number(self.bigip),
-            "license": self._get_bigip_license(),
-            "status": "active",
-            "status_message": "BIG-IP ready for provisioning",
-            "failover_state": self.get_failover_state(),
-        }
-        return device_info
+        return dynamic_info
 
     def _get_bigip_license(self):
         license = {}
