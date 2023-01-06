@@ -252,7 +252,8 @@ class LoadBalancerManager(ResourceManager):
             self.__add_bwc(bigip, loadbalancer, bandwidth, service, False)
 
         super(LoadBalancerManager, self)._create(bigip, payload,
-                                                 loadbalancer, service)
+                                                 loadbalancer, service,
+                                                 overwrite=False)
 
     def _delete(self, bigip, payload, loadbalancer, service, **kwargs):
 
