@@ -1527,20 +1527,25 @@ class PoolManager(ResourceManager):
             payload=payload, create_payload=create_payload
         )
 
+    def _vs_exist(self, bigip, mgr, payload):
+        return mgr.resource_helper.exists(bigip, name=payload['name'],
+                                          partition=payload['partition'])
+
     def _create(self, bigip, poolpayload, pool, service):
+
         if 'members' in poolpayload:
             del poolpayload['members']
         if 'monitor' in poolpayload:
             del poolpayload['monitor']
         super(PoolManager, self)._create(bigip, poolpayload, pool, service)
 
-        """ create the pool at first"""
+        # Create the pool at first
         for listener in service['listeners']:
             if listener['default_pool_id'] == pool['id']:
                 service['listener'] = listener
                 break
 
-        """Update the listener's default pool id if needed"""
+        # Update the listener's default pool id if needed
         if service.get('listener'):
             LOG.debug("Find a listener %s for create pool", listener)
             mgr = ListenerManager(self.driver)
@@ -1549,7 +1554,9 @@ class PoolManager(ResourceManager):
                 listener_payload,
                 keys_to_keep=['partition', 'name', 'pool', 'persist']
             )
-            mgr._update(bigip, listener_payload, None, listener, service)
+            if self._vs_exist(bigip, mgr, listener_payload):
+                mgr._update(bigip, listener_payload, None,
+                            listener, service)
 
     def _update(self, bigip, payload, old_pool, pool, service):
         persist = None
