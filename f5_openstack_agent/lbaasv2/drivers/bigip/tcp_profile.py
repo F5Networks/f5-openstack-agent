@@ -188,6 +188,15 @@ class TCPProfileHelper(object):
                     partition=partition,
                     tcpOptions=tcp_options
                 )
+                if keepalive_timeout != -1:
+                    keepAliveInterval = 1800
+                    if keepalive_timeout >= keepAliveInterval:
+                        keepAliveInterval = keepalive_timeout + 300
+                    payload.update(dict(
+                        idleTimeout=keepalive_timeout,
+                        keepAliveInterval=keepAliveInterval
+                    ))
+
                 LOG.info(
                     "Updating to create a non-exist customized TCP profile: {}"
                     " for BIGIP: {} ".format(
@@ -210,16 +219,24 @@ class TCPProfileHelper(object):
                 }
             elif side == "server":
                 # pzhang: coustomerized serverside, clientside is /common/tcp
+                # clientside is client_tcp_profile when set keepalive_timeout
                 server_profile_body = {
                     "name": profile_name,
                     "partition": partition,
                     "context": "serverside"
                 }
-                client_profile_body = {
-                    "name": "tcp",
-                    "partition": "Common",
-                    "context": "clientside"
-                }
+                if keepalive_timeout != -1:
+                    client_profile_body = {
+                        "name": self.get_profile_name(service, 'client'),
+                        "partition": partition,
+                        "context": "clientside"
+                    }
+                else:
+                    client_profile_body = {
+                        "name": "tcp",
+                        "partition": "Common",
+                        "context": "clientside"
+                    }
             else:
                 # pzhang: coustomerized both serverside and clientside
                 server_profile_body = {
@@ -249,16 +266,18 @@ class TCPProfileHelper(object):
             # to delete profile, then updating to create new profile
             # be caution here: we do not change standard mode back to fastl4
             if keepalive_timeout != -1:
-                LOG.debug('keepalive need this TCP profile, do not delete')
-                self.delete_profile = False
-                return
-
-            all_profile_body = {
-                "name": "tcp",
-                "fullPath": "/Common/tcp",
-                "partition": "Common",
-                "context": "all"
-            }
+                all_profile_body = {
+                    "name": self.get_profile_name(service, 'client'),
+                    "partition": partition,
+                    "context": "all"
+                }
+            else:
+                all_profile_body = {
+                    "name": "tcp",
+                    "fullPath": "/Common/tcp",
+                    "partition": "Common",
+                    "context": "all"
+                }
 
             vs_all_profiles = self.get_vs_all_profiles(
                 bigip, partition, vs_name)
@@ -373,27 +392,17 @@ class TCPProfileHelper(object):
         else:
             return False
 
-    def need_delete_keepalive(self, service):
-        listener = service.get('listener')
-        if listener is None:
-            return False
-        k_t = listener.get('keepalive_timeout')
-        return True if k_t != -1 else False
-
     def delete_keepalive_profile(self, service, vip, bigip):
         listener = service.get('listener')
         k_t = listener.get('keepalive_timeout')
         if listener is not None and k_t != -1:
-            self.remove_profile(service, vip, bigip, side="server")
+            self.remove_profile(service, vip, bigip, side="client")
 
     def create_keepalive_tcp_profile(self, service, vip, bigip, **kwargs):
         keepalive_timeout = service.get('listener').get('keepalive_timeout')
         keepAliveInterval = 1800
 
-        side = "server"
-        tcp_options = kwargs.get("tcp_options")
-        tcp_options = "{%s first}" % tcp_options if tcp_options else None
-
+        side = "client"
         partition = vip['partition']
         profile_name = self.get_profile_name(service, side)
         profile = "/" + partition + "/" + profile_name
@@ -403,7 +412,7 @@ class TCPProfileHelper(object):
             name=profile_name,
             partition=partition
         )
-        if keepalive_timeout >= 1800:
+        if keepalive_timeout >= keepAliveInterval:
             keepAliveInterval = keepalive_timeout + 300
 
         if not profile_exists:
@@ -411,7 +420,6 @@ class TCPProfileHelper(object):
             payload = dict(
                 name=profile_name,
                 partition=partition,
-                tcpOptions=tcp_options,
                 idleTimeout=keepalive_timeout,
                 keepAliveInterval=keepAliveInterval
             )
@@ -429,40 +437,65 @@ class TCPProfileHelper(object):
             profile.modify(idleTimeout=keepalive_timeout,
                            keepAliveInterval=keepAliveInterval)
 
-        server_profile_body = {
-            "name": profile_name,
-            "partition": partition,
-            "context": "serverside"
-        }
-        client_profile_body = {
-            "name": "tcp",
-            "partition": "Common",
-            "context": "clientside"
-        }
+        if self.enable_tcp(service):
+            # server tcp profile exists when set transparent
+            client_profile_body = {
+                "name": profile_name,
+                "partition": partition,
+                "context": "clientside"
+            }
+            server_profile_name = self.get_profile_name(service, 'server')
 
-        return server_profile_body, client_profile_body
+            LOG.debug('transparent tcp profile exists, update idleTimeout')
+            profile = self.tcp_helper.load(bigip, name=server_profile_name,
+                                           partition=partition)
+            profile.modify(idleTimeout=keepalive_timeout,
+                           keepAliveInterval=keepAliveInterval)
+            server_profile_body = {
+                "name": server_profile_name,
+                "partition": partition,
+                "context": "serverside"
+            }
+        else:
+            client_profile_body = {
+                "name": profile_name,
+                "partition": partition,
+                "context": "all"
+            }
+            server_profile_body = None
+
+        return client_profile_body, server_profile_body
 
     def add_keepalive_tcp_profile(self, service, vip, bigip, **kwargs):
-        server_profile_body, client_profile_body = \
+        LOG.debug('before keepalive, vip: {}'.format(vip))
+        client_profile_body, server_profile_body = \
             self.create_keepalive_tcp_profile(service, vip, bigip, **kwargs)
 
-        if vip.get('profiles'):
-            delete_fastL4s = vip['profiles'].count("/Common/fastL4")
-            for _ in range(delete_fastL4s):
-                vip['profiles'].remove("/Common/fastL4")
-
-            if server_profile_body not in vip['profiles']:
-                vip['profiles'].append(server_profile_body)
+        if self.enable_tcp(service):
+            # need replace client Common/tcp profile when set transparent
+            tcp_client_profile_body = {
+                "name": "tcp",
+                "partition": "Common",
+                "context": "clientside"
+            }
+            if tcp_client_profile_body in vip['profiles']:
+                vip['profiles'].remove(tcp_client_profile_body)
             if client_profile_body not in vip['profiles']:
                 vip['profiles'].append(client_profile_body)
         else:
-            profiles = [server_profile_body, client_profile_body]
-            vip['profiles'] = profiles
+            if vip.get('profiles'):
+                delete_fastL4s = vip['profiles'].count("/Common/fastL4")
+                for _ in range(delete_fastL4s):
+                    vip['profiles'].remove("/Common/fastL4")
 
-        self.delete_profile = False
+                if client_profile_body not in vip['profiles']:
+                    vip['profiles'].append(client_profile_body)
+            else:
+                vip['profiles'] = [client_profile_body]
+        LOG.debug('after keepalive, vip: {}'.format(vip))
 
     def update_keepalive_tcp_profile(self, service, vip, bigip, **kwargs):
-        server_profile_body, client_profile_body = \
+        client_profile_body, server_profile_body = \
             self.create_keepalive_tcp_profile(service, vip, bigip, **kwargs)
 
         vs_all_profiles = self.get_vs_all_profiles(
@@ -471,8 +504,9 @@ class TCPProfileHelper(object):
 
         vs_profiles = self.replace_profiles(
             vs_all_profiles,
-            client_profile_body,
-            server_profile_body)
+            client_profile_body)
+        if server_profile_body:
+            vs_profiles.append(server_profile_body)
         LOG.debug('keepalive after replace: {}'.format(vs_profiles))
         payload = {
             'name': vip['name'],
@@ -480,4 +514,3 @@ class TCPProfileHelper(object):
             'profiles': vs_profiles,
         }
         self.vs_helper.update(bigip, payload)
-        self.delete_profile = False
