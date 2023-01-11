@@ -506,7 +506,8 @@ class NetworkServiceBuilder(object):
 
         # L2toL3 networking layer
         # Non Shared Config -  Local Per BIG-IP
-        self.update_bigip_l2(service)
+        if self.conf.vtep_ip:
+            self.update_bigip_l2(service)
 
         # Delete shared config objects
         deleted_names = set()

@@ -56,10 +56,14 @@ class BigipSnatManager(object):
                 snat_pool_model
             )
         except Exception as err:
-            LOG.exception(err)
-            raise f5_ex.SNATCreationException(
-                "Error creating snat pool: %s" %
-                snat_info)
+            if err.response.status_code == 409:
+                LOG.info(
+                    "snat pool %s has existed.", snat_pool_model)
+            else:
+                LOG.exception(err)
+                raise f5_ex.SNATCreationException(
+                    "Error creating snat pool: %s" %
+                    snat_info)
 
     def delete_flavor_snats(self, bigip,
                             partition, snat_pool):

@@ -252,7 +252,8 @@ class LoadBalancerManager(ResourceManager):
             self.__add_bwc(bigip, loadbalancer, bandwidth, service, False)
 
         super(LoadBalancerManager, self)._create(bigip, payload,
-                                                 loadbalancer, service)
+                                                 loadbalancer, service,
+                                                 overwrite=False)
 
     def _delete(self, bigip, payload, loadbalancer, service, **kwargs):
 
@@ -325,7 +326,8 @@ class LoadBalancerManager(ResourceManager):
 
     def _post_create(self, service):
         # create fdb for vxlan tunnel
-        if not self.driver.conf.f5_global_routed_mode:
+        if not self.driver.conf.f5_global_routed_mode \
+                and self.driver.conf.vtep_ip:
             self.driver.network_builder.update_bigip_l2(service)
 
     def _pre_create(self, service):
@@ -1525,20 +1527,25 @@ class PoolManager(ResourceManager):
             payload=payload, create_payload=create_payload
         )
 
+    def _vs_exist(self, bigip, mgr, payload):
+        return mgr.resource_helper.exists(bigip, name=payload['name'],
+                                          partition=payload['partition'])
+
     def _create(self, bigip, poolpayload, pool, service):
+
         if 'members' in poolpayload:
             del poolpayload['members']
         if 'monitor' in poolpayload:
             del poolpayload['monitor']
         super(PoolManager, self)._create(bigip, poolpayload, pool, service)
 
-        """ create the pool at first"""
+        # Create the pool at first
         for listener in service['listeners']:
             if listener['default_pool_id'] == pool['id']:
                 service['listener'] = listener
                 break
 
-        """Update the listener's default pool id if needed"""
+        # Update the listener's default pool id if needed
         if service.get('listener'):
             LOG.debug("Find a listener %s for create pool", listener)
             mgr = ListenerManager(self.driver)
@@ -1547,7 +1554,9 @@ class PoolManager(ResourceManager):
                 listener_payload,
                 keys_to_keep=['partition', 'name', 'pool', 'persist']
             )
-            mgr._update(bigip, listener_payload, None, listener, service)
+            if self._vs_exist(bigip, mgr, listener_payload):
+                mgr._update(bigip, listener_payload, None,
+                            listener, service)
 
     def _update(self, bigip, payload, old_pool, pool, service):
         persist = None
