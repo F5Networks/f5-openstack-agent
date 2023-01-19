@@ -118,43 +118,54 @@ class L2ServiceBuilder(object):
 
     def initialize_f5os_client(self):
         '''Intialize the F5OS client when the driver is ready.'''
-        host = self.conf.confd_hostname
+        bigips = self.conf.icontrol_hostname.split(',')
+        confds = self.conf.confd_hostname.split(',')
         port = self.conf.confd_port
         user = self.conf.confd_username
         password = self.conf.confd_password
-        ve_tenant = self.conf.ve_tenant
-        lag_interface = self.conf.lag_interface
 
-        self.f5os_client = F5OSClient(
-            host=host,
-            port=port,
-            user=user,
-            password=password
-        )
+        self.f5os_client = {}
+        self.ve_tenant = {}
+        self.lag = {}
+        i = 0
+        while i < len(bigips):
+            bigip = bigips[i]
+            f5os_client = F5OSClient(
+                host=confds[i],
+                port=port,
+                user=user,
+                password=password
+            )
+            self.f5os_client[bigip] = f5os_client
+            i = i + 1
 
-        # If no specified ve tenant, assume only one tenant.
-        if not ve_tenant:
-            ve_tenants = Tenant(self.f5os_client).loadCollection()
-            if len(ve_tenants) == 1:
-                ve_tenant = ve_tenants[0]['name']
-            elif len(ve_tenants) == 0:
-                raise Exception("No VE tenant")
+            # If no specified ve tenant, assume only one tenant.
+            if self.conf.ve_tenant:
+                ve_tenant = self.conf.ve_tenant
             else:
-                raise Exception("VE tenant is not specified")
+                ve_tenants = Tenant(f5os_client).loadCollection()
+                if len(ve_tenants) == 1:
+                    ve_tenant = ve_tenants[0]['name']
+                elif len(ve_tenants) == 0:
+                    raise Exception("No VE tenant")
+                else:
+                    raise Exception("VE tenant is not specified")
 
-        self.ve_tenant = Tenant(self.f5os_client, name=ve_tenant)
+            self.ve_tenant[bigip] = Tenant(f5os_client, name=ve_tenant)
 
-        # If no specified lag interface, assume only one lag.
-        if not lag_interface:
-            lags = LAG(self.f5os_client).loadCollection()
-            if len(lags) == 1:
-                lag_interface = lags[0]['name']
-            elif len(ve_tenants) == 0:
-                raise Exception("No LAG interface")
+            # If no specified lag interface, assume only one lag.
+            if self.conf.lag_interface:
+                lag_interface = self.conf.lag_interface
             else:
-                raise Exception("LAG interface is not specified")
+                lags = LAG(f5os_client).loadCollection()
+                if len(lags) == 1:
+                    lag_interface = lags[0]['name']
+                elif len(ve_tenants) == 0:
+                    raise Exception("No LAG interface")
+                else:
+                    raise Exception("LAG interface is not specified")
 
-        self.lag = LAG(self.f5os_client, name=lag_interface)
+            self.lag[bigip] = LAG(f5os_client, name=lag_interface)
 
     def post_init(self):
         if self.vlan_binding:
@@ -355,7 +366,7 @@ class L2ServiceBuilder(object):
                                                'interface': interface,
                                                'network': network})
 
-        self._assure_f5os_vlan_network(vlanid, vlan_name)
+        self._assure_f5os_vlan_network(bigip.hostname, vlanid, vlan_name)
 
         if self.vcmp_manager and self.vcmp_manager.get_vcmp_host(bigip):
             interface = None
@@ -512,14 +523,14 @@ class L2ServiceBuilder(object):
         # Associate the VLAN with the vCMP Guest, if necessary
         self.vcmp_manager.assoc_vlan_with_vcmp_guest(bigip, vlan)
 
-    def _assure_f5os_vlan_network(self, vlan_id, vlan_name):
+    def _assure_f5os_vlan_network(self, bigip, vlan_id, vlan_name):
         if not self.f5os_client:
             return
 
-        vlan = Vlan(self.f5os_client)
+        vlan = Vlan(self.f5os_client[bigip])
         vlan.create(vlan_id, vlan_name)
-        self.lag.associateVlan(vlan_id)
-        self.ve_tenant.associateVlan(vlan_id)
+        self.lag[bigip].associateVlan(vlan_id)
+        self.ve_tenant[bigip].associateVlan(vlan_id)
 
     def delete_bigip_network(self, bigip, network):
         # Delete network on bigip
@@ -561,7 +572,7 @@ class L2ServiceBuilder(object):
             )
             # Delete vlan in F5OS after deleting it in BIGIP
             vlan_id = network["provider:segmentation_id"]
-            self._delete_f5os_vlan_network(vlan_id)
+            self._delete_f5os_vlan_network(bigip.hostname, vlan_id)
         except Exception as err:
             LOG.exception(err)
             LOG.error(
@@ -674,7 +685,7 @@ class L2ServiceBuilder(object):
             return
         self.vcmp_manager.disassoc_vlan_with_vcmp_guest(bigip, vlan_name)
 
-    def _delete_f5os_vlan_network(self, vlan_id):
+    def _delete_f5os_vlan_network(self, bigip, vlan_id):
         '''Disassociated VLAN with Tenant, then delete it from F5OS
 
         :param vlan_id: -- id of vlan
@@ -684,17 +695,17 @@ class L2ServiceBuilder(object):
             return
 
         LOG.debug("disassociating vlan %d with Tenant", vlan_id)
-        self.ve_tenant.dissociateVlan(vlan_id)
+        self.ve_tenant[bigip].dissociateVlan(vlan_id)
 
         LOG.debug("disassociating vlan %d with lag", vlan_id)
-        self.lag.dissociateVlan(vlan_id)
+        self.lag[bigip].dissociateVlan(vlan_id)
 
         LOG.debug("deleting vlan %d", vlan_id)
         # F5OS API may return 400, if deleting vlan immediately after
         # dissociating vlan from tenant or lag
         interval = 1
         max_retries = 15
-        vlan = Vlan(self.f5os_client, vlan_id)
+        vlan = Vlan(self.f5os_client[bigip], vlan_id)
         while max_retries > 0:
             try:
                 vlan.delete()
