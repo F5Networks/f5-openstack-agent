@@ -139,17 +139,20 @@ class L2ServiceBuilder(object):
             self.f5os_client[bigip] = f5os_client
             i = i + 1
 
-            # If no specified ve tenant, assume only one tenant.
+            # Identify the ve tenant name of BIG-IP
             if self.conf.ve_tenant:
                 ve_tenant = self.conf.ve_tenant
             else:
                 ve_tenants = Tenant(f5os_client).loadCollection()
-                if len(ve_tenants) == 1:
-                    ve_tenant = ve_tenants[0]['name']
-                elif len(ve_tenants) == 0:
+                if len(ve_tenants) == 0:
                     raise Exception("No VE tenant")
                 else:
-                    raise Exception("VE tenant is not specified")
+                    ve_tenant = ""
+                    for ve in ve_tenants:
+                        if ve['config']['mgmt-ip'] == bigip:
+                            ve_tenant = ve['name']
+                    if not ve_tenant:
+                        raise Exception("VE tenant is not specified")
 
             self.ve_tenant[bigip] = Tenant(f5os_client, name=ve_tenant)
 
