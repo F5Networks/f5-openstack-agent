@@ -5,6 +5,28 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.50(Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2644] Search VE tenant in F5OS by BIG-IP mgmt ip
+* [OPENSTACK-2644] Deploy configuration to BIG-IP HA pair on rSeries
+* [OPENSTACK-2644] Create/delete vlan via F5OS
+* [OPENSTACK-2644] Use PUT instead of PATCH to associate the first vlan
+* [OPENSTACK-2644] Implement restconf client
+* [OPENSTACK-2644] Define F5OS configuration
+* [OPENSTACK-2474] Support to change port number
+
+Bug Fixes
+`````````
+* [OPENSTACK-2482] Delete cafile for mtls profile.
+* [OPENSTACK-2482] Remove certs and keys as removing ssl profiles.
+* [OPENSTACK-2483] Fix confusing logs to avoid misunderstanding.
+
+Limitations
+
 v9.8.49(Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
