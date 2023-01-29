@@ -118,8 +118,12 @@ class L2ServiceBuilder(object):
 
     def initialize_f5os_client(self):
         '''Intialize the F5OS client when the driver is ready.'''
-        bigips = self.conf.icontrol_hostname.split(',')
-        confds = self.conf.confd_hostname.split(',')
+        confds = []
+        bigips = []
+        if self.conf.icontrol_hostname:
+            bigips = self.conf.icontrol_hostname.split(',')
+        if self.conf.confd_hostname:
+            confds = self.conf.confd_hostname.split(',')
         port = self.conf.confd_port
         user = self.conf.confd_username
         password = self.conf.confd_password
@@ -127,6 +131,9 @@ class L2ServiceBuilder(object):
         self.f5os_client = {}
         self.ve_tenant = {}
         self.lag = {}
+        if len(confds) <= 0:
+            return
+
         i = 0
         while i < len(bigips):
             bigip = bigips[i]
