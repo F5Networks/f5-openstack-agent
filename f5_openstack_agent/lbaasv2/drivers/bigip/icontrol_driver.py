@@ -670,6 +670,7 @@ class iControlDriver(LBaaSBaseDriver):
                     self._set_agent_status(False)
         except Exception as exc:
             LOG.error('Invalid agent configuration: %s' % exc.message)
+            self._set_agent_status(False)
             raise
         self._set_agent_status(force_resync=True)
 
@@ -729,6 +730,7 @@ class iControlDriver(LBaaSBaseDriver):
                 LOG.debug('there are no BIG-IPs with error status')
         except Exception as exc:
             LOG.error('Invalid agent configuration: %s' % exc.message)
+            self._set_agent_status(False)
             raise
 
     def _open_bigip(self, hostname):
