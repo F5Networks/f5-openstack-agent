@@ -11,6 +11,7 @@ NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack rele
 
 Added Functionality
 ```````````````````
+* [OPENSTACK-2671] Skip to init confd client if no confd address
 * [OPENSTACK-2644] Search VE tenant in F5OS by BIG-IP mgmt ip
 * [OPENSTACK-2644] Deploy configuration to BIG-IP HA pair on rSeries
 * [OPENSTACK-2644] Create/delete vlan via F5OS
@@ -21,6 +22,7 @@ Added Functionality
 
 Bug Fixes
 `````````
+* [OPENSTACK-2671] Change agent admin_state_up to false if exception is raised during device init
 * [OPENSTACK-2482] Delete cafile for mtls profile.
 * [OPENSTACK-2482] Remove certs and keys as removing ssl profiles.
 * [OPENSTACK-2483] Fix confusing logs to avoid misunderstanding.
