@@ -447,6 +447,9 @@ class iControlDriver(LBaaSBaseDriver):
                 base64.b64decode(self.conf.icontrol_password)
             if self.conf.os_password:
                 self.conf.os_password = base64.b64decode(self.conf.os_password)
+            if self.conf.confd_password:
+                self.conf.confd_password = \
+                    base64.b64decode(self.conf.confd_password)
 
         try:
 
