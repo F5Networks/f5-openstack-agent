@@ -11,6 +11,7 @@ NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack rele
 
 Added Functionality
 ```````````````````
+* [OPENSTACK-2671] Encode confd password
 * [OPENSTACK-2671] Skip to init confd client if no confd address
 * [OPENSTACK-2644] Search VE tenant in F5OS by BIG-IP mgmt ip
 * [OPENSTACK-2644] Deploy configuration to BIG-IP HA pair on rSeries
@@ -28,6 +29,7 @@ Bug Fixes
 * [OPENSTACK-2483] Fix confusing logs to avoid misunderstanding.
 
 Limitations
+```````````
 
 v9.8.49(Pike, Queens)
 --------------------------------------------
@@ -43,6 +45,7 @@ Bug Fixes
 `````````
 
 Limitations
+```````````
 
 v9.8.48 (Pike, Queens)
 --------------------------------------------
@@ -56,6 +59,7 @@ Bug Fixes
 * [OPENSTACK-2381] Only update interval from api side
 
 Limitations
+```````````
 
 v9.8.48beta (Pike, Queens)
 --------------------------------------------
@@ -78,6 +82,7 @@ Bug Fixes
 * [OPENSTACK-2341] fix: get all nodes in a partition
 
 Limitations
+```````````
 
 v9.8.47 (Pike, Queens)
 --------------------------------------------
@@ -98,6 +103,7 @@ Bug Fixes
 * [OPENSTACK-2295] Ensure route domain id consistency
 
 Limitations
+```````````
 
 v9.8.46 (Pike, Queens)
 --------------------------------------------
@@ -124,6 +130,7 @@ Bug Fixes
 * add checking status support and don't send the members with status of none or checking
 
 Limitations
+```````````
 
 v9.8.45 (Pike, Queens)
 --------------------------------------------
@@ -146,6 +153,7 @@ Bug Fixes
 * The extra items such as customized, tls in payload will cause error for updating operation
 
 Limitations
+```````````
 
 v9.8.44 (Pike, Queens)
 --------------------------------------------
