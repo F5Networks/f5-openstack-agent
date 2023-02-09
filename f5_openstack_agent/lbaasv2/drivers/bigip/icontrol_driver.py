@@ -23,6 +23,7 @@ import os
 import signal
 import urllib
 
+from cryptography.fernet import Fernet
 from eventlet import greenthread
 from time import strftime
 from time import time
@@ -197,7 +198,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='The username to use for F5OS confd access'
     ),
     cfg.StrOpt(
-        'confd_password', default='admin', secret=True,
+        'confd_password', default='', secret=True,
         help='The password to use for F5OS confd access'
     ),
     cfg.StrOpt(
@@ -444,12 +445,16 @@ class iControlDriver(LBaaSBaseDriver):
 
         if self.conf.password_cipher_mode:
             self.conf.icontrol_password = \
-                base64.b64decode(self.conf.icontrol_password)
+                decrypt_data(self.conf.icontrol_username,
+                             self.conf.icontrol_password)
             if self.conf.os_password:
-                self.conf.os_password = base64.b64decode(self.conf.os_password)
+                self.conf.os_password = \
+                    decrypt_data(self.conf.os_username,
+                                 self.conf.os_password)
             if self.conf.confd_password:
                 self.conf.confd_password = \
-                    base64.b64decode(self.conf.confd_password)
+                    decrypt_data(self.conf.confd_username,
+                                 self.conf.confd_password)
 
         try:
 
@@ -2670,3 +2675,15 @@ class iControlDriver(LBaaSBaseDriver):
 
         # if all else fails
         return '/etc/neutron/services/f5'
+
+
+# Decrypt device password
+
+def generate_key(key):
+    h = hashlib.md5(key.encode()).hexdigest()
+    return base64.urlsafe_b64encode(h.encode())
+
+
+def decrypt_data(key, data):
+    f = Fernet(generate_key(key))
+    return f.decrypt(data.encode()).decode()

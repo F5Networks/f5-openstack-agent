@@ -26,7 +26,7 @@ setuptools.setup(
                 ('/etc/neutron/services/f5/esd', ['etc/neutron/services/f5/esd/demo.json']),
                 ('/etc/init.d', ['etc/init.d/f5-oslbaasv2-agent']),
                 ('/usr/lib/systemd/system', ['lib/systemd/system/f5-openstack-agent.service']),
-                ('/usr/bin/f5', ['bin/debug_bundler.py'])],
+                ('/usr/bin/f5', ['bin/debug_bundler.py', 'bin/encrypt'])],
     packages=setuptools.find_packages(exclude=['*.test', '*.test.*', 'test*', 'test']),
     classifiers=[
         'Environment :: OpenStack',
