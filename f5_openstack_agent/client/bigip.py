@@ -17,7 +17,7 @@ INDENT = 4
 INVENTORY_PATH = '/etc/neutron/services/f5/inventory.json'
 
 
-class BipipCommand(object):
+class BigipCommand(object):
     def __init__(self):
         self.filepath = INVENTORY_PATH
         self._check_file()
@@ -229,7 +229,7 @@ class CreateBigip(command.ShowOne):
         return parser
 
     def take_action(self, parsed_args):
-        commander = BipipCommand()
+        commander = BigipCommand()
         hostname, username, password, port = (parsed_args.icontrol_hostname,
                                               parsed_args.icontrol_username,
                                               parsed_args.icontrol_password,
@@ -305,7 +305,7 @@ class DeleteBigip(command.Command):
         return parser
 
     def take_action(self, parsed_args):
-        commander = BipipCommand()
+        commander = BigipCommand()
         icontrol_hostname = parsed_args.icontrol_hostname
         if icontrol_hostname:
             blob = commander.get_blob(parsed_args.id)
@@ -375,7 +375,7 @@ class UpdateBigip(command.ShowOne):
         return parser
 
     def take_action(self, parsed_args):
-        commander = BipipCommand()
+        commander = BigipCommand()
         blob = commander.get_blob(parsed_args.id)
         blob["admin_state_up"] = parsed_args.admin_state \
             if parsed_args is not None else True
@@ -410,7 +410,7 @@ class RefreshBigip(command.ShowOne):
         return parser
 
     def take_action(self, parsed_args):
-        commander = BipipCommand()
+        commander = BigipCommand()
         icontrol_hostname = parsed_args.icontrol_hostname
         group_id = parsed_args.id
         if group_id == "all":
@@ -428,7 +428,7 @@ class ListBigip(command.Lister):
     _description = _("List all BIG-IP in the inventory")
 
     def take_action(self, parsed_args):
-        commander = BipipCommand()
+        commander = BigipCommand()
         return commander.show_inventory()
 
 
@@ -446,5 +446,5 @@ class ShowBigip(command.ShowOne):
         return parser
 
     def take_action(self, parsed_args):
-        commander = BipipCommand()
+        commander = BigipCommand()
         return commander.show_inventory(parsed_args.id)

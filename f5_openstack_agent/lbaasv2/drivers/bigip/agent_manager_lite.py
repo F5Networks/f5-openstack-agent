@@ -34,7 +34,7 @@ try:
 except ImportError:
     from neutron import context as ncontext
 
-from f5_openstack_agent.client.bigip import BipipCommand
+from f5_openstack_agent.client.bigip import BigipCommand
 from f5_openstack_agent.lbaasv2.drivers.bigip import bigip_device
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
@@ -685,7 +685,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         per folder. """
 
         try:
-            commander = BipipCommand()
+            commander = BigipCommand()
             bigips = commander.get_active_bigips(self.conf.availability_zone)
             LOG.debug("get %s active bigips" % len(bigips))
             for info in bigips:
