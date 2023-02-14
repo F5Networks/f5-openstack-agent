@@ -136,6 +136,36 @@ class BipipCommand(object):
                         })
         return bigips
 
+    def update_external_mapping(self, parsed_args, blob):
+        if parsed_args.external_physical_mappings is not None:
+            if not parsed_args.host:
+                msg = _(
+                    "Update %s external-physical-mappings %s, "
+                    "--host is not given" % (
+                        parsed_args.id,
+                        parsed_args.external_physical_mappings
+                    )
+                )
+                raise exceptions.CommandError(msg)
+
+            if parsed_args.host not in blob["bigip"]:
+                msg = _(
+                    "Update %s host %s "
+                    "external-physical-mappings %s. "
+                    "The host %s cannot be found in inventory."
+                    % (
+                        parsed_args.id,
+                        parsed_args.host,
+                        parsed_args.external_physical_mappings,
+                        parsed_args.host,
+                    )
+                )
+                raise exceptions.CommandError(msg)
+
+            blob["bigip"][parsed_args.host][
+                "external_physical_mappings"
+            ] = parsed_args.external_physical_mappings
+
 
 class CreateBigip(command.ShowOne):
     _description = _("Create a new bigip to a device group")
@@ -180,6 +210,20 @@ class CreateBigip(command.ShowOne):
             default=None,
             metavar='<vtep_id>',
             help=_('vtep ip for agent'),
+        )
+        parser.add_argument(
+            '--external-physical-mappings',
+            default="default:1.1",
+            metavar='<external-physical-mappings>',
+            help=_(
+                'maps of neutorn physical network to bigip interface, '
+                'such as '
+                '<neturon physical network>:<bigip interface_name>,... '
+                'for example '
+                '"default:1.3, phynet1:1.2". '
+                'The "default" is for all others nuknown '
+                'physical networks.'
+            ),
         )
 
         return parser
@@ -231,6 +275,10 @@ class CreateBigip(command.ShowOne):
             if parsed_args.vtep_ip:
                 blob['local_link_information'] = \
                     [{"node_vtep_ip": parsed_args.vtep_ip}]
+
+            blob["bigip"][hostname][
+                "external_physical_mappings"
+            ] = parsed_args.external_physical_mappings
 
             group_id = commander.create_bigip(blob)
             return commander.show_inventory(group_id)
@@ -301,6 +349,28 @@ class UpdateBigip(command.ShowOne):
             metavar='<vtep_id>',
             help=_('vtep ip for agent'),
         )
+        parser.add_argument(
+            '--host',
+            default=None,
+            metavar='<host>',
+            help=_(
+                'host should be given, when update bigip device info'
+            ),
+        )
+        parser.add_argument(
+            '--external-physical-mappings',
+            default=None,
+            metavar='<external-physical-mappings>',
+            help=_(
+                'maps of neutorn physical network to bigip interface, '
+                'such as '
+                '<neturon physical network>:<bigip interface_name>,... '
+                'for example '
+                '"default:1.3, phynet1:1.2". '
+                'The "default" is for all others nuknown '
+                'physical networks.'
+            ),
+        )
 
         return parser
 
@@ -314,6 +384,7 @@ class UpdateBigip(command.ShowOne):
         if parsed_args.vtep_ip:
             blob['local_link_information'] = \
                 [{"node_vtep_ip": parsed_args.vtep_ip}]
+        commander.update_external_mapping(parsed_args, blob)
         commander.update_bigip(parsed_args.id, blob)
 
         return commander.show_inventory(parsed_args.id)
