@@ -75,7 +75,6 @@ class L2ServiceBuilder(object):
         self.f5_global_routed_mode = f5_global_routed_mode
         self.fdb_connector = None
         self.interface_mapping = {}
-        self.tagging_mapping = {}
         self.system_helper = SystemHelper()
         self.network_helper = NetworkHelper()
         self.service_adapter = ServiceModelAdapter(self.conf)
@@ -83,16 +82,15 @@ class L2ServiceBuilder(object):
         if not f5_global_routed_mode:
             self.fdb_connector = FDBConnectorML2(self.conf)
 
-        # map format is  phynet:interface:tagged
+        # map format is  phynet:interface
         for maps in self.conf.f5_external_physical_mappings:
             intmap = maps.split(':')
             net_key = str(intmap[0]).strip()
             if len(intmap) > 3:
                 net_key = net_key + ':' + str(intmap[3]).strip()
             self.interface_mapping[net_key] = str(intmap[1]).strip()
-            self.tagging_mapping[net_key] = str(intmap[2]).strip()
-            LOG.debug('physical_network %s = interface %s, tagged %s'
-                      % (net_key, intmap[1], intmap[2]))
+            LOG.debug('physical_network %s = interface %s'
+                      % (net_key, intmap[1]))
 
     def tunnel_sync(self, tunnel_ips):
         if self.fdb_connector:
@@ -133,18 +131,10 @@ class L2ServiceBuilder(object):
         # look for host specific interface mapping
         if net_key and net_key + ':' + hostname in self.interface_mapping:
             interface = self.interface_mapping[net_key + ':' + hostname]
-            tagged = self.tagging_mapping[net_key + ':' + hostname]
         elif net_key and net_key in self.interface_mapping:
             interface = self.interface_mapping[net_key]
-            tagged = self.tagging_mapping[net_key]
         else:
             interface = self.interface_mapping['default']
-            tagged = self.tagging_mapping['default']
-
-        if tagged:
-            vlanid = network['provider:segmentation_id']
-        else:
-            vlanid = 0
 
         if net_type == "flat":
             interface_name = str(interface).replace(".", "-")
@@ -153,6 +143,7 @@ class L2ServiceBuilder(object):
                     "Interface name is greater than 15 chars in length")
             vlan_name = "flat-%s" % (interface_name)
         else:
+            vlanid = network['provider:segmentation_id']
             # vlan_name cannot be longer than 64 characters.
             vlan_name = "vlan-%d" % (vlanid)
 
@@ -248,29 +239,13 @@ class L2ServiceBuilder(object):
         # the folder name, so we name them foolish things.
         vlan_name = ""
         interface = self.interface_mapping['default']
-        tagged = self.tagging_mapping['default']
 
-        # Do we have host specific mappings?
         net_key = network['provider:physical_network']
-        if net_key and net_key + ':' + bigip.hostname in \
-                self.interface_mapping:
-            interface = self.interface_mapping[
-                net_key + ':' + bigip.hostname]
-            tagged = self.tagging_mapping[
-                net_key + ':' + bigip.hostname]
-        # Do we have a mapping for this network
-        elif net_key and net_key in self.interface_mapping:
+        if net_key and net_key in self.interface_mapping:
             interface = self.interface_mapping[net_key]
-            tagged = self.tagging_mapping[net_key]
 
-        if tagged:
-            vlanid = network['provider:segmentation_id']
-        else:
-            vlanid = 0
-
-        vlan_name = self.get_vlan_name(network,
-                                       bigip.hostname)
-
+        vlanid = network['provider:segmentation_id']
+        vlan_name = self.get_vlan_name(network, bigip.hostname)
         try:
             model = {'name': vlan_name,
                      'interface': interface,
