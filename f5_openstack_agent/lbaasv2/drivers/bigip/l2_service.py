@@ -28,6 +28,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.service_adapter import \
     ServiceModelAdapter
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import SystemHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils as f5_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -74,23 +75,12 @@ class L2ServiceBuilder(object):
         self.driver = driver
         self.f5_global_routed_mode = f5_global_routed_mode
         self.fdb_connector = None
-        self.interface_mapping = {}
         self.system_helper = SystemHelper()
         self.network_helper = NetworkHelper()
         self.service_adapter = ServiceModelAdapter(self.conf)
 
         if not f5_global_routed_mode:
             self.fdb_connector = FDBConnectorML2(self.conf)
-
-        # map format is  phynet:interface
-        for maps in self.conf.f5_external_physical_mappings:
-            intmap = maps.split(':')
-            net_key = str(intmap[0]).strip()
-            if len(intmap) > 3:
-                net_key = net_key + ':' + str(intmap[3]).strip()
-            self.interface_mapping[net_key] = str(intmap[1]).strip()
-            LOG.debug('physical_network %s = interface %s'
-                      % (net_key, intmap[1]))
 
     def tunnel_sync(self, tunnel_ips):
         if self.fdb_connector:
@@ -123,19 +113,19 @@ class L2ServiceBuilder(object):
              network['router:external'] and
              self.conf.f5_common_external_networks)
 
-    def get_vlan_name(self, network, hostname):
+    def get_vlan_name(self, network, interface_mapping):
         # Construct a consistent vlan name
         net_key = network['provider:physical_network']
         net_type = network['provider:network_type']
 
         # look for host specific interface mapping
-        if net_key and net_key + ':' + hostname in self.interface_mapping:
-            interface = self.interface_mapping[net_key + ':' + hostname]
-        elif net_key and net_key in self.interface_mapping:
-            interface = self.interface_mapping[net_key]
+        if net_key and net_key in interface_mapping:
+            interface = interface_mapping[net_key]
         else:
-            interface = self.interface_mapping['default']
+            interface = interface_mapping['default']
 
+        # TODO(clean) if flat is never use, get_vlan_name never use
+        # interface_mapping
         if net_type == "flat":
             interface_name = str(interface).replace(".", "-")
             if (len(interface_name) > 15):
@@ -149,7 +139,7 @@ class L2ServiceBuilder(object):
 
         return vlan_name
 
-    def assure_bigip_network(self, bigip, network):
+    def assure_bigip_network(self, bigip, network, device):
         # Ensure bigip has configured network object
         if not network:
             LOG.error('assure_bigip_network: '
@@ -176,10 +166,10 @@ class L2ServiceBuilder(object):
         # setup all needed L2 network segments
         if network['provider:network_type'] == 'flat':
             network_name = self._assure_device_network_flat(
-                network, bigip, network_folder)
+                network, bigip, network_folder, device)
         elif network['provider:network_type'] == 'vlan':
             network_name = self._assure_device_network_vlan(
-                network, bigip, network_folder)
+                network, bigip, network_folder, device)
         elif network['provider:network_type'] == 'vxlan':
             network_name = self._assure_device_network_vxlan(
                 network, bigip, network_folder)
@@ -202,24 +192,30 @@ class L2ServiceBuilder(object):
             LOG.debug("        assure bigip network took %.5f secs" %
                       (time() - start_time))
 
-    def _assure_device_network_flat(self, network, bigip, network_folder):
+    def _assure_device_network_flat(self, network, bigip, network_folder,
+                                    device):
         # Ensure bigip has configured flat vlan (untagged)
         vlan_name = ""
-        interface = self.interface_mapping['default']
+        interface_mapping = f5_utils.parse_iface_mapping(
+            bigip.hostname, device)
+        LOG.info(
+            "Create flat netowrk base on mapping %s." %
+            interface_mapping
+        )
+        interface = interface_mapping['default']
 
         # Do we have host specific mappings?
         net_key = network['provider:physical_network']
         if net_key and net_key + ':' + bigip.hostname in \
-                self.interface_mapping:
-            interface = self.interface_mapping[
+                interface_mapping:
+            interface = interface_mapping[
                 net_key + ':' + bigip.hostname]
         # Do we have a mapping for this network
-        elif net_key and net_key in self.interface_mapping:
-            interface = self.interface_mapping[net_key]
+        elif net_key and net_key in interface_mapping:
+            interface = interface_mapping[net_key]
 
-        vlan_name = self.get_vlan_name(network,
-                                       bigip.hostname)
-
+        vlan_name = self.get_vlan_name(
+            network, interface_mapping)
         try:
             model = {'name': vlan_name,
                      'interface': interface,
@@ -233,19 +229,27 @@ class L2ServiceBuilder(object):
 
         return vlan_name
 
-    def _assure_device_network_vlan(self, network, bigip, network_folder):
+    def _assure_device_network_vlan(self, network, bigip, network_folder,
+                                    device):
         # Ensure bigip has configured tagged vlan
         # VLAN names are limited to 64 characters including
         # the folder name, so we name them foolish things.
         vlan_name = ""
-        interface = self.interface_mapping['default']
+        interface_mapping = f5_utils.parse_iface_mapping(
+            bigip.hostname, device)
+        LOG.info(
+            "Create vlan network base on mapping %s." %
+            interface_mapping
+        )
+        interface = interface_mapping['default']
 
         net_key = network['provider:physical_network']
-        if net_key and net_key in self.interface_mapping:
-            interface = self.interface_mapping[net_key]
+        if net_key and net_key in interface_mapping:
+            interface = interface_mapping[net_key]
 
         vlanid = network['provider:segmentation_id']
-        vlan_name = self.get_vlan_name(network, bigip.hostname)
+        vlan_name = self.get_vlan_name(
+            network, interface_mapping)
         try:
             model = {'name': vlan_name,
                      'interface': interface,
@@ -333,7 +337,7 @@ class L2ServiceBuilder(object):
 
         return tunnel_name
 
-    def delete_bigip_network(self, bigip, network):
+    def delete_bigip_network(self, bigip, network, device):
         # Delete network on bigip
         if network['id'] in self.conf.common_network_ids:
             LOG.debug('skipping delete of common network %s'
@@ -345,9 +349,11 @@ class L2ServiceBuilder(object):
             network_folder = self.service_adapter.get_folder_name(
                 network['tenant_id'])
         if network['provider:network_type'] == 'vlan':
-            self._delete_device_vlan(bigip, network, network_folder)
+            self._delete_device_vlan(bigip, network, network_folder,
+                                     device)
         elif network['provider:network_type'] == 'flat':
-            self._delete_device_flat(bigip, network, network_folder)
+            self._delete_device_flat(bigip, network, network_folder,
+                                     device)
         elif network['provider:network_type'] == 'vxlan':
             self._delete_device_vxlan(bigip, network, network_folder)
         elif network['provider:network_type'] == 'gre':
@@ -361,10 +367,17 @@ class L2ServiceBuilder(object):
         if network['id'] in bigip.assured_networks:
             del bigip.assured_networks[network['id']]
 
-    def _delete_device_vlan(self, bigip, network, network_folder):
+    def _delete_device_vlan(self, bigip, network, network_folder,
+                            device):
         # Delete tagged vlan on specific bigip
-        vlan_name = self.get_vlan_name(network,
-                                       bigip.hostname)
+        interface_mapping = f5_utils.parse_iface_mapping(
+            bigip.hostname, device)
+        LOG.info(
+            "Delete vlan network base on mapping %s." %
+            interface_mapping
+        )
+        vlan_name = self.get_vlan_name(
+            network, interface_mapping)
         try:
             self.network_helper.delete_vlan(
                 bigip,
@@ -378,10 +391,17 @@ class L2ServiceBuilder(object):
             else:
                 raise err
 
-    def _delete_device_flat(self, bigip, network, network_folder):
+    def _delete_device_flat(self, bigip, network, network_folder,
+                            device):
         # Delete untagged vlan on specific bigip
-        vlan_name = self.get_vlan_name(network,
-                                       bigip.hostname)
+        interface_mapping = f5_utils.parse_iface_mapping(
+            bigip.hostname, device)
+        LOG.info(
+            "Delete flat network base on mapping %s." %
+            interface_mapping
+        )
+        vlan_name = self.get_vlan_name(
+            network, interface_mapping)
         try:
             self.network_helper.delete_vlan(
                 bigip,
@@ -554,18 +574,24 @@ class L2ServiceBuilder(object):
             self._operate_bigip_fdb(bigip, fdb, fdb_operation)
 
     # Utilities
-    def get_network_name(self, bigip, network):
+    def get_network_name(self, bigip, network, device):
         # This constructs a name for a tunnel or vlan interface
+        interface_mapping = f5_utils.parse_iface_mapping(
+            bigip.hostname, device)
+        LOG.info(
+            "Get netowrk name base on mapping %s." %
+            interface_mapping
+        )
         preserve_network_name = False
         if network['id'] in self.conf.common_network_ids:
             network_name = self.conf.common_network_ids[network['id']]
             preserve_network_name = True
         elif network['provider:network_type'] == 'vlan':
-            network_name = self.get_vlan_name(network,
-                                              bigip.hostname)
+            network_name = self.get_vlan_name(
+                network, interface_mapping)
         elif network['provider:network_type'] == 'flat':
-            network_name = self.get_vlan_name(network,
-                                              bigip.hostname)
+            network_name = self.get_vlan_name(
+                network, interface_mapping)
         elif network['provider:network_type'] == 'vxlan':
             network_name = _get_tunnel_name(network)
         elif network['provider:network_type'] == 'gre':
