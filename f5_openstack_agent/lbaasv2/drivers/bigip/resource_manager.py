@@ -760,7 +760,10 @@ class ListenerManager(ResourceManager):
                 self._check_redirect_changed(old_listener, listener) or \
                 self._check_http2_changed(old_listener, listener) or \
                 self.tcp_helper.need_update_tcp(old_listener, listener) or \
-                self.http_helper.need_update_xff(old_listener, listener):
+                self.http_helper.need_update_xff(old_listener, listener) or \
+                self.tcp_irule_helper.need_update_proxy(old_listener,
+                                                        listener) or \
+                self.tcp_helper.need_update_keepalive(old_listener, listener):
             return True
         return super(ListenerManager, self)._update_needed(
             payload, old_listener, listener)
@@ -1253,6 +1256,13 @@ class ListenerManager(ResourceManager):
                 ip_version=ip_version
             )
 
+        keepalive_enable = self.tcp_helper.enable_keepalive(service)
+        if keepalive_enable:
+            self.tcp_helper.add_keepalive_tcp_profile(
+                service, vs, bigip,
+                tcp_options=self.driver.conf.tcp_options
+            )
+
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
         if self._isRedirect(listener):
@@ -1294,8 +1304,10 @@ class ListenerManager(ResourceManager):
             orig_profiles = self.__get_profiles_from_bigip(bigip, vs)
             if 'profiles' not in vs:
                 vs['profiles'] = list()
+            # clienside tcp profile is bind when set keepalive_timeout
             vs['profiles'] += filter(
-                lambda x: x['context'] != 'clientside', orig_profiles['items'])
+                lambda x: x['context'] != 'clientside' or x['name']
+                .startswith('client_tcp_profile'), orig_profiles['items'])
 
         if vs.get("persist") == []:
             LOG.debug("Need to remove persist profile from vs %s", vs['name'])
@@ -1328,6 +1340,11 @@ class ListenerManager(ResourceManager):
                 tcp_options=self.driver.conf.tcp_options,
                 ip_version=ip_version
             )
+        if self.tcp_irule_helper.need_update_proxy(old_listener, listener):
+            self.tcp_irule_helper.update_proxy_protocol_irule(
+                service, vs, bigip,
+                tcp_options=self.driver.conf.tcp_options,
+            )
 
         # If no vs property to update, do not call icontrol patch api.
         # This happens, when vs payload only contains 'customized'.
@@ -1339,6 +1356,13 @@ class ListenerManager(ResourceManager):
         # Only need to refresh profile when a real listener update occurs.
         if old_listener and listener and not extended_profile_updated:
             self._update_extended_profiles(bigip, old_listener, listener, vs)
+
+        keepalive_update = self.tcp_helper\
+            .need_update_keepalive(old_listener, listener)
+        if keepalive_update:
+            self.tcp_helper.update_keepalive_tcp_profile(
+                service, vs, bigip,
+            )
 
         if old_listener and \
            self._check_tls_changed(old_listener, listener) is True:
@@ -1377,6 +1401,7 @@ class ListenerManager(ResourceManager):
             self.tcp_irule_helper.remove_iRule(
                 service, vs, bigip
             )
+        self.tcp_helper.delete_keepalive_profile(service, vs, bigip)
 
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
