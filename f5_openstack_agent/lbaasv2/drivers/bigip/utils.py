@@ -154,3 +154,32 @@ def get_device_info(bigip):
     coll = bigip.tm.cm.devices.get_collection()
     device = [device for device in coll if device.selfDevice == 'true']
     return device[0]
+
+
+def parse_iface_mapping(host, device):
+
+    if host not in device['bigip']:
+        raise Exception(
+            "Cannot find host %s in device %s, "
+            "parse interface mapping failed" %
+            (host, device)
+        )
+
+    interface_mapping = dict()
+    mapping = device['bigip'][host].get(
+        'external_physical_mappings')
+    if not mapping:
+        raise Exception(
+            "Cannot find external_physical_mappings, "
+            "VLANs can not be set on any bigip interface."
+        )
+    mapping = [
+        m.strip() for m in mapping.split(',')
+    ]
+
+    for m in mapping:
+        phy_if = m.split(':')
+        net_key = str(phy_if[0]).strip()
+        interface_mapping[net_key] = str(phy_if[1]).strip()
+
+    return interface_mapping

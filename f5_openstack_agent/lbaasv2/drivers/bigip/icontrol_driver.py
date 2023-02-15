@@ -111,10 +111,6 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'f5_device_type', default='external',
         help='What type of device onboarding'
     ),
-    cfg.ListOpt(
-        'f5_external_physical_mappings', default=['default:1.1:True'],
-        help='Mapping between Neutron physical_network to interfaces'
-    ),
     cfg.StrOpt(
         'f5_vtep_folder', default='Common',
         help='Folder for the VTEP SelfIP'
