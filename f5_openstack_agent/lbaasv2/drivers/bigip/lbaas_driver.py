@@ -63,15 +63,6 @@ class LBaaSBaseDriver(object):
         """Get Stats for a loadbalancer Service."""
         raise NotImplementedError()
 
-    def get_all_deployed_loadbalancers(self, purge_orphaned_folders=True):
-        """Get all Loadbalancers defined on devices."""
-        raise NotImplementedError()
-
-    def purge_orphaned_loadbalancer(self, tenant_id, loadbalancer_id,
-                                    hostnames):
-        """Remove all loadbalancers without references in Neutron."""
-        raise NotImplementedError()
-
     def service_exists(self, service):
         """Check If LBaaS Service is Defined on Driver Target."""
         raise NotImplementedError()
@@ -125,20 +116,6 @@ class LBaaSBaseDriver(object):
 
     def get_all_deployed_health_monitors(self):
         """Get listing of all deployed Health Monitors"""
-        raise NotImplementedError()
-
-    def purge_orphaned_health_monitor(self, tenant_id=None, monitor_id=None,
-                                      hostnames=list()):
-        """LBaaS Purge Health Monitor."""
-        raise NotImplementedError()
-
-    def get_all_deployed_l7_policys(self):
-        """Get listing of all deployed Health Monitors"""
-        raise NotImplementedError()
-
-    def purge_orphaned_l7_policy(self, tenant_id=None, monitor_id=None,
-                                 hostnames=list()):
-        """LBaaS Purge Health Monitor."""
         raise NotImplementedError()
 
     def tunnel_update(self, **kwargs):
