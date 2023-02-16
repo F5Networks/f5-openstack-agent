@@ -59,7 +59,7 @@ class ResourceManager(object):
 
     def __init__(self, driver):
         self.driver = driver
-        self.service_queue = driver.service_queue
+        self.service_queue_map = driver.service_queue_map
         self.mutable_props = {}
 
     def _shrink_payload(self, payload, **kwargs):

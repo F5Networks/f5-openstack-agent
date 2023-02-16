@@ -61,7 +61,7 @@ class TestiControlDriverMockBuilder(mock_builder_base_class.MockBuilderBase,
         self._construct_others()
         # continue to fill in other_builders as needed...
         mocked_target.operational = True
-        mocked_target.service_queue = []
+        mocked_target.service_queue_map = {"default": []}
         mocked_target.hostnames = []
         mocked_target.conf = Mock()  # may need to be a shared one...
         mocked_target.hostnames = None

@@ -53,7 +53,8 @@ def serialized(method_name):
         def wrapper(*args, **kwargs):
             """Necessary wrapper."""
             # args[0] must be an instance of iControlDriver
-            service_queue = args[0].service_queue
+            service_queue_map = args[0].service_queue_map
+            service_queue = service_queue_map["default"]
             my_request_id = uuid.uuid4()
 
             service = None
@@ -61,8 +62,16 @@ def serialized(method_name):
                 last_arg = args[-1]
                 if isinstance(last_arg, dict) and ('loadbalancer' in last_arg):
                     service = last_arg
+
             if 'service' in kwargs:
                 service = kwargs['service']
+
+            # Construct a queue for each device
+            if "device" in service:
+                device_id = service["device"]["id"]
+                if device_id not in service_queue_map:
+                    service_queue_map[device_id] = []
+                service_queue = service_queue_map[device_id]
 
             # Consolidate create_member requests for the same pool.
             #
