@@ -4,27 +4,27 @@ NextGen Inventory CLI
 usage: Create BIG-IP to device group
 
 required params:
-- icontrol_hostname: BIG-IP icontrol API hostname
-- icontrol_username: BIG-IP icontrol API username
-- icontrol_password: BIG-IP icontrol API password
+- icontrol-hostname: BIG-IP icontrol API hostname
+- icontrol-username: BIG-IP icontrol API username
+- icontrol-password: BIG-IP icontrol API password
 
 positional params:
 - id: ID of BIG-IP device group, it should be specified when add new BIG-IP to an existing group.
-- availability_zone: availability zone of BIG-IP group, default null.
-- icontrol_port: BIP-IP icontrol API port, default 443.
-- vtep_ip: vtep ip for agent.
+- availability-zone: availability zone of BIG-IP group, default null.
+- icontrol-port: BIP-IP icontrol API port, default 443.
+- vtep-ip: vtep ip for agent.
 - external-physical-mappings: maps of neutorn physical network to bigip interface or a trunk port. Default value is default:1.1.
 
 command example:
 1. Create a new BIG-IP to a new device group
 
-    `bigip-onboard create 10.145.76.72 admin admin@f5.com --availability_zone nova --vtep_ip 1.2.3.4`
+    `bigip-onboard create 10.145.76.72 admin admin@f5.com --availability-zone nova --vtep-ip 1.2.3.4`
 2. Create a new BIG-IP to an existing device group
 
     `bigip-onboard create 10.145.75.174 admin admin@f5.com --id 8842dbbb-8041-4318-9517-f09cd29a3f55`
 3. Create a new BIG-IP with a external-physical-mappings.
 
-    `bigip-onboard create 10.145.76.72 admin admin@f5.com --availability_zone nova --vtep_ip 1.2.3.4 --external-physical-mappings phynet:1.2`
+    `bigip-onboard create 10.145.76.72 admin admin@f5.com --availability-zone nova --vtep-ip 1.2.3.4 --external-physical-mappings phynet:1.2`
 
 ### 2. bigip-onboard delete
 usage: Remove an existing BIG-IP or an existing device group
@@ -33,12 +33,12 @@ required params:
 - id: ID of BIG-IP device group
 
 positional params:
-- icontrol_hostname: hostname of BIG-IP to be removed
+- icontrol-hostname: hostname of BIG-IP to be removed
 
 command example:
 1. Remove an existing BIG-IP from an existing group, icontrol_hostname should be specified.
 
-   `bigip-onboard delete 8842dbbb-8041-4318-9517-f09cd29a3f55 --icontrol_hostname 10.145.75.174`
+   `bigip-onboard delete 8842dbbb-8041-4318-9517-f09cd29a3f55 --icontrol-hostname 10.145.75.174`
 
 2. Remove an existing group.
 
@@ -54,8 +54,8 @@ required params:
 positional params:
 - admin-state-down: when this param exist in the command, `admin_state_up` property will be set `false`.
 (The updating logic is same as `neutron agent-update`)
-- availability_zone: availability zone of BIG-IP group
-- vtep_ip: vtep ip for agent
+- availability-zone: availability zone of BIG-IP group
+- vtep-ip: vtep ip for agent
 
 command example:
 1. update admin_state_up to `false`.
@@ -64,9 +64,9 @@ command example:
 
 2. update availability_zone to `test` and vtep_ip to `6.7.8.9`
 
-    `bigip-onboard update 8842dbbb-8041-4318-9517-f09cd29a3f55 --availability_zone test --vtep_ip 6.7.8.9`
+    `bigip-onboard update 8842dbbb-8041-4318-9517-f09cd29a3f55 --availability-zone test --vtep-ip 6.7.8.9`
 
-3. update external-physical-mapppings, it must give the ve-group id and the a host of the ve-group.
+3. update external-physical-mapppings, it must give the ve-group id and a host of the ve-group.
 
     `bigip-onboard update 4b4664de-87b4-4465-b36c-a470fb9fd3f1 --external-physical-mappings="exnet:1.2" --host=10.10.75.236`
 
@@ -77,12 +77,12 @@ required params:
 - id: ID of BIG-IP group
 
 positional params:
-- icontrol_hostname: hostname of BIG-IP to be refreshed
+- icontrol-hostname: hostname of BIG-IP to be refreshed
 
 command example:
 1. refresh an existing BIG-IP properties of an existing group.
 
-   `bigip-onboard refresh 8842dbbb-8041-4318-9517-f09cd29a3f55 --icontrol_hostname 10.145.75.174`
+   `bigip-onboard refresh 8842dbbb-8041-4318-9517-f09cd29a3f55 --icontrol-hostname 10.145.75.174`
 
 2. refresh all BIG-IP properties of an existing group.
 

@@ -175,18 +175,18 @@ class CreateBigip(command.ShowOne):
 
         parser.add_argument(
             'icontrol_hostname',
-            metavar='<icontrol_hostname>',
-            help=_('icontrol_hostname of BIG-IP device'),
+            metavar='<icontrol-hostname>',
+            help=_('icontrol hostname of BIG-IP device'),
         )
         parser.add_argument(
             'icontrol_username',
-            metavar='<icontrol_username>',
-            help=_('icontrol_username of BIG-IP device'),
+            metavar='<icontrol-username>',
+            help=_('icontrol username of BIG-IP device'),
         )
         parser.add_argument(
             'icontrol_password',
-            metavar='<icontrol_password>',
-            help=_('password of icontrol_hostname'),
+            metavar='<icontrol-password>',
+            help=_('password of icontrol hostname'),
         )
         parser.add_argument(
             '--id',
@@ -194,21 +194,21 @@ class CreateBigip(command.ShowOne):
             help=_('ID of BIG-IP group'),
         )
         parser.add_argument(
-            '--availability_zone',
-            metavar='<availability_zone>',
+            '--availability-zone',
+            metavar='<availability-zone>',
             default=None,
-            help=_('availability_zone which the BIG-IP is belong'),
+            help=_('Availability Zone which the BIG-IP is belong'),
         )
         parser.add_argument(
-            '--icontrol_port',
+            '--icontrol-port',
             default="443",
-            metavar='<icontrol_port>',
+            metavar='<icontrol-port>',
             help=_('port to communicate with BIG-IP'),
         )
         parser.add_argument(
-            '--vtep_ip',
+            '--vtep-ip',
             default=None,
-            metavar='<vtep_id>',
+            metavar='<vtep-ip>',
             help=_('vtep ip for agent'),
         )
         parser.add_argument(
@@ -297,10 +297,10 @@ class DeleteBigip(command.Command):
         )
 
         parser.add_argument(
-            '--icontrol_hostname',
-            metavar='<icontrol_hostname>',
+            '--icontrol-hostname',
+            metavar='<icontrol-hostname>',
             default=None,
-            help=_('icontrol_hostname of BIG-IP device'),
+            help=_('icontrol hostname of BIG-IP device'),
         )
         return parser
 
@@ -338,15 +338,15 @@ class UpdateBigip(command.ShowOne):
             help=_('Set admin state up of the bigip group to false.'))
 
         parser.add_argument(
-            '--availability_zone',
-            metavar='<availability_zone>',
+            '--availability-zone',
+            metavar='<availability-zone>',
             default=None,
-            help=_('availability zone which the BIG-IP is belong'),
+            help=_('Availability Zone which the BIG-IP is belong'),
         )
         parser.add_argument(
-            '--vtep_ip',
+            '--vtep-ip',
             default=None,
-            metavar='<vtep_id>',
+            metavar='<vtep-ip>',
             help=_('vtep ip for agent'),
         )
         parser.add_argument(
@@ -403,9 +403,9 @@ class RefreshBigip(command.ShowOne):
             help=_('ID of BIG-IP group'),
         )
         parser.add_argument(
-            '--icontrol_hostname',
-            metavar='<icontrol_hostname>',
-            help=_('icontrol_hostname of BIG-IP'),
+            '--icontrol-hostname',
+            metavar='<icontrol-hostname>',
+            help=_('icontrol hostname of BIG-IP'),
         )
         return parser
 
