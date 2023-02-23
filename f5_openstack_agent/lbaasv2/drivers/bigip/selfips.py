@@ -139,7 +139,8 @@ class BigipSelfIpManager(object):
 
         # Get the name of the vlan.
         (network_name, preserve_network_name) = \
-            self.l2_service.get_network_name(bigip, network)
+            self.l2_service.get_network_name(
+                bigip, network, service['device'])
 
         netmask = netaddr.IPNetwork(subnet['cidr']).prefixlen
         address = selfip_address + ("/%d" % netmask)
@@ -196,6 +197,7 @@ class BigipSelfIpManager(object):
 
         return selfip_address
 
+    # TODO(clean) no one use this anymore, delete the code
     def assure_gateway_on_subnet(self, bigip, subnetinfo, traffic_group):
         """Ensure """
         network = None

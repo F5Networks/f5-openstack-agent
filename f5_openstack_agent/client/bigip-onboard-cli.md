@@ -13,6 +13,7 @@ positional params:
 - availability_zone: availability zone of BIG-IP group, default null.
 - icontrol_port: BIP-IP icontrol API port, default 443.
 - vtep_ip: vtep ip for agent.
+- external-physical-mappings: maps of neutorn physical network to bigip interface or a trunk port. Default value is default:1.1.
 
 command example:
 1. Create a new BIG-IP to a new device group
@@ -21,6 +22,9 @@ command example:
 2. Create a new BIG-IP to an existing device group
 
     `bigip-onboard create 10.145.75.174 admin admin@f5.com --id 8842dbbb-8041-4318-9517-f09cd29a3f55`
+3. Create a new BIG-IP with a external-physical-mappings.
+
+    `bigip-onboard create 10.145.76.72 admin admin@f5.com --availability_zone nova --vtep_ip 1.2.3.4 --external-physical-mappings phynet:1.2`
 
 ### 2. bigip-onboard delete
 usage: Remove an existing BIG-IP or an existing device group
@@ -48,7 +52,7 @@ required params:
 - id: ID of BIG-IP group
 
 positional params:
-- admin-state-down: when this param exist in the command, `admin_state_up` property will be set `false`. 
+- admin-state-down: when this param exist in the command, `admin_state_up` property will be set `false`.
 (The updating logic is same as `neutron agent-update`)
 - availability_zone: availability zone of BIG-IP group
 - vtep_ip: vtep ip for agent
@@ -61,6 +65,10 @@ command example:
 2. update availability_zone to `test` and vtep_ip to `6.7.8.9`
 
     `bigip-onboard update 8842dbbb-8041-4318-9517-f09cd29a3f55 --availability_zone test --vtep_ip 6.7.8.9`
+
+3. update external-physical-mapppings, it must give the ve-group id and the a host of the ve-group.
+
+    `bigip-onboard update 4b4664de-87b4-4465-b36c-a470fb9fd3f1 --external-physical-mappings="exnet:1.2" --host=10.10.75.236`
 
 ### 4. bigip-onboard refresh
 usage: Refresh the device properties of an existing BIG-IP in an existing device group

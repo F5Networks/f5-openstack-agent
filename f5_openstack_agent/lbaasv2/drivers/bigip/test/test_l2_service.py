@@ -205,7 +205,7 @@ class Test_L2ServiceBuilder(object):
         self.driver = Mock()
         self.driver.conf = Mock()
         force_false = ['vlan_binding_driver']
-        list_vars = ['f5_external_physical_mappings']
+        list_vars = []
         for item in force_false:
             setattr(self.driver.conf, item, False)
         for item in list_vars:
@@ -249,7 +249,6 @@ class Test_L2ServiceBuilder(object):
 
         # further tests needed:
         # add tests for...
-        #   - f5_external_physical_mappings assignment test
         #   - vlan_binding_driver assignment/importation test
         # Suggest a refactor for implementing the above in unit tests...
 

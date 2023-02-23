@@ -76,7 +76,6 @@ class NetworkServiceBuilder(object):
         self.vlan_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.vlan)
         self.rds_cache = {}
-        self.interface_mapping = self.l2_service.interface_mapping
         self.network_helper = NetworkHelper(conf=self.conf)
         self.service_adapter = self.driver.service_adapter
         self.lb_netinfo = dict()
@@ -233,7 +232,9 @@ class NetworkServiceBuilder(object):
         for bigip in bigips:
             # Make sure the L2 network is established
             self.l2_service.assure_bigip_network(
-                bigip, self.lb_netinfo['network'])
+                bigip, self.lb_netinfo['network'],
+                service['device']
+            )
 
     def config_lb_default_route(self, service):
         route_helper = RouteHelper(
@@ -654,7 +655,8 @@ class NetworkServiceBuilder(object):
                     self.delete_route_domain(
                         bigip, network_folder, network
                     )
-                    self.l2_service.delete_bigip_network(bigip, network)
+                    self.l2_service.delete_bigip_network(
+                        bigip, network, service['device'])
 
             except Exception as exc:
                 LOG.debug("_delete_shared_nets_config: exception: %s\n"
@@ -1223,7 +1225,9 @@ class LargeSNATHelper(SNATHelper):
         bigips = self.service['bigips']
         for bigip in bigips:
             self.l2_service.assure_bigip_network(
-                 bigip, self.large_snat_network)
+                bigip, self.large_snat_network,
+                self.service['device']
+            )
 
         # Create selfip in bigips
         self.net_service.config_selfips(
@@ -1273,4 +1277,5 @@ class LargeSNATHelper(SNATHelper):
         if networks:
             for bigip in bigips:
                 for network in networks:
-                    self.l2_service.delete_bigip_network(bigip, network)
+                    self.l2_service.delete_bigip_network(
+                        bigip, network, self.service['device'])
