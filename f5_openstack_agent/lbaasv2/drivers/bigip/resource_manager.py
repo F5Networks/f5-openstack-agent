@@ -2306,6 +2306,7 @@ class ACLGroupManager(ResourceManager):
 
     def __init__(self, driver, **kwargs):
         super(ACLGroupManager, self).__init__(driver)
+        self._key = "acl_group"
         self._resource = "ACLGroup"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.internal_data_group)
@@ -2337,3 +2338,29 @@ class ACLGroupManager(ResourceManager):
     def _update_payload(self, old_resource, resource, service, **kwargs):
         payload = self._create_payload(resource, **kwargs)
         return payload
+
+    def check_http_err(self, err):
+        msg = str(err)
+        if err.response.status_code == 400:
+            if "01070340:3" in str(err) and \
+                    'referenced by one or more rules' in msg:
+                LOG.info("The shared ACL data group can be removed"
+                         " in this device, since it is referenced"
+                         " by other acl bindings (acl irule)")
+                LOG.info(str(err))
+            else:
+                raise err
+        else:
+            raise err
+
+    def try_delete(self, acl_group, service):
+        payload = self._create_payload(acl_group, service)
+        LOG.debug("%s payload is %s", self._resource, payload)
+        bigips = self.driver.get_config_bigips(no_bigip_exception=True)
+        for bigip in bigips:
+            try:
+                self._delete(bigip, payload, acl_group, service)
+            except HTTPError as err:
+                self.check_http_err(err)
+
+        LOG.debug("Finish to delete %s %s", self._resource, payload['name'])
