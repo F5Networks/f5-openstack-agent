@@ -956,39 +956,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                               "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
-    def update_acl_bind(self, context, listener, acl_bind, service):
-        """Handle RPC cast from plugin to update_acl_bind."""
-        loadbalancer = service['loadbalancer']
-        id = listener['id']
-
-        try:
-            bigip_device.set_bigips(service)
-            mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.update_acl_bind(listener, acl_bind, service)
-            provision_status = constants_v2.F5_ACTIVE
-            LOG.debug("Finish to update ACL bind of listener %s", id)
-        except Exception as ex:
-            LOG.exception("Fail to update ACL bind of listener %s "
-                          "Exception: %s", id, ex.message)
-            provision_status = constants_v2.F5_ERROR
-        finally:
-            try:
-                self.plugin_rpc.update_listener_status(
-                    id, provision_status,
-                    listener['operating_status']
-                )
-                self.plugin_rpc.update_loadbalancer_status(
-                    loadbalancer['id'], provision_status,
-                    loadbalancer['operating_status']
-                )
-                LOG.info(
-                    "Finish to update acl status of listener %s", id
-                )
-            except Exception as ex:
-                LOG.exception("Fail to update status of listener %s "
-                              "Exception: %s", id, ex.message)
-
-    @log_helpers.log_method_call
     def create_pool(self, context, pool, service):
         """Handle RPC cast from plugin to create_pool."""
         loadbalancer = service['loadbalancer']
@@ -1653,14 +1620,86 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                       "Exception: %s", id, ex.message)
 
     @log_helpers.log_method_call
-    def update_acl_group(self, context, acl_group):
+    def update_acl_group(self, context, acl_group, service):
         """Handle RPC cast from plugin to update ACL Group."""
         id = acl_group['id']
         old_acl_group = dict()
         try:
+            bigip_device.set_bigips(service)
             mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.update(old_acl_group, acl_group)
+            mgr.update(old_acl_group, acl_group, service)
             LOG.debug("Finish to update acl_group %s", id)
         except Exception as ex:
-            LOG.error("Fail to update loadbalancer %s "
-                      "Exception: %s", id, ex.message)
+            LOG.exception("Fail to update acl group %s.\n"
+                          "Exception: %s\n" % (
+                              acl_group, str(ex)
+                          ))
+            raise ex
+
+    @log_helpers.log_method_call
+    def add_acl_bind(self, context, listener,
+                     acl_group, acl_bind, service):
+        """Handle RPC cast from plugin to update_acl_bind."""
+
+        # create acl data group on each bigips first
+        acl_id = acl_group['id']
+        listener_id = listener['id']
+
+        try:
+            # create acl data group on each bigips first
+            bigip_device.set_bigips(service)
+            mgr = resource_manager.ACLGroupManager(self.lbdriver)
+            mgr.create(acl_group, service)
+            LOG.debug("Finish to create data group of acl group %s",
+                      acl_id)
+
+            # create acl irule on each bigips
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.update_acl_bind(listener, acl_bind, service)
+            LOG.debug("Finish to add ACL bind irule of listener %s",
+                      listener_id)
+        except Exception as ex:
+            LOG.exception("Fail to add acl bind of listener.\n"
+                          "Exception: %s\n"
+                          "Binding details:\n Listener: %s\n"
+                          "ACL binding: %s \n"
+                          "ACL group: %s \n" % (
+                              str(ex), listener, acl_bind, acl_group
+                          ))
+            raise ex
+
+    @log_helpers.log_method_call
+    def remove_acl_bind(self, context, listener,
+                        acl_group, acl_bind, service):
+        """Handle RPC cast from plugin to update_acl_bind."""
+
+        # create acl irule on each bigips
+        listener_id = listener['id']
+        acl_id = acl_group['id']
+
+        try:
+            bigip_device.set_bigips(service)
+
+            # set acl_bind enabled False to remove irules
+            acl_bind["enabled"] = False
+
+            mgr = resource_manager.ListenerManager(self.lbdriver)
+            mgr.update_acl_bind(listener, acl_bind, service)
+            LOG.debug(
+                "Finish to remove ACL bind irule of listener %s",
+                listener_id
+            )
+
+            # delete acl data group on each bigips
+            mgr = resource_manager.ACLGroupManager(self.lbdriver)
+            mgr.try_delete(acl_group, service)
+            LOG.debug("Finish to remove acl_group %s", acl_id)
+        except Exception as ex:
+            LOG.exception("Fail to remove acl bind of listener.\n"
+                          "Exception: %s\n"
+                          "Binding details:\n Listener: %s\n"
+                          "ACL binding: %s \n"
+                          "ACL group: %s \n" % (
+                              str(ex), listener, acl_bind, acl_group
+                          ))
+            raise ex
