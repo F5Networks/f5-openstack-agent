@@ -5,6 +5,40 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.55 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+
+* [OPENSTACK-2548]: Server check flavor
+* [OPENSTACK-2552]: Add snat port NoneType check
+* [OPENSTACK-2533]: Purge and disable ESD
+* [OPENSTACK-2566]: Reserve one floating ip in large snat subnet
+* [OPENSTACK-2522]: Update traffic-group-1 MAC
+* [OPENSTACK-2587]: Upgrade to python sdk 3.0.11.5
+* [OPENSTACK-2571]: Optimize deleting member performance
+* [OPENSTACK-2626]: Raise exception when two bigips status are not both active
+* [OPENSTACK-2638]: Enable iControl token authentication
+* [OPENSTACK-2571]: Append route domain id to member node name
+* [OPENSTACK-2611]: Only allow vxlan type network for fdb process
+* [OPENSTACK-2441]: Listener support keepalive_timeout
+* [OPENSTACK-2610]: Listener support proxy protocol
+* [OPENSTACK-2690]: Change ACL functions for 9.9-stable public cloud
+* [openstack-2698]: Agent timeout parameter change to apply to python requests timeout arg
+
+Bug Fixes
+`````````
+
+* [OPENSTACK-2605]: Fix: member route domain
+* [OPENSTACK-2646]: Fix: rate limit debug log
+* [OPENSTACK-2632]: Fix: when update http2 filter clientside tcp profile
+* [OPENSTACK-2666]: Fix: create client tcp profile when set keepalive_timeout
+
+Limitations
+```````````
+
 v9.9.54 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
