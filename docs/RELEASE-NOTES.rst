@@ -5,6 +5,27 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.3 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2697] Make the onboard command line argument format uniform
+* [OPENSTACK-2621] Change ACL functions for NG
+* [OPENSTACK-2682] add external network mapping for bigip-onboard
+* [OPENSTACK-2646] Multi-zone agent
+
+Bug Fixes
+`````````
+* [OPENSTACK-2624] Fix python 3 error in travis
+* [OPENSTACK-2666] fix: create client tcp profile when set keepalive_timeout
+* [OPENSTACK-2654] fix bigip-onboard refresh when fail to connect BIG-IP
+* [OPENSTACK-2646] Fix rate limit debug log
+
+Limitations
+```````````
+
 v9.10.2 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
