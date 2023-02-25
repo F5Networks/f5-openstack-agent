@@ -257,6 +257,11 @@ class CreateBigip(command.ShowOne):
                 blob["masquerade_mac"] = ic.update_traffic_group1_mac()
 
             blob["bigip"][hostname] = ic.get_bigip_info()
+
+            blob["bigip"][hostname][
+                "external_physical_mappings"
+            ] = parsed_args.external_physical_mappings
+
             commander.update_bigip(parsed_args.id, blob)
             return commander.show_inventory(parsed_args.id)
         else:
