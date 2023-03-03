@@ -192,3 +192,19 @@ def parse_iface_mapping(host, device):
         interface_mapping[net_key] = str(phy_if[1]).strip()
 
     return interface_mapping
+
+def get_net_iface(iface_mapping, network):
+    interface = None
+    net_key = network['provider:physical_network']
+
+    if net_key and net_key in iface_mapping:
+        return iface_mapping[net_key]
+
+    if "default" not in iface_mapping:
+        raise Exception(
+            'Cannot find bigip interface mapping for '
+            'unknown neutron network %s. Please set '
+            'default interface mapping for the unknown '
+            'network.' % network
+        )
+    return iface_mapping["default"]

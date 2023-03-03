@@ -202,11 +202,15 @@ class L2ServiceBuilder(object):
             "Create flat netowrk base on mapping %s." %
             interface_mapping
         )
-        interface = interface_mapping['default']
 
-        net_key = network['provider:physical_network']
-        if net_key and net_key in interface_mapping:
-            interface = interface_mapping[net_key]
+        interface = f5_utils.get_net_iface(
+            interface_mapping, network
+        )
+        LOG.info(
+            "Get Flat interface %s for netowrk %s "
+            "base on mapping %s." %
+            (interface, network, interface_mapping)
+        )
 
         vlan_name = self.get_vlan_name(
             network, interface_mapping)
@@ -235,11 +239,15 @@ class L2ServiceBuilder(object):
             "Create vlan network base on mapping %s." %
             interface_mapping
         )
-        interface = interface_mapping['default']
 
-        net_key = network['provider:physical_network']
-        if net_key and net_key in interface_mapping:
-            interface = interface_mapping[net_key]
+        interface = f5_utils.get_net_iface(
+            interface_mapping, network
+        )
+        LOG.info(
+            "Get Vlan interface %s for netowrk %s "
+            "base on mapping %s." %
+            (interface, network, interface_mapping)
+        )
 
         vlanid = network['provider:segmentation_id']
         vlan_name = self.get_vlan_name(
