@@ -204,14 +204,8 @@ class L2ServiceBuilder(object):
         )
         interface = interface_mapping['default']
 
-        # Do we have host specific mappings?
         net_key = network['provider:physical_network']
-        if net_key and net_key + ':' + bigip.hostname in \
-                interface_mapping:
-            interface = interface_mapping[
-                net_key + ':' + bigip.hostname]
-        # Do we have a mapping for this network
-        elif net_key and net_key in interface_mapping:
+        if net_key and net_key in interface_mapping:
             interface = interface_mapping[net_key]
 
         vlan_name = self.get_vlan_name(
