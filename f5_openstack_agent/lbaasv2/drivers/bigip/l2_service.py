@@ -196,8 +196,8 @@ class L2ServiceBuilder(object):
                                     device):
         # Ensure bigip has configured flat vlan (untagged)
         vlan_name = ""
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
         LOG.info(
             "Create flat netowrk base on mapping %s." %
             interface_mapping
@@ -233,8 +233,8 @@ class L2ServiceBuilder(object):
         # VLAN names are limited to 64 characters including
         # the folder name, so we name them foolish things.
         vlan_name = ""
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
         LOG.info(
             "Create vlan network base on mapping %s." %
             interface_mapping
@@ -372,8 +372,8 @@ class L2ServiceBuilder(object):
     def _delete_device_vlan(self, bigip, network, network_folder,
                             device):
         # Delete tagged vlan on specific bigip
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
         LOG.info(
             "Delete vlan network base on mapping %s." %
             interface_mapping
@@ -396,8 +396,8 @@ class L2ServiceBuilder(object):
     def _delete_device_flat(self, bigip, network, network_folder,
                             device):
         # Delete untagged vlan on specific bigip
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
         LOG.info(
             "Delete flat network base on mapping %s." %
             interface_mapping
@@ -578,8 +578,8 @@ class L2ServiceBuilder(object):
     # Utilities
     def get_network_name(self, bigip, network, device):
         # This constructs a name for a tunnel or vlan interface
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
         LOG.info(
             "Get netowrk name base on mapping %s." %
             interface_mapping

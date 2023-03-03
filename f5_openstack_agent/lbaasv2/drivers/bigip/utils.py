@@ -165,23 +165,14 @@ def get_device_info(bigip):
     return device[0]
 
 
-def parse_iface_mapping(host, device):
+def parse_iface_mapping(mapping):
 
-    if host not in device['bigip']:
-        raise Exception(
-            "Cannot find host %s in device %s, "
-            "parse interface mapping failed" %
-            (host, device)
-        )
-
-    interface_mapping = dict()
-    mapping = device['bigip'][host].get(
-        'external_physical_mappings')
     if not mapping:
         raise Exception(
             "Cannot find external_physical_mappings, "
             "VLANs can not be set on any bigip interface."
         )
+    iface_mapping = dict()
     mapping = [
         m.strip() for m in mapping.split(',')
     ]
@@ -189,9 +180,9 @@ def parse_iface_mapping(host, device):
     for m in mapping:
         phy_if = m.split(':')
         net_key = str(phy_if[0]).strip()
-        interface_mapping[net_key] = str(phy_if[1]).strip()
+        iface_mapping[net_key] = str(phy_if[1]).strip()
 
-    return interface_mapping
+    return iface_mapping
 
 def get_net_iface(iface_mapping, network):
     interface = None
