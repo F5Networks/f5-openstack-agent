@@ -165,7 +165,7 @@ def get_device_info(bigip):
     return device[0]
 
 
-def parse_iface_mapping(mapping):
+def parse_iface_mapping(bigip, mapping):
 
     if not mapping:
         raise Exception(
@@ -178,18 +178,24 @@ def parse_iface_mapping(mapping):
     ]
 
     for m in mapping:
-        phy_if = m.split(':')
-        net_key = str(phy_if[0]).strip()
-        iface_mapping[net_key] = str(phy_if[1]).strip()
+        phy_iface = m.split(':')
+        iface = str(phy_iface[1]).strip()
+        net_key = str(phy_iface[0]).strip()
+
+        mac = get_iface_mac(bigip, iface)
+
+        iface_mac_map = {iface: mac}
+        iface_mapping[net_key] = iface_mac_map
 
     return iface_mapping
 
+
 def get_net_iface(iface_mapping, network):
-    interface = None
     net_key = network['provider:physical_network']
 
     if net_key and net_key in iface_mapping:
-        return iface_mapping[net_key]
+        iface_mac = iface_mapping[net_key]
+        return iface_mac.keys()[0]
 
     if "default" not in iface_mapping:
         raise Exception(
@@ -198,4 +204,28 @@ def get_net_iface(iface_mapping, network):
             'default interface mapping for the unknown '
             'network.' % network
         )
-    return iface_mapping["default"]
+    default_iface_mac = iface_mapping["default"]
+    return default_iface_mac.keys()[0]
+
+
+def get_iface_mac(bigip, iface):
+    cmd = "-c 'tmsh show sys mac-address | grep \" " + \
+        iface + " \"'"
+    try:
+        resp = bigip.tm.util.bash.exec_cmd(
+            command='run',
+            utilCmdArgs=cmd
+        )
+        mac = resp.commandResult.split()[0]
+        if not mac:
+            raise Exception("found empty MAC")
+        return mac
+    except Exception as exc:
+        LOG.error(
+            "Can not get MAC address of interface/trunk: %s."
+            " on host %s. Exception: %s.\n Please check "
+            "your external_physical_mappings." % (
+                iface, bigip.hostname, exc
+            )
+        )
+        raise exc

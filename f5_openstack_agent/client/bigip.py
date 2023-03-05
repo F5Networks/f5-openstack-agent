@@ -163,10 +163,25 @@ class BigipCommand(object):
                 )
                 raise exceptions.CommandError(msg)
 
+            bigip_info = blob['bigip'][parsed_args.host]
+            username = decrypt_data(
+                bigip_info['serial_number'],
+                bigip_info['username']
+            )
+            password = decrypt_data(
+                bigip_info['serial_number'],
+                bigip_info['password']
+            )
+            ic = IControlClient(
+                parsed_args.host,
+                username, password,
+                bigip_info['port']
+            )
+
             blob["bigip"][parsed_args.host][
                 "external_physical_mappings"
             ] = f5_utils.parse_iface_mapping(
-                parsed_args.external_physical_mappings
+                ic.bigip, parsed_args.external_physical_mappings
             )
 
 
@@ -264,7 +279,7 @@ class CreateBigip(command.ShowOne):
             blob["bigip"][hostname][
                 "external_physical_mappings"
             ] = f5_utils.parse_iface_mapping(
-                parsed_args.external_physical_mappings
+                ic.bigip, parsed_args.external_physical_mappings
             )
 
             commander.update_bigip(parsed_args.id, blob)
@@ -289,7 +304,7 @@ class CreateBigip(command.ShowOne):
             blob["bigip"][hostname][
                 "external_physical_mappings"
             ] = f5_utils.parse_iface_mapping(
-                parsed_args.external_physical_mappings
+                ic.bigip, parsed_args.external_physical_mappings
             )
 
             group_id = commander.create_bigip(blob)
