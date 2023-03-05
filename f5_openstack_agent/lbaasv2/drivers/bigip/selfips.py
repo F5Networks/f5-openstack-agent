@@ -25,7 +25,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import ResourceType
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
@@ -124,7 +124,11 @@ class BigipSelfIpManager(object):
                 subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
             return True
 
-        selfip_address = self._get_bigip_selfip_address(bigip, subnet, lb_id)
+        iface_mac = utils.get_mac_by_net(
+            bigip, network, service['device'])
+
+        selfip_address = self._get_bigip_selfip_address(
+            bigip, subnet, lb_id, iface_mac)
         if 'route_domain_id' not in network:
             LOG.error("network route domain is not set")
             raise KeyError()
@@ -159,7 +163,9 @@ class BigipSelfIpManager(object):
             self.l3_binding.bind_address(subnet_id=subnet['id'],
                                          ip_address=selfip_address)
 
-    def _get_bigip_selfip_address(self, bigip, subnet, device_id):
+    def _get_bigip_selfip_address(
+            self, bigip, subnet, device_id, iface_mac=None
+    ):
         u"""Ensure a selfip address is allocated on Neutron network."""
         # Get ip address for selfip to use on BIG-IP.
         if self.driver.conf.unlegacy_setting_placeholder:
@@ -184,6 +190,7 @@ class BigipSelfIpManager(object):
 
             port = self.driver.plugin_rpc.create_port_on_subnet(
                 subnet_id=subnet['id'],
+                mac_address=iface_mac,
                 name=selfip_name,
                 fixed_address_count=1,
                 device_id=device_id,
@@ -373,7 +380,9 @@ class BigipSelfIpManager(object):
             if not vlan_name.startswith('/'):
                 vlan_name = "/%s/%s" % (partition, vlan_name)
 
-        params = {'params': get_filter(bigip, 'partition', 'eq', partition)}
+        params = {
+            'params': utils.get_filter(bigip, 'partition', 'eq', partition)
+        }
         try:
             selfips_list = [selfip for selfip in
                             bigip.tm.net.selfips.get_collection(

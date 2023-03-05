@@ -543,45 +543,6 @@ class NetworkServiceBuilder(object):
 
         LOG.debug("update_bigip_l2 complete")
 
-    def update_vip_port_mac(self, service):
-
-        loadbalancer = service['loadbalancer']
-        provisioning_status = loadbalancer.get(
-            'provisioning_status', None)
-        mac = self.driver.get_traffic_mac(service)
-        lb_id = loadbalancer['id']
-
-        if provisioning_status == constants_v2.F5_PENDING_CREATE:
-            port_name = "loadbalancer-" + lb_id
-            port = self.driver.plugin_rpc.get_port_by_name(
-                port_name
-            )
-            if not port:
-                raise Exception(
-                    "Can not find port %s of loadbalancer %s" %
-                    (port_name, loadbalancer)
-                )
-            if len(port) > 1:
-                raise Exception(
-                    "Find mutiple Neutron port %s of "
-                    "loadbalancer %s" % (port_name, loadbalancer)
-                )
-
-            port_id = port[0]['id']
-            LOG.info(
-                "Update loadbalancer Neutron port %s "
-                "(id %s) with MAC %s" %
-                (port_name, port_id, mac)
-            )
-            port = self.driver.plugin_rpc.update_port_on_subnet(
-                port_id,
-                mac_address=mac
-            )
-            LOG.info(
-                "Loadbalancer Neutron port has been updated %s" %
-                port
-            )
-
     def _delete_shared_nets_config(self, bigip, service):
         deleted_names = set()
         delete_gateway = self.bigip_selfip_manager.delete_gateway_on_subnet
@@ -895,13 +856,12 @@ class SNATHelper(object):
                 )
 
     def snat_create(self):
-        bigips = self.service['bigips']
-        self.lb_snat_create(bigips)
-
-    def lb_snat_create(self, bigips):
         # Ensure snat for subnet exists on bigips
+        bigips = self.service['bigips']
         tenant_id = self.service['loadbalancer']['tenant_id']
         lb_id = self.service['loadbalancer']['id']
+        masq_mac = self.service['device']['masquerade_mac']
+
         snat_addrs = set()
 
         for subnet in self.snat_net['subnets']:
@@ -929,10 +889,9 @@ class SNATHelper(object):
                 )
 
                 if len(port) == 0:
-                    mac = self.driver.get_traffic_mac(self.service)
                     port = self.driver.plugin_rpc.create_port_on_subnet(
                         subnet_id=subnet['id'],
-                        mac_address=mac,
+                        mac_address=masq_mac,
                         name=snat_name,
                         fixed_address_count=snats_per_subnet,
                         device_id=lb_id,

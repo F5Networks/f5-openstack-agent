@@ -229,3 +229,30 @@ def get_iface_mac(bigip, iface):
             )
         )
         raise exc
+
+
+def get_mac_by_net(bigip, net, device):
+    try:
+        net_key = net['provider:physical_network']
+        iface_mapping = device['bigip'][bigip.hostname][
+            'external_physical_mappings']
+
+        iface_mac = iface_mapping.get(net_key)
+
+        if not iface_mac and not iface_mapping.get("default"):
+            raise Exception(
+                "The default interface not found in %s" %
+                iface_mapping.get
+            )
+        else:
+            default_iface_mac = iface_mapping.get("default")
+            return default_iface_mac.values()[0]
+
+        return iface_mac.values()[0]
+
+    except Exception as exc:
+        LOG.error(
+            "Can not get MAC address of network: %s."
+            "The device is %s." % (net, device)
+        )
+        raise exc

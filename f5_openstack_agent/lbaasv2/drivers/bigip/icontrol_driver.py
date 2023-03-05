@@ -1081,34 +1081,6 @@ class iControlDriver(LBaaSBaseDriver):
     def get_traffic_group_1(self):
         return "traffic-group-1"
 
-    def get_traffic_mac(self, service):
-        # only return mac of traffic-group-1
-        bigip = service['bigips'][0]
-
-        try:
-            traffic_groups = \
-                self.cluster_manager.get_traffic_groups(bigip)
-            LOG.debug(
-                "Retrieved traffic groups %s from %s" %
-                (traffic_groups, bigip.hostname)
-            )
-        except Exception as exc:
-            raise exc
-
-        traffic_group_1 = traffic_groups.get('traffic-group-1')
-        if traffic_group_1 is None:
-            raise Exception(
-                "Can not find traffic-group-1 in hostname %s" %
-                bigip.hostname
-            )
-
-        mac = traffic_group_1.mac
-        LOG.info("Get mac %s from traffic-group-1" % mac)
-        if mac == 'none':
-            return None
-
-        return mac
-
     def get_all_bigips(self, **kwargs):
         return_bigips = []
         for host in list(self.__bigips):

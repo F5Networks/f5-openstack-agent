@@ -517,9 +517,22 @@ class LBaaSv2PluginRPC(object):
                               binding_profile={},
                               host_passed=None):
         """Add a neutron port to the subnet."""
+        link_info = dict()
+
         if self.conf.vtep_ip:
-            binding_profile["local_link_information"] = [
+            link_info.update(
                 {"node_vtep_ip": self.conf.vtep_ip}
+            )
+
+        # the mac is for selfip or snat ip
+        if mac_address:
+            link_info.update(
+                {"lb_mac": mac_address}
+            )
+
+        if link_info:
+            binding_profile["local_link_information"] = [
+                link_info
             ]
 
         port = None
@@ -528,7 +541,6 @@ class LBaaSv2PluginRPC(object):
                 self.context,
                 self._make_msg('create_port_on_subnet',
                                subnet_id=subnet_id,
-                               mac_address=mac_address,
                                name=name,
                                fixed_address_count=fixed_address_count,
                                host=host_passed or self.host,
