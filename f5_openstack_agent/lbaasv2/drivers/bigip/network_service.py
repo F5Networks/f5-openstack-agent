@@ -860,7 +860,22 @@ class SNATHelper(object):
         bigips = self.service['bigips']
         tenant_id = self.service['loadbalancer']['tenant_id']
         lb_id = self.service['loadbalancer']['id']
-        masq_mac = self.service['device']['masquerade_mac']
+
+        device = self.service['device']
+        masq_mac = device['masquerade_mac']
+        # llinfo is a list of dict type
+        llinfo = device.get('local_link_information', None)
+
+        if llinfo:
+            link_info = llinfo[0]
+        else:
+            link_info = dict()
+            llinfo = [link_info]
+
+        link_info.update({"lb_mac": masq_mac})
+        binding_profile = {
+            "local_link_information": llinfo
+        }
 
         snat_addrs = set()
 
@@ -891,11 +906,11 @@ class SNATHelper(object):
                 if len(port) == 0:
                     port = self.driver.plugin_rpc.create_port_on_subnet(
                         subnet_id=subnet['id'],
-                        mac_address=masq_mac,
                         name=snat_name,
                         fixed_address_count=snats_per_subnet,
                         device_id=lb_id,
-                        vnic_type=vnic_type
+                        vnic_type=vnic_type,
+                        binding_profile=binding_profile
                     )
                 else:
                     port = port[0]

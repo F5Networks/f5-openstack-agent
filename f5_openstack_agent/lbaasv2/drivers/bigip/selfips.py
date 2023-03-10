@@ -124,11 +124,25 @@ class BigipSelfIpManager(object):
                 subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
             return True
 
+        device = service['device']
         iface_mac = utils.get_mac_by_net(
-            bigip, network, service['device'])
+            bigip, network, device)
+        # llinfo is a list of dict type
+        llinfo = device.get('local_link_information', None)
+
+        if llinfo:
+            link_info = llinfo[0]
+        else:
+            link_info = dict()
+            llinfo = [link_info]
+
+        link_info.update({"lb_mac": iface_mac})
+        binding_profile = {
+             "local_link_information": llinfo
+        }
 
         selfip_address = self._get_bigip_selfip_address(
-            bigip, subnet, lb_id, iface_mac)
+            bigip, subnet, lb_id, binding_profile)
         if 'route_domain_id' not in network:
             LOG.error("network route domain is not set")
             raise KeyError()
@@ -164,7 +178,7 @@ class BigipSelfIpManager(object):
                                          ip_address=selfip_address)
 
     def _get_bigip_selfip_address(
-            self, bigip, subnet, device_id, iface_mac=None
+            self, bigip, subnet, lb_id, binding_profile
     ):
         u"""Ensure a selfip address is allocated on Neutron network."""
         # Get ip address for selfip to use on BIG-IP.
@@ -190,11 +204,11 @@ class BigipSelfIpManager(object):
 
             port = self.driver.plugin_rpc.create_port_on_subnet(
                 subnet_id=subnet['id'],
-                mac_address=iface_mac,
                 name=selfip_name,
                 fixed_address_count=1,
-                device_id=device_id,
+                device_id=lb_id,
                 vnic_type=vnic_type,
+                binding_profile=binding_profile,
                 host_passed=host_passed
             )
 
