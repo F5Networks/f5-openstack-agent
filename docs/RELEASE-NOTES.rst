@@ -11,6 +11,7 @@ NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack rele
 
 Added Functionality
 ```````````````````
+* [OPENSTACK-2671] Encrypt password by python fernet
 * [OPENSTACK-2671] Encode confd password
 * [OPENSTACK-2671] Skip to init confd client if no confd address
 * [OPENSTACK-2644] Search VE tenant in F5OS by BIG-IP mgmt ip
@@ -23,6 +24,7 @@ Added Functionality
 
 Bug Fixes
 `````````
+* [OPENSTACK-2698] Agent timeout parameter change to apply to python requests timeout arg
 * [OPENSTACK-2671] Change agent admin_state_up to false if exception is raised during device init
 * [OPENSTACK-2482] Delete cafile for mtls profile.
 * [OPENSTACK-2482] Remove certs and keys as removing ssl profiles.
