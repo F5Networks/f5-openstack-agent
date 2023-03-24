@@ -25,7 +25,7 @@ Added Functionality
 Bug Fixes
 `````````
 * [OPENSTACK-2698] Agent timeout parameter change to apply to python requests timeout arg
-* [OPENSTACK-2671] Change agent admin_state_up to false if exception is raised during device init
+* [OPENSTACK-2671] Change agent admin_state_up to false during device init exception
 * [OPENSTACK-2482] Delete cafile for mtls profile.
 * [OPENSTACK-2482] Remove certs and keys as removing ssl profiles.
 * [OPENSTACK-2483] Fix confusing logs to avoid misunderstanding.
