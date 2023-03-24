@@ -11,6 +11,7 @@ NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack rele
 
 Added Functionality
 ```````````````````
+* [OPENSTACK-2721] Cleanup member vlan in F5OS
 * [OPENSTACK-2671] Encrypt password by python fernet
 * [OPENSTACK-2671] Encode confd password
 * [OPENSTACK-2671] Skip to init confd client if no confd address
