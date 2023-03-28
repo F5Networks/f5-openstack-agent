@@ -113,7 +113,8 @@ class L2ServiceBuilder(object):
              network['router:external'] and
              self.conf.f5_common_external_networks)
 
-    def get_vlan_name(self, network, interface_mapping):
+    def get_vlan_name(self, network, interface_mapping,
+                      vtep_node_ip="default"):
         # Construct a consistent vlan name
         net_key = network['provider:physical_network']
         net_type = network['provider:network_type']
@@ -133,8 +134,8 @@ class L2ServiceBuilder(object):
                     "Interface name is greater than 15 chars in length")
             vlan_name = "flat-%s" % (interface_name)
         else:
-            vlanid = network['provider:segmentation_id']
             # vlan_name cannot be longer than 64 characters.
+            vlanid = f5_utils.get_vtep_vlan(network, vtep_node_ip)
             vlan_name = "vlan-%d" % (vlanid)
 
         return vlan_name
@@ -235,6 +236,7 @@ class L2ServiceBuilder(object):
         vlan_name = ""
         interface_mapping = device[
             'bigip'][bigip.hostname]['external_physical_mappings']
+
         LOG.info(
             "Create vlan network base on mapping %s." %
             interface_mapping
@@ -249,9 +251,14 @@ class L2ServiceBuilder(object):
             (interface, network, interface_mapping)
         )
 
-        vlanid = network['provider:segmentation_id']
+        vtep_node_ip = f5_utils.get_node_vtep(device)
+        LOG.info(
+            "Get vtep_node_ip %s." % vtep_node_ip
+        )
+
+        vlanid = f5_utils.get_vtep_vlan(network, vtep_node_ip)
         vlan_name = self.get_vlan_name(
-            network, interface_mapping)
+            network, interface_mapping, vtep_node_ip)
         try:
             model = {'name': vlan_name,
                      'interface': interface,
@@ -378,8 +385,15 @@ class L2ServiceBuilder(object):
             "Delete vlan network base on mapping %s." %
             interface_mapping
         )
+
+        vtep_node_ip = f5_utils.get_node_vtep(device)
+        LOG.info(
+            "Get vtep_node_ip %s." % vtep_node_ip
+        )
+
         vlan_name = self.get_vlan_name(
-            network, interface_mapping)
+            network, interface_mapping, vtep_node_ip
+        )
         try:
             self.network_helper.delete_vlan(
                 bigip,
@@ -580,9 +594,13 @@ class L2ServiceBuilder(object):
         # This constructs a name for a tunnel or vlan interface
         interface_mapping = device[
             'bigip'][bigip.hostname]['external_physical_mappings']
+        vtep_node_ip = f5_utils.get_node_vtep(device)
+
         LOG.info(
-            "Get netowrk name base on mapping %s." %
-            interface_mapping
+            "Get netowrk name base on mapping %s."
+            "Get vtep_node_ip %s." % (
+                interface_mapping, vtep_node_ip
+            )
         )
         preserve_network_name = False
         if network['id'] in self.conf.common_network_ids:
@@ -590,7 +608,7 @@ class L2ServiceBuilder(object):
             preserve_network_name = True
         elif network['provider:network_type'] == 'vlan':
             network_name = self.get_vlan_name(
-                network, interface_mapping)
+                network, interface_mapping, vtep_node_ip)
         elif network['provider:network_type'] == 'flat':
             network_name = self.get_vlan_name(
                 network, interface_mapping)

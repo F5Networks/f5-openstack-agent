@@ -1800,11 +1800,13 @@ class MemberManager(ResourceManager):
         address = member["address"]
         port = member["protocol_port"]
 
+        device = service["device"]
+
         if not self.driver.conf.f5_global_routed_mode:
             lb = service["loadbalancer"]
             lb_network_id = lb["network_id"]
             lb_network = service["networks"][lb_network_id]
-            rd = get_route_domain(lb_network)
+            rd = get_route_domain(lb_network, device)
             address = address + "%" + str(rd)
 
         if ':' in address:

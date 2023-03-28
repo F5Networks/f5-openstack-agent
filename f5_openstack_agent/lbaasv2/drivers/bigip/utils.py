@@ -256,3 +256,39 @@ def get_mac_by_net(bigip, net, device):
             "The device is %s." % (net, device)
         )
         raise exc
+
+
+def get_vtep_vlan(network, vtep_node_ip):
+    vlanid = None
+    default_vlanid = None
+    segments = network.get('segments', [])
+
+    for seg in segments:
+        phy_net = seg["provider:physical_network"]
+        vlanid = seg["provider:segmentation_id"]
+
+        if phy_net == "default":
+            default_vlanid = vlanid
+        if phy_net == vtep_node_ip:
+            return vlanid
+
+    if default_vlanid is not None:
+        return default_vlanid
+
+    return network['provider:segmentation_id']
+
+
+def get_node_vtep(device):
+    if not device:
+        raise Exception(
+            "device is not provided"
+        )
+
+    llinfo = device.get('local_link_information')
+
+    if len(llinfo) == 0:
+        return
+
+    vtep_node = llinfo[0].get('node_vtep_ip')
+    if vtep_node:
+        return vtep_node
