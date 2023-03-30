@@ -918,3 +918,20 @@ class LBaaSv2PluginRPC(object):
                       "validate_l7policys_state_by_listener")
 
         return l7policy_status
+
+    @log_helpers.log_method_call
+    def get_devices(self, availability_zone=[]):
+        """Get the devices from neutron db"""
+        devices = {}
+        try:
+            devices = self._call(
+                self.context,
+                self._make_msg('get_devices',
+                               availability_zone=availability_zone),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "get_devices")
+
+        return devices

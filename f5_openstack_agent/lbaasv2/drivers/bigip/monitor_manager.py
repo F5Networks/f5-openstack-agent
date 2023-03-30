@@ -32,7 +32,7 @@ try:
 except ImportError:
     from neutron import context as ncontext
 
-from f5_openstack_agent.client.bigip import BigipCommand
+from f5_openstack_agent.client.encrypt import decrypt_data
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import opts
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
@@ -300,7 +300,6 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
                     member_number += len(all_members)
                     LOG.debug("update member status in batch %d",
                               len(all_members))
-                    # todo driver side, check before modify.
                     self.plugin_rpc.update_member_status_in_batch(
                         all_members)
                     all_members[:] = []
@@ -411,12 +410,35 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
         per folder. """
 
         try:
-            commander = BigipCommand()
-            bigips = commander.get_active_bigips(self.conf.availability_zone)
+            bigips = []
+            # TODO(nik) to test if result desired when zones unconfigured
+            zones = []
+            if self.conf.availability_zone:
+                zones = self.conf.availability_zone.split(",")
+            az_devices = self.plugin_rpc.get_devices(
+                availability_zone=zones
+            )
+            LOG.debug("az_devices: %s" % az_devices)
+            for each in az_devices:
+                device_info = each.get("device_info")
+                bigip = device_info['bigip']
+                for host, info in bigip.items():
+                    if info['failover_state'] == 'active':
+                        username = decrypt_data(info['serial_number'],
+                                                info['username'])
+                        password = decrypt_data(info['serial_number'],
+                                                info['password'])
+                        bigips.append({
+                            'hostname': host,
+                            'username': username,
+                            'password': password,
+                            'port': info['port'],
+                        })
+
             LOG.debug("get %s active bigips" % len(bigips))
             for info in bigips:
                 # origianl info logged the credentails
-                LOG.debug("bigip info: %s" % info['hostname'])
+                LOG.debug("bigip : %s" % info['hostname'])
                 bigip = ManagementRoot(info['hostname'],
                                        info['username'],
                                        info['password'],
