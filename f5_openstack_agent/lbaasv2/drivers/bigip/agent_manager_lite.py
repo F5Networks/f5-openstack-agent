@@ -34,7 +34,6 @@ try:
 except ImportError:
     from neutron import context as ncontext
 
-from f5_openstack_agent.client.bigip import BigipCommand
 from f5_openstack_agent.lbaasv2.drivers.bigip import bigip_device
 from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
@@ -170,7 +169,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.member_update_base = datetime.datetime(1970, 1, 1, 0, 0, 0)
         self.member_update_mode = self.conf.member_update_mode
         self.member_update_number = self.conf.member_update_number
-        self.member_update_interval = self.conf.member_update_interval
         self.member_update_agent_number = self.conf.member_update_agent_number
         self.member_update_agent_order = self.conf.member_update_agent_order
         self.plugin_rpc = None
@@ -252,16 +250,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             config_beat = loopingcall.FixedIntervalLoopingCall(
                 self._persist_config)
             config_beat.start(interval=cache_interval)
-
-        member_update_interval = self.conf.member_update_interval
-        if member_update_interval > 0:
-            LOG.debug('Starting the member status update task.')
-            member_update_task = loopingcall.FixedIntervalLoopingCall(
-                self.update_member_status_task)
-            member_update_task.start(interval=30)
-        else:
-            LOG.debug('The member update interval %d is negative.' %
-                      member_update_interval)
 
     def _load_driver(self, conf):
         self.lbdriver = None
@@ -633,96 +621,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         LOG.debug("Totally update %u pools %u members",
                   pool_number, member_number)
-
-        return
-
-    def update_member_status_task(self):
-        """Update pool member operational status from devices to controller."""
-        if not self.needs_member_update:
-            LOG.debug("The previous task is still running.")
-            return
-
-        if self.member_update_interval < 0:
-            LOG.debug('The interval is negative %d' %
-                      self.member_update_interval)
-            return
-
-        if self.member_update_agent_order < 0:
-            LOG.debug('The agent order is negative %d' %
-                      self.member_update_agent_order)
-            return
-
-        now = datetime.datetime.now()
-        time_delta = (now - self.last_member_update).seconds
-        if time_delta < self.member_update_interval:
-            LOG.debug('The interval %d (%d) is not met yet.',
-                      time_delta, self.member_update_interval)
-            return
-
-        time_delta = (now - self.member_update_base).seconds
-        order = time_delta % (self.member_update_agent_number *
-                              self.member_update_interval)
-        order /= self.member_update_interval
-
-        if (order != self.member_update_agent_order):
-            LOG.debug("Not the order %u for this agent %u to be runnning",
-                      order, self.member_update_agent_order)
-            return
-
-        """ we only update the member status when:
-         1) the order is the right.
-         2) the time passed since last update is no less than interval.
-        """
-
-        LOG.debug("Begin updating member status at %s." % now)
-        self.last_member_update = now
-        self.needs_member_update = False
-
-        """ the logic is, we retrieve all the members from bigip directly
-        and update the neutron server in batch with the members' statuses.
-
-        two modes for the update. One is per pool and the other is
-        per folder. """
-
-        try:
-            commander = BigipCommand()
-            bigips = commander.get_active_bigips(self.conf.availability_zone)
-            LOG.debug("get %s active bigips" % len(bigips))
-            for info in bigips:
-                LOG.debug("bigip info: %s" % info)
-                bigip = ManagementRoot(info['hostname'],
-                                       info['username'],
-                                       info['password'],
-                                       port=info['port'],
-                                       token=True)
-
-                if self.conf.member_update_mode == 1:
-                    # logic of update member by pools
-                    pools = self.lbdriver.get_all_pools_for_one_bigip(bigip)
-                    if pools:
-                        LOG.debug("%d pool(s) found", len(pools))
-                        self.update_all_member_status_by_pools(bigip, pools)
-                    else:
-                        LOG.debug("no vailable pools")
-                elif self.conf.member_update_mode == 2:
-                    # logic of update member by folders
-                    folders = self.system_helper.get_folders(bigip)
-                    if folders:
-                        LOG.debug("%d folder(s) found", len(folders))
-                        self.update_all_member_status_by_folders(
-                            bigip, folders)
-                    else:
-                        LOG.debug("no vailable folders")
-                else:
-                    LOG.debug("member update mode %d isnt' supported.",
-                              self.conf.member_update_mode)
-        except Exception as e:
-            self.needs_member_update = True
-            LOG.error("Unable to update member state: %s" % e.message)
-
-        self.needs_member_update = True
-        now = datetime.datetime.now()
-        LOG.debug("End updating member status at %s." % now)
 
         return
 
