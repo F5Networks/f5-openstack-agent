@@ -39,6 +39,7 @@ DEFAULT_ROUTE_DOMAIN_ID = 0
 # RPC channel names
 TOPIC_PROCESS_ON_HOST_V2 = 'f5-lbaasv2-process-on-controller'
 TOPIC_LOADBALANCER_AGENT_V2 = 'f5-lbaasv2-process-on-agent'
+TOPIC_LOADBALANCER_MONITOR = 'f5-lbaasv2-process-on-monitor'
 
 RPC_API_VERSION = '1.0'
 # RPC_API_NAMESPACE = ""
