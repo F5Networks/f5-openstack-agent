@@ -25,7 +25,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import ResourceType
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
@@ -124,7 +124,25 @@ class BigipSelfIpManager(object):
                 subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
             return True
 
-        selfip_address = self._get_bigip_selfip_address(bigip, subnet, lb_id)
+        device = service['device']
+        iface_mac = utils.get_mac_by_net(
+            bigip, network, device)
+        # llinfo is a list of dict type
+        llinfo = device.get('local_link_information', None)
+
+        if llinfo:
+            link_info = llinfo[0]
+        else:
+            link_info = dict()
+            llinfo = [link_info]
+
+        link_info.update({"lb_mac": iface_mac})
+        binding_profile = {
+             "local_link_information": llinfo
+        }
+
+        selfip_address = self._get_bigip_selfip_address(
+            bigip, subnet, lb_id, binding_profile)
         if 'route_domain_id' not in network:
             LOG.error("network route domain is not set")
             raise KeyError()
@@ -159,7 +177,9 @@ class BigipSelfIpManager(object):
             self.l3_binding.bind_address(subnet_id=subnet['id'],
                                          ip_address=selfip_address)
 
-    def _get_bigip_selfip_address(self, bigip, subnet, device_id):
+    def _get_bigip_selfip_address(
+            self, bigip, subnet, lb_id, binding_profile
+    ):
         u"""Ensure a selfip address is allocated on Neutron network."""
         # Get ip address for selfip to use on BIG-IP.
         if self.driver.conf.unlegacy_setting_placeholder:
@@ -186,8 +206,9 @@ class BigipSelfIpManager(object):
                 subnet_id=subnet['id'],
                 name=selfip_name,
                 fixed_address_count=1,
-                device_id=device_id,
+                device_id=lb_id,
                 vnic_type=vnic_type,
+                binding_profile=binding_profile,
                 host_passed=host_passed
             )
 
@@ -373,7 +394,9 @@ class BigipSelfIpManager(object):
             if not vlan_name.startswith('/'):
                 vlan_name = "/%s/%s" % (partition, vlan_name)
 
-        params = {'params': get_filter(bigip, 'partition', 'eq', partition)}
+        params = {
+            'params': utils.get_filter(bigip, 'partition', 'eq', partition)
+        }
         try:
             selfips_list = [selfip for selfip in
                             bigip.tm.net.selfips.get_collection(

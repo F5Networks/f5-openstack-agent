@@ -113,7 +113,8 @@ class L2ServiceBuilder(object):
              network['router:external'] and
              self.conf.f5_common_external_networks)
 
-    def get_vlan_name(self, network, interface_mapping):
+    def get_vlan_name(self, network, interface_mapping,
+                      vtep_node_ip="default"):
         # Construct a consistent vlan name
         net_key = network['provider:physical_network']
         net_type = network['provider:network_type']
@@ -133,8 +134,8 @@ class L2ServiceBuilder(object):
                     "Interface name is greater than 15 chars in length")
             vlan_name = "flat-%s" % (interface_name)
         else:
-            vlanid = network['provider:segmentation_id']
             # vlan_name cannot be longer than 64 characters.
+            vlanid = f5_utils.get_vtep_vlan(network, vtep_node_ip)
             vlan_name = "vlan-%d" % (vlanid)
 
         return vlan_name
@@ -196,23 +197,21 @@ class L2ServiceBuilder(object):
                                     device):
         # Ensure bigip has configured flat vlan (untagged)
         vlan_name = ""
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
         LOG.info(
             "Create flat netowrk base on mapping %s." %
             interface_mapping
         )
-        interface = interface_mapping['default']
 
-        # Do we have host specific mappings?
-        net_key = network['provider:physical_network']
-        if net_key and net_key + ':' + bigip.hostname in \
-                interface_mapping:
-            interface = interface_mapping[
-                net_key + ':' + bigip.hostname]
-        # Do we have a mapping for this network
-        elif net_key and net_key in interface_mapping:
-            interface = interface_mapping[net_key]
+        interface = f5_utils.get_net_iface(
+            interface_mapping, network
+        )
+        LOG.info(
+            "Get Flat interface %s for netowrk %s "
+            "base on mapping %s." %
+            (interface, network, interface_mapping)
+        )
 
         vlan_name = self.get_vlan_name(
             network, interface_mapping)
@@ -235,21 +234,31 @@ class L2ServiceBuilder(object):
         # VLAN names are limited to 64 characters including
         # the folder name, so we name them foolish things.
         vlan_name = ""
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
+
         LOG.info(
             "Create vlan network base on mapping %s." %
             interface_mapping
         )
-        interface = interface_mapping['default']
 
-        net_key = network['provider:physical_network']
-        if net_key and net_key in interface_mapping:
-            interface = interface_mapping[net_key]
+        interface = f5_utils.get_net_iface(
+            interface_mapping, network
+        )
+        LOG.info(
+            "Get Vlan interface %s for netowrk %s "
+            "base on mapping %s." %
+            (interface, network, interface_mapping)
+        )
 
-        vlanid = network['provider:segmentation_id']
+        vtep_node_ip = f5_utils.get_node_vtep(device)
+        LOG.info(
+            "Get vtep_node_ip %s." % vtep_node_ip
+        )
+
+        vlanid = f5_utils.get_vtep_vlan(network, vtep_node_ip)
         vlan_name = self.get_vlan_name(
-            network, interface_mapping)
+            network, interface_mapping, vtep_node_ip)
         try:
             model = {'name': vlan_name,
                      'interface': interface,
@@ -370,14 +379,21 @@ class L2ServiceBuilder(object):
     def _delete_device_vlan(self, bigip, network, network_folder,
                             device):
         # Delete tagged vlan on specific bigip
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
         LOG.info(
             "Delete vlan network base on mapping %s." %
             interface_mapping
         )
+
+        vtep_node_ip = f5_utils.get_node_vtep(device)
+        LOG.info(
+            "Get vtep_node_ip %s." % vtep_node_ip
+        )
+
         vlan_name = self.get_vlan_name(
-            network, interface_mapping)
+            network, interface_mapping, vtep_node_ip
+        )
         try:
             self.network_helper.delete_vlan(
                 bigip,
@@ -394,8 +410,8 @@ class L2ServiceBuilder(object):
     def _delete_device_flat(self, bigip, network, network_folder,
                             device):
         # Delete untagged vlan on specific bigip
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
         LOG.info(
             "Delete flat network base on mapping %s." %
             interface_mapping
@@ -576,11 +592,15 @@ class L2ServiceBuilder(object):
     # Utilities
     def get_network_name(self, bigip, network, device):
         # This constructs a name for a tunnel or vlan interface
-        interface_mapping = f5_utils.parse_iface_mapping(
-            bigip.hostname, device)
+        interface_mapping = device[
+            'bigip'][bigip.hostname]['external_physical_mappings']
+        vtep_node_ip = f5_utils.get_node_vtep(device)
+
         LOG.info(
-            "Get netowrk name base on mapping %s." %
-            interface_mapping
+            "Get netowrk name base on mapping %s."
+            "Get vtep_node_ip %s." % (
+                interface_mapping, vtep_node_ip
+            )
         )
         preserve_network_name = False
         if network['id'] in self.conf.common_network_ids:
@@ -588,7 +608,7 @@ class L2ServiceBuilder(object):
             preserve_network_name = True
         elif network['provider:network_type'] == 'vlan':
             network_name = self.get_vlan_name(
-                network, interface_mapping)
+                network, interface_mapping, vtep_node_ip)
         elif network['provider:network_type'] == 'flat':
             network_name = self.get_vlan_name(
                 network, interface_mapping)

@@ -29,14 +29,13 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.route import RouteHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.snats import BigipSnatManager
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import strip_domain_address
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 
 LOG = logging.getLogger(__name__)
 
 
-def get_route_domain(network):
+def get_route_domain(network, device):
     net_type = network['provider:network_type']
-    net_segement = network['provider:segmentation_id']
     shared = network['shared']
 
     if shared:
@@ -44,19 +43,25 @@ def get_route_domain(network):
                  % network)
         return 0
 
+    vtep_node_ip = utils.get_node_vtep(device)
+    LOG.info(
+        "Get vtep_node_ip %s." % vtep_node_ip
+    )
+    vlanid = utils.get_vtep_vlan(network, vtep_node_ip)
+
     if not net_type:
         raise f5_ex.InvalidNetworkType(
             'Provider network attributes not complete:'
             'Provider:network_type - {0} '
             'Provider:segmentation_id - {1}'
             'Provider network - {2}'
-            .format(net_type, net_segement,
+            .format(net_type, vlanid,
                     network))
 
     LOG.info("route domain: %s for network: %s"
-             % (net_segement, network))
+             % (vlanid, network))
 
-    return net_segement
+    return vlanid
 
 
 class NetworkServiceBuilder(object):
@@ -143,6 +148,7 @@ class NetworkServiceBuilder(object):
 
         return port
 
+    # TODO(pzhang): delete this seems useless?
     def is_service_connected(self, service):
         networks = service.get('networks', {})
         supported_net_types = ['vlan', 'vxlan', 'gre', 'opflex']
@@ -316,6 +322,7 @@ class NetworkServiceBuilder(object):
         tenant_id = service['loadbalancer']['tenant_id']
         loadbalancer = service['loadbalancer']
         bigips = service['bigips']
+        device = service['device']
 
         if 'vip_address' in service['loadbalancer']:
             if 'network_id' in loadbalancer:
@@ -323,10 +330,11 @@ class NetworkServiceBuilder(object):
                     service, loadbalancer['network_id'])
                 if loadbalancer["provisioning_status"] in [
                         constants_v2.PENDING_DELETE, constants_v2.ERROR]:
-                    self.assign_delete_route_domain(tenant_id, lb_network)
+                    self.assign_delete_route_domain(
+                        tenant_id, lb_network, device)
                 else:
                     self.assign_route_domain(
-                        tenant_id, lb_network, bigips)
+                        tenant_id, lb_network, device, bigips)
                 rd_id = '%' + str(lb_network['route_domain_id'])
                 service['loadbalancer']['vip_address'] += rd_id
             else:
@@ -343,18 +351,19 @@ class NetworkServiceBuilder(object):
     def is_common_network(self, network):
         return self.l2_service.is_common_network(network)
 
-    def assign_delete_route_domain(self, tenant_id, network):
+    def assign_delete_route_domain(self, tenant_id, network, device):
         LOG.info("Assgin route domain for deleting")
         if self.l2_service.is_common_network(network):
             network['route_domain_id'] = 0
             return
 
-        route_domain = get_route_domain(network)
+        route_domain = get_route_domain(network, device)
         self.set_network_route_domain(network, route_domain)
-        LOG.info("Finish route domain %s for deleting" %
+        LOG.info("Finish set route domain %s for deleting" %
                  route_domain)
 
-    def assign_route_domain(self, tenant_id, network, bigips):
+    def assign_route_domain(
+            self, tenant_id, network, device, bigips):
         LOG.info(
             "Start creating Route Domain of network %s "
             "for tenant: %s" % (network, tenant_id)
@@ -364,21 +373,23 @@ class NetworkServiceBuilder(object):
             return
 
         for bigip in bigips:
-            self.create_rd_by_net(bigip, tenant_id, network)
+            self.create_rd_by_net(
+                bigip, tenant_id, network, device)
 
         LOG.info(
             "Finished creating Route Domain of network %s "
             "for tenant: %s" % (network, tenant_id)
         )
 
-    def create_rd_by_net(self, bigip, tenant_id, network):
+    def create_rd_by_net(
+            self, bigip, tenant_id, network, device):
         LOG.info("Create Route Domain by network %s", network)
 
         partition = self.service_adapter.get_folder_name(
             tenant_id
         )
         name = self.get_rd_name(network)
-        route_domain = get_route_domain(network)
+        route_domain = get_route_domain(network, device)
         self.set_network_route_domain(network, route_domain)
 
         try:
@@ -423,6 +434,7 @@ class NetworkServiceBuilder(object):
 
         network["route_domain_id"] = route_domain
 
+    # TODO(pzhang): delete this on one use this?
     @staticmethod
     def get_neutron_net_short_name(network):
         # Return <network_type>-<seg_id> for neutron network
@@ -542,45 +554,6 @@ class NetworkServiceBuilder(object):
                 bigips, update_loadbalancer, update_members)
 
         LOG.debug("update_bigip_l2 complete")
-
-    def update_vip_port_mac(self, service):
-
-        loadbalancer = service['loadbalancer']
-        provisioning_status = loadbalancer.get(
-            'provisioning_status', None)
-        mac = self.driver.get_traffic_mac(service)
-        lb_id = loadbalancer['id']
-
-        if provisioning_status == constants_v2.F5_PENDING_CREATE:
-            port_name = "loadbalancer-" + lb_id
-            port = self.driver.plugin_rpc.get_port_by_name(
-                port_name
-            )
-            if not port:
-                raise Exception(
-                    "Can not find port %s of loadbalancer %s" %
-                    (port_name, loadbalancer)
-                )
-            if len(port) > 1:
-                raise Exception(
-                    "Find mutiple Neutron port %s of "
-                    "loadbalancer %s" % (port_name, loadbalancer)
-                )
-
-            port_id = port[0]['id']
-            LOG.info(
-                "Update loadbalancer Neutron port %s "
-                "(id %s) with MAC %s" %
-                (port_name, port_id, mac)
-            )
-            port = self.driver.plugin_rpc.update_port_on_subnet(
-                port_id,
-                mac_address=mac
-            )
-            LOG.info(
-                "Loadbalancer Neutron port has been updated %s" %
-                port
-            )
 
     def _delete_shared_nets_config(self, bigip, service):
         deleted_names = set()
@@ -724,7 +697,7 @@ class NetworkServiceBuilder(object):
 
             if vip_route_domain == route_domain:
                 inuse["route_domain"] = True
-                vip_addr = strip_domain_address(dest)
+                vip_addr = utils.strip_domain_address(dest)
                 if netaddr.IPAddress(vip_addr) in ipsubnet:
                     inuse["selfip"] = True
 
@@ -742,7 +715,7 @@ class NetworkServiceBuilder(object):
 
             if node_route_domain == route_domain:
                 inuse["route_domain"] = True
-                node_addr = strip_domain_address(node)
+                node_addr = utils.strip_domain_address(node)
                 if netaddr.IPAddress(node_addr) in ipsubnet:
                     inuse["selfip"] = True
 
@@ -895,13 +868,27 @@ class SNATHelper(object):
                 )
 
     def snat_create(self):
-        bigips = self.service['bigips']
-        self.lb_snat_create(bigips)
-
-    def lb_snat_create(self, bigips):
         # Ensure snat for subnet exists on bigips
+        bigips = self.service['bigips']
         tenant_id = self.service['loadbalancer']['tenant_id']
         lb_id = self.service['loadbalancer']['id']
+
+        device = self.service['device']
+        masq_mac = device['masquerade_mac']
+        # llinfo is a list of dict type
+        llinfo = device.get('local_link_information', None)
+
+        if llinfo:
+            link_info = llinfo[0]
+        else:
+            link_info = dict()
+            llinfo = [link_info]
+
+        link_info.update({"lb_mac": masq_mac})
+        binding_profile = {
+            "local_link_information": llinfo
+        }
+
         snat_addrs = set()
 
         for subnet in self.snat_net['subnets']:
@@ -929,14 +916,13 @@ class SNATHelper(object):
                 )
 
                 if len(port) == 0:
-                    mac = self.driver.get_traffic_mac(self.service)
                     port = self.driver.plugin_rpc.create_port_on_subnet(
                         subnet_id=subnet['id'],
-                        mac_address=mac,
                         name=snat_name,
                         fixed_address_count=snats_per_subnet,
                         device_id=lb_id,
-                        vnic_type=vnic_type
+                        vnic_type=vnic_type,
+                        binding_profile=binding_profile
                     )
                 else:
                     port = port[0]
@@ -1028,7 +1014,8 @@ class SNATHelper(object):
         rd = 0
 
         if not self.driver.conf.f5_global_routed_mode:
-            rd = get_route_domain(self.snat_net['network'])
+            device = self.service['device']
+            rd = get_route_domain(self.snat_net['network'], device)
 
         new_snat_addrs = set()
 

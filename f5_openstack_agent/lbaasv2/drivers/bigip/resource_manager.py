@@ -345,7 +345,6 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
-            self.driver.network_builder.update_vip_port_mac(service)
             self.driver.network_builder.config_selfips(service)
             self.driver.network_builder.config_snat(service)
             self.driver.network_builder.config_lb_default_route(
@@ -1801,11 +1800,13 @@ class MemberManager(ResourceManager):
         address = member["address"]
         port = member["protocol_port"]
 
+        device = service["device"]
+
         if not self.driver.conf.f5_global_routed_mode:
             lb = service["loadbalancer"]
             lb_network_id = lb["network_id"]
             lb_network = service["networks"][lb_network_id]
-            rd = get_route_domain(lb_network)
+            rd = get_route_domain(lb_network, device)
             address = address + "%" + str(rd)
 
         if ':' in address:

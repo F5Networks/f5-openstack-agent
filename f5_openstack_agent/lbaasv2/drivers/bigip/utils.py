@@ -165,30 +165,130 @@ def get_device_info(bigip):
     return device[0]
 
 
-def parse_iface_mapping(host, device):
+def parse_iface_mapping(bigip, mapping):
 
-    if host not in device['bigip']:
-        raise Exception(
-            "Cannot find host %s in device %s, "
-            "parse interface mapping failed" %
-            (host, device)
-        )
-
-    interface_mapping = dict()
-    mapping = device['bigip'][host].get(
-        'external_physical_mappings')
     if not mapping:
         raise Exception(
             "Cannot find external_physical_mappings, "
             "VLANs can not be set on any bigip interface."
         )
+    iface_mapping = dict()
     mapping = [
         m.strip() for m in mapping.split(',')
     ]
 
     for m in mapping:
-        phy_if = m.split(':')
-        net_key = str(phy_if[0]).strip()
-        interface_mapping[net_key] = str(phy_if[1]).strip()
+        phy_iface = m.split(':')
+        iface = str(phy_iface[1]).strip()
+        net_key = str(phy_iface[0]).strip()
 
-    return interface_mapping
+        mac = get_iface_mac(bigip, iface)
+
+        iface_mac_map = {iface: mac}
+        iface_mapping[net_key] = iface_mac_map
+
+    return iface_mapping
+
+
+def get_net_iface(iface_mapping, network):
+    net_key = network['provider:physical_network']
+
+    if net_key and net_key in iface_mapping:
+        iface_mac = iface_mapping[net_key]
+        return iface_mac.keys()[0]
+
+    if "default" not in iface_mapping:
+        raise Exception(
+            'Cannot find bigip interface mapping for '
+            'unknown neutron network %s. Please set '
+            'default interface mapping for the unknown '
+            'network.' % network
+        )
+    default_iface_mac = iface_mapping["default"]
+    return default_iface_mac.keys()[0]
+
+
+def get_iface_mac(bigip, iface):
+    cmd = "-c 'tmsh show sys mac-address | grep \" " + \
+        iface + " \"'"
+    try:
+        resp = bigip.tm.util.bash.exec_cmd(
+            command='run',
+            utilCmdArgs=cmd
+        )
+        mac = resp.commandResult.split()[0]
+        if not mac:
+            raise Exception("found empty MAC")
+        return mac
+    except Exception as exc:
+        LOG.error(
+            "Can not get MAC address of interface/trunk: %s."
+            " on host %s. Exception: %s.\n Please check "
+            "your external_physical_mappings." % (
+                iface, bigip.hostname, exc
+            )
+        )
+        raise exc
+
+
+def get_mac_by_net(bigip, net, device):
+    try:
+        net_key = net['provider:physical_network']
+        iface_mapping = device['bigip'][bigip.hostname][
+            'external_physical_mappings']
+
+        iface_mac = iface_mapping.get(net_key)
+
+        if not iface_mac and not iface_mapping.get("default"):
+            raise Exception(
+                "The default interface not found in %s" %
+                iface_mapping.get
+            )
+        else:
+            default_iface_mac = iface_mapping.get("default")
+            return default_iface_mac.values()[0]
+
+        return iface_mac.values()[0]
+
+    except Exception as exc:
+        LOG.error(
+            "Can not get MAC address of network: %s."
+            "The device is %s." % (net, device)
+        )
+        raise exc
+
+
+def get_vtep_vlan(network, vtep_node_ip):
+    vlanid = None
+    default_vlanid = None
+    segments = network.get('segments', [])
+
+    for seg in segments:
+        phy_net = seg["provider:physical_network"]
+        vlanid = seg["provider:segmentation_id"]
+
+        if phy_net == "default":
+            default_vlanid = vlanid
+        if phy_net == vtep_node_ip:
+            return vlanid
+
+    if default_vlanid is not None:
+        return default_vlanid
+
+    return network['provider:segmentation_id']
+
+
+def get_node_vtep(device):
+    if not device:
+        raise Exception(
+            "device is not provided"
+        )
+
+    llinfo = device.get('local_link_information')
+
+    if len(llinfo) == 0:
+        return
+
+    vtep_node = llinfo[0].get('node_vtep_ip')
+    if vtep_node:
+        return vtep_node

@@ -510,17 +510,13 @@ class LBaaSv2PluginRPC(object):
 
     @log_helpers.log_method_call
     def create_port_on_subnet(self, subnet_id=None,
-                              mac_address=None, name=None,
+                              name=None,
                               fixed_address_count=1,
                               device_id=None,
                               vnic_type="normal",
                               binding_profile={},
                               host_passed=None):
         """Add a neutron port to the subnet."""
-        if self.conf.vtep_ip:
-            binding_profile["local_link_information"] = [
-                {"node_vtep_ip": self.conf.vtep_ip}
-            ]
 
         port = None
         try:
@@ -528,7 +524,6 @@ class LBaaSv2PluginRPC(object):
                 self.context,
                 self._make_msg('create_port_on_subnet',
                                subnet_id=subnet_id,
-                               mac_address=mac_address,
                                name=name,
                                fixed_address_count=fixed_address_count,
                                host=host_passed or self.host,
@@ -574,11 +569,8 @@ class LBaaSv2PluginRPC(object):
                                vnic_type="normal",
                                binding_profile={}):
         """Add a neutron port to the network."""
-        if self.conf.vtep_ip:
-            binding_profile["local_link_information"] = [
-                {"node_vtep_ip": self.conf.vtep_ip}
-            ]
 
+        # this method only use by opflex port "right now".
         port = None
         try:
             port = self._call(
