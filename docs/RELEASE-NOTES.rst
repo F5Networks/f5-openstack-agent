@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.8.49.1(Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2698] Agent timeout parameter change to apply to python requests timeout arg
+* [OPENSTACK-2671] Encrypt password by python fernet
+
+Bug Fixes
+`````````
+
+Limitations
+`````````
+
 v9.8.49(Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
