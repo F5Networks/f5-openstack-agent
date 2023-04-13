@@ -1,5 +1,5 @@
 # this file stores required dependencies of f5 agent for redhat
-f5-sdk==3.0.11
+f5-sdk>=3.0.11
 
 python2-cryptography>=1.2.3
 python2-pyasn1-modules>=0.0.8
