@@ -108,6 +108,11 @@ OPTS = [
         help=('Number of seconds between member status update')
     ),
     cfg.IntOpt(
+        'device_report_interval',
+        default=240,
+        help=('Number of seconds between member status update')
+    ),
+    cfg.IntOpt(
         'member_update_mode',
         default=2,
         help=('Mode of the member status update')

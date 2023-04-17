@@ -100,10 +100,20 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
             LOG.debug('Starting the member status update task.')
             member_update_task = loopingcall.FixedIntervalLoopingCall(
                 self.update_member_status_task)
-            member_update_task.start(interval=30)
+            member_update_task.start(interval=member_update_interval)
         else:
             LOG.debug('The member update interval %d is negative.' %
                       member_update_interval)
+
+        device_report_interval = self.conf.device_report_interval
+        if device_report_interval > 0:
+            LOG.debug('Starting the device status report task.')
+            device_report_task = loopingcall.FixedIntervalLoopingCall(
+                self.report_device_status_task)
+            device_report_task.start(interval=device_report_interval)
+        else:
+            LOG.debug('The device report interval %d is negative.' %
+                      device_report_interval)
 
     def _load_driver(self, conf):
         self.lbdriver = None
@@ -474,3 +484,65 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
         LOG.debug("End updating member status at %s." % now)
 
         return
+
+    def report_device_status_task(self):
+        LOG.debug("starts report_device_status_task.")
+        try:
+            zones = []
+            if self.conf.availability_zone:
+                zones = self.conf.availability_zone.split(",")
+            az_devices = self.plugin_rpc.get_devices(
+                availability_zone=zones
+            )
+            LOG.debug("az_devices: %s ." % az_devices)
+
+            for each in az_devices:
+                bigips = []
+                id = each["id"]
+                operating_status = each["operating_status"]
+                LOG.debug(id)
+                LOG.debug(operating_status)
+
+                device_info = each.get("device_info")
+                bigip = device_info["bigip"]
+                for host, info in bigip.items():
+                    username = decrypt_data(info['serial_number'],
+                                            info['username'])
+                    password = decrypt_data(info['serial_number'],
+                                            info['password'])
+                    bigips.append({
+                        'hostname': host,
+                        'username': username,
+                        'password': password,
+                        'port': info['port'],
+                    })
+
+                device = {
+                    "device": {
+                        "operating_status": {
+                            "status": "ONLINE"
+                        }
+                    }
+                }
+
+                for bip in bigips:
+                    try:
+                        hostname = bip['hostname']
+                        bigip = ManagementRoot(bip['hostname'],
+                                               bip['username'],
+                                               bip['password'],
+                                               port=bip['port'],
+                                               token=True)
+                        device['device']['operating_status'][hostname] = \
+                            'ONLINE'
+                    except Exception as e:
+                        LOG.error('seems bigip %s has problem' % hostname)
+                        device['device']['operating_status'][hostname] = \
+                            str(e)[:80]
+                        device['device']['operating_status']['status'] = \
+                            'SOMETHING_WRONG'
+
+                self.plugin_rpc.update_device(id, device)
+        except Exception as e:
+            LOG.error("seems unable to report state: %s" % e.message)
+        LOG.debug("ends report_device_status_task.")
