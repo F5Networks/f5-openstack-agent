@@ -318,7 +318,7 @@ OPTS = [  # XXX maybe we should make this a dictionary
     ),
     cfg.IntOpt(
         'connection_rate_limit_ratio',
-        default=5,
+        default=1,
         help="connection rate limit ratio for listener, setting to 5 means "
         "a listener's connection rate limit will be set to 1/5 of the lb's "
         "upper limit, which is predefined by the flavors 1-7."
