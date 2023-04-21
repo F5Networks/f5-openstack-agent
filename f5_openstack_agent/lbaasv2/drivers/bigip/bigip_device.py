@@ -8,7 +8,7 @@ from oslo_log import log
 LOG = log.getLogger(__name__)
 
 
-def set_bigips(service):
+def set_bigips(service, conf):
     LOG.info(
         "Builde connection of device %s" %
         service['device']
@@ -54,16 +54,27 @@ class BigipDevice(object):
 
     cache_pool = dict()
 
-    def __init__(self, device):
+    def __init__(self, device, conf=None):
         self.device = device
+        self.conf = conf
+        if self.conf:
+            self.device['use_mgmt_ipv6'] = self.conf.use_mgmt_ipv6
+        else:
+            self.device['use_mgmt_ipv6'] = False
         self.set_all_bigips()
 
     def set_all_bigips(self):
         self._bigips = dict()
 
-        device_items = self.device['bigip'].items()
-        for host, info in device_items:
-            self.connect(host, info)
+        self.device['bigip'] = {}
+        device_members = self.device['device_info']['members']
+        for member in device_members:
+            if self.device['use_mgmt_ipv6'] and member['mgmt_ipv6']:
+                host = member['mgmt_ipv6']
+            else:
+                host = member['mgmt_ipv4']
+            self.device['bigip'][host] = member
+            self.connect(host, member['device_info'])
 
     def connect(self, host, info):
         LOG.info(
