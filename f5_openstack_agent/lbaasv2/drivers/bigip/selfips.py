@@ -128,7 +128,7 @@ class BigipSelfIpManager(object):
         iface_mac = utils.get_mac_by_net(
             bigip, network, device)
         # llinfo is a list of dict type
-        llinfo = device.get('local_link_information', None)
+        llinfo = device['device_info'].get('local_link_information', None)
 
         if llinfo:
             link_info = llinfo[0]

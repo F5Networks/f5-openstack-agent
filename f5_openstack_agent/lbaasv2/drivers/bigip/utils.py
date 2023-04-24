@@ -235,7 +235,7 @@ def get_mac_by_net(bigip, net, device):
     try:
         net_key = net['provider:physical_network']
         iface_mapping = device['bigip'][bigip.hostname][
-            'external_physical_mappings']
+            'device_info']['external_physical_mappings']
 
         iface_mac = iface_mapping.get(net_key)
 
@@ -284,7 +284,7 @@ def get_node_vtep(device):
             "device is not provided"
         )
 
-    llinfo = device.get('local_link_information')
+    llinfo = device['device_info'].get('local_link_information')
 
     if len(llinfo) == 0:
         return

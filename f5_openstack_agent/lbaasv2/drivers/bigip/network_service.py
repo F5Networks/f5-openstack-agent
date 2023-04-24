@@ -874,9 +874,9 @@ class SNATHelper(object):
         lb_id = self.service['loadbalancer']['id']
 
         device = self.service['device']
-        masq_mac = device['masquerade_mac']
+        masq_mac = device['device_info']['masquerade_mac']
         # llinfo is a list of dict type
-        llinfo = device.get('local_link_information', None)
+        llinfo = device['device_info'].get('local_link_information', None)
 
         if llinfo:
             link_info = llinfo[0]

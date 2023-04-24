@@ -286,6 +286,11 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'tcp_options',
         default=254,
         help='Default tcp Options value of server tcp profile'
+    ),
+    cfg.BoolOpt(
+        'use_mgmt_ipv6',
+        default=False,
+        help='Use IPv6 management address of device instead of IPv4'
     )
 ]
 
