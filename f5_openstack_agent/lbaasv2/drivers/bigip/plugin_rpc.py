@@ -929,12 +929,12 @@ class LBaaSv2PluginRPC(object):
         return devices
 
     @log_helpers.log_method_call
-    def update_device(self, id, device={}):
-        """update the devices in neutron db"""
+    def update_device_member(self, id, member={}):
+        """update the device member in neutron db"""
         return self._cast(
             self.context,
-            self._make_msg('update_device',
+            self._make_msg('update_device_member',
                            id=id,
-                           device=device),
+                           member=member),
             topic=self.topic
         )
