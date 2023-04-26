@@ -286,7 +286,7 @@ def get_node_vtep(device):
 
     llinfo = device['device_info'].get('local_link_information')
 
-    if len(llinfo) == 0:
+    if not llinfo:
         return
 
     vtep_node = llinfo[0].get('node_vtep_ip')
