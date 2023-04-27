@@ -431,18 +431,25 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
             LOG.debug("az_devices: %s" % az_devices)
             for each in az_devices:
                 device_info = each.get("device_info")
-                bigip = device_info['bigip']
-                for host, info in bigip.items():
-                    if info['failover_state'] == 'active':
-                        username = decrypt_data(info['serial_number'],
-                                                info['username'])
-                        password = decrypt_data(info['serial_number'],
-                                                info['password'])
+                members = device_info['members']
+
+                for m in members:
+                    if m['operating_status']['failover_state'] == 'active':
+                        username = decrypt_data(
+                            m['device_info']['serial_number'],
+                            m['device_info']['username']
+                        )
+                        password = decrypt_data(
+                            m['device_info']['serial_number'],
+                            m['device_info']['password']
+                        )
+
+                        # TODO(nik) add v6 later when the config item is added
                         bigips.append({
-                            'hostname': host,
+                            'hostname': m['mgmt_ipv4'],
                             'username': username,
                             'password': password,
-                            'port': info['port'],
+                            'port': m['device_info']['port'],
                         })
 
             LOG.debug("get %s active bigips" % len(bigips))
@@ -497,52 +504,63 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
             LOG.debug("az_devices: %s ." % az_devices)
 
             for each in az_devices:
-                bigips = []
-                id = each["id"]
-                operating_status = each["operating_status"]
+                id = each['id']
                 LOG.debug(id)
-                LOG.debug(operating_status)
 
-                device_info = each.get("device_info")
-                bigip = device_info["bigip"]
-                for host, info in bigip.items():
-                    username = decrypt_data(info['serial_number'],
-                                            info['username'])
-                    password = decrypt_data(info['serial_number'],
-                                            info['password'])
-                    bigips.append({
-                        'hostname': host,
-                        'username': username,
-                        'password': password,
-                        'port': info['port'],
-                    })
+                device_info = each.get('device_info')
+                members = device_info['members']
 
-                device = {
-                    "device": {
-                        "operating_status": {
-                            "status": "ONLINE"
-                        }
+                for m in members:
+                    member_id = m['id']
+                    LOG.debug(member_id)
+                    LOG.debug("operating_status: %s" % m['operating_status'])
+
+                    member = {
+                        "member": {"operating_status": {}}
                     }
-                }
 
-                for bip in bigips:
+                    username = decrypt_data(m['device_info']['serial_number'],
+                                            m['device_info']['username'])
+                    password = decrypt_data(m['device_info']['serial_number'],
+                                            m['device_info']['password'])
+
                     try:
-                        hostname = bip['hostname']
-                        bigip = ManagementRoot(bip['hostname'],
-                                               bip['username'],
-                                               bip['password'],
-                                               port=bip['port'],
+                        timestamp = datetime.datetime.utcnow().strftime(
+                            '%Y-%m-%dT%H:%M:%S') + 'Z'
+                        hostname = m['mgmt_ipv4']
+                        bigip = ManagementRoot(hostname,
+                                               username,
+                                               password,
+                                               port=m['device_info']['port'],
                                                token=True)
-                        device['device']['operating_status'][hostname] = \
-                            'ONLINE'
+
+                        failover_state = bigip.tm.sys.dbs.db.load(
+                            name='failover.state'
+                        )
+                        member = {
+                            "member": {
+                                "operating_status": {
+                                    "status": "ONLINE",
+                                    "timestamp": timestamp,
+                                    "failover_state": failover_state.value,
+                                    "error": ""
+                                }
+                            }
+                        }
+
                     except Exception as e:
                         LOG.error('seems bigip %s has problem' % hostname)
-                        device['device']['operating_status'][hostname] = \
+                        member['member']['operating_status']['error'] = \
                             str(e)[:80]
-                        device['device']['operating_status']['status'] = \
-                            'SOMETHING_WRONG'
+                        member['member']['operating_status']['status'] = \
+                            'OFFLINE'
+                        member['member']['operating_status'][
+                            'failover_state'] = 'unknown'
+                        member['member']['operating_status']['timestamp'] = \
+                            timestamp
+                    finally:
+                        self.plugin_rpc.update_device_member(member_id, member)
 
-                self.plugin_rpc.update_device(id, device)
         except Exception as e:
             LOG.error("seems unable to report state: %s" % e.message)
         LOG.debug("ends report_device_status_task.")
