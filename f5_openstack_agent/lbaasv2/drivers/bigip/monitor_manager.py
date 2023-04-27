@@ -95,6 +95,10 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
 
         self.system_helper = SystemHelper()
 
+        self.use_mgmt_ipv6 = False
+        if self.conf:
+            self.use_mgmt_ipv6 = self.conf.use_mgmt_ipv6
+
         member_update_interval = self.conf.member_update_interval
         if member_update_interval > 0:
             LOG.debug('Starting the member status update task.')
@@ -444,9 +448,16 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
                             m['device_info']['password']
                         )
 
-                        # TODO(nik) add v6 later when the config item is added
+                        if self.use_mgmt_ipv6 and m['mgmt_ipv6']:
+                            hostname = m['mgmt_ipv6']
+                        else:
+                            hostname = m['mgmt_ipv4'] or m['mgmt_ipv6']
+
+                        if ":" in hostname and \
+                           not hostname.startswith("["):
+                            hostname = "[" + hostname + "]"
                         bigips.append({
-                            'hostname': m['mgmt_ipv4'],
+                            'hostname': hostname,
                             'username': username,
                             'password': password,
                             'port': m['device_info']['port'],
@@ -469,7 +480,7 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
                         LOG.debug("%d pool(s) found", len(pools))
                         self.update_all_member_status_by_pools(bigip, pools)
                     else:
-                        LOG.debug("no vailable pools")
+                        LOG.debug("no available pools")
                 elif self.conf.member_update_mode == 2:
                     # logic of update member by folders
                     folders = self.system_helper.get_folders(bigip)
@@ -478,7 +489,7 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
                         self.update_all_member_status_by_folders(
                             bigip, folders)
                     else:
-                        LOG.debug("no vailable folders")
+                        LOG.debug("no available folders")
                 else:
                     LOG.debug("member update mode %d isnt' supported.",
                               self.conf.member_update_mode)
@@ -527,7 +538,16 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
                     try:
                         timestamp = datetime.datetime.utcnow().strftime(
                             '%Y-%m-%dT%H:%M:%S') + 'Z'
-                        hostname = m['mgmt_ipv4']
+
+                        if self.use_mgmt_ipv6 and m['mgmt_ipv6']:
+                            hostname = m['mgmt_ipv6']
+                        else:
+                            hostname = m['mgmt_ipv4'] or m['mgmt_ipv6']
+
+                        if ":" in hostname and \
+                           not hostname.startswith("["):
+                            hostname = "[" + hostname + "]"
+
                         bigip = ManagementRoot(hostname,
                                                username,
                                                password,
