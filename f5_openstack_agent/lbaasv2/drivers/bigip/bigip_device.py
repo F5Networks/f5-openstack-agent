@@ -72,7 +72,10 @@ class BigipDevice(object):
             if self.device['use_mgmt_ipv6'] and member['mgmt_ipv6']:
                 host = member['mgmt_ipv6']
             else:
-                host = member['mgmt_ipv4']
+                host = member['mgmt_ipv4'] or member['mgmt_ipv6']
+            # Workaround sdk ipv6 issue
+            if ":" in host and not host.startswith("["):
+                host = "[" + host + "]"
             self.device['bigip'][host] = member
             self.connect(host, member['device_info'])
 
