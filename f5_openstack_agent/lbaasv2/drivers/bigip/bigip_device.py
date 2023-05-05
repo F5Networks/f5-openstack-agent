@@ -13,7 +13,7 @@ def set_bigips(service, conf):
         "Builde connection of device %s" %
         service['device']
     )
-    bigip_dev = BigipDevice(service['device'])
+    bigip_dev = BigipDevice(service['device'], conf)
     service['bigips'] = bigip_dev.get_all_bigips()
 
 
