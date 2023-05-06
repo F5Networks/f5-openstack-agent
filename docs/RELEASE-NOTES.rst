@@ -5,6 +5,39 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.4 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2766] Use mgmt_ipv6 in some cases
+* [OPENSTACK-2751] Support single ipv6 mgmt address
+* [OPENSTACK-2766] Update 4 new inventory model
+* [OPENSTACK-2764] Adapt to new inventory model
+* [OPENSTACK-2766] Modify dev status help msg
+* [OPENSTACK-2770] Set connection rate limit division factor 1
+* [OPENSTACK-2764] Define use_mgmt_ipv6 option
+* [OPENSTACK-2747] Add device status update
+* [OPENSTACK-2741] Fetch VLAN Segmentation id via vtep_ip or default
+* [OPENSTACK-2701] Enable traffic-group-1 MAC auto configure
+* [OPENSTACK-2701] Create or update VIP/SNAT IP/SelfIP with MAC
+* [OPENSTACK-2701] Add MAC in interface mapping
+* [OPENSTACK-2701] Refactor external interface mapping
+* [OPENSTACK-2701] Refactor code to get interface
+* [OPENSTACK-2701] Refactor flat network for refactor other code
+* [OPENSTACK-2747] Convert to use inventory db
+* [OPENSTACK-2694] New monitor process
+* [OPENSTACK-2624] Deploy configuration to multiple devices in parallel
+
+Bug Fixes
+`````````
+* [OPENSTACK-2751] Input agent conf param when initialize bigip device
+* [OPENSTACK-2701] Cannot get length from python None type
+
+Limitations
+```````````
+
 v9.10.3 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
