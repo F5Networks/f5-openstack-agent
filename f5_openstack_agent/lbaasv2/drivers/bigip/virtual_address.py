@@ -146,4 +146,8 @@ class VirtualAddress(object):
             ct_limit = constants_v2.FLAVOR_CONN_MAP[
                 str(flavor)]['connection_limit']
 
+        # Overwrite the default value for flavor 21 only
+        if flavor == 21:
+            ct_limit = loadbalancer.get("max_concurrency", ct_limit)
+
         return ct_limit
