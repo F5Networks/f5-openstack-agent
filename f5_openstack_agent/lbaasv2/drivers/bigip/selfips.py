@@ -125,7 +125,7 @@ class BigipSelfIpManager(object):
             return True
 
         device = service['device']
-        iface_mac = utils.get_mac_by_net(
+        vlan_mac = utils.get_vlan_mac(
             bigip, network, device)
         # llinfo is a list of dict type
         llinfo = device['device_info'].get('local_link_information', None)
@@ -136,7 +136,7 @@ class BigipSelfIpManager(object):
             link_info = dict()
             llinfo = [link_info]
 
-        link_info.update({"lb_mac": iface_mac})
+        link_info.update({"lb_mac": vlan_mac})
         binding_profile = {
              "local_link_information": llinfo
         }
