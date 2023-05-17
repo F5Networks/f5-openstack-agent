@@ -18,10 +18,12 @@ import uuid
 
 from distutils.version import LooseVersion
 from eventlet import greenthread
+from oslo_config import cfg
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 OBJ_PREFIX = 'uuid_'
+conf = cfg.CONF
 
 
 class IpNotInCidrNotation(Exception):
@@ -292,3 +294,53 @@ def get_node_vtep(device):
     vtep_node = llinfo[0].get('node_vtep_ip')
     if vtep_node:
         return vtep_node
+
+
+def get_partition_name(tenant_id):
+    prefix = OBJ_PREFIX + '_'
+    name = "Common"
+
+    if conf.environment_prefix:
+        prefix = conf.environment_prefix + '_'
+    if tenant_id is not None:
+        name = prefix + tenant_id.replace('/', '')
+
+    return name
+
+
+def get_vlan_mac(bigip, network, device):
+
+    vtep_node_ip = get_node_vtep(device)
+    vlanid = get_vtep_vlan(network, vtep_node_ip)
+    vlan_name = "vlan-%d" % (vlanid)
+    partition = get_partition_name(
+        network['tenant_id'])
+
+    name = "/" + partition + "/" + vlan_name
+    cmd = "-c 'tmsh show net vlan " + name + " | grep \"" + \
+        "Mac Address\"'"
+    LOG.info("get VLAN MAC: %s" % cmd)
+
+    try:
+        resp = bigip.tm.util.bash.exec_cmd(
+            command='run',
+            utilCmdArgs=cmd
+        )
+        mac = resp.commandResult.split()[-1]
+
+        # simplely check if the mac is valid
+        if ":" not in mac:
+            raise Exception("the Vlan MAC is invalid %s" % mac)
+
+        LOG.info("get VLAN MAC: %s for network %s" %
+                 (mac, {network["id"]: name}))
+        return mac
+
+    except Exception as exc:
+        LOG.error(
+            "can not get vlan MAC address of net %s."
+            " on host %s by tmsh %s." % (
+                network[id], bigip.hostname, cmd
+            )
+        )
+        raise exc
