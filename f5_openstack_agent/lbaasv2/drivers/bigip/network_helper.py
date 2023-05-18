@@ -231,25 +231,6 @@ class NetworkHelper(object):
         return r.exists(name=name, partition=partition)
 
     @log_helpers.log_method_call
-    def get_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
-                         name=None):
-        """Returns a Route Domain object as extracted from the BIG-IP
-
-        This metod will take the bigip and extract the Route Domain object from
-        it.  It will then return this object to the caller.
-        """
-        # this only works when the domain was created with is_aux=False,
-        # same as the original code.
-        if hasattr(self, 'conf') and self.conf.external_gateway_mode:
-            name = self._get_route_domain_name(name) if name else partition
-        elif partition == 'Common':
-            name = '0'
-        else:
-            name = partition
-        r = bigip.tm.net.route_domains.route_domain
-        return r.load(name=name, partition=partition)
-
-    @log_helpers.log_method_call
     def get_route_domain_by_id(self, bigip, partition=const.DEFAULT_PARTITION,
                                id=const.DEFAULT_ROUTE_DOMAIN_ID):
         """Returns the route domain by id
@@ -459,14 +440,6 @@ class NetworkHelper(object):
         route.delete()
 
     @log_helpers.log_method_call
-    def get_vlans_in_route_domain(self,
-                                  bigip,
-                                  partition=const.DEFAULT_PARTITION):
-        """Get VLANs in Domain """
-        rd = self.get_route_domain(bigip, partition)
-        return getattr(rd, 'vlans', [])
-
-    @log_helpers.log_method_call
     def create_vlan(self, bigip, model):
         name = model.get('name', None)
         partition = model.get('partition', const.DEFAULT_PARTITION)
@@ -519,22 +492,6 @@ class NetworkHelper(object):
         if v.exists(name=name, partition=partition):
             obj = v.load(name=name, partition=partition)
             obj.delete()
-
-    @log_helpers.log_method_call
-    def add_vlan_to_domain(
-            self,
-            bigip,
-            name,
-            partition=const.DEFAULT_PARTITION):
-        """Add VLANs to Domain."""
-        rd = self.get_route_domain(bigip, partition)
-        existing_vlans = getattr(rd, 'vlans', [])
-        if name in existing_vlans:
-            return False
-
-        existing_vlans.append(name)
-        rd.modify(vlans=existing_vlans)
-        return True
 
     @log_helpers.log_method_call
     def add_vlan_to_domain_by_id(self, bigip, name,

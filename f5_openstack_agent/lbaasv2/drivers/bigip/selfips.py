@@ -56,10 +56,11 @@ class BigipSelfIpManager(object):
                         "must be one of the vlans "
                         "in the associated route domain") > 0):
                     try:
-                        self.network_helper.add_vlan_to_domain(
-                            bigip,
-                            name=model['vlan'],
-                            partition=model['partition'])
+                        rd_id = utils.vlan_to_rd_id(model['vlan'])
+                        self.network_helper.add_vlan_to_domain_by_id(
+                            bigip, model['vlan'], model['partition'], rd_id
+                        )
+
                         self.selfip_manager.create(bigip, model)
                         created = True
                     except HTTPError as err:
@@ -72,12 +73,8 @@ class BigipSelfIpManager(object):
                             )
                         else:
                             LOG.exception("After bind vlan to route domain. "
-                                          "Error creating selfip %s. "
-                                          "Repsponse status code: %s. "
-                                          "Response message: %s." % (
-                                              model["name"],
-                                              err.response.status_code,
-                                              err.message))
+                                          "Error creating selfip %s. " %
+                                          model["name"])
                             raise f5_ex.SelfIPCreationException(err.messgae)
                 elif err.response.status_code == 409:
                     created = True
