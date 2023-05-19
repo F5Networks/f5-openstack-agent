@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.5 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2701] Update SelfIP port with its vlan MAC
+
+Bug Fixes
+`````````
+* [OPENSTACK-2780] Fix selfip create, vlan not in route domain
+
+Limitations
+```````````
+
 v9.10.4 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
