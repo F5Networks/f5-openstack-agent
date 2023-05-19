@@ -344,3 +344,8 @@ def get_vlan_mac(bigip, network, device):
             )
         )
         raise exc
+
+
+def vlan_to_rd_id(name):
+    rd_id = name.split("-")[-1]
+    return int(rd_id)

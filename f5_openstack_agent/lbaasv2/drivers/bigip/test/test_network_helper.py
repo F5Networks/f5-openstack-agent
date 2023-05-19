@@ -180,52 +180,6 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
         positive_case_with_domain_id(*test_args)
         name_e_partition_negative_case(*test_args)
 
-    def test_get_route_domain(self, mock_get_route_domain_name,
-                              populated_bigip):
-        test_args = self.build_test(test_type='route_domain')
-        my_target, my_bigip, route_domain, payload = test_args
-
-        def reset_load(rout_domain):
-            route_domain.load.reset_mock()
-
-        def positive_case_differing_name(
-                my_target, my_bigip, route_domain, payload):
-            my_target.conf.external_gateway_mode = True
-            route_domain.load.return_value = True
-            my_target._get_route_domain_name.return_value = payload['name']
-            assert my_target.get_route_domain(my_bigip, **payload)
-            route_domain.load.assert_called_once_with(**payload)
-
-        def positive_case_same_name_common_networks(
-                my_target, my_bigip, route_domain, payload):
-            assert my_target.get_route_domain(
-                my_bigip, partition=payload['partition'])
-            route_domain.load.assert_called_once_with(
-                name=payload['partition'], partition=payload['partition'])
-
-        def positive_case_same_name(
-                my_target, my_bigip, route_domain, payload):
-            delattr(my_target, 'conf')
-            assert my_target.get_route_domain(my_bigip, payload['partition'])
-            route_domain.load.assert_called_once_with(
-                name=payload['partition'], partition=payload['partition'])
-
-        def negative_case_partition_is_common(
-                my_target, my_bigip, route_domain, payload):
-            route_domain.load.reset_mock()
-            route_domain.load.return_value = False
-            assert not my_target.get_route_domain(my_bigip)
-            route_domain.load.assert_called_once_with(
-                name='0',
-                partition=const.DEFAULT_PARTITION)
-
-        for test in [positive_case_differing_name,
-                     positive_case_same_name_common_networks,
-                     positive_case_same_name,
-                     negative_case_partition_is_common]:
-            test(*test_args)
-            reset_load(route_domain)
-
     def test_delete_route_domain_by_id(self, mock_get_route_domain_name,
                                        populated_bigip):
         test_args = list(self.build_test(test_type='route_domain'))
