@@ -154,6 +154,32 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
             self.agent_host
         )
 
+    def get_az_devices(self, all_devices, zones=[]):
+        # az_devices to store final items
+        az_devices = []
+
+        if zones:
+            for each_dev in all_devices:
+                dev_az = each_dev.get('availability_zone')
+                LOG.debug('dev_az: %s' % dev_az)
+
+                dev_zones = []
+                # if dev_az empty here, ignore it
+                if dev_az:
+                    dev_zones = dev_az.split(",")
+                    dev_zones_set = set(dev_zones)
+
+                    zones_set = set(zones)
+
+                    if (dev_zones_set & zones_set):
+                        LOG.debug("have common item.")
+                        az_devices.append(each_dev)
+        else:
+            LOG.debug('seems managing all.')
+            az_devices = all_devices
+
+        return az_devices
+
     @staticmethod
     def calculate_member_status(member):
         member_status = None
@@ -429,10 +455,11 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
             zones = []
             if self.conf.availability_zone:
                 zones = self.conf.availability_zone.split(",")
-            az_devices = self.plugin_rpc.get_devices(
-                availability_zone=zones
-            )
-            LOG.debug("az_devices: %s" % az_devices)
+
+            all_devices = self.plugin_rpc.get_devices()
+
+            az_devices = self.get_az_devices(all_devices, zones)
+            # LOG.debug("az_devices: %s" % az_devices)
             for each in az_devices:
                 device_info = each.get("device_info")
                 members = device_info['members']
@@ -506,13 +533,17 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
     def report_device_status_task(self):
         LOG.debug("starts report_device_status_task.")
         try:
+            # double check when conf.availability_zone is empty
+            # or device availability_zone is empty
+            # another: filter admin_state_up ?
             zones = []
             if self.conf.availability_zone:
                 zones = self.conf.availability_zone.split(",")
-            az_devices = self.plugin_rpc.get_devices(
-                availability_zone=zones
-            )
-            LOG.debug("az_devices: %s ." % az_devices)
+
+            all_devices = self.plugin_rpc.get_devices()
+            # LOG.debug("all_devices: %s ." % all_devices)
+
+            az_devices = self.get_az_devices(all_devices, zones)
 
             for each in az_devices:
                 id = each['id']

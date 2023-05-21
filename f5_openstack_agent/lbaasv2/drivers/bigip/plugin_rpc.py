@@ -912,14 +912,13 @@ class LBaaSv2PluginRPC(object):
         return l7policy_status
 
     @log_helpers.log_method_call
-    def get_devices(self, availability_zone=[]):
+    def get_devices(self):
         """Get the devices from neutron db"""
-        devices = {}
+        devices = []
         try:
             devices = self._call(
                 self.context,
-                self._make_msg('get_devices',
-                               availability_zone=availability_zone),
+                self._make_msg('get_devices'),
                 topic=self.topic
             )
         except messaging.MessageDeliveryFailure:
