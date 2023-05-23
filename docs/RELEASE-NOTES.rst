@@ -5,27 +5,13 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
-v9.10.5 (Pike, Queens)
---------------------------------------------
-NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
-
-Added Functionality
-```````````````````
-* [OPENSTACK-2701] Update SelfIP port with its vlan MAC
-
-Bug Fixes
-`````````
-* [OPENSTACK-2780] Fix selfip create, vlan not in route domain
-
-Limitations
-```````````
-
 v9.10.4 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
 
 Added Functionality
 ```````````````````
+* [OPENSTACK-2701] Update SelfIP port with its vlan MAC
 * [OPENSTACK-2766] Use mgmt_ipv6 in some cases
 * [OPENSTACK-2751] Support single ipv6 mgmt address
 * [OPENSTACK-2766] Update 4 new inventory model
@@ -47,6 +33,7 @@ Added Functionality
 
 Bug Fixes
 `````````
+* [OPENSTACK-2780] Fix selfip create, vlan not in route domain
 * [OPENSTACK-2751] Input agent conf param when initialize bigip device
 * [OPENSTACK-2701] Cannot get length from python None type
 
