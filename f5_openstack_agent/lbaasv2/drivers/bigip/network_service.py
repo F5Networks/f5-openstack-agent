@@ -900,9 +900,16 @@ class SNATHelper(object):
             self.driver.service_adapter.get_folder_name(
                 self.service['loadbalancer'].get('id')
             )
-        partition = self.driver.service_adapter.get_folder_name(
-            self.service['loadbalancer'].get('tenant_id')
-        )
+
+        if self.l2_service.is_common_network(
+            self.snat_net['network']
+        ):
+            partition = 'Common'
+        else:
+            partition = self.driver.service_adapter.get_folder_name(
+                self.service['loadbalancer'].get('tenant_id')
+            )
+
         bigips = self.driver.get_config_bigips()
 
         result = False
@@ -979,13 +986,14 @@ class SNATHelper(object):
         snat_info[
             'pool_name'
         ] = self.driver.service_adapter.get_folder_name(lb_id)
-        snat_info['pool_folder'] = self.partition
         snat_info['addrs'] = snat_addrs
 
         if self.l2_service.is_common_network(self.snat_net['network']):
             snat_info['network_folder'] = 'Common'
+            snat_info['pool_folder'] = 'Common'
         else:
             snat_info['network_folder'] = self.partition
+            snat_info['pool_folder'] = self.partition
 
         for bigip in bigips:
             self.snat_manager.assure_bigip_snats(
