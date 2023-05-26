@@ -1729,12 +1729,24 @@ class MonitorManager(ResourceManager):
             keys_to_keep=['partition', 'name', 'monitor']
         )
         pool_payload['monitor'] = ''
-        """ update the pool  """
-        mgr._update(bigip, pool_payload, None, None, service)
+        try:
+            #  update the pool
+            mgr._update(bigip, pool_payload, None, None, service)
 
-        super(MonitorManager, self)._delete(
-            bigip, payload, healthmonitor, service
-        )
+            super(MonitorManager, self)._delete(
+                bigip, payload, healthmonitor, service
+            )
+        except HTTPError as err:
+            msg = str(err)
+            # tolerate monitor is missing, when update pool
+            # and delete monitor
+            if err.response.status_code == 400:
+                if "01070022:3" not in msg and \
+                       'not found' not in msg:
+                    raise err
+                LOG.debug(msg)
+            else:
+                raise err
 
     @serialized('MonitorManager.create')
     @log_helpers.log_method_call
