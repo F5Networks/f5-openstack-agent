@@ -271,7 +271,7 @@ def get_vtep_vlan(network, vtep_node_ip):
 
         if phy_net == "default":
             default_vlanid = vlanid
-        if phy_net == vtep_node_ip:
+        if phy_net is not None and phy_net == vtep_node_ip:
             return vlanid
 
     if default_vlanid is not None:
@@ -289,9 +289,9 @@ def get_node_vtep(device):
     llinfo = device['device_info'].get('local_link_information')
 
     if not llinfo:
-        return
+        return "default"
 
-    vtep_node = llinfo[0].get('node_vtep_ip')
+    vtep_node = llinfo[0].get('node_vtep_ip', "default")
     if vtep_node:
         return vtep_node
 
