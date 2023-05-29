@@ -103,6 +103,25 @@ class LBaaSv2PluginRPC(object):
         )
 
     @log_helpers.log_method_call
+    def occupy_device(self, context, device_id, expire):
+        """Update the database to occupy the device."""
+        return self._call(
+            context,
+            self._make_msg('occupy_device', device_id=device_id,
+                           expire=expire),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
+    def release_device(self, context, device_id):
+        """Update the database to release the device."""
+        return self._call(
+            context,
+            self._make_msg('release_device', device_id=device_id),
+            topic=self.topic
+        )
+
+    @log_helpers.log_method_call
     def update_loadbalancer_stats(self,
                                   lb_id,
                                   stats):

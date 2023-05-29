@@ -148,6 +148,11 @@ OPTS = [
         default=1,
         help=('Agent group number for the environment')
     ),
+    cfg.IntOpt(
+        'device_lock_expire_seconds',
+        default=3,
+        help=('Device lock expire seconds')
+    ),
     cfg.DictOpt(
         'capacity_policy',
         default={},

@@ -15,13 +15,16 @@
 # limitations under the License.
 #
 
-import datetime
+from datetime import datetime
+import random
 import re
 import sys
+from time import sleep
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging
+from oslo_messaging.rpc.client import RemoteError
 from oslo_service import loopingcall
 from oslo_service import periodic_task
 from oslo_utils import importutils
@@ -159,7 +162,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
-        self.last_resync = datetime.datetime.now()
+        self.last_resync = datetime.now()
         self.needs_resync = False
 
         self.plugin_rpc = None
@@ -391,6 +394,94 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         started_by.conn.create_consumer(
             node_topic, endpoints, fanout=False)
 
+    @log_helpers.log_method_call
+    def occupy_device(self, context, service):
+        expire = self.conf.device_lock_expire_seconds
+        # Only enable device access limit when expire value > 0
+        if expire <= 0:
+            return
+
+        if "device" in service:
+            device_id = service["device"]["id"]
+            max_wait = 180
+            attempt = 0
+            occupied = False
+            start_time = datetime.utcnow()
+            while not occupied:
+                attempt += 1
+                try:
+                    occupied = self.plugin_rpc.occupy_device(
+                        context, device_id, expire)
+                except RemoteError as ex:
+                    if "DeviceIsBusy" in ex.message:
+                        end_time = datetime.utcnow()
+                        if (end_time - start_time).total_seconds() < max_wait:
+                            # Wait up to 1 second
+                            interval = random.uniform(0.5, 1.0)
+                            sleep(interval)
+                        else:
+                            LOG.error("Fail to occupy device %s "
+                                      "after %s attempts: %s",
+                                      device_id, attempt, ex.message)
+                            raise
+                    else:
+                        LOG.error("Fail to occupy device %s "
+                                  "after %s attempts: %s",
+                                  device_id, attempt, ex.message)
+                        LOG.exception(ex)
+                        raise
+                except Exception as ex:
+                    LOG.error("Fail to occupy device %s "
+                              "after %s attempts: %s",
+                              device_id, attempt, ex.message)
+                    LOG.exception(ex)
+                    raise
+
+    @log_helpers.log_method_call
+    def release_device(self, context, service):
+        expire = self.conf.device_lock_expire_seconds
+        # Only enable device access limit when expire value > 0
+        if expire <= 0:
+            return
+
+        if "device" in service:
+            device_id = service["device"]["id"]
+            max_wait = expire
+            attempt = 0
+            released = False
+            start_time = datetime.utcnow()
+            while not released:
+                attempt += 1
+                try:
+                    released = self.plugin_rpc.release_device(context,
+                                                              device_id)
+                except RemoteError as ex:
+                    if "DeviceIsBusy" in ex.message:
+                        end_time = datetime.utcnow()
+                        if (end_time - start_time).total_seconds() < max_wait:
+                            # Wait up to half second
+                            interval = random.uniform(0, 0.5)
+                            sleep(interval)
+                        else:
+                            LOG.warning("Fail to release device %s "
+                                        "after %s attempts: %s",
+                                        device_id, attempt, ex.message)
+                            # Do NOT raise exception
+                            break
+                    else:
+                        LOG.warning("Fail to release device %s "
+                                    "after %s attempts: %s",
+                                    device_id, attempt, ex.message)
+                        # Do NOT raise exception
+                        break
+                except Exception as ex:
+                    LOG.warning("Fail to release device %s "
+                                "after %s attempts: %s",
+                                device_id, attempt, ex.message)
+                    LOG.exception(ex)
+                    # Do NOT raise exception
+                    break
+
     ######################################################################
     #
     # handlers for all in bound requests and notifications from controller
@@ -403,6 +494,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = loadbalancer['id']
 
         try:
+            self.occupy_device(context, service)
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.create(loadbalancer, service)
@@ -417,6 +509,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
+                self.release_device(context, service)
                 self.plugin_rpc.update_loadbalancer_status(
                     id, provision_status,
                     operating_status
@@ -463,6 +556,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = loadbalancer['id']
 
         try:
+            self.occupy_device(context, service)
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.delete(loadbalancer, service)
@@ -497,6 +591,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             provision_status = constants_v2.F5_ERROR
         finally:
             try:
+                self.release_device(context, service)
                 if provision_status == constants_v2.F5_ACTIVE:
                     self.plugin_rpc.loadbalancer_destroyed(id)
                 else:
