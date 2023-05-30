@@ -340,7 +340,7 @@ def get_vlan_mac(bigip, network, device):
         LOG.error(
             "can not get vlan MAC address of net %s."
             " on host %s by tmsh %s." % (
-                network[id], bigip.hostname, cmd
+                network["id"], bigip.hostname, cmd
             )
         )
         raise exc
