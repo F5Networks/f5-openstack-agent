@@ -33,6 +33,9 @@ Added Functionality
 
 Bug Fixes
 `````````
+* [OPENSTACK-2791] Fix delete healthmonitor even if it is missing
+* [OPENSTACK-2741] Fix to choose "default"
+* [OPENSTACK-2790] Fix network id
 * [OPENSTACK-2780] Fix selfip create, vlan not in route domain
 * [OPENSTACK-2751] Input agent conf param when initialize bigip device
 * [OPENSTACK-2701] Cannot get length from python None type
