@@ -1730,8 +1730,16 @@ class MonitorManager(ResourceManager):
         )
         pool_payload['monitor'] = ''
         try:
-            #  update the pool
-            mgr._update(bigip, pool_payload, None, None, service)
+            # check if pool exist, if not exist, 
+            # we delete healthmonitor directly
+            exist = mgr.resource_helper.exists(
+                bigip, 
+                name=pool_payload['name'], 
+                partition=pool_payload['partition']
+            )
+            if exist:
+                #  update the pool
+                mgr._update(bigip, pool_payload, None, None, service)
 
             super(MonitorManager, self)._delete(
                 bigip, payload, healthmonitor, service
