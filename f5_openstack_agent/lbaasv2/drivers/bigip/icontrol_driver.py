@@ -17,6 +17,7 @@
 import json
 import os
 
+from requests import HTTPError
 from time import strftime
 
 from oslo_config import cfg
@@ -835,10 +836,12 @@ class iControlDriver(LBaaSBaseDriver):
                 self.network_builder._annotate_service_route_domains(service)
             except f5ex.InvalidNetworkType as exc:
                 LOG.warning(exc.message)
+            except HTTPError as err:
+                raise err
             except Exception as err:
                 LOG.exception(err)
                 raise f5ex.RouteDomainCreationException(
-                    "Route domain annotation error")
+                    "Service Member Route domain annotation error")
 
     def update_service_status(self, service, timed_out=False):
         """Update status of objects in controller."""
