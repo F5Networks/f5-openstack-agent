@@ -19,6 +19,11 @@ import os
 import re
 import urllib
 
+try:
+    from neutron_lib import context as ncontext
+except ImportError:
+    from neutron import context as ncontext
+
 from f5_openstack_agent.lbaasv2.drivers.bigip.acl import ACLHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
@@ -26,6 +31,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.ftp_profile \
     import FTPProfileHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.http_profile \
     import HTTPProfileHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip import icontrol_driver
 from f5_openstack_agent.lbaasv2.drivers.bigip.irule \
     import iRuleHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_adapter \
@@ -34,6 +40,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.ltm_policy \
     import LTMPolicyRedirect
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_service import \
     get_route_domain
+from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tcp_profile \
     import TCPProfileHelper
@@ -57,10 +64,33 @@ class ResourceManager(object):
     _collection_key = 'baseResources'
     _key = 'baseResource'
 
-    def __init__(self, driver):
-        self.driver = driver
-        self.service_queue_map = driver.service_queue_map
+    def __init__(self, conf, service_queue_map):
+        self.conf = conf
+        self.driver = icontrol_driver.iControlDriver(conf)
+        self.context = ncontext.get_admin_context_without_session()
+        self.service_queue_map = service_queue_map
         self.mutable_props = {}
+
+        self._setup_rpc()
+        self.driver.set_context(self.context)
+        self.driver.set_plugin_rpc(self.plugin_rpc)
+
+    def _setup_rpc(self):
+        topic = constants_v2.TOPIC_PROCESS_ON_HOST_V2
+        if self.conf.environment_specific_plugin:
+            topic = topic + '_' + self.conf.environment_prefix
+
+        if self.conf.agent_id:
+            self.agent_host = self.conf.agent_id
+        else:
+            self.agent_host = self.conf.host
+
+        self.plugin_rpc = plugin_rpc.LBaaSv2PluginRPC(
+            topic,
+            self.context,
+            self.conf,
+            self.agent_host
+        )
 
     def _shrink_payload(self, payload, **kwargs):
         keys_to_keep = kwargs.get('keys_to_keep', [])
@@ -210,8 +240,8 @@ class LoadBalancerManager(ResourceManager):
     _collection_key = 'no_collection_key'
     _key = 'loadbalancer'
 
-    def __init__(self, driver):
-        super(LoadBalancerManager, self).__init__(driver)
+    def __init__(self, conf, service_queue_map):
+        super(LoadBalancerManager, self).__init__(conf, service_queue_map)
         self._resource = "virtual address"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual_address)
@@ -566,8 +596,8 @@ class ListenerManager(ResourceManager):
     _collection_key = 'listeners'
     _key = 'listener'
 
-    def __init__(self, driver):
-        super(ListenerManager, self).__init__(driver)
+    def __init__(self, conf, service_queue_map):
+        super(ListenerManager, self).__init__(conf, service_queue_map)
         self._resource = "virtual server"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
@@ -1482,8 +1512,8 @@ class PoolManager(ResourceManager):
     _collection_key = 'pools'
     _key = 'pool'
 
-    def __init__(self, driver):
-        super(PoolManager, self).__init__(driver)
+    def __init__(self, conf, service_queue_map):
+        super(PoolManager, self).__init__(conf, service_queue_map)
         self._resource = "pool"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
@@ -1565,7 +1595,7 @@ class PoolManager(ResourceManager):
         """Update the listener's default pool id if needed"""
         if service.get('listener'):
             LOG.debug("Find a listener %s for create pool", listener)
-            mgr = ListenerManager(self.driver)
+            mgr = ListenerManager(self.conf, self.service_queue_map)
             listener_payload = mgr._create_payload(listener, service)
             self._shrink_payload(
                 listener_payload,
@@ -1577,7 +1607,7 @@ class PoolManager(ResourceManager):
         persist = None
         # Update listener session persistency if necessary
         if payload.get("session_persistence"):
-            mgr = ListenerManager(self.driver)
+            mgr = ListenerManager(self.conf, self.service_queue_map)
             for listener in service['listeners']:
                 if listener['default_pool_id'] == pool['id']:
                     service['listener'] = listener
@@ -1606,7 +1636,7 @@ class PoolManager(ResourceManager):
             payload['session_persistence'] = persist
 
     def _delete(self, bigip, payload, pool, service):
-        mgr = ListenerManager(self.driver)
+        mgr = ListenerManager(self.conf, self.service_queue_map)
         for listener in service['listeners']:
             if listener['default_pool_id'] == pool['id']:
                 service['listener'] = listener
@@ -1650,8 +1680,8 @@ class MonitorManager(ResourceManager):
     _collection_key = 'healthmonitors'
     _key = 'healthmonitor'
 
-    def __init__(self, driver, **kwargs):
-        super(MonitorManager, self).__init__(driver)
+    def __init__(self, conf, service_queue_map, **kwargs):
+        super(MonitorManager, self).__init__(conf, service_queue_map)
 
         subtype = kwargs.get('type', '')
 
@@ -1704,7 +1734,7 @@ class MonitorManager(ResourceManager):
 
         """ update the pool  """
         healthmonitor = service['healthmonitor']
-        mgr = PoolManager(self.driver)
+        mgr = PoolManager(self.conf, self.service_queue_map)
         pool = {}
         pool['id'] = healthmonitor['pool_id']
         mgr._search_element(pool, service)
@@ -1718,7 +1748,7 @@ class MonitorManager(ResourceManager):
 
     def _delete(self, bigip, payload, healthmonitor, service):
 
-        mgr = PoolManager(self.driver)
+        mgr = PoolManager(self.conf, self.service_queue_map)
         monitor = service['healthmonitor']
         pool = {}
         pool['id'] = monitor['pool_id']
@@ -1796,12 +1826,12 @@ class MemberManager(ResourceManager):
     _collection_key = 'members'
     _key = 'member'
 
-    def __init__(self, driver):
-        super(MemberManager, self).__init__(driver)
+    def __init__(self, conf, service_queue_map):
+        super(MemberManager, self).__init__(conf, service_queue_map)
         self._resource = "member"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.member)
-        self._pool_mgr = PoolManager(self.driver)
+        self._pool_mgr = PoolManager(self.conf, self.service_queue_map)
         self.mutable_props = {
             "weight": "ratio",
             "admin_state_up": "session",
@@ -2040,15 +2070,16 @@ class L7PolicyManager(ResourceManager):
     _collection_key = 'l7policies'
     _key = 'l7policy'
 
-    def __init__(self, driver):
-        super(L7PolicyManager, self).__init__(driver)
+    def __init__(self, conf, service_queue_map):
+        super(L7PolicyManager, self).__init__(conf, service_queue_map)
         self._resource = "l7policy"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.l7policy)
         self.irule_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.rule)
-        self.listener_mgr = ListenerManager(driver)
-        self.l7rule_mgr = L7RuleManager(driver, l7policy_manager=self)
+        self.listener_mgr = ListenerManager(conf, service_queue_map)
+        self.l7rule_mgr = L7RuleManager(conf, service_queue_map,
+                                        l7policy_manager=self)
 
     def _get_policy_dict(self, l7policy, service):
         l7policy_adapter = L7PolicyServiceAdapter(self.driver.conf)
@@ -2173,14 +2204,14 @@ class L7RuleManager(ResourceManager):
     _collection_key = 'l7policy_rules'
     _key = 'l7rule'
 
-    def __init__(self, driver, **kwargs):
-        super(L7RuleManager, self).__init__(driver)
+    def __init__(self, conf, service_queue_map, **kwargs):
+        super(L7RuleManager, self).__init__(conf, service_queue_map)
         self._resource = "l7rule"
         self.resource_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.rule)
         self.l7policy_mgr = kwargs.get("l7policy_manager")
         if not self.l7policy_mgr:
-            self.l7policy_mgr = L7PolicyManager(driver)
+            self.l7policy_mgr = L7PolicyManager(conf, service_queue_map)
         self.mutable_props = {
             "type": "apiAnonymous",
             "invert": "apiAnonymous",
@@ -2308,8 +2339,8 @@ class L7RuleManager(ResourceManager):
 
 class ACLGroupManager(ResourceManager):
 
-    def __init__(self, driver, **kwargs):
-        super(ACLGroupManager, self).__init__(driver)
+    def __init__(self, conf, service_queue_map, **kwargs):
+        super(ACLGroupManager, self).__init__(conf, service_queue_map)
         self._key = "acl_group"
         self._resource = "ACLGroup"
         self.resource_helper = resource_helper.BigIPResourceHelper(
