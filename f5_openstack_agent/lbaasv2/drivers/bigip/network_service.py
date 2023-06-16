@@ -83,7 +83,6 @@ class NetworkServiceBuilder(object):
         self.rds_cache = {}
         self.network_helper = NetworkHelper(conf=self.conf)
         self.service_adapter = self.driver.service_adapter
-        self.lb_netinfo = dict()
 
     def tunnel_sync(self, tunnel_ips):
         self.l2_service.tunnel_sync(tunnel_ips)
@@ -238,13 +237,13 @@ class NetworkServiceBuilder(object):
         for bigip in bigips:
             # Make sure the L2 network is established
             self.l2_service.assure_bigip_network(
-                bigip, self.lb_netinfo['network'],
+                bigip, service['lb_netinfo']['network'],
                 service['device']
             )
 
     def config_lb_default_route(self, service):
         route_helper = RouteHelper(
-            self.lb_netinfo,
+            service['lb_netinfo'],
             self.l2_service
         )
         bigips = service['bigips']
@@ -252,17 +251,17 @@ class NetworkServiceBuilder(object):
             route_helper.create_route_for_net(bigip)
 
     def remove_lb_default_route(
-            self, bigip, subnet):
+            self, bigip, subnet, service):
         route_helper = RouteHelper(
-            self.lb_netinfo,
+            service['lb_netinfo'],
             self.l2_service
         )
         route_helper.remove_default_route(
             bigip, subnet)
 
     def config_selfips(self, service, **kwargs):
-        lb_network = kwargs.get("network", self.lb_netinfo["network"])
-        lb_subnets = kwargs.get("subnets", self.lb_netinfo["subnets"])
+        lb_network = kwargs.get("network", service['lb_netinfo']["network"])
+        lb_subnets = kwargs.get("subnets", service['lb_netinfo']["subnets"])
 
         subnetinfo = {'network': lb_network}
         for subnet in lb_subnets:
@@ -279,7 +278,7 @@ class NetworkServiceBuilder(object):
             MyHelper = SNATHelper
 
         snat_helper = MyHelper(
-            self.driver, service, self.lb_netinfo,
+            self.driver, service, service['lb_netinfo'],
             self.bigip_snat_manager,
             self.l2_service,
             net_service=self
@@ -294,7 +293,7 @@ class NetworkServiceBuilder(object):
             MyHelper = SNATHelper
 
         snat_helper = MyHelper(
-            self.driver, service, self.lb_netinfo,
+            self.driver, service, service['lb_netinfo'],
             self.bigip_snat_manager,
             self.l2_service,
             net_service=self
@@ -311,7 +310,7 @@ class NetworkServiceBuilder(object):
                 "Do not support to update flavor 7/8")
 
         snat_helper = SNATHelper(
-            self.driver, service, self.lb_netinfo,
+            self.driver, service, service['lb_netinfo'],
             self.bigip_snat_manager,
             self.l2_service
         )
@@ -592,7 +591,7 @@ class NetworkServiceBuilder(object):
                 if not subnetinfo['network_vlan_inuse']:
 
                     self.remove_lb_default_route(
-                        bigip, subnetinfo['subnet']
+                        bigip, subnetinfo['subnet'], service
                     )
 
                     local_selfip_name = "local-" + bigip.device_name \
@@ -641,9 +640,9 @@ class NetworkServiceBuilder(object):
         # Clean up any Self IP, SNATs, networks, and folder for
         # services items that we deleted.
         subnets_to_delete = []
-        network = self.lb_netinfo['network']
+        network = service['lb_netinfo']['network']
 
-        for subnet in self.lb_netinfo['subnets']:
+        for subnet in service['lb_netinfo']['subnets']:
             subnetinfo = dict()
 
             route_domain = network.get('route_domain_id', None)
@@ -767,8 +766,7 @@ class NetworkServiceBuilder(object):
         subnets = self.driver.plugin_rpc.get_subnets_info(
             subnet_ids=network['subnets']
         )
-        self.lb_netinfo['network'] = network
-        self.lb_netinfo['subnets'] = subnets
+        service['lb_netinfo'] = {'network': network, 'subnets': subnets}
 
         self.check_lb_netinfo(service)
 
@@ -776,8 +774,8 @@ class NetworkServiceBuilder(object):
         # in case of create mutliple or duplicate
         # selfip, route, SNAT IPs
         status = service['loadbalancer']['provisioning_status']
-        network = self.lb_netinfo['network']
-        subnets = self.lb_netinfo['subnets']
+        network = service['lb_netinfo']['network']
+        subnets = service['lb_netinfo']['subnets']
 
         if not network:
             LOG.error("Not found network info of network: %s.\n" %
@@ -824,7 +822,7 @@ class NetworkServiceBuilder(object):
             if len(ipv4_subnet) > 1 or len(ipv6_subnet) > 1:
                 raise Exception(
                     "The number of IPv4 or IPv6 subent is more than 1, "
-                    "network info is: %s\n" % self.lb_netinfo
+                    "network info is: %s\n" % service['lb_netinfo']
                 )
 
 
