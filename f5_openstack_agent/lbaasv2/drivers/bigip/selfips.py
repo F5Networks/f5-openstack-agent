@@ -121,9 +121,10 @@ class BigipSelfIpManager(object):
                 subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
             return True
 
+        vlan_helper = BigIPResourceHelper(ResourceType.vlan)
         device = service['device']
         vlan_mac = utils.get_vlan_mac(
-            bigip, network, device)
+            vlan_helper, bigip, network, device)
         # llinfo is a list of dict type
         llinfo = device['device_info'].get('local_link_information', None)
 
