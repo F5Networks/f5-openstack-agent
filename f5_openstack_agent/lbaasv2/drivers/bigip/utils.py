@@ -321,29 +321,39 @@ def get_vlan_mac(bigip, network, device):
         "Mac Address\"'"
     LOG.info("get VLAN MAC: %s" % cmd)
 
-    try:
-        resp = bigip.tm.util.bash.exec_cmd(
-            command='run',
-            utilCmdArgs=cmd
-        )
-        mac = resp.commandResult.split()[-1]
-
-        # simplely check if the mac is valid
-        if ":" not in mac:
-            raise Exception("the Vlan MAC is invalid %s" % mac)
-
-        LOG.info("get VLAN MAC: %s for network %s" %
-                 (mac, {network["id"]: name}))
-        return mac
-
-    except Exception as exc:
-        LOG.error(
-            "can not get vlan MAC address of net %s."
-            " on host %s by tmsh %s." % (
-                network["id"], bigip.hostname, cmd
+    resp = None
+    count = 0
+    while not resp:
+        try:
+            resp = bigip.tm.util.bash.exec_cmd(
+                command='run',
+                utilCmdArgs=cmd
             )
-        )
-        raise exc
+        except Exception as exc:
+            LOG.warning(
+                "try %s can not get vlan MAC address of net %s."
+                " on host %s by tmsh %s. response is %s" % (
+                    count, network["id"], bigip.hostname,
+                    cmd, resp.commandResult
+                )
+            )
+            resp = None
+
+        count += 1
+        if count > 2:
+            break
+
+    LOG.info("get VLAN MAC resp : %s" % resp.commandResult)
+    mac = resp.commandResult.split()[-1]
+
+    # simplely check if the mac is valid
+    if ":" not in mac:
+        raise Exception("the Vlan MAC is invalid %s" % mac)
+
+    LOG.info("get VLAN MAC: %s for network %s" %
+             (mac, {network["id"]: name}))
+
+    return mac
 
 
 def vlan_to_rd_id(name):
