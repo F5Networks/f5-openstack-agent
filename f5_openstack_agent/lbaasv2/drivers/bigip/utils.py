@@ -296,6 +296,20 @@ def get_node_vtep(device):
         return vtep_node
 
 
+def is_common_network(network):
+    """Returns True if this belongs in the /Common folder
+
+    This object method will return positive if the object
+    should be stored under the Common partition on the BIG-IP.
+    """
+    return network['shared'] or \
+        conf.f5_common_networks or \
+        (network['id'] in conf.common_network_ids) or \
+        ('router:external' in network and
+            network['router:external'] and
+            conf.f5_common_external_networks)
+
+
 def get_partition_name(tenant_id):
     prefix = OBJ_PREFIX + '_'
     name = "Common"
@@ -313,8 +327,12 @@ def get_vlan_mac(helper, bigip, network, device):
     vtep_node_ip = get_node_vtep(device)
     vlanid = get_vtep_vlan(network, vtep_node_ip)
     vlan_name = "vlan-%d" % (vlanid)
-    partition = get_partition_name(
-        network['tenant_id'])
+
+    if is_common_network(network):
+        partition = 'Common'
+    else:
+        partition = get_partition_name(
+            network['tenant_id'])
 
     LOG.info("get MAC of Vlan: %s/%s" % (partition, vlan_name))
 
