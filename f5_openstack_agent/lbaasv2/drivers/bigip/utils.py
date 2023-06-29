@@ -308,7 +308,7 @@ def get_partition_name(tenant_id):
     return name
 
 
-def get_vlan_mac(bigip, network, device):
+def get_vlan_mac(helper, bigip, network, device):
 
     vtep_node_ip = get_node_vtep(device)
     vlanid = get_vtep_vlan(network, vtep_node_ip)
@@ -316,34 +316,45 @@ def get_vlan_mac(bigip, network, device):
     partition = get_partition_name(
         network['tenant_id'])
 
-    name = "/" + partition + "/" + vlan_name
-    cmd = "-c 'tmsh show net vlan " + name + " | grep \"" + \
-        "Mac Address\"'"
-    LOG.info("get VLAN MAC: %s" % cmd)
+    LOG.info("get MAC of Vlan: %s/%s" % (partition, vlan_name))
 
-    try:
-        resp = bigip.tm.util.bash.exec_cmd(
-            command='run',
-            utilCmdArgs=cmd
-        )
-        mac = resp.commandResult.split()[-1]
-
-        # simplely check if the mac is valid
-        if ":" not in mac:
-            raise Exception("the Vlan MAC is invalid %s" % mac)
-
-        LOG.info("get VLAN MAC: %s for network %s" %
-                 (mac, {network["id"]: name}))
-        return mac
-
-    except Exception as exc:
-        LOG.error(
-            "can not get vlan MAC address of net %s."
-            " on host %s by tmsh %s." % (
-                network["id"], bigip.hostname, cmd
+    stat_keys = ['macTrue']
+    mac = None
+    result = None
+    count = 0
+    while not result:
+        try:
+            result = helper.get_stats(
+                bigip, name=vlan_name,
+                partition=partition,
+                stat_keys=stat_keys
             )
-        )
-        raise exc
+
+            LOG.info("get VLAN result: %s" % result)
+            mac = result['macTrue']
+        except Exception as exc:
+            LOG.warning(
+                "try %s can not get vlan MAC address of net %s."
+                " on host %s. response is %s"
+                " except %s" % (
+                    count, network["id"], bigip.hostname,
+                    result, exc
+                )
+            )
+            result = None
+
+        count += 1
+        if count > 2:
+            break
+
+    # simplely check if the mac is valid
+    if ":" not in mac:
+        raise Exception("the Vlan MAC is invalid %s" % mac)
+
+    LOG.info("get VLAN MAC: %s for network %s" %
+             (mac, {network["id"]: vlan_name}))
+
+    return mac
 
 
 def vlan_to_rd_id(name):
