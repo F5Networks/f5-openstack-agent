@@ -138,7 +138,14 @@ class BigipTenantManager(object):
                 while attempt < max_attempt:
                     attempt = attempt + 1
                     try:
+                        tag = 0
+                        if rtype == ResourceType.vlan:
+                             tag = r.tag
                         r.delete()
+
+                        # delete vlan in f5os
+                        if tag:
+                             self.driver.network_builder.l2_service._delete_f5os_vlan_network(bigip.hostname, tag)  # noqa
                     except HTTPError as ex:
                         if ex.response.status_code == 401:
                             LOG.debug("Attempt %s: %s", attempt, ex.message)

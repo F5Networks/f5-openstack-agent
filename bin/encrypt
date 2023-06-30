@@ -1,0 +1,45 @@
+#!/usr/bin/python
+
+# coding=utf-8
+# Copyright (c) 2016-2023, F5 Networks, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+import base64
+import hashlib
+import sys
+
+from cryptography.fernet import Fernet
+
+
+def generate_key(key):
+    h = hashlib.md5(key.encode()).hexdigest()
+    return base64.urlsafe_b64encode(h.encode())
+
+
+def encrypt_data(key, data):
+    f = Fernet(generate_key(key))
+    return f.encrypt(data.encode()).decode()
+
+
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: encrypt [username] [password]")
+        sys.exit(1)
+
+    print(encrypt_data(sys.argv[1], sys.argv[2]))
+
+
+if __name__ == "__main__":
+    main()
