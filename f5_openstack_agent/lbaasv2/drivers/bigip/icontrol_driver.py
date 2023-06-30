@@ -14,9 +14,13 @@
 # limitations under the License.
 #
 
+import base64
+import hashlib
 import json
 import os
 
+from cryptography.fernet import Fernet
+# from eventlet import greenthread
 from time import strftime
 
 from oslo_config import cfg
@@ -155,6 +159,32 @@ OPTS = [  # XXX maybe we should make this a dictionary
     cfg.BoolOpt(
         'external_gateway_mode', default=False,
         help='All subnets have an external l3 route on gateway'
+    ),
+    cfg.StrOpt(
+        'confd_hostname',
+        default="",
+        help='The hostname (name or IP address) to use for F5OS confd access'
+    ),
+    cfg.IntOpt(
+        'confd_port',
+        default=443,
+        help='The port to use for F5OS confd access'
+    ),
+    cfg.StrOpt(
+        'confd_username', default='admin',
+        help='The username to use for F5OS confd access'
+    ),
+    cfg.StrOpt(
+        'confd_password', default='', secret=True,
+        help='The password to use for F5OS confd access'
+    ),
+    cfg.StrOpt(
+        've_tenant', default="",
+        help='Default VE tenant name in F5OS to deploy loadbalancer'
+    ),
+    cfg.StrOpt(
+        'lag_interface', default="",
+        help='Default LAG interface name in F5OS to associate vlan'
     ),
     cfg.StrOpt(
         'icontrol_vcmp_hostname',
@@ -367,6 +397,20 @@ class iControlDriver(LBaaSBaseDriver):
             resource_helper.ResourceType.virtual)
         self.pool_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
+
+        # TODO(nik) looks like not needed anymore?
+        if self.conf.password_cipher_mode:
+            self.conf.icontrol_password = \
+                decrypt_data(self.conf.icontrol_username,
+                             self.conf.icontrol_password)
+            if self.conf.os_password:
+                self.conf.os_password = \
+                    decrypt_data(self.conf.os_username,
+                                 self.conf.os_password)
+            if self.conf.confd_password:
+                self.conf.confd_password = \
+                    decrypt_data(self.conf.confd_username,
+                                 self.conf.confd_password)
 
         try:
 
@@ -1199,3 +1243,15 @@ class iControlDriver(LBaaSBaseDriver):
 
         # if all else fails
         return '/etc/neutron/services/f5'
+
+
+# Decrypt device password
+
+def generate_key(key):
+    h = hashlib.md5(key.encode()).hexdigest()
+    return base64.urlsafe_b64encode(h.encode())
+
+
+def decrypt_data(key, data):
+    f = Fernet(generate_key(key))
+    return f.decrypt(data.encode()).decode()

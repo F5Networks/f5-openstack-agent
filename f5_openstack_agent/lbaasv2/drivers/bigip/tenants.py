@@ -137,7 +137,15 @@ class BigipTenantManager(object):
             helper = BigIPResourceHelper(rtype)
             for r in helper.get_resources(bigip, partition):
                 try:
+                    tag = 0
+                    if rtype == ResourceType.vlan:
+                        tag = r.tag
+
                     r.delete()
+
+                    # Delete vlan in f5os
+                    if tag:
+                        self.driver.network_builder.l2_service._delete_f5os_vlan_network(bigip.hostname, tag)  # noqa
                 except Exception as err:
                     LOG.debug("Failed to delete resource: %s", err.message)
 
