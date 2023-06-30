@@ -31,7 +31,7 @@ setuptools.setup(
                 ('/usr/lib/systemd/system', [
                     'lib/systemd/system/f5-openstack-agent.service',
                     'lib/systemd/system/f5-openstack-monitor.service']),
-                ('/usr/bin/f5', ['bin/debug_bundler.py'])],
+                ('/usr/bin/f5', ['bin/debug_bundler.py', 'bin/encrypt'])],
     packages=setuptools.find_packages(exclude=['*.test', '*.test.*', 'test*', 'test']),
     classifiers=[
         'Environment :: OpenStack',
