@@ -407,22 +407,7 @@ class iControlDriver(LBaaSBaseDriver):
         self.pool_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
 
-        # TODO(nik) looks like not needed anymore?
-        if self.conf.password_cipher_mode:
-            self.conf.icontrol_password = \
-                decrypt_data(self.conf.icontrol_username,
-                             self.conf.icontrol_password)
-            if self.conf.os_password:
-                self.conf.os_password = \
-                    decrypt_data(self.conf.os_username,
-                                 self.conf.os_password)
-            if self.conf.confd_password:
-                self.conf.confd_password = \
-                    decrypt_data(self.conf.confd_username,
-                                 self.conf.confd_password)
-
         try:
-
             # debug logging of service requests recieved by driver
             if self.conf.trace_service_requests:
                 path = '/var/log/neutron/service/'
