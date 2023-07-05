@@ -2,6 +2,9 @@
 
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.client.encrypt import decrypt_data
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import LAG
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import F5OSClient
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Tenant
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import retry_icontrol
@@ -43,6 +46,29 @@ def build_connection(host, info, token=False):
         bigip.assured_networks = {}
         bigip.assured_tenant_snat_subnets = {}
         bigip.assured_gateway_subnets = []
+
+        bigip.f5os_client = None
+        bigip.ve_tenant = None
+
+        # TODO(nik) check if confd first. try/catch here.
+        # check if using e.g. bigip.XX = XXXX fine here
+        if info.get("confd_username") and info.get("confd_password") and info.get("confd_hostname") and info.get("confd_port"): #noqa
+            f5os_client = F5OSClient(
+                host=info.get("confd_hostname"),
+                port=info.get("confd_port"),
+                user=info.get("confd_username"),
+                password=info.get("confd_password")
+            )
+            bigip.f5os_client = f5os_client
+
+            if info.get("lag_interface"):
+                lag = LAG(f5os_client, name=info.get("lag_interface"))
+                bigip.lag = lag
+
+            if info.get("ve_tenant"):
+                ve_tenant = Tenant(f5os_client, name=info.get("ve_tenant"))
+                bigip.ve_tenant = ve_tenant
+
     except Exception:
         LOG.error(
             "Could not establish connection with device %s,"
@@ -69,6 +95,9 @@ class BigipDevice(object):
 
     def set_all_bigips(self):
         self._bigips = dict()
+        # self.f5os_client = dict()
+        # self.ve_tenant = dict()
+        # self.lag = dict()
 
         self.device['bigip'] = {}
         device_members = self.device['device_info']['members']
@@ -90,6 +119,10 @@ class BigipDevice(object):
         )
         bigip = build_connection(host, info, self.conf.icontrol_token)
         self._bigips[host] = bigip
+        # if bigip.ve_tenant:
+        #     self.ve_tenant[host] = bigip.ve_tenant
+        # if bigip.lag:
+        #     self.lag[host] = bigip.lag
 
         LOG.info("Add and refresh host %s in cache." % host)
         BigipDevice.cache_pool[host] = info
