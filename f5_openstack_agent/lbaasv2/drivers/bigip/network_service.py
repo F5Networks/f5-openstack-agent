@@ -14,6 +14,7 @@
 #
 
 import copy
+import math
 import netaddr
 from requests import HTTPError
 
@@ -895,7 +896,7 @@ class SNATHelper(object):
 
             ip_version = subnet['ip_version']
             snats_per_subnet = self.count_SNATIPs(
-                ip_version)
+                ip_version, self.service['loadbalancer'])
 
             if len(bigips):
                 snat_name = self.snat_manager.get_snat_name(
@@ -955,10 +956,18 @@ class SNATHelper(object):
                 tenant_id, snat_name
             )
 
-    def count_SNATIPs(self, ipversion, flavor=None):
-        if not flavor:
-            flavor = self.flavor
-        return self.FLAVOR_MAP[ipversion][flavor]
+    def count_SNATIPs(self, ipversion, lb):
+        flavor = lb["flavor"]
+        maxc = lb.get("max_concurrency", 1000000)
+
+        if flavor != 21:
+            return self.FLAVOR_MAP[ipversion][flavor]
+
+        v4_snat = int(math.ceil(float(maxc) / 65536))
+        if ipversion == 6 and v4_snat > 1:
+            return v4_snat - 1
+        else:
+            return v4_snat
 
     def snat_remove(self):
         bigips = self.service['bigips']
@@ -1022,13 +1031,18 @@ class SNATHelper(object):
             snat_name = self.snat_manager.get_snat_name(
                 lb_id, ip_version)
 
-            if old_loadbalancer['flavor'] != loadbalancer['flavor']:
+            old_flavor = old_loadbalancer['flavor']
+            new_flavor = loadbalancer['flavor']
+            old_maxc = old_loadbalancer.get("max_concurrency", 0)
+            new_maxc = loadbalancer.get("max_concurrency", 0)
+            if old_flavor != new_flavor or \
+               (old_flavor == new_flavor == 21 and old_maxc != new_maxc):
                 old_port = self.driver.plugin_rpc.get_port_by_name(
                     port_name=snat_name
                 )
 
                 new_snats_per_subnet = self.count_SNATIPs(
-                    ip_version, loadbalancer['flavor'])
+                    ip_version, loadbalancer)
 
                 if len(old_port) == 0:
                     raise Exception(
@@ -1156,7 +1170,6 @@ class LargeSNATHelper(SNATHelper):
                     prefixlen = 122
                 else:
                     prefixlen = 26
-
             if ip_version == 6:
                 pool_id = self.driver.conf.snat_subnetpool_v6
                 subnet_name = subnet_v6_name
