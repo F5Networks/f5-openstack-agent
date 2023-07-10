@@ -402,7 +402,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
-            mgr.create(loadbalancer, service)
+            mgr.create(context, loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create loadbalancer %s", id)
@@ -432,7 +432,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
-            mgr.update(old_loadbalancer, loadbalancer, service)
+            mgr.update(context, old_loadbalancer, loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update loadbalancer %s", id)
@@ -460,7 +460,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
-            mgr.delete(loadbalancer, service)
+            mgr.delete(context, loadbalancer, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete loadbalancer %s", id)
         except iControlUnexpectedHTTPError as ex:
@@ -528,7 +528,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.create(listener, service)
+            mgr.create(context, listener, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create listener %s", id)
@@ -560,7 +560,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.update(old_listener, listener, service)
+            mgr.update(context, old_listener, listener, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update listener %s", id)
         except Exception as ex:
@@ -591,7 +591,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.delete(listener, service)
+            mgr.delete(context, listener, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete listener %s", id)
         except Exception as ex:
@@ -627,7 +627,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.PoolManager(self.lbdriver)
-            mgr.create(pool, service)
+            mgr.create(context, pool, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create pool %s", id)
@@ -660,7 +660,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             bigip_device.set_bigips(service, self.conf)
             # TODO(qzhao): Deploy config to BIG-IP
             mgr = resource_manager.PoolManager(self.lbdriver)
-            mgr.update(old_pool, pool, service)
+            mgr.update(context, old_pool, pool, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update pool %s", id)
         except Exception as ex:
@@ -691,7 +691,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.PoolManager(self.lbdriver)
-            mgr.delete(pool, service)
+            mgr.delete(context, pool, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete pool %s", id)
         except Exception as ex:
@@ -729,7 +729,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.MemberManager(self.lbdriver)
-            mgr.create(member, service)
+            mgr.create(context, member, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             if multiple:
@@ -772,11 +772,15 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
                 if the_port_id:
                     LOG.info(the_port_id)
-                    self.plugin_rpc.delete_port(port_id=the_port_id)
+                    self.plugin_rpc.delete_port(
+                        context=context, port_id=the_port_id
+                    )
                 if the_port_ids:
                     LOG.info(the_port_ids)
                     for each in the_port_ids:
-                        self.plugin_rpc.delete_port(port_id=each)
+                        self.plugin_rpc.delete_port(
+                            context=context, port_id=each
+                        )
             except Exception as ex:
                 if multiple:
                     LOG.exception("Fail to update status of multiple members "
@@ -794,7 +798,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.MemberManager(self.lbdriver)
-            mgr.update(old_member, member, service)
+            mgr.update(context, old_member, member, service)
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update member %s", id)
         except Exception as ex:
@@ -826,7 +830,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.MemberManager(self.lbdriver)
-            mgr.delete(member, service)
+            mgr.delete(context, member, service)
             provision_status = constants_v2.F5_ACTIVE
             if multiple:
                 LOG.debug("Finish to delete multiple members")
@@ -890,7 +894,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
-            mgr.create(health_monitor, service)
+            mgr.create(context, health_monitor, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create monitor %s", id)
@@ -927,7 +931,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
-            mgr.update(old_health_monitor, health_monitor, service)
+            mgr.update(context, old_health_monitor, health_monitor, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update health_monitor %s", id)
@@ -961,7 +965,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.MonitorManager(
                 self.lbdriver, type=health_monitor['type']
             )
-            mgr.delete(health_monitor, service)
+            mgr.delete(context, health_monitor, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete health_monitor %s", id)
@@ -1069,7 +1073,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.L7PolicyManager(self.lbdriver)
-            mgr.create(l7policy, service)
+            mgr.create(context, l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create l7policy %s", id)
@@ -1101,7 +1105,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.L7PolicyManager(self.lbdriver)
-            mgr.update(old_l7policy, l7policy, service)
+            mgr.update(context, old_l7policy, l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update l7policy %s", id)
@@ -1133,7 +1137,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.L7PolicyManager(self.lbdriver)
-            mgr.delete(l7policy, service)
+            mgr.delete(context, l7policy, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete l7policy %s", id)
@@ -1168,7 +1172,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.L7RuleManager(self.lbdriver)
-            mgr.create(l7rule, service)
+            mgr.create(context, l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create l7rule %s", id)
@@ -1200,7 +1204,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.L7RuleManager(self.lbdriver)
-            mgr.update(old_l7rule, l7rule, service)
+            mgr.update(context, old_l7rule, l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update l7rule %s", id)
@@ -1233,7 +1237,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             bigip_device.set_bigips(service, self.conf)
             # TODO(qzhao): Deploy config to BIG-IP
             mgr = resource_manager.L7RuleManager(self.lbdriver)
-            mgr.delete(l7rule, service)
+            mgr.delete(context, l7rule, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete l7rule %s", id)
@@ -1265,7 +1269,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = acl_group['id']
         try:
             mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.create(acl_group)
+            mgr.create(context, acl_group)
             LOG.debug("Finish to create acl_group %s", id)
         except Exception as ex:
             LOG.error("Fail to create acl_group %s "
@@ -1276,7 +1280,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to delete ACL Group."""
         try:
             mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.delete(acl_group)
+            mgr.delete(context, acl_group)
             LOG.debug("Finish to delete ACL Group %s", id)
         except Exception as ex:
             LOG.error("Fail to delete ACL Group %s "
@@ -1290,7 +1294,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.update(old_acl_group, acl_group, service)
+            mgr.update(context, old_acl_group, acl_group, service)
             LOG.debug("Finish to update acl_group %s", id)
         except Exception as ex:
             LOG.exception("Fail to update acl group %s.\n"
@@ -1312,7 +1316,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             # create acl data group on each bigips first
             bigip_device.set_bigips(service, self.conf)
             mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.create(acl_group, service)
+            mgr.create(context, acl_group, service)
             LOG.debug("Finish to create data group of acl group %s",
                       acl_id)
 

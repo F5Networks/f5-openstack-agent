@@ -86,20 +86,20 @@ class BigipTenantManager(object):
                             "Folder creation error for tenant %s" %
                             (tenant_id))
 
-    def assure_tenant_cleanup(self, service):
+    def assure_tenant_cleanup(self, context, service):
         """Delete tenant partition."""
         # Called for every bigip only in replication mode,
         # otherwise called once.
         for bigip in service['bigips']:
-            self._assure_bigip_tenant_cleanup(bigip, service)
+            self._assure_bigip_tenant_cleanup(context, bigip, service)
 
     # called for every bigip only in replication mode.
     # otherwise called once
-    def _assure_bigip_tenant_cleanup(self, bigip, service):
+    def _assure_bigip_tenant_cleanup(self, context, bigip, service):
         tenant_id = service['loadbalancer']['tenant_id']
-        self._remove_tenant_replication_mode(bigip, tenant_id)
+        self._remove_tenant_replication_mode(context, bigip, tenant_id)
 
-    def _remove_tenant_replication_mode(self, bigip, tenant_id):
+    def _remove_tenant_replication_mode(self, context, bigip, tenant_id):
         # Remove tenant in replication sync-mode
         partition = self.service_adapter.get_folder_name(tenant_id)
         domain_names = self.network_helper.get_route_domain_names(bigip,
@@ -122,6 +122,7 @@ class BigipTenantManager(object):
             for r in helper.get_resources(bigip, partition):
                 try:
                     self.driver.plugin_rpc.delete_port_by_name(
+                        context=context,
                         port_name=r.name)
                 except Exception as err:
                     LOG.debug("Failed to delete port: %s", err.message)

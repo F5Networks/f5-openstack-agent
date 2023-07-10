@@ -509,7 +509,7 @@ class LBaaSv2PluginRPC(object):
         return subnets_info
 
     @log_helpers.log_method_call
-    def create_port_on_subnet(self, subnet_id=None,
+    def create_port_on_subnet(self, context=None, subnet_id=None,
                               name=None,
                               fixed_address_count=1,
                               device_id=None,
@@ -521,7 +521,7 @@ class LBaaSv2PluginRPC(object):
         port = None
         try:
             port = self._call(
-                self.context,
+                context or self.context,
                 self._make_msg('create_port_on_subnet',
                                subnet_id=subnet_id,
                                name=name,
@@ -592,7 +592,7 @@ class LBaaSv2PluginRPC(object):
         return port
 
     @log_helpers.log_method_call
-    def delete_port_by_name(self, port_name=None, cast=True):
+    def delete_port_by_name(self, context=None, port_name=None, cast=True):
         """Delete ports with the given name."""
         if cast:
             invoke = self._cast
@@ -601,7 +601,7 @@ class LBaaSv2PluginRPC(object):
 
         try:
             return invoke(
-                self.context,
+                context or self.context,
                 self._make_msg('delete_port_by_name',
                                port_name=port_name),
                 topic=self.topic
@@ -611,10 +611,10 @@ class LBaaSv2PluginRPC(object):
                       "delet_port_by_name")
 
     @log_helpers.log_method_call
-    def delete_port(self, port_id=None, mac_address=None):
+    def delete_port(self, context=None, port_id=None, mac_address=None):
         """Delete port with the given port_id."""
         return self._cast(
-            self.context,
+            context or self.context,
             self._make_msg('delete_port',
                            port_id=port_id,
                            mac_address=mac_address),

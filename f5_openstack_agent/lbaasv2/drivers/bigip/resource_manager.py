@@ -148,7 +148,7 @@ class ResourceManager(object):
         return True
 
     @log_helpers.log_method_call
-    def create(self, resource, service=dict(), **kwargs):
+    def create(self, context, resource, service=dict(), **kwargs):
         if service and not service.get(self._key):
             self._search_element(resource, service)
         payload = kwargs.get("payload",
@@ -170,7 +170,9 @@ class ResourceManager(object):
         LOG.debug("Finish to create %s %s", self._resource, payload['name'])
 
     @log_helpers.log_method_call
-    def update(self, old_resource, resource, service=dict(), **kwargs):
+    def update(
+        self, context, old_resource, resource, service=dict(), **kwargs
+    ):
         if service and not service.get(self._key):
             self._search_element(resource, service)
         payload = kwargs.get("payload",
@@ -193,7 +195,7 @@ class ResourceManager(object):
         LOG.debug("Finish to update %s %s", self._resource, payload['name'])
 
     @log_helpers.log_method_call
-    def delete(self, resource, service=dict(), **kwargs):
+    def delete(self, context, resource, service=dict(), **kwargs):
         if service and not service.get(self._key):
             self._search_element(resource, service)
         payload = kwargs.get("payload",
@@ -238,9 +240,10 @@ class LoadBalancerManager(ResourceManager):
 
     @serialized('LoadBalancerManager.create')
     @log_helpers.log_method_call
-    def create(self, loadbalancer, service, **kwargs):
-        self._pre_create(service)
+    def create(self, context, loadbalancer, service, **kwargs):
+        self._pre_create(context, service)
         super(LoadBalancerManager, self).create(
+            context,
             service["loadbalancer"], service)
         self._post_create(service)
 
@@ -328,7 +331,7 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.update_bigip_l2(service)
 
-    def _pre_create(self, service):
+    def _pre_create(self, context, service):
 
         self._check_nonshared_network(service)
         loadbalancer = service["loadbalancer"]
@@ -345,8 +348,8 @@ class LoadBalancerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
-            self.driver.network_builder.config_selfips(service)
-            self.driver.network_builder.config_snat(service)
+            self.driver.network_builder.config_selfips(context, service)
+            self.driver.network_builder.config_snat(context, service)
             self.driver.network_builder.config_lb_default_route(
                 service)
 
@@ -510,12 +513,15 @@ class LoadBalancerManager(ResourceManager):
 
     @serialized('LoadBalancerManager.update')
     @log_helpers.log_method_call
-    def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
+    def update(
+        self, context, old_loadbalancer, loadbalancer, service, **kwargs
+    ):
         self._update_bwc(old_loadbalancer, loadbalancer, service)
         self._update_2_limits(old_loadbalancer, loadbalancer, service)
         self._update_flavor_snat(old_loadbalancer, loadbalancer, service)
 
         super(LoadBalancerManager, self).update(
+            context,
             old_loadbalancer, loadbalancer, service)
 
     def _update_flavor_snat(
@@ -531,10 +537,10 @@ class LoadBalancerManager(ResourceManager):
 
     @serialized('LoadBalancerManager.delete')
     @log_helpers.log_method_call
-    def delete(self, loadbalancer, service, **kwargs):
+    def delete(self, context, loadbalancer, service, **kwargs):
         self._pre_delete(service)
-        super(LoadBalancerManager, self).delete(loadbalancer, service)
-        self._post_delete(service)
+        super(LoadBalancerManager, self).delete(context, loadbalancer, service)
+        self._post_delete(context, service)
 
     def _pre_delete(self, service):
         # assign neutron network object in service
@@ -552,13 +558,13 @@ class LoadBalancerManager(ResourceManager):
                 subnet_id=loadbalancer["vip_subnet_id"],
                 ip_address=loadbalancer["vip_address"])
 
-    def _post_delete(self, service):
+    def _post_delete(self, context, service):
         # self.driver.network_builder is None in global routed mode
         if self.driver.network_builder:
-            self.driver.network_builder.remove_flavor_snat(service)
+            self.driver.network_builder.remove_flavor_snat(context, service)
             self.driver.network_builder.post_service_networking(
-                service)
-        self.tenant_manager.assure_tenant_cleanup(service)
+                context, service)
+        self.tenant_manager.assure_tenant_cleanup(context, service)
 
 
 class ListenerManager(ResourceManager):
@@ -1402,7 +1408,7 @@ class ListenerManager(ResourceManager):
 
     @serialized('ListenerManager.create')
     @log_helpers.log_method_call
-    def create(self, listener, service, **kwargs):
+    def create(self, context, listener, service, **kwargs):
         loadbalancer = service.get("loadbalancer", None)
         traffic_group = self.driver.get_traffic_group_1()
         loadbalancer['traffic_group'] = traffic_group
@@ -1411,12 +1417,13 @@ class ListenerManager(ResourceManager):
         if not self.driver.conf.f5_global_routed_mode:
             self.driver.network_builder.prep_service_networking(
                 service, traffic_group)
-        super(ListenerManager, self).create(listener, service)
+        super(ListenerManager, self).create(context, listener, service)
 
     @serialized('ListenerManager.update')
     @log_helpers.log_method_call
-    def update(self, old_listener, listener, service, **kwargs):
+    def update(self, context, old_listener, listener, service, **kwargs):
         super(ListenerManager, self).update(
+            context,
             old_listener, listener, service)
 
     # we may change this to bind_acl
@@ -1471,10 +1478,12 @@ class ListenerManager(ResourceManager):
 
     @serialized('ListenerManager.delete')
     @log_helpers.log_method_call
-    def delete(self, listener, service, **kwargs):
+    def delete(self, context, listener, service, **kwargs):
         self._search_element(listener, service)
         payload = self.driver.service_adapter.get_virtual_name(service)
-        super(ListenerManager, self).delete(listener, service, payload=payload)
+        super(ListenerManager, self).delete(
+            context, listener, service, payload=payload
+        )
 
 
 class PoolManager(ResourceManager):
@@ -1630,19 +1639,19 @@ class PoolManager(ResourceManager):
 
     @serialized('PoolManager.create')
     @log_helpers.log_method_call
-    def create(self, pool, service, **kwargs):
-        super(PoolManager, self).create(pool, service)
+    def create(self, context, pool, service, **kwargs):
+        super(PoolManager, self).create(context, pool, service)
 
     @serialized('PoolManager.update')
     @log_helpers.log_method_call
-    def update(self, old_pool, pool, service, **kwargs):
-        super(PoolManager, self).update(old_pool, pool, service)
+    def update(self, context, old_pool, pool, service, **kwargs):
+        super(PoolManager, self).update(context, old_pool, pool, service)
 
     @serialized('PoolManager.delete')
     @log_helpers.log_method_call
-    def delete(self, pool, service, **kwargs):
+    def delete(self, context, pool, service, **kwargs):
         self.driver.annotate_service_members(service)
-        super(PoolManager, self).delete(pool, service)
+        super(PoolManager, self).delete(context, pool, service)
 
 
 class MonitorManager(ResourceManager):
@@ -1750,13 +1759,14 @@ class MonitorManager(ResourceManager):
 
     @serialized('MonitorManager.create')
     @log_helpers.log_method_call
-    def create(self, monitor, service, **kwargs):
-        super(MonitorManager, self).create(monitor, service)
+    def create(self, context, monitor, service, **kwargs):
+        super(MonitorManager, self).create(context, monitor, service)
 
     @serialized('MonitorManager.update')
     @log_helpers.log_method_call
-    def update(self, old_monitor, monitor, service, **kwargs):
+    def update(self, context, old_monitor, monitor, service, **kwargs):
         super(MonitorManager, self).update(
+            context,
             old_monitor, monitor, service)
 
     def _update_payload(self, old_resource, resource, service, **kwargs):
@@ -1787,8 +1797,8 @@ class MonitorManager(ResourceManager):
 
     @serialized('MonitorManager.delete')
     @log_helpers.log_method_call
-    def delete(self, monitor, service, **kwargs):
-        super(MonitorManager, self).delete(monitor, service)
+    def delete(self, context, monitor, service, **kwargs):
+        super(MonitorManager, self).delete(context, monitor, service)
 
 
 class MemberManager(ResourceManager):
@@ -1879,7 +1889,7 @@ class MemberManager(ResourceManager):
 
     @serialized('MemberManager.create')
     @log_helpers.log_method_call
-    def create(self, resource, service, **kwargs):
+    def create(self, context, resource, service, **kwargs):
 
         self._create_single(resource, service, **kwargs)
 
@@ -1932,7 +1942,7 @@ class MemberManager(ResourceManager):
 
     @serialized('MemberManager.delete')
     @log_helpers.log_method_call
-    def delete(self, resource, service, **kwargs):
+    def delete(self, context, resource, service, **kwargs):
         if not service.get(self._key):
             self._search_element(resource, service)
 
@@ -1987,7 +1997,7 @@ class MemberManager(ResourceManager):
 
     @serialized('MemberManager.update')
     @log_helpers.log_method_call
-    def update(self, old_resource, resource, service, **kwargs):
+    def update(self, context, old_resource, resource, service, **kwargs):
         self.driver.annotate_service_members(service)
         if not service.get(self._key):
             self._search_element(resource, service)
@@ -2154,18 +2164,19 @@ class L7PolicyManager(ResourceManager):
 
     @serialized('L7PolicyManager.create')
     @log_helpers.log_method_call
-    def create(self, l7policy, service, **kwargs):
-        super(L7PolicyManager, self).create(l7policy, service)
+    def create(self, context, l7policy, service, **kwargs):
+        super(L7PolicyManager, self).create(context, l7policy, service)
 
     @serialized('L7PolicyManager.update')
     @log_helpers.log_method_call
-    def update(self, old_l7policy, l7policy, service, **kwargs):
-        super(L7PolicyManager, self).create(l7policy, service)
+    def update(self, context, old_l7policy, l7policy, service, **kwargs):
+        # todo should also update update() signature
+        super(L7PolicyManager, self).create(context, l7policy, service)
 
     @serialized('L7PolicyManager.delete')
     @log_helpers.log_method_call
-    def delete(self, l7policy, service, **kwargs):
-        super(L7PolicyManager, self).delete(l7policy, service)
+    def delete(self, context, l7policy, service, **kwargs):
+        super(L7PolicyManager, self).delete(context, l7policy, service)
 
 
 class L7RuleManager(ResourceManager):
@@ -2251,59 +2262,61 @@ class L7RuleManager(ResourceManager):
 
     @serialized('L7RuleManager._create_irule')
     @log_helpers.log_method_call
-    def _create_irule(self, l7rule, service, **kwargs):
+    def _create_irule(self, context, l7rule, service, **kwargs):
         # Just a wrapper to utilize serialized decorator appropriately
-        super(L7RuleManager, self).create(l7rule, service)
+        # todo here also needs
+        super(L7RuleManager, self).create(context, l7rule, service)
 
     @serialized('L7RuleManager._update_irule')
     @log_helpers.log_method_call
-    def _update_irule(self, old_l7rule, l7rule, service, **kwargs):
+    def _update_irule(self, context, old_l7rule, l7rule, service, **kwargs):
+        # seems never used.
         # Just a wrapper to utilize serialized decorator appropriately
-        super(L7RuleManager, self).update(old_l7rule, l7rule, service)
+        super(L7RuleManager, self).update(context, old_l7rule, l7rule, service)
 
     @serialized('L7RuleManager._delete_irule')
     @log_helpers.log_method_call
-    def _delete_irule(self, l7rule, service, **kwargs):
+    def _delete_irule(self, context, l7rule, service, **kwargs):
         # Just a wrapper to utilize serialized decorator appropriately
-        super(L7RuleManager, self).delete(l7rule, service)
+        super(L7RuleManager, self).delete(context, l7rule, service)
 
     @log_helpers.log_method_call
-    def _update_ltm_policy(self, l7policy, service):
-        self.l7policy_mgr.create(l7policy, service)
+    def _update_ltm_policy(self, context, l7policy, service):
+        self.l7policy_mgr.create(context, l7policy, service)
 
     @log_helpers.log_method_call
-    def create(self, l7rule, service, **kwargs):
+    def create(self, context, l7rule, service, **kwargs):
         self._search_l7policy_and_listener(l7rule, service)
         if l7rule['compare_type'] == "REGEX":
             # Create iRule
-            self._create_irule(l7rule, service, **kwargs)
+            self._create_irule(context, l7rule, service, **kwargs)
         else:
             # Update LTM policy
-            self._update_ltm_policy(self._l7policy, service)
+            self._update_ltm_policy(context, self._l7policy, service)
 
     @log_helpers.log_method_call
-    def update(self, old_l7rule, l7rule, service, **kwargs):
+    def update(self, context, old_l7rule, l7rule, service, **kwargs):
         self._search_l7policy_and_listener(l7rule, service)
         # Neutron LBaaS may have bugs. The old_l7rule and l7rule are always
         # identical, so that we are not able to identify the detail infomation.
         # Have to always update LTM policy and refresh iRule in any cases.
-        self._update_ltm_policy(self._l7policy, service)
+        self._update_ltm_policy(context, self._l7policy, service)
         if l7rule['compare_type'] == "REGEX":
             # Create iRule
-            self._create_irule(l7rule, service, **kwargs)
+            self._create_irule(context, l7rule, service, **kwargs)
         else:
             # Delete iRule
-            self._delete_irule(l7rule, service, **kwargs)
+            self._delete_irule(context, l7rule, service, **kwargs)
 
     @log_helpers.log_method_call
-    def delete(self, l7rule, service, **kwargs):
+    def delete(self, context, l7rule, service, **kwargs):
         self._search_l7policy_and_listener(l7rule, service)
         if l7rule['compare_type'] == "REGEX":
             # Delete iRule
-            self._delete_irule(l7rule, service, **kwargs)
+            self._delete_irule(context, l7rule, service, **kwargs)
         else:
             # Update LTM policy
-            self._update_ltm_policy(self._l7policy, service)
+            self._update_ltm_policy(context, self._l7policy, service)
 
 
 class ACLGroupManager(ResourceManager):

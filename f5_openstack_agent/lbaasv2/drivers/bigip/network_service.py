@@ -259,7 +259,7 @@ class NetworkServiceBuilder(object):
         route_helper.remove_default_route(
             bigip, subnet)
 
-    def config_selfips(self, service, **kwargs):
+    def config_selfips(self, context, service, **kwargs):
         lb_network = kwargs.get("network", service['lb_netinfo']["network"])
         lb_subnets = kwargs.get("subnets", service['lb_netinfo']["subnets"])
 
@@ -268,9 +268,10 @@ class NetworkServiceBuilder(object):
             subnetinfo['subnet'] = subnet
             for bigip in service['bigips']:
                 self.bigip_selfip_manager.assure_bigip_selfip(
+                    context,
                     bigip, service, subnetinfo)
 
-    def config_snat(self, service):
+    def config_snat(self, context, service):
         flavor = service["loadbalancer"].get("flavor")
         if flavor in [7, 8]:
             MyHelper = LargeSNATHelper
@@ -283,9 +284,9 @@ class NetworkServiceBuilder(object):
             self.l2_service,
             net_service=self
         )
-        snat_helper.snat_create()
+        snat_helper.snat_create(context)
 
-    def remove_flavor_snat(self, service):
+    def remove_flavor_snat(self, context, service):
         flavor = service["loadbalancer"].get("flavor")
         if flavor in [7, 8]:
             MyHelper = LargeSNATHelper
@@ -298,7 +299,7 @@ class NetworkServiceBuilder(object):
             self.l2_service,
             net_service=self
         )
-        snat_helper.snat_remove()
+        snat_helper.snat_remove(context)
 
     def update_flavor_snat(
         self, old_loadbalancer, loadbalancer, service
@@ -488,7 +489,7 @@ class NetworkServiceBuilder(object):
                 LOG.exception(ermsg)
         return True
 
-    def post_service_networking(self, service):
+    def post_service_networking(self, context, service):
         # Assure networks are deleted from big-ips
         if self.conf.f5_global_routed_mode:
             return
@@ -505,6 +506,7 @@ class NetworkServiceBuilder(object):
 
         for port_name in deleted_names:
             self.driver.plugin_rpc.delete_port_by_name(
+                context=context,
                 port_name=port_name)
 
     def update_bigip_l2(self, service):
@@ -865,7 +867,7 @@ class SNATHelper(object):
                     (snatpool_name, bigip.hostname)
                 )
 
-    def snat_create(self):
+    def snat_create(self, context):
         # Ensure snat for subnet exists on bigips
         bigips = self.service['bigips']
         tenant_id = self.service['loadbalancer']['tenant_id']
@@ -915,6 +917,7 @@ class SNATHelper(object):
 
                 if len(port) == 0:
                     port = self.driver.plugin_rpc.create_port_on_subnet(
+                        context=context,
                         subnet_id=subnet['id'],
                         name=snat_name,
                         fixed_address_count=snats_per_subnet,
@@ -960,12 +963,12 @@ class SNATHelper(object):
             flavor = self.flavor
         return self.FLAVOR_MAP[ipversion][flavor]
 
-    def snat_remove(self):
+    def snat_remove(self, context):
         bigips = self.service['bigips']
         self.snat_pools_exist()
-        self.lb_snat_delete(bigips)
+        self.lb_snat_delete(context, bigips)
 
-    def lb_snat_delete(self, bigips):
+    def lb_snat_delete(self, context, bigips):
         lb_id = self.service['loadbalancer']['id']
         LOG.debug("Getting snat addrs for: %s" %
                   self.snat_net['subnets'])
@@ -993,6 +996,7 @@ class SNATHelper(object):
             else:
                 cast = True
             self.driver.plugin_rpc.delete_port_by_name(
+                context=context,
                 port_name=snat_name, cast=cast)
 
     def snat_update(
@@ -1090,9 +1094,9 @@ class LargeSNATHelper(SNATHelper):
         )
         self.net_service = kwargs.get("net_service")
 
-    def snat_create(self):
+    def snat_create(self, context):
         # Create dedicated SNAT network
-        self.create_large_snat_network()
+        self.create_large_snat_network(context)
 
         # Modify snat network information in memory and utilize
         # the existing code to allocate SNAT IPs
@@ -1101,13 +1105,13 @@ class LargeSNATHelper(SNATHelper):
         for key in self.large_snat_subnet:
             self.snat_net["subnets"].append(self.large_snat_subnet[key])
 
-        super(LargeSNATHelper, self).snat_create()
+        super(LargeSNATHelper, self).snat_create(context)
 
-    def snat_remove(self):
-        super(LargeSNATHelper, self).snat_remove()
-        self.delete_large_snat_network()
+    def snat_remove(self, context):
+        super(LargeSNATHelper, self).snat_remove(context)
+        self.delete_large_snat_network(context)
 
-    def create_large_snat_network(self, ip_version=4):
+    def create_large_snat_network(self, context, ip_version=4):
         tenant_id = self.service['loadbalancer']['tenant_id']
         lb_id = self.service['loadbalancer']['id']
         network_name = "snat-" + lb_id
@@ -1164,6 +1168,7 @@ class LargeSNATHelper(SNATHelper):
                 pool_id = self.driver.conf.snat_subnetpool_v4
                 subnet_name = subnet_v4_name
 
+            # todo maybe also add for this part
             self.large_snat_subnet[ip_version] = \
                 self.driver.plugin_rpc.create_subnet(
                     name=subnet_name,
@@ -1216,12 +1221,13 @@ class LargeSNATHelper(SNATHelper):
 
         # Create selfip in bigips
         self.net_service.config_selfips(
+            context,
             self.service,
             network=self.large_snat_network,
             subnets=self.large_snat_subnet.values()
         )
 
-    def delete_large_snat_network(self):
+    def delete_large_snat_network(self, context):
         lb_id = self.service['loadbalancer']['id']
         network_name = "snat-" + lb_id
         subnet_v4_name = "snat-v4-" + lb_id
@@ -1253,6 +1259,7 @@ class LargeSNATHelper(SNATHelper):
                         bigip, selfip, partition=self.partition
                     )
                     self.driver.plugin_rpc.delete_port_by_name(
+                        context=context,
                         port_name=selfip, cast=False)
 
         # Empty subnets can be deleted along with network
