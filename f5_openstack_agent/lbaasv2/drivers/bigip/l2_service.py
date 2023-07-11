@@ -21,9 +21,6 @@ from time import time
 
 from oslo_log import log as logging
 
-from f5_openstack_agent.lbaasv2.drivers.bigip.confd import F5OSClient
-from f5_openstack_agent.lbaasv2.drivers.bigip.confd import LAG
-from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Tenant
 from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Vlan
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.fdb_connector_ml2 \
@@ -238,31 +235,17 @@ class L2ServiceBuilder(object):
         # TODO(nik) to check this function
         if bigip.f5os_client:
             vlan_name = ""
-            interface = self.interface_mapping['default']
-            tagged = self.tagging_mapping['default']
+            interface = None
 
-            # Do we have host specific mappings?
-            net_key = network['provider:physical_network']
-            if net_key and net_key + ':' + bigip.hostname in \
-                    self.interface_mapping:
-                interface = self.interface_mapping[
-                    net_key + ':' + bigip.hostname]
-                tagged = self.tagging_mapping[
-                    net_key + ':' + bigip.hostname]
-            # Do we have a mapping for this network
-            elif net_key and net_key in self.interface_mapping:
-                interface = self.interface_mapping[net_key]
-                tagged = self.tagging_mapping[net_key]
-
-            if tagged:
+            if network.get('provider:segmentation_id'):
                 vlanid = network['provider:segmentation_id']
             else:
                 vlanid = 0
-
-            vlan_name = self.get_vlan_name(network, bigip.hostname)
+            # TODO(nik) to decide this part
+            # vlan_name = self.get_vlan_name(network, bigip.hostname)
+            vlan_name = "vlan-%d" % (vlanid)
 
             self._assure_f5os_vlan_network(vlanid, vlan_name, bigip)
-            interface = None
             # If vlan is not in tenant partition, need to wait for F5OS to sync
             # it to /Common, delete it and then create it in tenant partition.
             interval = 1

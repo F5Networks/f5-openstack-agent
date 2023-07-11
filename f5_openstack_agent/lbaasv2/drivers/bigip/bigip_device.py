@@ -2,8 +2,8 @@
 
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.client.encrypt import decrypt_data
-from f5_openstack_agent.lbaasv2.drivers.bigip.confd import LAG
 from f5_openstack_agent.lbaasv2.drivers.bigip.confd import F5OSClient
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import LAG
 from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Tenant
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from oslo_log import log
@@ -49,12 +49,12 @@ def build_connection(host, info):
 
         # TODO(nik) check if using e.g. bigip.XX = XXXX fine here
         confd = info.get("confd", {})
-        if confd.get("confd_username") and confd.get("confd_password") and confd.get("confd_hostname") and confd.get("confd_port"): #noqa
+        if confd.get("confd_username") and confd.get("confd_password") and confd.get("confd_hostname") and confd.get("confd_port"):  # noqa
             f5os_client = F5OSClient(
                 host=confd.get("confd_hostname"),
                 port=confd.get("confd_port"),
-                user=confd.get("confd_username"),
-                password=confd.get("confd_password")
+                user=decrypt_data(info['serial_number'], confd.get("confd_username")),  # noqa
+                password=decrypt_data(info['serial_number'], confd.get("confd_password"))  # noqa
             )
             bigip.f5os_client = f5os_client
 
