@@ -49,24 +49,25 @@ def build_connection(host, info, token=False):
 
         bigip.f5os_client = None
         bigip.ve_tenant = None
+        bigip.lag = None
 
-        # TODO(nik) check if confd first. try/catch here.
-        # check if using e.g. bigip.XX = XXXX fine here
-        if info.get("confd_username") and info.get("confd_password") and info.get("confd_hostname") and info.get("confd_port"): #noqa
+        # TODO(nik) check if using e.g. bigip.XX = XXXX fine here
+        confd = info.get("confd", {})
+        if confd.get("confd_username") and confd.get("confd_password") and confd.get("confd_hostname") and confd.get("confd_port"): #noqa
             f5os_client = F5OSClient(
-                host=info.get("confd_hostname"),
-                port=info.get("confd_port"),
-                user=info.get("confd_username"),
-                password=info.get("confd_password")
+                host=confd.get("confd_hostname"),
+                port=confd.get("confd_port"),
+                user=confd.get("confd_username"),
+                password=confd.get("confd_password")
             )
             bigip.f5os_client = f5os_client
 
-            if info.get("lag_interface"):
-                lag = LAG(f5os_client, name=info.get("lag_interface"))
+            if confd.get("lag_interface"):
+                lag = LAG(f5os_client, name=confd.get("lag_interface"))
                 bigip.lag = lag
 
-            if info.get("ve_tenant"):
-                ve_tenant = Tenant(f5os_client, name=info.get("ve_tenant"))
+            if confd.get("ve_tenant"):
+                ve_tenant = Tenant(f5os_client, name=confd.get("ve_tenant"))
                 bigip.ve_tenant = ve_tenant
 
     except Exception:
