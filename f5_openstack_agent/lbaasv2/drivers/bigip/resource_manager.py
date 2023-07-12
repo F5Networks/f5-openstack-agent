@@ -539,12 +539,72 @@ class LoadBalancerManager(ResourceManager):
                         vs_payload['rateLimit'] = listener_rate_limit
                         self.vs_helper.update(bigip, vs_payload)
 
+    def _update_access_log(self, old_loadbalancer, loadbalancer, service):
+        LOG.debug('inside _update_access_log')
+        old_access_log = old_loadbalancer.get('access_log')
+        new_access_log = loadbalancer.get('access_log')
+        LOG.debug("old_access_log is %s" % old_access_log)
+        LOG.debug("new_access_log is %s" % new_access_log)
+
+        bigips = service['bigips']
+
+        f5_request_logging_profile = \
+            self.driver.conf.f5_request_logging_profile
+        _, profile_partition, profile_name = \
+            f5_request_logging_profile.split("/")
+
+        if old_access_log != new_access_log:
+            for bigip in bigips:
+                if 'listeners' in service.keys():
+                    for listener in service['listeners']:
+                        # only try for HTTP/TERMINATED_HTTPS virtual server
+                        if listener['protocol'] not in [
+                            'HTTP', 'TERMINATED_HTTPS'
+                        ]:
+                            continue
+
+                        vs_payload = self.driver.service_adapter.\
+                            _init_virtual_name(loadbalancer, listener)
+                        vs = self.vs_helper.load(
+                            bigip, name=vs_payload['name'],
+                            partition=vs_payload['partition']
+                            # expand_subcollections=True
+                        )
+
+                        # LOG.debug("here vs is: %s" % vs)
+                        if new_access_log and not old_access_log:
+                            # from false -> true, add the profile
+                            if not vs.profiles_s.profiles.exists(
+                                name=profile_name,
+                                partition=profile_partition
+                            ):
+                                vs.profiles_s.profiles.create(
+                                    name=profile_name,
+                                    partition=profile_partition
+                                )
+                        elif old_access_log and not new_access_log:
+                            # from true -> false, remove the profile
+                            if vs.profiles_s.profiles.exists(
+                                name=profile_name,
+                                partition=profile_partition
+                            ):
+                                p = vs.profiles_s.profiles.load(
+                                    name=profile_name,
+                                    partition=profile_partition
+                                )
+                                p.delete()
+        else:
+            LOG.debug('access_log unchanged. No need to update.')
+
+        LOG.debug('ends _update_access_log')
+
     @serialized('LoadBalancerManager.update')
     @log_helpers.log_method_call
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
         self._update_bwc(old_loadbalancer, loadbalancer, service)
         self._update_2_limits(old_loadbalancer, loadbalancer, service)
         self._update_flavor_snat(old_loadbalancer, loadbalancer, service)
+        self._update_access_log(old_loadbalancer, loadbalancer, service)
 
         super(LoadBalancerManager, self).update(
             old_loadbalancer, loadbalancer, service)
@@ -695,7 +755,12 @@ class ListenerManager(ResourceManager):
         profiles = payload.get('profiles', [])
         if '/Common/http' in profiles:
             profiles.remove('/Common/http')
-        if self._isHTTPorTLS(listener):
+        # get lb from service and check lb's access_log attri first
+        loadbalancer = service.get("loadbalancer", None)
+        # LOG.debug("loadbalancer here is %s", loadbalancer)
+        access_log = loadbalancer.get("access_log", False)
+
+        if access_log and self._isHTTPorTLS(listener):
             profiles.append(self.driver.conf.f5_request_logging_profile)
         return payload
 
