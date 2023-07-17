@@ -53,7 +53,7 @@ class SSLProfileHelper(object):
         ca_cert_filename = kwargs.get("ca_cert_filename", None)
 
         ciphers = "DEFAULT"
-        tm_options = ["dont-insert-empty-fragments", "no-tlsv1.3"]
+        tm_options = ["dont-insert-empty-fragments", "no-tlsv1.3", "no-sslv3"]
         tls_protocols = kwargs.get("tls_protocols", None)
         cipher_suites = kwargs.get("cipher_suites", None)
         if tls_protocols:
@@ -62,11 +62,12 @@ class SSLProfileHelper(object):
                 "TLS1.0": "no-tlsv1",
                 "TLS1.1": "no-tlsv1.1",
                 "TLS1.2": "no-tlsv1.2",
-                "TLS1.3": "no-tlsv1.3"
+                "TLS1.3": "no-tlsv1.3",
+                "SSL3.0": "no-sslv3"
             }
             for protocol in protocols:
                 protocol_map.pop(protocol, None)
-            if len(protocol_map.keys()) < 4:
+            if len(protocol_map.keys()) < 5:
                 # Convert valid tls_protocols input to tm_options, and also
                 # configure ciphers of client ssl profile. Otherwise, use
                 # bigip default value.
