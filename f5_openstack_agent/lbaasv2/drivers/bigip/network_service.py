@@ -396,7 +396,6 @@ class NetworkServiceBuilder(object):
             exists = self.network_helper.route_domain_exists(
                 bigip, partition=partition, name=name
             )
-
             if exists:
                 LOG.info("route domain: %s, %s exists on bigip: %s"
                          % (name, route_domain, bigip.hostname))
@@ -411,13 +410,16 @@ class NetworkServiceBuilder(object):
 
                 LOG.info("create route domain: %s, %s on bigip: %s"
                          % (name, route_domain, bigip.hostname))
-        except Exception as ex:
-            if ex.response.status_code == 409:
+        except HTTPError as err:
+            if err.response.status_code == 409:
                 LOG.info("route domain %s already exists: %s, ignored.." % (
-                    route_domain, ex.message))
+                    route_domain, err.message))
+            elif err.response.status_code == 400:
+                LOG.info("maybe partition is misssing, dirty data.")
+                raise err
             else:
                 # FIXME(pzhang): what to do with multiple agent race?
-                LOG.error(ex.message)
+                LOG.error(err.message)
                 raise f5_ex.RouteDomainCreationException(
                     "Failed to create route domain: %s, %s on bigip %s"
                     % (name, route_domain, bigip.hostname)

@@ -1714,6 +1714,13 @@ class PoolManager(ResourceManager):
                 service['listener'] = listener
                 """ Unmap listener and pool"""
                 vs = self.driver.service_adapter.get_virtual_name(service)
+                vs_exist = mgr.resource_helper.exists(
+                    bigip, name=vs['name'],
+                    partition=vs['partition']
+                )
+                if not vs_exist:
+                    continue
+
                 vs['pool'] = ""
                 # Need to remove persist profile from virtual server,
                 # if its persist profile is configured by its default pool.
@@ -1743,7 +1750,13 @@ class PoolManager(ResourceManager):
     @serialized('PoolManager.delete')
     @log_helpers.log_method_call
     def delete(self, pool, service, **kwargs):
-        self.driver.annotate_service_members(service)
+        try:
+            self.driver.annotate_service_members(service)
+        except HTTPError as err:
+            if err.response.status_code == 400:
+                LOG.debug(err)
+            else:
+                raise err
         super(PoolManager, self).delete(pool, service)
 
 
@@ -1832,8 +1845,16 @@ class MonitorManager(ResourceManager):
         )
         pool_payload['monitor'] = ''
         try:
-            #  update the pool
-            mgr._update(bigip, pool_payload, None, None, service)
+            # check if pool exist, if not exist,
+            # we delete healthmonitor directly
+            exist = mgr.resource_helper.exists(
+                bigip,
+                name=pool_payload['name'],
+                partition=pool_payload['partition']
+            )
+            if exist:
+                #  update the pool
+                mgr._update(bigip, pool_payload, None, None, service)
 
             super(MonitorManager, self)._delete(
                 bigip, payload, healthmonitor, service
