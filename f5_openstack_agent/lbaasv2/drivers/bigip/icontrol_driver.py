@@ -1137,9 +1137,6 @@ class iControlDriver(LBaaSBaseDriver):
     def get_clientssl_profile_count(self, bigip=None, global_statistics=None):
         return ssl_profile.SSLProfileHelper.get_client_ssl_profile_count(bigip)
 
-    def get_tenant_count(self, bigip=None, global_statistics=None):
-        return self.system_helper.get_tenant_folder_count(bigip)
-
     def get_tunnel_count(self, bigip=None, global_statistics=None):
         return self.network_helper.get_tunnel_count(bigip)
 
