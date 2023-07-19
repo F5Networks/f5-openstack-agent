@@ -182,7 +182,7 @@ OPTS = [
     ),
     cfg.IntOpt(
         'f5_bandwidth_max',
-        default=10000,
+        default=120000,
         help=('Maximum MBtyes value of bandwidth')
     ),
     cfg.StrOpt(
