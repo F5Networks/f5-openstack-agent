@@ -21,6 +21,12 @@ from oslo_log import log as logging
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import SelfIP
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import VirtualAddress
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import VirtualServer
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import BigIPResourceHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
@@ -37,17 +43,17 @@ class BigipSelfIpManager(object):
         self.driver = driver
         self.l2_service = l2_service
         self.l3_binding = l3_binding
-        self.selfip_manager = BigIPResourceHelper(ResourceType.selfip)
         self.network_helper = NetworkHelper()
 
     def _create_bigip_selfip(self, bigip, model):
         created = False
-        if self.selfip_manager.exists(bigip, name=model['name'],
-                                      partition=model['partition']):
+        selfip = SelfIP()
+        if selfip.exists(bigip, name=model['name'],
+                         partition=model['partition']):
             created = True
         else:
             try:
-                self.selfip_manager.create(bigip, model)
+                selfip.create(bigip, model)
                 created = True
             except HTTPError as err:
 
@@ -61,7 +67,7 @@ class BigipSelfIpManager(object):
                             bigip, model['vlan'], model['partition'], rd_id
                         )
 
-                        self.selfip_manager.create(bigip, model)
+                        selfip.create(bigip, model)
                         created = True
                     except HTTPError as err:
                         if err.response.status_code == 409:
@@ -270,19 +276,19 @@ class BigipSelfIpManager(object):
 
         # Setup a wild card ip forwarding virtual service for this subnet
         gw_name = "gw-" + subnet['id']
-        vs = bigip.tm.ltm.virtuals.virtual
-        if not vs.exists(name=gw_name, partition=network_folder):
+        vs = VirtualServer()
+        if not vs.exists(bigip, name=gw_name, partition=network_folder):
             try:
-                vs.create(
-                    name=gw_name,
-                    partition=network_folder,
-                    destination='0.0.0.0:0',
-                    mask='0.0.0.0',
-                    vlansEnabled=True,
-                    vlans=[network_name],
-                    sourceAddressTranslation={'type': 'automap'},
-                    ipForward=True
-                )
+                vs.create(bigip, {
+                    "name": gw_name,
+                    "partition": network_folder,
+                    "destination": "0.0.0.0:0",
+                    "mask": "0.0.0.0",
+                    "vlansEnabled": True,
+                    "vlans": [network_name],
+                    "sourceAddressTranslation": {"type": "automap"},
+                    "ipForward": True
+                })
             except Exception as err:
                 LOG.exception(err)
                 raise f5_ex.VirtualServerCreationException(
@@ -291,11 +297,13 @@ class BigipSelfIpManager(object):
                 )
 
         # Put the virtual server address in the specified traffic group
-        virtual_address = bigip.tm.ltm.virtual_address_s.virtual_address
+        virtual_address = VirtualAddress()
         try:
-            obj = virtual_address.load(
-                name='0.0.0.0', partition=network_folder)
-            obj.modify(trafficGroup=traffic_group)
+            virtual_address.update(bigip, {
+                "name": "0.0.0.0",
+                "partition": network_folder,
+                "trafficGroup": traffic_group
+            })
         except Exception as err:
             LOG.exception(err)
             raise f5_ex.VirtualServerCreationException(
@@ -345,11 +353,9 @@ class BigipSelfIpManager(object):
                                            ip_address=subnet['gateway_ip'])
 
         gw_name = "gw-" + subnet['id']
-        vs = bigip.tm.ltm.virtuals.virtual
+        vs = VirtualServer()
         try:
-            if vs.exists(name=gw_name, partition=network_folder):
-                obj = vs.load(name=gw_name, partition=network_folder)
-                obj.delete()
+            vs.delete(name=gw_name, partition=network_folder)
         except Exception as err:
             LOG.exception(err)
             raise f5_ex.VirtualServerDeleteException(
@@ -363,9 +369,9 @@ class BigipSelfIpManager(object):
     def get_selfip_addr(self, bigip, name, partition=const.DEFAULT_PARTITION):
         selfip_addr = ""
         try:
-            s = bigip.tm.net.selfips.selfip
-            if s.exists(name=name, partition=partition):
-                obj = s.load(name=name, partition=partition)
+            s = SelfIP()
+            if s.exists(bigip, name=name, partition=partition):
+                obj = s.load(bigip, name=name, partition=partition)
 
                 # The selfip address on BigIP is actually a network,
                 # parse out the address portion.
@@ -378,9 +384,8 @@ class BigipSelfIpManager(object):
                           "message: %s." % (name,
                                             err.response.status_code,
                                             err.message))
-        except Exception as err:
-            LOG.exception("Error getting selfip address for %s.",
-                          name)
+        except Exception:
+            LOG.exception("Error getting selfip address for %s.", name)
 
         return selfip_addr
 
@@ -392,15 +397,13 @@ class BigipSelfIpManager(object):
             if not vlan_name.startswith('/'):
                 vlan_name = "/%s/%s" % (partition, vlan_name)
 
-        params = {
-            'params': utils.get_filter(bigip, 'partition', 'eq', partition)
-        }
         try:
-            selfips_list = [selfip for selfip in
-                            bigip.tm.net.selfips.get_collection(
-                                requests_params=params
-                            )
-                            if vlan_name == selfip.vlan or not vlan_name]
+            s = SelfIP()
+            selfips_list = [
+                selfip
+                for selfip in s.get_resources(bigip, partition=partition)
+                if vlan_name == selfip.vlan or not vlan_name
+            ]
         except HTTPError as err:
             LOG.exception("Error getting selfips for vlan(%s). "
                           "Response status code: %s. "
@@ -416,21 +419,13 @@ class BigipSelfIpManager(object):
     def delete_selfip(self, bigip, name, partition=const.DEFAULT_PARTITION):
         """Delete the selfip if it exists."""
         try:
-            s = bigip.tm.net.selfips.selfip
-            if s.exists(name=name, partition=partition):
-                obj = s.load(name=name, partition=partition)
-                obj.delete()
+            s = SelfIP()
+            s.delete(name=name, partition=partition)
         except HTTPError as err:
-            if err.response.status_code == 404:
-                LOG.warning(
-                   "The deleting selfip"
-                   "is not found: %s", err.message
-                )
-            else:
-                LOG.exception("Error deleting selfip %s. "
-                              "Response status code: %s. Response "
-                              "message: %s." % (name,
-                                                err.response.status_code,
-                                                err.message))
-                raise f5_ex.SelfIPDeleteException(
-                    "Failed to delete selfip %s." % name)
+            LOG.exception("Error deleting selfip %s. "
+                          "Response status code: %s. Response "
+                          "message: %s." % (name,
+                                            err.response.status_code,
+                                            err.message))
+            raise f5_ex.SelfIPDeleteException(
+                "Failed to delete selfip %s." % name)

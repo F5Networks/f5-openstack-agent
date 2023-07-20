@@ -62,3 +62,21 @@ class Device(BigIPResource):
     def __init__(self, **kwargs):
         super(Device, self).__init__(**kwargs)
         self.helper = BigIPResourceHelper(ResourceType.device)
+
+
+class VirtualAddress(BigIPResource):
+    def __init__(self, **kwargs):
+        super(VirtualAddress, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.virtual_address)
+
+
+class VirtualServer(BigIPResource):
+    def __init__(self, **kwargs):
+        super(VirtualServer, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.virtual)
+
+
+class SelfIP(BigIPResource):
+    def __init__(self, **kwargs):
+        super(SelfIP, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.selfip)
