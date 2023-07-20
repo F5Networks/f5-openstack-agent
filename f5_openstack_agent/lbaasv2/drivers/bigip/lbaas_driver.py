@@ -63,10 +63,6 @@ class LBaaSBaseDriver(object):
         """Get Stats for a loadbalancer Service."""
         raise NotImplementedError()
 
-    def service_exists(self, service):
-        """Check If LBaaS Service is Defined on Driver Target."""
-        raise NotImplementedError()
-
     def sync(self, service):
         """Force Sync a Service on Driver Target."""
         raise NotImplementedError()
