@@ -272,8 +272,10 @@ class LoadBalancerManager(ResourceManager):
         if bandwidth > 0:
             self.__add_bwc(bigip, loadbalancer, bandwidth, service, False)
 
-        super(LoadBalancerManager, self)._create(bigip, payload,
-                                                 loadbalancer, service)
+        super(LoadBalancerManager, self)._create(
+            bigip, payload, loadbalancer, service,
+            overwrite=False
+        )
 
     def _delete(self, bigip, payload, loadbalancer, service, **kwargs):
 
