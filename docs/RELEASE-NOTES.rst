@@ -5,6 +5,21 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.9.55.1 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+
+* [OPENSTACK-2847] Disable icontrol token authentication by default
+
+Bug Fixes
+`````````
+
+Limitations
+```````````
+
 v9.9.55 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
