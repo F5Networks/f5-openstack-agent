@@ -471,7 +471,9 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
                                        info['username'],
                                        info['password'],
                                        port=info['port'],
-                                       token=True)
+                                       token=self.conf.icontrol_token,
+                                       debug=True,
+                                       timeout=constants_v2.DEVICE_CONNECTION_TIMEOUT) # noqa
 
                 if self.conf.member_update_mode == 1:
                     # logic of update member by pools
@@ -552,7 +554,9 @@ class LbaasMonitorManager(periodic_task.PeriodicTasks):
                                                username,
                                                password,
                                                port=m['device_info']['port'],
-                                               token=True)
+                                               token=self.conf.icontrol_token,
+                                               debug=True,
+                                               timeout=constants_v2.DEVICE_CONNECTION_TIMEOUT) # noqa
 
                         failover_state = bigip.tm.sys.dbs.db.load(
                             name='failover.state'
