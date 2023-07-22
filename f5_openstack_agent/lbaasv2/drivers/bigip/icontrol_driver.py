@@ -202,6 +202,10 @@ OPTS = [  # XXX maybe we should make this a dictionary
         'icontrol_password', default='admin', secret=True,
         help='The password to use for iControl access'
     ),
+    cfg.BoolOpt(
+        'icontrol_token', default=False,
+        help='Enable token authentication for iControl access'
+    ),
     cfg.IntOpt(
         'icontrol_connection_timeout', default=30,
         help='How many seconds to timeout a connection to BIG-IP'
@@ -709,7 +713,7 @@ class iControlDriver(LBaaSBaseDriver):
                                    self.conf.icontrol_password,
                                    timeout=f5const.DEVICE_CONNECTION_TIMEOUT,
                                    port=self.conf.icontrol_port,
-                                   token=True,
+                                   token=self.conf.icontrol_token,
                                    debug=self.conf.debug)
             bigip.status = 'connected'
             bigip.status_message = 'connected to BIG-IP'
