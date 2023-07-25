@@ -39,7 +39,7 @@ class IControlClient(object):
                                    self.icontrol_username,
                                    self.icontrol_password,
                                    port=self.icontrol_port,
-                                   token=True,
+                                   token=False,
                                    timeout=f5const.DEVICE_CONNECTION_TIMEOUT)
             return bigip
         except Exception as e:
