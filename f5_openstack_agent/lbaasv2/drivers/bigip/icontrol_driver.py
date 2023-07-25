@@ -161,6 +161,10 @@ OPTS = [  # XXX maybe we should make this a dictionary
         help='The hostname (name or IP address) to use for vCMP Host '
              'iControl access'
     ),
+    cfg.BoolOpt(
+        'icontrol_token', default=False,
+        help='Enable token authentication for iControl access'
+    ),
     cfg.IntOpt(
         'icontrol_connection_timeout', default=30,
         help='How many seconds to timeout a connection to BIG-IP'
