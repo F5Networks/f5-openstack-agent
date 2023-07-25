@@ -17,7 +17,7 @@ def set_bigips(service, conf):
     service['bigips'] = bigip_dev.get_all_bigips()
 
 
-def build_connection(host, info):
+def build_connection(host, info, token=False):
     LOG.info("Build connection for %s: %s" % (host, info))
     try:
         bigip = ManagementRoot(
@@ -26,7 +26,7 @@ def build_connection(host, info):
             decrypt_data(info['serial_number'], info['password']),
             port=info['port'],
             timeout=constants_v2.DEVICE_CONNECTION_TIMEOUT,
-            token=True,
+            token=token,
             debug=True
         )
         bigip.device_name = info["device_name"]
@@ -84,7 +84,7 @@ class BigipDevice(object):
             "Build connection of device %s for resource config" %
             host
         )
-        bigip = build_connection(host, info)
+        bigip = build_connection(host, info, self.conf.icontrol_token)
         self._bigips[host] = bigip
 
         LOG.info("Add and refresh host %s in cache." % host)
