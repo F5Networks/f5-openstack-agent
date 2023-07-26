@@ -73,6 +73,8 @@ class ResourceType(Enum):
     websocket_profile = 45
     route = 46
     device = 47
+    cipher_group = 48
+    cipher_rule = 49
 
 
 def retry_icontrol(function):
@@ -326,7 +328,11 @@ class BigIPResourceHelper(object):
             ResourceType.websocket_profile:
                 lambda bigip: bigip.tm.ltm.profile.websockets.websocket,
             ResourceType.device:
-                lambda bigip: bigip.tm.cm.devices.device
+                lambda bigip: bigip.tm.cm.devices.device,
+            ResourceType.cipher_group:
+                lambda bigip: bigip.tm.ltm.cipher.groups.group,
+            ResourceType.cipher_rule:
+                lambda bigip: bigip.tm.ltm.cipher.rules.rule,
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -406,7 +412,11 @@ class BigIPResourceHelper(object):
             ResourceType.websocket_profile:
                 lambda bigip: bigip.tm.ltm.profile.websockets,
             ResourceType.device:
-                lambda bigip: bigip.tm.cm.devices
+                lambda bigip: bigip.tm.cm.devices,
+            ResourceType.cipher_group:
+                lambda bigip: bigip.tm.ltm.cipher.groups,
+            ResourceType.cipher_rule:
+                lambda bigip: bigip.tm.ltm.cipher.rules,
         }
 
         if self.resource_type in collection_map:

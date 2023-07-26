@@ -80,3 +80,15 @@ class SelfIP(BigIPResource):
     def __init__(self, **kwargs):
         super(SelfIP, self).__init__(**kwargs)
         self.helper = BigIPResourceHelper(ResourceType.selfip)
+
+
+class CipherGroup(BigIPResource):
+    def __init__(self, **kwargs):
+        super(CipherGroup, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.cipher_group)
+
+
+class CipherRule(BigIPResource):
+    def __init__(self, **kwargs):
+        super(CipherRule, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.cipher_rule)

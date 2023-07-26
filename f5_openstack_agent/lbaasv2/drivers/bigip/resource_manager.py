@@ -34,6 +34,10 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.ltm_policy \
     import LTMPolicyRedirect
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_service import \
     get_route_domain
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import CipherGroup
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import CipherRule
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tcp_profile \
     import TCPProfileHelper
@@ -977,12 +981,10 @@ class ListenerManager(ResourceManager):
         # Cleanup cipher group and rule, if they exist.
         try:
             for handle in [
-                bigip.tm.ltm.cipher.groups.group,
-                bigip.tm.ltm.cipher.rules.rule
+                CipherGroup(),
+                CipherRule()
             ]:
-                if handle.exists(name=vs['name'], partition="Common"):
-                    obj = handle.load(name=vs['name'], partition="Common")
-                    obj.delete()
+                handle.delete(bigip, name=vs['name'], partition="Common")
         except HTTPError as err:
             # Tolerate HTTP 400 error, because ssl profile and cipher
             # can not be deleted when updating a listener.
