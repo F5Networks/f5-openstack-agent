@@ -411,13 +411,13 @@ class NetworkServiceBuilder(object):
 
                 LOG.info("create route domain: %s, %s on bigip: %s"
                          % (name, route_domain, bigip.hostname))
-        except Exception as ex:
+        except HTTPError as ex:
             if ex.response.status_code == 409:
                 LOG.info("route domain %s already exists: %s, ignored.." % (
                     route_domain, ex.message))
             else:
                 # FIXME(pzhang): what to do with multiple agent race?
-                LOG.error(ex.message)
+                LOG.exception(ex)
                 raise f5_ex.RouteDomainCreationException(
                     "Failed to create route domain: %s, %s on bigip %s"
                     % (name, route_domain, bigip.hostname)

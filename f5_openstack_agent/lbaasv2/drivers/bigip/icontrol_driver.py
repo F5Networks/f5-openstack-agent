@@ -943,9 +943,6 @@ class iControlDriver(LBaaSBaseDriver):
     def get_tunnel_count(self, bigip=None, global_statistics=None):
         return self.network_helper.get_tunnel_count(bigip)
 
-    def get_vlan_count(self, bigip=None, global_statistics=None):
-        return self.network_helper.get_vlan_count(bigip)
-
     def get_route_domain_count(self, bigip=None, global_statistics=None):
         return self.network_helper.get_route_domain_count(bigip)
 

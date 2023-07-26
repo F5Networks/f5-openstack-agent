@@ -23,6 +23,14 @@ from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
 from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import Route
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import RouteDomain
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import SelfIP
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import Vlan
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 
@@ -166,16 +174,16 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_vlan_id(self, bigip, name, partition=const.DEFAULT_PARTITION):
-        v = bigip.tm.net.vlans.vlan
-        obj = v.load(name=name, partition=partition)
+        v = Vlan()
+        obj = v.load(bigip, name=name, partition=partition)
         return obj.tag
 
     @log_helpers.log_method_call
     def get_selfip_addr(self, bigip, name, partition=const.DEFAULT_PARTITION):
         try:
-            s = bigip.tm.net.selfips.selfip
-            if s.exists(name=name, partition=partition):
-                obj = s.load(name=name, partition=partition)
+            s = SelfIP()
+            if s.exists(bigip, name=name, partition=partition):
+                obj = s.load(bigip, name=name, partition=partition)
                 return obj.address
         except HTTPError as err:
             LOG.error("Error getting selfip address for %s. "
@@ -225,10 +233,10 @@ class NetworkHelper(object):
                  not self.conf.external_gateway_mode):
             return True
         name = self._get_route_domain_name(name) if name else partition
-        r = bigip.tm.net.route_domains.route_domain
+        r = RouteDomain()
         if domain_id:
             name += '_aux_' + str(domain_id)
-        return r.exists(name=name, partition=partition)
+        return r.exists(bigip, name=name, partition=partition)
 
     @log_helpers.log_method_call
     def get_route_domain_by_id(self, bigip, partition=const.DEFAULT_PARTITION,
@@ -245,13 +253,8 @@ class NetworkHelper(object):
             domain_id - int containing the domain's id
         """
         ret_rd = None
-        rdc = bigip.tm.net.route_domains
-        params = {}
-        if partition:
-            params = {
-                'params': get_filter(bigip, 'partition', 'eq', partition)
-            }
-        route_domains = rdc.get_collection(requests_params=params)
+        rdc = RouteDomain()
+        route_domains = rdc.get_resources(bigip, partition=partition)
         for rd in route_domains:
             if rd.id == id:
                 ret_rd = rd
@@ -300,7 +303,7 @@ class NetworkHelper(object):
         """
         if name and self.conf.external_gateway_mode:
             name = self._get_route_domain_name(name)
-        rd = bigip.tm.net.route_domains.route_domain
+        rd = RouteDomain()
         if is_aux:
             name += '_aux_' + str(rd_id)
         payload = NetworkHelper.route_domain_defaults
@@ -312,7 +315,7 @@ class NetworkHelper(object):
             payload['strict'] = 'enabled'
         else:
             payload['parent'] = '/' + const.DEFAULT_PARTITION + '/0'
-        return rd.create(**payload)
+        return rd.create(bigip, payload)
 
     @log_helpers.log_method_call
     def delete_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
@@ -334,19 +337,13 @@ class NetworkHelper(object):
         else:
             if not name:
                 name = partition
-        r = bigip.tm.net.route_domains.route_domain
-        obj = r.load(name=name, partition=partition)
-        obj.delete()
+        r = RouteDomain()
+        r.delete(bigip, name=name, partition=partition)
 
     @log_helpers.log_method_call
     def get_route_domain_ids(self, bigip, partition=const.DEFAULT_PARTITION):
-        rdc = bigip.tm.net.route_domains
-        params = {}
-        if partition:
-            params = {
-                'params': get_filter(bigip, 'partition', 'eq', partition)
-            }
-        route_domains = rdc.get_collection(requests_params=params)
+        rdc = RouteDomain()
+        route_domains = rdc.get_resources(bigip, partition=partition)
         rd_ids_list = []
         for rd in route_domains:
             rd_ids_list.append(rd.id)
@@ -354,13 +351,8 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def get_route_domain_names(self, bigip, partition=const.DEFAULT_PARTITION):
-        rdc = bigip.tm.net.route_domains
-        params = {}
-        if partition:
-            params = {
-                'params': get_filter(bigip, 'partition', 'eq', partition)
-            }
-        route_domains = rdc.get_collection(requests_params=params)
+        rdc = RouteDomain()
+        route_domains = rdc.get_resources(bigip, partition=partition)
         rd_names_list = []
         for rd in route_domains:
             rd_names_list.append(rd.name)
@@ -381,15 +373,15 @@ class NetworkHelper(object):
             name - name of the Route object on the BIG-IP
         """
         name = self._get_route_name(name)
-        rc = bigip.tm.net.routes.route
-        return rc.exists(name=name, partition=partition)
+        rc = Route()
+        return rc.exists(bigip, name=name, partition=partition)
 
     @log_helpers.log_method_call
     def get_route(self, bigip, partition=const.DEFAULT_PARTITION, name=None):
         """Returns the BIG-IP Route object as per its name and partition"""
         payload = {'name': self._get_route_name(name), 'partition': partition}
-        rc = bigip.tm.net.routes.route
-        return rc.load(**payload)
+        rc = Route()
+        return rc.load(bigip, **payload)
 
     @log_helpers.log_method_call
     def create_route(self, bigip, name=None, partition=const.DEFAULT_PARTITION,
@@ -411,14 +403,14 @@ class NetworkHelper(object):
             LOG.info(str("Skipping create of route {} as it already exists!"
                          ).format(name))
             return
-        rc = bigip.tm.net.routes.route
+        rc = Route()
         destination_ip = '{}%{}/{}'.format(destination_ip, rd_id, netmask)
         gateway_ip = '{}%{}'.format(gateway_ip, rd_id)
 
         payload = NetworkHelper.route_defaults.copy()
         payload.update(dict(name=name, partition=partition, gw=gateway_ip,
                             network=destination_ip))
-        rc.create(**payload)
+        rc.create(bigip, payload)
 
     @log_helpers.log_method_call
     def delete_route(self, bigip, name=None,
@@ -434,10 +426,8 @@ class NetworkHelper(object):
             name - name of the Route that is to be deleted
         """
         payload = {'partition': partition, 'name': self._get_route_name(name)}
-        if not self.route_exists(bigip, **payload):
-            return
-        route = self.get_route(bigip, **payload)
-        route.delete()
+        route = Route()
+        route.delete(bigip, **payload)
 
     @log_helpers.log_method_call
     def create_vlan(self, bigip, model):
@@ -449,9 +439,9 @@ class NetworkHelper(object):
                                     const.DEFAULT_ROUTE_DOMAIN_ID)
         if not name:
             return None
-        v = bigip.tm.net.vlans.vlan
-        if v.exists(name=name, partition=partition):
-            obj = v.load(name=name, partition=partition)
+        v = Vlan()
+        if v.exists(bigip, name=name, partition=partition):
+            obj = v.load(bigip, name=name, partition=partition)
         else:
             payload = {'name': name,
                        'partition': partition,
@@ -459,7 +449,7 @@ class NetworkHelper(object):
 
             if description:
                 payload['description'] = description
-            obj = v.create(**payload)
+            obj = v.create(bigip, payload)
             interface = model.get('interface', None)
             if interface:
                 payload = {'name': interface}
@@ -488,10 +478,8 @@ class NetworkHelper(object):
             name,
             partition=const.DEFAULT_PARTITION):
         """Delete VLAN from partition."""
-        v = bigip.tm.net.vlans.vlan
-        if v.exists(name=name, partition=partition):
-            obj = v.load(name=name, partition=partition)
-            obj.delete()
+        v = Vlan()
+        v.delete(bigip, name=name, partition=partition)
 
     @log_helpers.log_method_call
     def add_vlan_to_domain_by_id(self, bigip, name,
@@ -918,7 +906,3 @@ class NetworkHelper(object):
                    item.profile.find('vxlan') > 0 or
                    item.profile.find('gre') > 0]
         return len(tunnels)
-
-    def get_vlan_count(self, bigip, partition='/'):
-        """Return number of VLANs"""
-        return len(bigip.tm.net.vlans.get_collection(partition=partition))

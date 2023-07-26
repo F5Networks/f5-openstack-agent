@@ -82,6 +82,24 @@ class SelfIP(BigIPResource):
         self.helper = BigIPResourceHelper(ResourceType.selfip)
 
 
+class RouteDomain(BigIPResource):
+    def __init__(self, **kwargs):
+        super(RouteDomain, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.route_domain)
+
+
+class Vlan(BigIPResource):
+    def __init__(self, **kwargs):
+        super(Vlan, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.vlan)
+
+
+class Route(BigIPResource):
+    def __init__(self, **kwargs):
+        super(Route, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.route)
+
+
 class CipherGroup(BigIPResource):
     def __init__(self, **kwargs):
         super(CipherGroup, self).__init__(**kwargs)

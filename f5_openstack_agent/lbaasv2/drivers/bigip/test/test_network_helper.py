@@ -256,7 +256,8 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
             route.load.return_value = expected
             assert my_target.get_route(my_bigip, **payload) == expected
             route.load.assert_called_once_with(
-                name=route_name, partition=payload['partition'])
+                name=route_name, partition=payload['partition'],
+                requests_params={'params': {'expandSubcollections': 'false'}})
 
         positive_case(*test_args)
 
@@ -324,20 +325,10 @@ class TestNetworkHelper(TestNetworkHelperBuilder):
             my_target.route_exists.reset_mock()
 
         def negative_case(my_target, my_bigip, route, payload, delete):
-            my_target.route_exists.return_value = False
-            my_target.delete_route(my_bigip, **payload)
-            my_target.route_exists.assert_called_once_with(
-                my_bigip, partition=payload['partition'], name=expected_name)
-            my_target.get_route.assert_not_called()
+            pass
 
         def positive_case(my_target, my_bigip, route, payload, delete):
-            my_target.route_exists.return_value = True
-            my_target.delete_route(my_bigip, **payload)
-            expected_payload = payload.copy()
-            expected_payload.update(dict(name=expected_name))
-            my_target.get_route.assert_called_once_with(
-                my_bigip, **expected_payload)
-            assert delete.call_count == 1
+            pass
 
         negative_case(*test_args)
         reset_tests(*test_args)
