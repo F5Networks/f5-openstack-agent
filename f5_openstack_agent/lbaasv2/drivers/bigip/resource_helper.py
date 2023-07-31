@@ -15,6 +15,8 @@
 
 from enum import Enum
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
+from requests import HTTPError
+from time import sleep
 
 from oslo_log import log as logging
 
@@ -70,6 +72,32 @@ class ResourceType(Enum):
     http2_profile = 44
     websocket_profile = 45
     route = 46
+    device = 47
+    cipher_group = 48
+    cipher_rule = 49
+
+
+def retry_icontrol(function):
+
+    def retry(*args, **kwargs):
+        max_attempt = 3
+        interval = 1
+        attempt = 0
+        while attempt < max_attempt:
+            attempt = attempt + 1
+            try:
+                return function(*args, **kwargs)
+            except HTTPError as ex:
+                if ex.response.status_code == 401:
+                    LOG.debug("Attempt %s: %s", attempt, ex.message)
+                    if attempt < max_attempt:
+                        sleep(interval)
+                        continue
+
+                LOG.exception(ex)
+                raise ex
+
+    return retry
 
 
 class BigIPResourceHelper(object):
@@ -90,6 +118,7 @@ class BigIPResourceHelper(object):
         """Initialize a resource helper."""
         self.resource_type = resource_type
 
+    @retry_icontrol
     def create(self, bigip, model):
         u"""Create/update resource (e.g., pool) on a BIG-IP system.
 
@@ -106,11 +135,13 @@ class BigIPResourceHelper(object):
 
         return obj
 
+    @retry_icontrol
     def exists(self, bigip, name=None, partition=None):
         """Test for the existence of a resource."""
         resource = self._resource(bigip)
         return resource.exists(name=name, partition=partition)
 
+    @retry_icontrol
     def delete(self, bigip, name=None, partition=None):
         u"""Delete a resource on a BIG-IP system.
 
@@ -126,6 +157,7 @@ class BigIPResourceHelper(object):
             obj = resource.load(name=name, partition=partition)
             obj.delete()
 
+    @retry_icontrol
     def load(self, bigip, name=None, partition=None,
              expand_subcollections=False):
         u"""Retrieve a BIG-IP resource from a BIG-IP.
@@ -147,6 +179,7 @@ class BigIPResourceHelper(object):
         return resource.load(name=name, partition=partition,
                              requests_params=params)
 
+    @retry_icontrol
     def update(self, bigip, model):
         u"""Update a resource (e.g., pool) on a BIG-IP system.
 
@@ -165,6 +198,7 @@ class BigIPResourceHelper(object):
 
         return resource
 
+    @retry_icontrol
     def get_resources(self, bigip, partition=None,
                       expand_subcollections=False):
         u"""Retrieve a collection BIG-IP of resources from a BIG-IP.
@@ -199,6 +233,7 @@ class BigIPResourceHelper(object):
 
         return resources
 
+    @retry_icontrol
     def exists_in_collection(self, bigip, name, partition='Common'):
         collection = self.get_resources(bigip, partition='Common')
         for item in collection:
@@ -291,7 +326,13 @@ class BigIPResourceHelper(object):
             ResourceType.internal_data_group:
                 lambda bigip: bigip.tm.ltm.data_group.internals.internal,
             ResourceType.websocket_profile:
-                lambda bigip: bigip.tm.ltm.profile.websockets.websocket
+                lambda bigip: bigip.tm.ltm.profile.websockets.websocket,
+            ResourceType.device:
+                lambda bigip: bigip.tm.cm.devices.device,
+            ResourceType.cipher_group:
+                lambda bigip: bigip.tm.ltm.cipher.groups.group,
+            ResourceType.cipher_rule:
+                lambda bigip: bigip.tm.ltm.cipher.rules.rule,
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -369,7 +410,13 @@ class BigIPResourceHelper(object):
             ResourceType.bwc_policy:
                 lambda bigip: bigip.tm.net.bwc.policys,
             ResourceType.websocket_profile:
-                lambda bigip: bigip.tm.ltm.profile.websockets
+                lambda bigip: bigip.tm.ltm.profile.websockets,
+            ResourceType.device:
+                lambda bigip: bigip.tm.cm.devices,
+            ResourceType.cipher_group:
+                lambda bigip: bigip.tm.ltm.cipher.groups,
+            ResourceType.cipher_rule:
+                lambda bigip: bigip.tm.ltm.cipher.rules,
         }
 
         if self.resource_type in collection_map:
@@ -380,6 +427,7 @@ class BigIPResourceHelper(object):
             raise KeyError("No collection available for %s" %
                            (self.resource_type))
 
+    @retry_icontrol
     def get_stats(self, bigip, name=None, partition=None, stat_keys=[]):
         """Returns dictionary of stats.
 
@@ -404,6 +452,7 @@ class BigIPResourceHelper(object):
 
         return collected_stats
 
+    @retry_icontrol
     def collect_stats(self, resource, stat_keys=[]):
         collected_stats = {}
         resource_stats = resource.stats.load()

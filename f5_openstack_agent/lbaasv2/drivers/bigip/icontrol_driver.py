@@ -496,9 +496,6 @@ class iControlDriver(LBaaSBaseDriver):
         """Set Agent Report State."""
         self.agent_report_state = report_state_callback
 
-    def service_exists(self, service):
-        return self._service_exists(service)
-
     def flush_cache(self):
         # Remove cached objects so they can be created if necessary
         for bigip in self.get_all_bigips():
@@ -610,26 +607,6 @@ class iControlDriver(LBaaSBaseDriver):
         # Tunnel sync sent.
         return False
 
-    def _get_monitor_endpoint(self, bigip, service):
-        monitor_type = self.service_adapter.get_monitor_type(service)
-        if not monitor_type:
-            monitor_type = ""
-
-        if monitor_type == "HTTPS":
-            hm = bigip.tm.ltm.monitor.https_s.https
-        elif monitor_type == "TCP":
-            hm = bigip.tm.ltm.monitor.tcps.tcp
-        elif monitor_type == "PING":
-            hm = bigip.tm.ltm.monitor.gateway_icmps.gateway_icmp
-        elif monitor_type == "UDP":
-            hm = bigip.tm.ltm.monitor.udps.udp
-        elif monitor_type == "SIP":
-            hm = bigip.tm.ltm.monitor.sips.sip
-        else:
-            hm = bigip.tm.ltm.monitor.https.http
-
-        return hm
-
     def service_rename_required(self, service):
         rename_required = False
 
@@ -649,177 +626,6 @@ class iControlDriver(LBaaSBaseDriver):
                 break
 
         return rename_required
-
-    # pzhang: is anyone use this function?
-    def service_object_teardown(self, service):
-
-        # Returns whether the bigip has a pool for the service
-        if not service['loadbalancer']:
-            return False
-
-        bigips = service['bigips']
-        loadbalancer = service['loadbalancer']
-        folder_name = self.service_adapter.get_folder_name(
-            loadbalancer['tenant_id']
-        )
-
-        # Change to bigips
-        for bigip in bigips:
-
-            # Delete all virtuals
-            v = bigip.tm.ltm.virtuals.virtual
-            for listener in service['listeners']:
-                l_name = listener.get("name", "")
-                if not l_name:
-                    svc = {"loadbalancer": loadbalancer,
-                           "listener": listener}
-                    vip = self.service_adapter.get_virtual(svc)
-                    l_name = vip['name']
-                if v.exists(name=l_name, partition=folder_name):
-                    # Found a virtual that is named by the OS object,
-                    # delete it.
-                    l_obj = v.load(name=l_name, partition=folder_name)
-                    LOG.warn("Deleting listener: /%s/%s" %
-                             (folder_name, l_name))
-                    l_obj.delete(name=l_name, partition=folder_name)
-
-            # Delete all pools
-            p = bigip.tm.ltm.pools.pool
-            for os_pool in service['pools']:
-                p_name = os_pool.get('name', "")
-                if not p_name:
-                    svc = {"loadbalancer": loadbalancer,
-                           "pool": os_pool}
-                    pool = self.service_adapter.get_pool(svc)
-                    p_name = pool['name']
-
-                if p.exists(name=p_name, partition=folder_name):
-                    p_obj = p.load(name=p_name, partition=folder_name)
-                    LOG.warn("Deleting pool: /%s/%s" % (folder_name, p_name))
-                    p_obj.delete(name=p_name, partition=folder_name)
-
-            # Delete all healthmonitors
-            for healthmonitor in service['healthmonitors']:
-                svc = {'loadbalancer': loadbalancer,
-                       'healthmonitor': healthmonitor}
-                monitor_ep = self._get_monitor_endpoint(bigip, svc)
-
-                m_name = healthmonitor.get('name', "")
-                if not m_name:
-                    hm = self.service_adapter.get_healthmonitor(svc)
-                    m_name = hm['name']
-
-                if monitor_ep.exists(name=m_name, partition=folder_name):
-                    m_obj = monitor_ep.load(name=m_name, partition=folder_name)
-                    LOG.warn("Deleting monitor: /%s/%s" % (
-                        folder_name, m_name))
-                    m_obj.delete()
-
-    def _service_exists(self, service):
-        # Returns whether the bigip has the service defined
-        if not service['loadbalancer']:
-            return False
-        loadbalancer = service['loadbalancer']
-
-        folder_name = self.service_adapter.get_folder_name(
-            loadbalancer['tenant_id']
-        )
-
-        for bigip in service['bigips']:
-            # Does the tenant folder exist?
-            if not self.system_helper.folder_exists(bigip, folder_name):
-                LOG.debug("Folder %s does not exist on bigip: %s" %
-                          (folder_name, bigip.hostname))
-                return False
-
-        if self.network_builder:
-            # append route domain to member address
-            self.network_builder._annotate_service_route_domains(service)
-
-        # Foreach bigip in the cluster:
-        for bigip in service['bigips']:
-
-            # Get the virtual address
-            virtual_address = VirtualAddress(self.service_adapter,
-                                             loadbalancer)
-            if not virtual_address.exists(bigip):
-                LOG.debug("Virtual address %s(%s) does not "
-                          "exist on bigip: %s" % (virtual_address.name,
-                                                  virtual_address.address,
-                                                  bigip.hostname))
-                return False
-
-            # Ensure that each virtual service exists.
-            for listener in service['listeners']:
-
-                svc = {"loadbalancer": loadbalancer,
-                       "listener": listener}
-                virtual_server = self.service_adapter.get_virtual_name(svc)
-                if not self.vs_manager.exists(bigip,
-                                              name=virtual_server['name'],
-                                              partition=folder_name):
-                    LOG.debug("Virtual /%s/%s not found on bigip: %s" %
-                              (virtual_server['name'], folder_name,
-                               bigip.hostname))
-                    return False
-
-            # Ensure that each pool exists.
-            for pool in service['pools']:
-                svc = {"loadbalancer": loadbalancer,
-                       "pool": pool}
-                bigip_pool = self.service_adapter.get_pool(svc)
-                if not self.pool_manager.exists(
-                        bigip,
-                        name=bigip_pool['name'],
-                        partition=folder_name):
-                    LOG.debug("Pool /%s/%s not found on bigip: %s" %
-                              (folder_name, bigip_pool['name'],
-                               bigip.hostname))
-                    return False
-                else:
-                    deployed_pool = self.pool_manager.load(
-                        bigip,
-                        name=bigip_pool['name'],
-                        partition=folder_name)
-                    deployed_members = \
-                        deployed_pool.members_s.get_collection()
-
-                    # First check that number of members deployed
-                    # is equal to the number in the service.
-                    if len(deployed_members) != len(pool['members']):
-                        LOG.debug("Pool %s members member count mismatch "
-                                  "match: deployed %d != service %d" %
-                                  (bigip_pool['name'], len(deployed_members),
-                                   len(pool['members'])))
-                        return False
-
-                    # Ensure each pool member exists
-                    for member in service['members']:
-                        if member['pool_id'] == pool['id']:
-                            lb = self.lbaas_builder
-                            pool = lb.get_pool_by_id(
-                                service, member["pool_id"])
-                            svc = {"loadbalancer": loadbalancer,
-                                   "member": member,
-                                   "pool": pool}
-                            if not lb.pool_builder.member_exists(svc, bigip):
-                                LOG.debug("Pool member not found: %s" %
-                                          svc['member'])
-                                return False
-
-            # Ensure that each health monitor exists.
-            for healthmonitor in service['healthmonitors']:
-                svc = {"loadbalancer": loadbalancer,
-                       "healthmonitor": healthmonitor}
-                monitor = self.service_adapter.get_healthmonitor(svc)
-                monitor_ep = self._get_monitor_endpoint(bigip, svc)
-                if not monitor_ep.exists(name=monitor['name'],
-                                         partition=folder_name):
-                    LOG.debug("Monitor /%s/%s not found on bigip: %s" %
-                              (monitor['name'], folder_name, bigip.hostname))
-                    return False
-
-        return True
 
     def get_loadbalancers_in_tenant(self, tenant_id):
         loadbalancers = self.plugin_rpc.get_all_loadbalancers()
@@ -1131,20 +937,11 @@ class iControlDriver(LBaaSBaseDriver):
         return self.stat_helper.get_active_SSL_TPS(
             bigip, global_stats=global_statistics)
 
-    def get_node_count(self, bigip=None, global_statistics=None):
-        return len(bigip.tm.ltm.nodes.get_collection())
-
     def get_clientssl_profile_count(self, bigip=None, global_statistics=None):
         return ssl_profile.SSLProfileHelper.get_client_ssl_profile_count(bigip)
 
-    def get_tenant_count(self, bigip=None, global_statistics=None):
-        return self.system_helper.get_tenant_folder_count(bigip)
-
     def get_tunnel_count(self, bigip=None, global_statistics=None):
         return self.network_helper.get_tunnel_count(bigip)
-
-    def get_vlan_count(self, bigip=None, global_statistics=None):
-        return self.network_helper.get_vlan_count(bigip)
 
     def get_route_domain_count(self, bigip=None, global_statistics=None):
         return self.network_helper.get_route_domain_count(bigip)
