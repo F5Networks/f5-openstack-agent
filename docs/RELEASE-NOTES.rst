@@ -5,6 +5,36 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.5 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2847] Refactor network helper
+* [OPENSTACK-2847] Refactor resource manager
+* [OPENSTACK-2847] Refactor icontrol driver
+* [OPENSTACK-2847] Refactor selfip
+* [OPENSTACK-2847] Refactor system helper
+* [OPENSTACK-2847] Retry when icontrol return 401
+* [OPENSTACK-2847] Disable icontrol token authentication by default (9.10)
+* [OPENSTACK-2835] Modify ManagementRoot
+* [OPENSTACK-2848] Update f5_bandwidth_max to 120000 to support flavor 21
+* [OPENSTACK-2754] Support flavor 21
+* [OPENSTACK-2784] No ssl 3.0
+* [OPENSTACK-2782] Add access_log logic feat
+
+Bug Fixes
+`````````
+* [OPENSTACK-2855] Check if route exist, before create route
+* [OPENSTACK-2807] Fix requested VLAN not found
+* [OPENSTACK-2701] Fix retry to get VLAN mac
+* [OPENSTACK-2807] Fix snatpool partition was wrong
+* [OPENSTACK-2806] Save lb_netinfo in service instead of NetworkServiceBuilder to avoid race condition when parallel deploy configuration to multi device.
+
+Limitations
+```````````
+
 v9.10.4 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
