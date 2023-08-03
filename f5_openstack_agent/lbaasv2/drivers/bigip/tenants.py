@@ -140,7 +140,7 @@ class BigipTenantManager(object):
                     try:
                         tag = 0
                         if rtype == ResourceType.vlan:
-                             tag = r.tag
+                            tag = r.tag
                         r.delete()
 
                         # delete vlan in f5os
