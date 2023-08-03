@@ -232,19 +232,38 @@ class L2ServiceBuilder(object):
 
     def _assure_device_network_vlan(self, network, bigip, network_folder,
                                     device):
-        # TODO(nik) to check this function
+        interface = None
+        interface_mapping = device['bigip'][bigip.hostname][
+            'device_info']['external_physical_mappings']
+        LOG.info(
+            "Create vlan network based on mapping %s." %
+            interface_mapping
+        )
+
+        interface = f5_utils.get_net_iface(
+            interface_mapping, network
+        )
+        LOG.info(
+            "Get Vlan interface %s for netowrk %s "
+            "base on mapping %s." %
+            (interface, network, interface_mapping)
+        )
+
+        # Ensure bigip has configured tagged vlan
+        # VLAN names are limited to 64 characters including
+        # the folder name, so we name them foolish things.
+        vlan_name = ""
+        vtep_node_ip = f5_utils.get_node_vtep(device)
+        LOG.info(
+            "Get vtep_node_ip %s." % vtep_node_ip
+        )
+
+        vlanid = f5_utils.get_vtep_vlan(network, vtep_node_ip)
+        vlan_name = self.get_vlan_name(
+            network, interface_mapping, vtep_node_ip
+        )
+
         if bigip.f5os_client:
-            vlan_name = ""
-            interface = None
-
-            if network.get('provider:segmentation_id'):
-                vlanid = network['provider:segmentation_id']
-            else:
-                vlanid = 0
-            # TODO(nik) to decide this part
-            # vlan_name = self.get_vlan_name(network, bigip.hostname)
-            vlan_name = "vlan-%d" % (vlanid)
-
             self._assure_f5os_vlan_network(vlanid, vlan_name, bigip)
             # If vlan is not in tenant partition, need to wait for F5OS to sync
             # it to /Common, delete it and then create it in tenant partition.
@@ -275,36 +294,6 @@ class L2ServiceBuilder(object):
                     else:
                         LOG.error("Vlan %s isn't synced from F5OS", vlan_name)
                         raise ex
-        else:
-            # Ensure bigip has configured tagged vlan
-            # VLAN names are limited to 64 characters including
-            # the folder name, so we name them foolish things.
-            vlan_name = ""
-            interface_mapping = device['bigip'][bigip.hostname][
-                'device_info']['external_physical_mappings']
-
-            LOG.info(
-                "Create vlan network base on mapping %s." %
-                interface_mapping
-            )
-
-            interface = f5_utils.get_net_iface(
-                interface_mapping, network
-            )
-            LOG.info(
-                "Get Vlan interface %s for netowrk %s "
-                "base on mapping %s." %
-                (interface, network, interface_mapping)
-            )
-
-            vtep_node_ip = f5_utils.get_node_vtep(device)
-            LOG.info(
-                "Get vtep_node_ip %s." % vtep_node_ip
-            )
-
-            vlanid = f5_utils.get_vtep_vlan(network, vtep_node_ip)
-            vlan_name = self.get_vlan_name(
-                network, interface_mapping, vtep_node_ip)
 
         try:
             model = {'name': vlan_name,

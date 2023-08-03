@@ -96,10 +96,6 @@ class NetworkServiceBuilder(object):
         # Provide FDB Connector with ML2 RPC access
         self.l2_service.set_l2pop_rpc(l2pop_rpc)
 
-    # _post_init() has been deleted, this is never called
-    # def initialize_rseries(self):
-    #     self.l2_service.initialize_f5os_client()
-
     def initialize_tunneling(self, bigip):
         # setup tunneling
         vtep_folder = self.conf.f5_vtep_folder

@@ -51,7 +51,6 @@ def build_connection(host, info, token=False):
         bigip.ve_tenant = None
         bigip.lag = None
 
-        # TODO(nik) check if using e.g. bigip.XX = XXXX fine here
         confd = info.get("confd", {})
         if confd.get("confd_username") and confd.get("confd_password") and confd.get("confd_hostname") and confd.get("confd_port"):  # noqa
             f5os_client = F5OSClient(
@@ -96,9 +95,6 @@ class BigipDevice(object):
 
     def set_all_bigips(self):
         self._bigips = dict()
-        # self.f5os_client = dict()
-        # self.ve_tenant = dict()
-        # self.lag = dict()
 
         self.device['bigip'] = {}
         device_members = self.device['device_info']['members']
@@ -120,10 +116,6 @@ class BigipDevice(object):
         )
         bigip = build_connection(host, info, self.conf.icontrol_token)
         self._bigips[host] = bigip
-        # if bigip.ve_tenant:
-        #     self.ve_tenant[host] = bigip.ve_tenant
-        # if bigip.lag:
-        #     self.lag[host] = bigip.lag
 
         LOG.info("Add and refresh host %s in cache." % host)
         BigipDevice.cache_pool[host] = info
