@@ -1369,20 +1369,44 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def rebuild_loadbalancer(self, context, loadbalancer, service):
+        """Handle RPC cast from plugin to create_loadbalancer."""
+        lb_id = loadbalancer['id']
+        listeners = service.get("listeners", [])
+
         try:
-            LOG.info("Start to rebuild %s", loadbalancer)
+            bigip_device.set_bigips(service, self.conf)
 
-            LOG.debug(
-                "Call create_loadbalancer with service %s" % service
-            )
+            mgr = resource_manager.LoadBalancerManager(self.lbdriver)
+            mgr.create(loadbalancer, service)
+            LOG.debug("Finish to create loadbalancer %s", lb_id)
 
-            self.create_loadbalancer(context, loadbalancer, service)
+            for lstn in listeners:
+                ls_id = lstn['id']
+                service['listener'] = lstn
 
-            LOG.info("Finish to rebuild %s", loadbalancer)
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+                mgr.create(lstn, service)
+                LOG.debug("Finish to create listener %s", ls_id)
+
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
         except Exception as ex:
-            # donot to update lb, it cause transcation race.
-            LOG.exception(
-                "Rebuild loadbalancer %s with Escaped Exception %s\n."
-                "The given service is %s."
-                % (loadbalancer, ex, service)
-            )
+            LOG.error("Fail to rebuild loadbalancer %s ", lb_id)
+            LOG.exception(ex)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                self.plugin_rpc.update_loadbalancer_status(
+                    lb_id, provision_status,
+                    operating_status
+                )
+                LOG.info(
+                    "Finish to update status of loadbalancer %s",
+                    lb_id
+                )
+            except Exception as ex:
+                LOG.exception(
+                    "Fail to update status of loadbalancer %s "
+                    "Exception: %s", lb_id, ex.message
+                )

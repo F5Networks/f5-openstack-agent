@@ -317,6 +317,9 @@ class NetworkServiceBuilder(object):
         )
         snat_helper.snat_update(old_loadbalancer, loadbalancer)
 
+    def _rd_exist(self, addr):
+        return "%" in addr
+
     def _annotate_service_route_domains(self, service):
         # Add route domain notation to pool member and vip addresses.
         tenant_id = service['loadbalancer']['tenant_id']
@@ -335,15 +338,21 @@ class NetworkServiceBuilder(object):
                 else:
                     self.assign_route_domain(
                         tenant_id, lb_network, device, bigips)
-                rd_id = '%' + str(lb_network['route_domain_id'])
-                service['loadbalancer']['vip_address'] += rd_id
+
+                if not self._rd_exist(
+                    service['loadbalancer']['vip_address']
+                ):
+                    rd_id = '%' + str(lb_network['route_domain_id'])
+                    service['loadbalancer']['vip_address'] += rd_id
             else:
                 service['loadbalancer']['vip_address'] += '%0'
 
         if 'members' in service:
             for member in service['members']:
                 if 'address' in member:
-                    if rd_id:
+                    if rd_id and not self._rd_exist(
+                        member['address']
+                    ):
                         member['address'] += rd_id
                     else:
                         member['address'] += '%0'
