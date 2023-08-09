@@ -245,9 +245,8 @@ class ListenerServiceBuilder(object):
                 vip_name=vip['name'],
                 http2=http2)
         except HTTPError as err:
-            if err.response.status_code != 409:
-                LOG.error("SSL profile creation error: %s" %
-                          err.message)
+            LOG.error("SSL profile creation error: %s" %
+                      err.message)
         finally:
             del key_passphrase
             del cert

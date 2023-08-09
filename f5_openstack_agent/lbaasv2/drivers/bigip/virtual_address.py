@@ -15,7 +15,6 @@
 #
 
 from oslo_log import log as logging
-from requests import HTTPError
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
@@ -73,15 +72,7 @@ class VirtualAddress(object):
         if not model:
             model = self.model()
 
-        try:
-            va = self.virtual_address.create(
-                bigip,
-                model)
-        except HTTPError as err:
-            # If this object already exists
-            if err.response.status_code == 409:
-                LOG.debug("Virtual address already exists")
-                va = self.load(bigip)
+        va = self.virtual_address.create(bigip, model)
 
         return va
 
