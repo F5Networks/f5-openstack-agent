@@ -109,21 +109,8 @@ class ResourceManager(object):
 
     def _create(self, bigip, payload, resource, service, **kwargs):
         resource_helper = kwargs.get("helper", self.resource_helper)
-        resource_type = kwargs.get("type", self._resource)
         overwrite = kwargs.get("overwrite", True)
-        if resource_helper.exists(bigip, name=payload['name'],
-                                  partition=payload['partition']):
-            if overwrite:
-                LOG.debug("%s %s already exists ... updating",
-                          resource_type, payload['name'])
-                resource_helper.update(bigip, payload)
-            else:
-                LOG.debug("%s %s already exists, do not update.",
-                          resource_type, payload['name'])
-        else:
-            LOG.debug("%s %s does not exist ... creating",
-                      resource_type, payload['name'])
-            resource_helper.create(bigip, payload)
+        resource_helper.create(bigip, payload, overwrite=overwrite)
 
     def _update(self, bigip, payload, old_resource, resource, service,
                 **kwargs):

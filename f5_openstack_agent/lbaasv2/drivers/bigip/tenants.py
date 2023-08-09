@@ -74,18 +74,13 @@ class BigipTenantManager(object):
                 try:
                     self.system_helper.create_folder(bigip, folder)
                 except Exception as err:
-                    if isinstance(err, HTTPError) and \
-                            err.response.status_code == 409:
-                        LOG.info(
-                            "folder %s already exists, ignore." % folder_name)
-                    else:
-                        # XXX Maybe we can make this more specific?
-                        LOG.exception(
-                            "Error creating folder %s: %s" %
-                            (folder, err.message))
-                        raise f5ex.SystemCreationException(
-                            "Folder creation error for tenant %s" %
-                            (tenant_id))
+                    # XXX Maybe we can make this more specific?
+                    LOG.exception(
+                        "Error creating folder %s: %s" %
+                        (folder, err.message))
+                    raise f5ex.SystemCreationException(
+                        "Folder creation error for tenant %s" %
+                        (tenant_id))
 
     def assure_tenant_cleanup(self, service):
         """Delete tenant partition."""
