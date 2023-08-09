@@ -1366,3 +1366,23 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                               str(ex), listener, acl_bind, acl_group
                           ))
             raise ex
+
+    @log_helpers.log_method_call
+    def rebuild_loadbalancer(self, context, loadbalancer, service):
+        try:
+            LOG.info("Start to rebuild %s", loadbalancer)
+
+            LOG.debug(
+                "Call create_loadbalancer with service %s" % service
+            )
+
+            self.create_loadbalancer(context, loadbalancer, service)
+
+            LOG.info("Finish to rebuild %s", loadbalancer)
+        except Exception as ex:
+            # donot to update lb, it cause transcation race.
+            LOG.exception(
+                "Rebuild loadbalancer %s with Escaped Exception %s\n."
+                "The given service is %s."
+                % (loadbalancer, ex, service)
+            )
