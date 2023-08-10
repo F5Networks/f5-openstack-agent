@@ -81,7 +81,6 @@ class TestiControlDriverMockBuilder(mock_builder_base_class.MockBuilderBase,
         mocked_target.tenant_manager = None
         mocked_target.cluster_manager = None
         mocked_target.system_helper = Mock()
-        mocked_target.lbaas_builder = Mock()
         mocked_target.service_adapter = Mock()
         mocked_target.service_adapter.prefix = 'UNIT_TEST'
         mocked_target.vlan_binding = None

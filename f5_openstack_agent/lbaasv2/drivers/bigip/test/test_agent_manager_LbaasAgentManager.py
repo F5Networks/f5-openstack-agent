@@ -189,7 +189,6 @@ class TestLbaasAgentManager(TestLbaasAgentManagerBuilder):
             target.lbdriver = Mock()
             target.has_provisioning_status_of_error = Mock(return_value=True)
             target.lbdriver.service_exists.return_value = True
-            target.lbdriver.service_rename_required.return_value = False
             target.cache = Mock()
             target.agent_host = 'host'
 
