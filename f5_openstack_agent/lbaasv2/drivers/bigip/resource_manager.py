@@ -1288,6 +1288,18 @@ class ListenerManager(ResourceManager):
         policy.detach_from_vs()
         policy.delete()
 
+    def _get_tcp_options(self, ip_version):
+        if ip_version == 4:
+            return self.driver.conf.ipv4_tcp_options
+        else:
+            return self.driver.conf.ipv6_tcp_options
+
+    def _get_ip_version(self, loadbalancer):
+        ip_address = loadbalancer.get("vip_address", None)
+        pure_ip_address = ip_address.split("%")[0]
+        ip_version = netaddr.IPAddress(pure_ip_address).version
+        return ip_version
+
     def _create(self, bigip, vs, listener, service):
         tls = self.driver.service_adapter.get_tls(service)
         if tls:
@@ -1329,18 +1341,15 @@ class ListenerManager(ResourceManager):
         # fastL4 profile
         tcp_ip_enable = self.tcp_helper.enable_tcp(service)
         if tcp_ip_enable:
-            ip_address = loadbalancer.get("vip_address", None)
-            pure_ip_address = ip_address.split("%")[0]
-            ip_version = netaddr.IPAddress(pure_ip_address).version
-
+            ip_version = self._get_ip_version(loadbalancer)
             self.tcp_helper.add_profile(
                 service, vs, bigip,
                 side="server",
-                tcp_options=self.driver.conf.tcp_options
+                tcp_options=self._get_tcp_options(ip_version)
             )
             self.tcp_irule_helper.create_iRule(
                 service, vs, bigip,
-                tcp_options=self.driver.conf.tcp_options,
+                tcp_options=self._get_tcp_options(ip_version),
                 ip_version=ip_version
             )
 
@@ -1348,7 +1357,6 @@ class ListenerManager(ResourceManager):
         if keepalive_enable:
             self.tcp_helper.add_keepalive_tcp_profile(
                 service, vs, bigip,
-                tcp_options=self.driver.conf.tcp_options
             )
 
         super(ListenerManager, self)._create(bigip, vs, listener, service)
@@ -1414,24 +1422,24 @@ class ListenerManager(ResourceManager):
         tcp_ip_update = self.tcp_helper.need_update_tcp(old_listener, listener)
         if tcp_ip_update:
             loadbalancer = service.get('loadbalancer', dict())
-            ip_address = loadbalancer.get("vip_address", None)
-            pure_ip_address = ip_address.split("%")[0]
-            ip_version = netaddr.IPAddress(pure_ip_address).version
-
+            ip_version = self._get_ip_version(loadbalancer)
             self.tcp_helper.update_profile(
                 service, vs, bigip,
                 side="server",
-                tcp_options=self.driver.conf.tcp_options
+                tcp_options=self._get_tcp_options(ip_version)
             )
             self.tcp_irule_helper.update_iRule(
                 service, vs, bigip,
-                tcp_options=self.driver.conf.tcp_options,
+                tcp_options=self._get_tcp_options(ip_version),
                 ip_version=ip_version
             )
         if self.tcp_irule_helper.need_update_proxy(old_listener, listener):
+            loadbalancer = service.get('loadbalancer', dict())
+            ip_version = self._get_ip_version(loadbalancer)
             self.tcp_irule_helper.update_proxy_protocol_irule(
                 service, vs, bigip,
-                tcp_options=self.driver.conf.tcp_options,
+                tcp_options=self._get_tcp_options(ip_version),
+                ip_version=ip_version
             )
 
         # If no vs property to update, do not call icontrol patch api.
