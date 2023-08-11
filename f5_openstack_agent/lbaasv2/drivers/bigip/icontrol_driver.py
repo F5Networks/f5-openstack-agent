@@ -287,9 +287,14 @@ OPTS = [  # XXX maybe we should make this a dictionary
         "upper limit, which is predefined by the flavors 1-7."
     ),
     cfg.IntOpt(
-        'tcp_options',
+        'ipv4_tcp_options',
+        default=200,
+        help='Default ipv4 tcp Options value of server tcp profile'
+    ),
+    cfg.IntOpt(
+        'ipv6_tcp_options',
         default=254,
-        help='Default tcp Options value of server tcp profile'
+        help='Default ipv6 tcp Options value of server tcp profile'
     ),
     cfg.BoolOpt(
         'use_mgmt_ipv6',
