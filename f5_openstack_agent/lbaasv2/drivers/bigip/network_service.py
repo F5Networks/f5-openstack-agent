@@ -536,17 +536,21 @@ class NetworkServiceBuilder(object):
 
         members = service['members']
         for member in members:
-            member['network'] = service_adapter.get_network_from_service(
-                service, member['network_id'])
-            if member.get('provisioning_status', None) == \
-                    constants_v2.F5_PENDING_DELETE:
-                delete_members.append(member)
-            else:
-                update_members.append(member)
 
-        loadbalancer['network'] = service_adapter.get_network_from_service(
-            service,
-            loadbalancer['network_id']
+            mb_net = member.get('network_id')
+            if mb_net:
+                member['network'] = service_adapter.get_network_from_service(
+                    service, mb_net)
+                if member.get('provisioning_status', None) == \
+                        constants_v2.F5_PENDING_DELETE:
+                    delete_members.append(member)
+                else:
+                    update_members.append(member)
+
+        lb_net = loadbalancer.get('network_id')
+        if lb_net:
+            loadbalancer['network'] = service_adapter.get_network_from_service(
+                service, lb_net
             )
 
         if delete_loadbalancer or delete_members:
