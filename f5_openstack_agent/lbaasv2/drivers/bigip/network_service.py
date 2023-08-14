@@ -327,12 +327,16 @@ class NetworkServiceBuilder(object):
         bigips = service['bigips']
         device = service['device']
 
+        rd_id = None
+        rebuild = service.get("REBUILD", False)
+
         if 'vip_address' in service['loadbalancer']:
             if 'network_id' in loadbalancer:
                 lb_network = self.service_adapter.get_network_from_service(
                     service, loadbalancer['network_id'])
                 if loadbalancer["provisioning_status"] in [
-                        constants_v2.PENDING_DELETE, constants_v2.ERROR]:
+                        constants_v2.PENDING_DELETE, constants_v2.ERROR
+                ] and not rebuild:
                     self.assign_delete_route_domain(
                         tenant_id, lb_network, device)
                 else:
@@ -505,7 +509,7 @@ class NetworkServiceBuilder(object):
 
         # L2toL3 networking layer
         # Non Shared Config -  Local Per BIG-IP
-        self.update_bigip_l2(service)
+        # self.update_bigip_l2(service)
 
         # Delete shared config objects
         deleted_names = set()
@@ -541,18 +545,21 @@ class NetworkServiceBuilder(object):
 
         members = service['members']
         for member in members:
-            member['network'] = service_adapter.get_network_from_service(
-                service, member['network_id'])
+            mb_net = member.get('network_id')
+            if mb_net:
+                member['network'] = service_adapter.get_network_from_service(
+                    service, mb_net)
             if member.get('provisioning_status', None) == \
                     constants_v2.F5_PENDING_DELETE:
                 delete_members.append(member)
             else:
                 update_members.append(member)
 
+        lb_net = loadbalancer.get('network_id')
         loadbalancer['network'] = service_adapter.get_network_from_service(
             service,
-            loadbalancer['network_id']
-            )
+            lb_net
+        )
 
         if delete_loadbalancer or delete_members:
             self.l2_service.delete_fdb_entries(

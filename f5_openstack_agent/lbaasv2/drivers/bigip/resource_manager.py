@@ -349,7 +349,8 @@ class LoadBalancerManager(ResourceManager):
     def _post_create(self, service):
         # create fdb for vxlan tunnel
         if not self.driver.conf.f5_global_routed_mode:
-            self.driver.network_builder.update_bigip_l2(service)
+            pass
+            # self.driver.network_builder.update_bigip_l2(service)
 
     def _pre_create(self, service):
 
