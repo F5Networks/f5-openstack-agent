@@ -326,6 +326,7 @@ class NetworkServiceBuilder(object):
         loadbalancer = service['loadbalancer']
         bigips = service['bigips']
         device = service['device']
+        rd_id = None
 
         if 'vip_address' in service['loadbalancer']:
             if 'network_id' in loadbalancer:
