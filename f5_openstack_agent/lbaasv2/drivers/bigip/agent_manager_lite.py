@@ -1372,6 +1372,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to create_loadbalancer."""
         lb_id = loadbalancer['id']
         listeners = service.get("listeners", [])
+        service['REBUILD'] = True
 
         try:
             bigip_device.set_bigips(service, self.conf)
