@@ -1372,7 +1372,26 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to create_loadbalancer."""
         lb_id = loadbalancer['id']
         listeners = service.get("listeners", [])
+        pools = service.get('pools', [])
         members = service.get("members", [])
+
+        # For 'reuse the create code', the order of rebuild is important
+        # pool is needs by all resource when rebuild.
+        # The Pool rebuild is not dependent on any other process, except
+        # loadbalancer.
+        # Listener needs pool:
+        # 1. if a listener and its default pool are both absent,
+        #    the pool must rebuild first, since the listener rebuild
+        #    wil configure its default pool.
+        # 2. if a listener is absent, the default pool of listener
+        #    must exist.
+        # Member needs pool:
+        # 1. if member and pool are both absent, the pool must rebuild
+        #    first, since the member needs the pool eixsts for updating
+        #    the pool member in member create process.
+        # 2. if a member is absent, the pool must exist for updating
+        #    the pool member.
+        # Monitor is the same as the member.
 
         try:
             bigip_device.set_bigips(service, self.conf)
@@ -1380,6 +1399,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.LoadBalancerManager(self.lbdriver)
             mgr.create(loadbalancer, service)
             LOG.debug("Finish to create loadbalancer %s", lb_id)
+
+            for pl in pools:
+                pl_id = pl['id']
+                service['pool'] = pl
+
+                mgr = resource_manager.PoolManager(self.lbdriver)
+                mgr.create(pl, service)
+                LOG.debug("Finish to create pool %s", pl_id)
 
             for lstn in listeners:
                 ls_id = lstn['id']
