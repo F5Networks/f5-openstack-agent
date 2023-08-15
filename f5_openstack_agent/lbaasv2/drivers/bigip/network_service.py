@@ -350,10 +350,10 @@ class NetworkServiceBuilder(object):
 
         if 'members' in service:
             for member in service['members']:
-                if 'address' in member:
-                    if rd_id and not self._rd_exist(
-                        member['address']
-                    ):
+                if 'address' in member and not self._rd_exist(
+                    member['address']
+                ):
+                    if rd_id:
                         member['address'] += rd_id
                     else:
                         member['address'] += '%0'
