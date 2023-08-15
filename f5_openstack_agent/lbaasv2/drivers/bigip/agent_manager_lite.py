@@ -1374,6 +1374,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         listeners = service.get("listeners", [])
         pools = service.get('pools', [])
         members = service.get("members", [])
+        monitors = service.get("healthmonitors", [])
 
         # For 'reuse the create code', the order of rebuild is important
         # pool is needs by all resource when rebuild.
@@ -1423,6 +1424,15 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 mgr = resource_manager.MemberManager(self.lbdriver)
                 mgr.create(mb, service)
                 LOG.debug("Finish to create member %s", mb_id)
+
+            for mn in monitors:
+                mn_id = mn['id']
+                service["healthmonitor"] = mn
+
+                mgr = resource_manager.MonitorManager(
+                    self.lbdriver, type=mn['type'])
+                mgr.create(mn, service)
+                LOG.debug("Finish to create member %s", mn_id)
 
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
