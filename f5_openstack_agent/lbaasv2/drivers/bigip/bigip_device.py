@@ -3,6 +3,9 @@
 from f5.bigip import ManagementRoot
 from f5_openstack_agent.client.encrypt import decrypt_data
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
+    import retry_icontrol
+
 from oslo_log import log
 
 LOG = log.getLogger(__name__)
@@ -17,6 +20,7 @@ def set_bigips(service, conf):
     service['bigips'] = bigip_dev.get_all_bigips()
 
 
+@retry_icontrol
 def build_connection(host, info, token=False):
     LOG.info("Build connection for %s: %s" % (host, info))
     try:
@@ -39,13 +43,13 @@ def build_connection(host, info, token=False):
         bigip.assured_networks = {}
         bigip.assured_tenant_snat_subnets = {}
         bigip.assured_gateway_subnets = []
-    except Exception as exc:
+    except Exception:
         LOG.error(
             "Could not establish connection with device %s,"
             " the device info is %s."
             % (host, info)
         )
-        raise exc
+        raise
 
     return bigip
 
