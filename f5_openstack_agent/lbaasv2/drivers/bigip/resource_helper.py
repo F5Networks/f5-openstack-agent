@@ -95,7 +95,7 @@ def retry_icontrol(function):
                         continue
 
                 LOG.exception(ex)
-                raise ex
+                raise
 
     return retry
 
