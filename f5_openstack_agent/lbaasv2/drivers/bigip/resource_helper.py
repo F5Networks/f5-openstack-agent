@@ -119,7 +119,7 @@ class BigIPResourceHelper(object):
         self.resource_type = resource_type
 
     @retry_icontrol
-    def create(self, bigip, model):
+    def create(self, bigip, model, overwrite=False, ignore=[409]):
         u"""Create/update resource (e.g., pool) on a BIG-IP system.
 
         First checks to see if resource has been created and creates
@@ -130,9 +130,25 @@ class BigIPResourceHelper(object):
         include name and partition.
         :returns: created or updated resource object.
         """
+        name = model["name"]
+        par = model.get("partition", None)
         resource = self._resource(bigip)
-        obj = resource.create(**model)
-
+        try:
+            obj = resource.create(**model)
+        except HTTPError as ex:
+            if ex.response.status_code == 409 and overwrite:
+                if par:
+                    LOG.debug("Overwrite resource %s in partition %s",
+                              name, par)
+                else:
+                    LOG.debug("Overwrite resource %s", name)
+                self.update(bigip, model)
+                obj = self.load(bigip, name=name, partition=par)
+            elif ex.response.status_code in ignore:
+                LOG.debug("Ignore HTTP error: %s", ex.message)
+                obj = self.load(bigip, name=name, partition=par)
+            else:
+                raise
         return obj
 
     @retry_icontrol

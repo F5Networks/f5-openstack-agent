@@ -56,7 +56,7 @@ class LTMPolicy(object):
         if not payload:
             payload = self.default_payload(**kwargs)
         try:
-            self.policy_helper.create(bigip, payload)
+            self.policy_helper.create(bigip, payload, ignore=[])
         except HTTPError as ex:
             if ex.response.status_code == 409:
                 # Policy already exist. Overwrite it.

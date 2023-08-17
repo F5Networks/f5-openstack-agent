@@ -43,7 +43,7 @@ class L7PolicyService(object):
         error = None
         for bigip in bigips:
             try:
-                self.policy_helper.create(bigip, f5_l7policy)
+                self.policy_helper.create(bigip, f5_l7policy, ignore=[])
                 error = None
             except HTTPError as err:
                 status_code = err.response.status_code
@@ -136,7 +136,7 @@ class L7PolicyService(object):
         for bigip in bigips:
             for rule in irules:
                 try:
-                    self.rule_helper.create(bigip, rule)
+                    self.rule_helper.create(bigip, rule, ignore=[])
                 except HTTPError as err:
                     status_code = err.response.status_code
                     if status_code == 409:

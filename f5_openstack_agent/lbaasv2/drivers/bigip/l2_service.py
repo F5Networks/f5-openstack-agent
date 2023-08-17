@@ -267,14 +267,7 @@ class L2ServiceBuilder(object):
                      'description': network['id'],
                      'route_domain_id': network['route_domain_id']}
             self.network_helper.create_vlan(bigip, model)
-        except HTTPError as err:
-            if err.response.status_code == 409:
-                LOG.info("vlan %s already exists: %s, ignored.." % (
-                        vlan_name, err.message))
-            else:
-                raise
-        except Exception as err:
-            LOG.exception("%s", err.message)
+        except Exception:
             raise f5_ex.VLANCreationException(
                 "Failed to create vlan: %s" % vlan_name
             )
