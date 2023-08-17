@@ -1375,6 +1375,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         pools = service.get('pools', [])
         members = service.get("members", [])
         monitors = service.get("healthmonitors", [])
+        l7policies = service.get("l7policies", [])
 
         # For 'reuse the create code', the order of rebuild is important
         # pool is needs by all resource when rebuild.
@@ -1432,7 +1433,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 mgr = resource_manager.MonitorManager(
                     self.lbdriver, type=mn['type'])
                 mgr.create(mn, service)
-                LOG.debug("Finish to create member %s", mn_id)
+                LOG.debug("Finish to create monitor %s", mn_id)
+
+            # a l7policy contains l7rules, no need to rebuild l7rule.
+            for plc in l7policies:
+                plc_id = plc['id']
+                service["l7policy"] = plc
+
+                mgr = resource_manager.L7PolicyManager(self.lbdriver)
+                mgr.create(plc, service)
+                LOG.debug("Finish to create l7policy %s", plc_id)
 
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
