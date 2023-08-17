@@ -16,6 +16,7 @@
 
 from oslo_log import log as logging
 from requests import HTTPError
+from time import sleep
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -132,14 +133,28 @@ class BigipTenantManager(object):
             ResourceType.selfip,
             ResourceType.vlan
         ]
-        # Delete resource from BIG-IP, igore error.
+        # Delete resource from BIG-IP, do not igore error.
         for rtype in types:
             helper = BigIPResourceHelper(rtype)
             for r in helper.get_resources(bigip, partition):
-                try:
-                    r.delete()
-                except Exception as err:
-                    LOG.debug("Failed to delete resource: %s", err.message)
+                max_attempt = 3
+                interval = 1
+                attempt = 0
+                while attempt < max_attempt:
+                    attempt = attempt + 1
+                    try:
+                        r.delete()
+                    except HTTPError as ex:
+                        if ex.response.status_code == 401:
+                            LOG.debug("Attempt %s: %s", attempt, ex.message)
+                            if attempt < max_attempt:
+                                sleep(interval)
+                                continue
+                            LOG.exception(ex)
+                            raise
+                    except Exception as err:
+                        LOG.exception(err)
+                        raise
 
         LOG.info("Delete empty partition: %s" % partition)
         for domain_name in domain_names:
@@ -151,13 +166,15 @@ class BigipTenantManager(object):
                 LOG.debug("Failed to delete route domain %s. "
                           "%s. Manual intervention might be required."
                           % (domain_name, err.message))
+                raise
 
         try:
             self.system_helper.delete_folder(bigip, partition)
-        except Exception as err:
+        except Exception:
             LOG.debug(
                 "Folder deletion exception for tenant partition %s occurred. "
                 "Manual cleanup might be required." % (tenant_id))
+            raise
 
     def _partition_empty(self, bigip, partition):
         virtual_addresses = self.va_helper.get_resources(
