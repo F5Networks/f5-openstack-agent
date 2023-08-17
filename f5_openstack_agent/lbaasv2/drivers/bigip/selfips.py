@@ -70,22 +70,10 @@ class BigipSelfIpManager(object):
                         selfip.create(bigip, model)
                         created = True
                     except HTTPError as err:
-                        if err.response.status_code == 409:
-                            created = True
-                            LOG.info(
-                                "selfip %s already exists: %s, ignored.." % (
-                                    model['name'], err.message
-                                )
-                            )
-                        else:
-                            LOG.exception("After bind vlan to route domain. "
-                                          "Error creating selfip %s. " %
-                                          model["name"])
-                            raise f5_ex.SelfIPCreationException(err.messgae)
-                elif err.response.status_code == 409:
-                    created = True
-                    LOG.info("selfip %s already exists: %s, ignored.." % (
-                        model['name'], err.message))
+                        LOG.exception("After bind vlan to route domain. "
+                                      "Error creating selfip %s. " %
+                                      model["name"])
+                        raise f5_ex.SelfIPCreationException(err.messgae)
                 else:
                     LOG.error("selfip creation error message: %s" %
                               err.message)

@@ -97,11 +97,8 @@ class RouteHelper(object):
                     bigip, payload
                 )
             except Exception as err:
-                if err.response.status_code == 409:
-                    LOG.info("Route %s has existed.", payload)
-                else:
-                    LOG.error("Fail to create route %s", payload)
-                    raise err
+                LOG.error("Fail to create route %s", payload)
+                raise err
 
     def delete_route(self, bigip, name, partition):
         if name:
