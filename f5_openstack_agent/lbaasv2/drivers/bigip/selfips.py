@@ -420,7 +420,7 @@ class BigipSelfIpManager(object):
         """Delete the selfip if it exists."""
         try:
             s = SelfIP()
-            s.delete(name=name, partition=partition)
+            s.delete(bigip, name=name, partition=partition)
         except HTTPError as err:
             LOG.exception("Error deleting selfip %s. "
                           "Response status code: %s. Response "
