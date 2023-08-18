@@ -83,15 +83,6 @@ class RouteHelper(object):
 
     def create_route(self, bigip, payload):
         if payload:
-            partition = payload["partition"]
-            name = payload["name"]
-
-            exist = self.route_manager.exists(
-                bigip, partition=partition, name=name
-            )
-            if exist:
-                return
-
             try:
                 self.route_manager.create(
                     bigip, payload

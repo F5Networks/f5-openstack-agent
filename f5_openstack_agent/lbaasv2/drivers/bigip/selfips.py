@@ -27,10 +27,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
     import VirtualAddress
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
     import VirtualServer
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
-    import BigIPResourceHelper
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
-    import ResourceType
 from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 from requests import HTTPError
 
@@ -46,50 +42,40 @@ class BigipSelfIpManager(object):
         self.network_helper = NetworkHelper()
 
     def _create_bigip_selfip(self, bigip, model):
-        created = False
         selfip = SelfIP()
-        if selfip.exists(bigip, name=model['name'],
-                         partition=model['partition']):
-            created = True
-        else:
-            try:
-                selfip.create(bigip, model)
-                created = True
-            except HTTPError as err:
+        try:
+            selfip.create(bigip, model)
+        except HTTPError as err:
+            if (err.response.status_code == 400 and
+                err.response.text.find(
+                    "must be one of the vlans "
+                    "in the associated route domain") > 0):
+                try:
+                    rd_id = utils.vlan_to_rd_id(model['vlan'])
+                    self.network_helper.add_vlan_to_domain_by_id(
+                        bigip, model['vlan'], model['partition'], rd_id
+                    )
 
-                if (err.response.status_code == 400 and
-                    err.response.text.find(
-                        "must be one of the vlans "
-                        "in the associated route domain") > 0):
-                    try:
-                        rd_id = utils.vlan_to_rd_id(model['vlan'])
-                        self.network_helper.add_vlan_to_domain_by_id(
-                            bigip, model['vlan'], model['partition'], rd_id
-                        )
+                    selfip.create(bigip, model)
+                except HTTPError as err:
+                    LOG.exception("After bind vlan to route domain. "
+                                  "Error creating selfip %s. " %
+                                  model["name"])
+                    raise f5_ex.SelfIPCreationException(err.messgae)
+            else:
+                LOG.error("selfip creation error message: %s" %
+                          err.message)
+                LOG.error("selfip creation error status: %s" %
+                          err.response.status_code)
+                LOG.error("selfip creation error text: %s" %
+                          err.response.text)
+                raise
+        except Exception as err:
+            LOG.error("Failed to create selfip")
+            LOG.exception(err.message)
+            raise f5_ex.SelfIPCreationException("selfip creation")
 
-                        selfip.create(bigip, model)
-                        created = True
-                    except HTTPError as err:
-                        LOG.exception("After bind vlan to route domain. "
-                                      "Error creating selfip %s. " %
-                                      model["name"])
-                        raise f5_ex.SelfIPCreationException(err.messgae)
-                else:
-                    LOG.error("selfip creation error message: %s" %
-                              err.message)
-                    LOG.error("selfip creation error status: %s" %
-                              err.response.status_code)
-                    LOG.error("selfip creation error text: %s" %
-                              err.response.text)
-                    raise
-            except Exception as err:
-                LOG.error("Failed to create selfip")
-                LOG.exception(err.message)
-                raise f5_ex.SelfIPCreationException("selfip creation")
-
-        return created
-
-    def assure_bigip_selfip(self, bigip, service, subnetinfo):
+    def assure_bigip_selfip(self, bigip, service, subnetinfo, vlan_mac):
         u"""Ensure the BigIP has a selfip address on the tenant subnet."""
 
         network = None
@@ -115,10 +101,7 @@ class BigipSelfIpManager(object):
                 subnet['id'] in bigip.assured_tenant_snat_subnets[tenant_id]:
             return True
 
-        vlan_helper = BigIPResourceHelper(ResourceType.vlan)
         device = service['device']
-        vlan_mac = utils.get_vlan_mac(
-            vlan_helper, bigip, network, device)
         # llinfo is a list of dict type
         llinfo = device['device_info'].get('local_link_information', None)
 
@@ -255,8 +238,7 @@ class BigipSelfIpManager(object):
             'partition': network_folder
         }
 
-        if not self._create_bigip_selfip(bigip, model):
-            LOG.error("failed to create gateway selfip")
+        self._create_bigip_selfip(bigip, model)
 
         if self.l3_binding:
             self.l3_binding.bind_address(subnet_id=subnet['id'],

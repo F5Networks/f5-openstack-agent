@@ -117,7 +117,7 @@ class BigIPResourceHelper(object):
         self.resource_type = resource_type
 
     @retry_icontrol
-    def create(self, bigip, model, overwrite=False, ignore=[409]):
+    def create(self, bigip, model, ret=False, overwrite=False, ignore=[409]):
         u"""Create/update resource (e.g., pool) on a BIG-IP system.
 
         First checks to see if resource has been created and creates
@@ -126,11 +126,20 @@ class BigIPResourceHelper(object):
         :param bigip: BigIP instance to use for creating resource.
         :param model: Dictionary of BIG-IP attributes to add resource. Must
         include name and partition.
+        :param ret: Guarantee to return created or updated resource object.
+        Usually the caller might not need the return value. When ret is False,
+        it will skip a loading step, when conflicting with existing resource
+        on BIG-IP, in order to optimize performance. Default value is False.
+        :param overwrite: Whether or not to overwrite existing resource object
+        on BIG-IP. Default value is False.
+        :param ignore: A list of HTTP error code to ignore. Default value
+        is [409].
         :returns: created or updated resource object.
         """
         name = model["name"]
         par = model.get("partition", None)
         resource = self._resource(bigip)
+        obj = None
         try:
             obj = resource.create(**model)
         except HTTPError as ex:
@@ -138,15 +147,17 @@ class BigIPResourceHelper(object):
                 raise
             elif ex.response.status_code == 409 and overwrite:
                 if par:
-                    LOG.debug("Overwrite resource %s in partition %s",
-                              name, par)
+                    LOG.debug("Overwrite resource(type=%s) %s "
+                              "in partition %s",
+                              self.resource_type, name, par)
                 else:
-                    LOG.debug("Overwrite resource %s", name)
-                self.update(bigip, model)
-                obj = self.load(bigip, name=name, partition=par)
+                    LOG.debug("Overwrite resource(type=%s) %s",
+                              self.resource_type, name)
+                obj = self.update(bigip, model)
             elif ex.response.status_code in ignore:
                 LOG.debug("Ignore HTTP error: %s", ex.message)
-                obj = self.load(bigip, name=name, partition=par)
+                if ret:
+                    obj = self.load(bigip, name=name, partition=par)
             else:
                 LOG.exception(ex)
                 raise
@@ -466,9 +477,15 @@ class BigIPResourceHelper(object):
         collected_stats = {}
 
         # get resource, then its stats
-        if self.exists(bigip, name=name, partition=partition):
+        try:
             resource = self.load(bigip, name=name, partition=partition)
-            collected_stats = self.collect_stats(resource, stat_keys)
+        except HTTPError as ex:
+            if ex.response.status_code == 404:
+                return collected_stats
+            else:
+                raise
+
+        collected_stats = self.collect_stats(resource, stat_keys)
 
         return collected_stats
 

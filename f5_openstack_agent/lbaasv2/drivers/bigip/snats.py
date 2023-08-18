@@ -51,18 +51,8 @@ class BigipSnatManager(object):
             "members": members
         }
         try:
-            exist = self.snatpool_manager.exists(
-                bigip, name=snat_pool_model["name"],
-                partition=snat_pool_model["partition"]
-            )
-
-            if not exist:
-                self.snatpool_manager.create(
-                    bigip,
-                    snat_pool_model
-                )
-        except Exception as err:
-            LOG.exception(err)
+            self.snatpool_manager.create(bigip, snat_pool_model)
+        except Exception:
             raise f5_ex.SNATCreationException(
                 "Error creating snat pool: %s" %
                 snat_info)
