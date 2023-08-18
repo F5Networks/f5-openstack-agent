@@ -38,9 +38,7 @@ class iRuleHelper(object):
             scan [getfield [IP::client_addr] "%%" 1] {%%d.%%d.%%d.%%d} a b c d
             set port [TCP::client_port]
             TCP::option set %s [binary format Scccc $port $a $b $c $d] all
-            set string "$port $a$b$c$d"
-            log local0. "IPv4 set to tcp option %s $string"
-          }""" % (tcp_options, tcp_options)
+          }""" % tcp_options
 
         return template
 
@@ -52,9 +50,6 @@ class iRuleHelper(object):
             set client_port [TCP::client_port]
             TCP::option set %s \
 [binary format SH* $client_port [call expand_ipv6_addr [IP::client_addr]]] all
-            set string \
-[format %%04x $client_port][call expand_ipv6_addr [IP::client_addr]]
-            log local0. "IPv6 set to tcp option %s $string"
           }
           proc expand_ipv6_addr { addr } {
               if { [catch {
@@ -93,7 +88,7 @@ class iRuleHelper(object):
               }
               return "$addr"
           }
-          """ % (tcp_options, tcp_options)
+          """ % tcp_options
 
         return template
 
