@@ -102,6 +102,7 @@ class FakeRPCPlugin(object):
 
     @track_call
     def create_port_on_subnet(self,
+                              context=None,
                               subnet_id=None,
                               mac_address=None,
                               name=None,
@@ -120,7 +121,7 @@ class FakeRPCPlugin(object):
         if fixed_address_count != 1:
             raise InvalidArgumentError
         if vnic_type != "baremetal":
-            raise InvalideArgumentError
+            raise InvalidArgumentError
 
         ip_address = next(self._subnets[subnet_id])
 

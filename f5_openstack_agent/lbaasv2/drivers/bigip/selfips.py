@@ -89,7 +89,7 @@ class BigipSelfIpManager(object):
 
         return created
 
-    def assure_bigip_selfip(self, bigip, service, subnetinfo):
+    def assure_bigip_selfip(self, context, bigip, service, subnetinfo):
         u"""Ensure the BigIP has a selfip address on the tenant subnet."""
 
         network = None
@@ -134,6 +134,7 @@ class BigipSelfIpManager(object):
         }
 
         selfip_address = self._get_bigip_selfip_address(
+            context,
             bigip, subnet, lb_id, binding_profile)
         if 'route_domain_id' not in network:
             LOG.error("network route domain is not set")
@@ -170,7 +171,7 @@ class BigipSelfIpManager(object):
                                          ip_address=selfip_address)
 
     def _get_bigip_selfip_address(
-            self, bigip, subnet, lb_id, binding_profile
+            self, context, bigip, subnet, lb_id, binding_profile
     ):
         u"""Ensure a selfip address is allocated on Neutron network."""
         # Get ip address for selfip to use on BIG-IP.
@@ -195,6 +196,7 @@ class BigipSelfIpManager(object):
             LOG.info(host_passed)
 
             port = self.driver.plugin_rpc.create_port_on_subnet(
+                context=context,
                 subnet_id=subnet['id'],
                 name=selfip_name,
                 fixed_address_count=1,
