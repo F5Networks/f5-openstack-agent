@@ -5,6 +5,25 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.5.1 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2860] TOA tcp option setting for IPv4 and IPv6 separately and add port number.
+* [OPENSTACK-2860] Remove TOA irule log.
+
+Bug Fixes
+`````````
+* [OPENSTACK-2861] Fix to delete selfip
+* [OPENSTACK-2847] Retry 401 when initialize bigip connection
+* [OPENSTACK-2847] Retry 401 when cleanup partition
+* [OPENSTACK-2859] Ignore icontrol 409 by default when creating resource
+
+Limitations
+```````````
+
 v9.10.5 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
