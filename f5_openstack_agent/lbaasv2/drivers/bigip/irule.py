@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import netaddr
-
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from oslo_log import log as logging
 
@@ -38,10 +36,9 @@ class iRuleHelper(object):
     def create_v4_iRule_content(tcp_options):
         template = """when SERVER_INIT {
             scan [getfield [IP::client_addr] "%%" 1] {%%d.%%d.%%d.%%d} a b c d
-            TCP::option set %s [binary format cccc $a $b $c $d] all
-            set string "[TCP::client_port] $a$b$c$d"
-            log local0. "IPv4 set to tcp option %s $string"
-          }""" % (tcp_options, tcp_options)
+            set port [TCP::client_port]
+            TCP::option set %s [binary format Scccc $port $a $b $c $d] all
+          }""" % tcp_options
 
         return template
 
@@ -50,11 +47,9 @@ class iRuleHelper(object):
         template =\
           """
           when SERVER_INIT {
+            set client_port [TCP::client_port]
             TCP::option set %s \
-[binary format H* [call expand_ipv6_addr [IP::client_addr]]] all
-            set string \
-[format %%04x [TCP::client_port]][call expand_ipv6_addr [IP::client_addr]]
-            log local0. "IPv6 set to tcp option %s $string"
+[binary format SH* $client_port [call expand_ipv6_addr [IP::client_addr]]] all
           }
           proc expand_ipv6_addr { addr } {
               if { [catch {
@@ -93,7 +88,7 @@ class iRuleHelper(object):
               }
               return "$addr"
           }
-          """ % (tcp_options, tcp_options)
+          """ % tcp_options
 
         return template
 
@@ -280,6 +275,7 @@ when SERVER_CONNECTED {
 
     def update_proxy_protocol_irule(self, service, vip, bigip, **kwargs):
         tcp_options = kwargs.get("tcp_options")
+        ip_version = kwargs.get("ip_version")
         new_listener = service.get("listener")
         proxy_protocol = new_listener.get("proxy_protocol")
         irule_partition = vip['partition']
@@ -294,11 +290,6 @@ when SERVER_CONNECTED {
             LOG.info("Update proxy protocol iRule: {} for BIGIP: {}"
                      .format(irule_fullPath, bigip.hostname))
         else:
-            loadbalancer = service.get('loadbalancer', dict())
-            ip_address = loadbalancer.get("vip_address", None)
-            pure_ip_address = ip_address.split("%")[0]
-            ip_version = netaddr.IPAddress(pure_ip_address).version
-
             if ip_version == 4:
                 irule_apiAnonymous = self.create_v4_iRule_content(
                     tcp_options)
