@@ -21,9 +21,6 @@ from time import time
 
 from oslo_log import log as logging
 
-from f5_openstack_agent.lbaasv2.drivers.bigip.confd import F5OSClient
-from f5_openstack_agent.lbaasv2.drivers.bigip.confd import LAG
-from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Tenant
 from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Vlan
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.fdb_connector_ml2 \
@@ -86,67 +83,6 @@ class L2ServiceBuilder(object):
 
         if not f5_global_routed_mode:
             self.fdb_connector = FDBConnectorML2(self.conf)
-
-    def initialize_f5os_client(self):
-        '''Intialize the F5OS client when the driver is ready.'''
-        confds = []
-        bigips = []
-        if self.conf.icontrol_hostname:
-            bigips = self.conf.icontrol_hostname.split(',')
-        if self.conf.confd_hostname:
-            confds = self.conf.confd_hostname.split(',')
-        port = self.conf.confd_port
-        user = self.conf.confd_username
-        password = self.conf.confd_password
-
-        self.f5os_client = {}
-        self.ve_tenant = {}
-        self.lag = {}
-        if len(confds) <= 0:
-            return
-
-        i = 0
-        while i < len(bigips):
-            bigip = bigips[i]
-            f5os_client = F5OSClient(
-                host=confds[i],
-                port=port,
-                user=user,
-                password=password
-            )
-            self.f5os_client[bigip] = f5os_client
-            i = i + 1
-
-            # Identify the ve tenant name of BIG-IP
-            if self.conf.ve_tenant:
-                ve_tenant = self.conf.ve_tenant
-            else:
-                ve_tenants = Tenant(f5os_client).loadCollection()
-                if len(ve_tenants) == 0:
-                    raise Exception("No VE tenant")
-                else:
-                    ve_tenant = ""
-                    for ve in ve_tenants:
-                        if ve['config']['mgmt-ip'] == bigip:
-                            ve_tenant = ve['name']
-                    if not ve_tenant:
-                        raise Exception("VE tenant is not specified")
-
-            self.ve_tenant[bigip] = Tenant(f5os_client, name=ve_tenant)
-
-            # If no specified lag interface, assume only one lag.
-            if self.conf.lag_interface:
-                lag_interface = self.conf.lag_interface
-            else:
-                lags = LAG(f5os_client).loadCollection()
-                if len(lags) == 1:
-                    lag_interface = lags[0]['name']
-                elif len(ve_tenants) == 0:
-                    raise Exception("No LAG interface")
-                else:
-                    raise Exception("LAG interface is not specified")
-
-            self.lag[bigip] = LAG(f5os_client, name=lag_interface)
 
     def tunnel_sync(self, tunnel_ips):
         if self.fdb_connector:
@@ -297,34 +233,19 @@ class L2ServiceBuilder(object):
     def _assure_device_network_vlan(self, network, bigip, network_folder,
                                     device):
         # TODO(nik) to check this function
-        if self.f5os_client:
-            # todo should it be here
+        if bigip.f5os_client:
             vlan_name = ""
-            interface = self.interface_mapping['default']
-            tagged = self.tagging_mapping['default']
+            interface = None
 
-            # Do we have host specific mappings?
-            net_key = network['provider:physical_network']
-            if net_key and net_key + ':' + bigip.hostname in \
-                    self.interface_mapping:
-                interface = self.interface_mapping[
-                    net_key + ':' + bigip.hostname]
-                tagged = self.tagging_mapping[
-                    net_key + ':' + bigip.hostname]
-            # Do we have a mapping for this network
-            elif net_key and net_key in self.interface_mapping:
-                interface = self.interface_mapping[net_key]
-                tagged = self.tagging_mapping[net_key]
-
-            if tagged:
+            if network.get('provider:segmentation_id'):
                 vlanid = network['provider:segmentation_id']
             else:
                 vlanid = 0
+            # TODO(nik) to decide this part
+            # vlan_name = self.get_vlan_name(network, bigip.hostname)
+            vlan_name = "vlan-%d" % (vlanid)
 
-            vlan_name = self.get_vlan_name(network, bigip.hostname)
-
-            self._assure_f5os_vlan_network(vlanid, vlan_name)
-            interface = None
+            self._assure_f5os_vlan_network(vlanid, vlan_name, bigip)
             # If vlan is not in tenant partition, need to wait for F5OS to sync
             # it to /Common, delete it and then create it in tenant partition.
             interval = 1
@@ -355,7 +276,6 @@ class L2ServiceBuilder(object):
                         LOG.error("Vlan %s isn't synced from F5OS", vlan_name)
                         raise ex
         else:
-            # todo should it be here?
             # Ensure bigip has configured tagged vlan
             # VLAN names are limited to 64 characters including
             # the folder name, so we name them foolish things.
@@ -466,14 +386,14 @@ class L2ServiceBuilder(object):
 
         return tunnel_name
 
-    def _assure_f5os_vlan_network(self, vlan_id, vlan_name):
-        if not self.f5os_client:
+    def _assure_f5os_vlan_network(self, vlan_id, vlan_name, bigip):
+        if not bigip.f5os_client or not bigip.lag or not bigip.ve_tenant:
             return
 
-        vlan = Vlan(self.f5os_client)
+        vlan = Vlan(bigip.f5os_client)
         vlan.create(vlan_id, vlan_name)
-        self.lag.associateVlan(vlan_id)
-        self.ve_tenant.associateVlan(vlan_id)
+        bigip.lag.associateVlan(vlan_id)
+        bigip.ve_tenant.associateVlan(vlan_id)
 
     def delete_bigip_network(self, bigip, network, device):
         # Delete network on bigip
@@ -529,10 +449,9 @@ class L2ServiceBuilder(object):
                 vlan_name,
                 partition=network_folder
             )
-            # TODO to check this part.
             # Delete vlan in F5OS after deleting it in BIGIP
             vlan_id = network["provider:segmentation_id"]
-            self._delete_f5os_vlan_network(vlan_id)
+            self._delete_f5os_vlan_network(vlan_id, bigip)
         except HTTPError as err:
             if err.response.status_code == 404:
                 LOG.info("vlan %s is not exist: %s, ignored.." % (
@@ -611,27 +530,27 @@ class L2ServiceBuilder(object):
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_removed(network, bigip.local_ip)
 
-    def _delete_f5os_vlan_network(self, vlan_id):
+    def _delete_f5os_vlan_network(self, vlan_id, bigip):
         '''Disassociated VLAN with Tenant, then delete it from F5OS
 
         :param vlan_id: -- id of vlan
         '''
 
-        if not self.f5os_client:
+        if not bigip.f5os_client or not bigip.ve_tenant or not bigip.lag:
             return
 
         LOG.debug("disassociating vlan %d with Tenant", vlan_id)
-        self.ve_tenant.dissociateVlan(vlan_id)
+        bigip.ve_tenant.dissociateVlan(vlan_id)
 
         LOG.debug("disassociating vlan %d with lag", vlan_id)
-        self.lag.dissociateVlan(vlan_id)
+        bigip.lag.dissociateVlan(vlan_id)
 
         LOG.debug("deleting vlan %d", vlan_id)
         # F5OS API may return 400, if deleting vlan immediately after
         # dissociating vlan from tenant or lag
         interval = 1
         max_retries = 15
-        vlan = Vlan(self.f5os_client, vlan_id)
+        vlan = Vlan(bigip.f5os_client, vlan_id)
         while max_retries > 0:
             try:
                 vlan.delete()
