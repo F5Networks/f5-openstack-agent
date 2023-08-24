@@ -1281,13 +1281,14 @@ class ListenerManager(ResourceManager):
             if old_proto != new_proto or old_port != new_port:
                 self._create_redirect_policy(bigip, vs, listener)
 
-    def _delete_redirect_policy(self, bigip, vs):
+    def _delete_redirect_policy(self, bigip, vs, detach=True):
         policy = LTMPolicyRedirect(
             bigip=bigip,
             partition=vs['partition'],
             vs_name=vs['name']
         )
-        policy.detach_from_vs()
+        if detach:
+            policy.detach_from_vs()
         policy.delete()
 
     def _get_tcp_options(self, ip_version):
@@ -1486,7 +1487,7 @@ class ListenerManager(ResourceManager):
         self._delete_persist_profile(bigip, vs)
         self._delete_ssl_profiles(bigip, vs, service)
         self._delete_extended_profiles(bigip, listener, vs)
-        self._delete_redirect_policy(bigip, vs)
+        self._delete_redirect_policy(bigip, vs, detach=False)
         ftp_enable = self.ftp_helper.enable_ftp(service)
         if ftp_enable:
             self.ftp_helper.remove_profile(service, vs, bigip)
