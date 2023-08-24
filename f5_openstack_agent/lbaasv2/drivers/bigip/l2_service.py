@@ -16,10 +16,12 @@
 
 import random
 from requests import HTTPError
+from time import sleep
 from time import time
 
 from oslo_log import log as logging
 
+from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Vlan
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.fdb_connector_ml2 \
     import FDBConnectorML2
@@ -230,15 +232,11 @@ class L2ServiceBuilder(object):
 
     def _assure_device_network_vlan(self, network, bigip, network_folder,
                                     device):
-        # Ensure bigip has configured tagged vlan
-        # VLAN names are limited to 64 characters including
-        # the folder name, so we name them foolish things.
-        vlan_name = ""
+        interface = None
         interface_mapping = device['bigip'][bigip.hostname][
             'device_info']['external_physical_mappings']
-
         LOG.info(
-            "Create vlan network base on mapping %s." %
+            "Create vlan network based on mapping %s." %
             interface_mapping
         )
 
@@ -251,6 +249,10 @@ class L2ServiceBuilder(object):
             (interface, network, interface_mapping)
         )
 
+        # Ensure bigip has configured tagged vlan
+        # VLAN names are limited to 64 characters including
+        # the folder name, so we name them foolish things.
+        vlan_name = ""
         vtep_node_ip = f5_utils.get_node_vtep(device)
         LOG.info(
             "Get vtep_node_ip %s." % vtep_node_ip
@@ -258,7 +260,41 @@ class L2ServiceBuilder(object):
 
         vlanid = f5_utils.get_vtep_vlan(network, vtep_node_ip)
         vlan_name = self.get_vlan_name(
-            network, interface_mapping, vtep_node_ip)
+            network, interface_mapping, vtep_node_ip
+        )
+
+        if bigip.f5os_client:
+            self._assure_f5os_vlan_network(vlanid, vlan_name, bigip)
+            # If vlan is not in tenant partition, need to wait for F5OS to sync
+            # it to /Common, delete it and then create it in tenant partition.
+            interval = 1
+            max_retries = 15
+            while max_retries > 0:
+                try:
+                    self.network_helper.get_vlan_id(bigip, vlan_name,
+                                                    network_folder)
+                    break
+                except HTTPError as ex:
+                    if ex.response.status_code != 404:
+                        raise ex
+
+                try:
+                    self.network_helper.get_vlan_id(bigip, vlan_name)
+                    self.network_helper.delete_vlan(bigip, vlan_name)
+                    break
+                except HTTPError as ex:
+                    if ex.response.status_code == 404:
+                        LOG.debug("Vlan %s hasn't been synced from F5OS",
+                                  vlan_name)
+                        max_retries = max_retries - 1
+                        if max_retries == 0:
+                            raise ex
+                        sleep(interval)
+                        continue
+                    else:
+                        LOG.error("Vlan %s isn't synced from F5OS", vlan_name)
+                        raise ex
+
         try:
             model = {'name': vlan_name,
                      'interface': interface,
@@ -339,6 +375,15 @@ class L2ServiceBuilder(object):
 
         return tunnel_name
 
+    def _assure_f5os_vlan_network(self, vlan_id, vlan_name, bigip):
+        if not bigip.f5os_client or not bigip.lag or not bigip.ve_tenant:
+            return
+
+        vlan = Vlan(bigip.f5os_client)
+        vlan.create(vlan_id, vlan_name)
+        bigip.lag.associateVlan(vlan_id)
+        bigip.ve_tenant.associateVlan(vlan_id)
+
     def delete_bigip_network(self, bigip, network, device):
         # Delete network on bigip
         if network['id'] in self.conf.common_network_ids:
@@ -393,12 +438,17 @@ class L2ServiceBuilder(object):
                 vlan_name,
                 partition=network_folder
             )
+            # Delete vlan in F5OS after deleting it in BIGIP
+            vlan_id = network["provider:segmentation_id"]
+            self._delete_f5os_vlan_network(vlan_id, bigip)
         except HTTPError as err:
             if err.response.status_code == 404:
                 LOG.info("vlan %s is not exist: %s, ignored.." % (
                         vlan_name, err.message))
-            else:
-                raise err
+        except Exception as err:
+            LOG.exception(err)
+            LOG.error(
+                "Failed to delete vlan: %s" % vlan_name)
 
     def _delete_device_flat(self, bigip, network, network_folder,
                             device):
@@ -468,6 +518,43 @@ class L2ServiceBuilder(object):
 
         if self.fdb_connector:
             self.fdb_connector.notify_vtep_removed(network, bigip.local_ip)
+
+    def _delete_f5os_vlan_network(self, vlan_id, bigip):
+        '''Disassociated VLAN with Tenant, then delete it from F5OS
+
+        :param vlan_id: -- id of vlan
+        '''
+
+        if not bigip.f5os_client or not bigip.ve_tenant or not bigip.lag:
+            return
+
+        LOG.debug("disassociating vlan %d with Tenant", vlan_id)
+        bigip.ve_tenant.dissociateVlan(vlan_id)
+
+        LOG.debug("disassociating vlan %d with lag", vlan_id)
+        bigip.lag.dissociateVlan(vlan_id)
+
+        LOG.debug("deleting vlan %d", vlan_id)
+        # F5OS API may return 400, if deleting vlan immediately after
+        # dissociating vlan from tenant or lag
+        interval = 1
+        max_retries = 15
+        vlan = Vlan(bigip.f5os_client, vlan_id)
+        while max_retries > 0:
+            try:
+                vlan.delete()
+                break
+            except HTTPError as ex:
+                if ex.response.status_code == 400:
+                    LOG.debug("Deleting vlan in F5OS: %s", ex.message)
+                    max_retries = max_retries - 1
+                    if max_retries == 0:
+                        raise ex
+                    sleep(interval)
+                    continue
+                else:
+                    LOG.debug("Fail to delete vlan in F5OS: %s", ex.message)
+                    raise ex
 
     def add_bigip_fdb(self, bigip, fdb):
         # Add entries from the fdb relevant to the bigip

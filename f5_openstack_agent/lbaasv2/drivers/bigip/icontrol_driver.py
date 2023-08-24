@@ -14,9 +14,12 @@
 # limitations under the License.
 #
 
+import base64
+import hashlib
 import json
 import os
 
+from cryptography.fernet import Fernet
 from time import strftime
 
 from oslo_config import cfg
@@ -378,7 +381,6 @@ class iControlDriver(LBaaSBaseDriver):
             resource_helper.ResourceType.pool)
 
         try:
-
             # debug logging of service requests recieved by driver
             if self.conf.trace_service_requests:
                 path = '/var/log/neutron/service/'
@@ -1005,3 +1007,15 @@ class iControlDriver(LBaaSBaseDriver):
 
         # if all else fails
         return '/etc/neutron/services/f5'
+
+
+# Decrypt device password
+
+def generate_key(key):
+    h = hashlib.md5(key.encode()).hexdigest()
+    return base64.urlsafe_b64encode(h.encode())
+
+
+def decrypt_data(key, data):
+    f = Fernet(generate_key(key))
+    return f.decrypt(data.encode()).decode()
