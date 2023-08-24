@@ -440,16 +440,24 @@ class NetworkHelper(object):
         if not name:
             return None
         v = Vlan()
-        if v.exists(bigip, name=name, partition=partition):
-            obj = v.load(bigip, name=name, partition=partition)
-        else:
-            payload = {'name': name,
-                       'partition': partition,
-                       'tag': tag}
 
-            if description:
-                payload['description'] = description
-            obj = v.create(bigip, payload)
+        payload = {'name': name,
+                   'partition': partition,
+                   'tag': tag}
+
+        if description:
+            payload['description'] = description
+
+        vlan_exists = False
+        try:
+            obj = v.create(bigip, payload, ignore=[])
+        except HTTPError as ex:
+            if ex.response.status_code == 409:
+                vlan_exists = True
+            else:
+                raise
+
+        if not vlan_exists:
             interface = model.get('interface', None)
             if interface:
                 payload = {'name': interface}
@@ -469,7 +477,6 @@ class NetworkHelper(object):
             if not partition == const.DEFAULT_PARTITION:
                 self.add_vlan_to_domain_by_id(bigip, name, partition,
                                               route_domain_id)
-        return obj
 
     @log_helpers.log_method_call
     def delete_vlan(
