@@ -308,14 +308,15 @@ class NetworkHelper(object):
             name += '_aux_' + str(rd_id)
         payload = NetworkHelper.route_domain_defaults
         payload['name'] = name
-        payload['partition'] = '/' + partition
+        payload['partition'] = partition
         payload['id'] = rd_id
 
         if strictness:
             payload['strict'] = 'enabled'
         else:
             payload['parent'] = '/' + const.DEFAULT_PARTITION + '/0'
-        return rd.create(bigip, payload)
+
+        rd.create(bigip, payload)
 
     @log_helpers.log_method_call
     def delete_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
