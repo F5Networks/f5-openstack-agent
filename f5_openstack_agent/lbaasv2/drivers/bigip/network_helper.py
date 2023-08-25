@@ -308,14 +308,15 @@ class NetworkHelper(object):
             name += '_aux_' + str(rd_id)
         payload = NetworkHelper.route_domain_defaults
         payload['name'] = name
-        payload['partition'] = '/' + partition
+        payload['partition'] = partition
         payload['id'] = rd_id
 
         if strictness:
             payload['strict'] = 'enabled'
         else:
             payload['parent'] = '/' + const.DEFAULT_PARTITION + '/0'
-        return rd.create(bigip, payload)
+
+        rd.create(bigip, payload)
 
     @log_helpers.log_method_call
     def delete_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
@@ -440,16 +441,24 @@ class NetworkHelper(object):
         if not name:
             return None
         v = Vlan()
-        if v.exists(bigip, name=name, partition=partition):
-            obj = v.load(bigip, name=name, partition=partition)
-        else:
-            payload = {'name': name,
-                       'partition': partition,
-                       'tag': tag}
 
-            if description:
-                payload['description'] = description
-            obj = v.create(bigip, payload)
+        payload = {'name': name,
+                   'partition': partition,
+                   'tag': tag}
+
+        if description:
+            payload['description'] = description
+
+        vlan_exists = False
+        try:
+            obj = v.create(bigip, payload, ignore=[])
+        except HTTPError as ex:
+            if ex.response.status_code == 409:
+                vlan_exists = True
+            else:
+                raise
+
+        if not vlan_exists:
             interface = model.get('interface', None)
             if interface:
                 payload = {'name': interface}
@@ -469,7 +478,6 @@ class NetworkHelper(object):
             if not partition == const.DEFAULT_PARTITION:
                 self.add_vlan_to_domain_by_id(bigip, name, partition,
                                               route_domain_id)
-        return obj
 
     @log_helpers.log_method_call
     def delete_vlan(
