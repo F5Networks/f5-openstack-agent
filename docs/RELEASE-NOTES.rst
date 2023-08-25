@@ -20,6 +20,9 @@ Bug Fixes
 * [OPENSTACK-2847] Retry 401 when initialize bigip connection
 * [OPENSTACK-2847] Retry 401 when cleanup partition
 * [OPENSTACK-2859] Ignore icontrol 409 by default when creating resource
+* [OPENSTACK-2867] Fix creating route domain racing problem
+* [OPENSTACK-2867] Needn't to detach redirect policy after removing vs
+* [OPENSTACK-2867] Fix creating vlan racing problem
 
 Limitations
 ```````````
