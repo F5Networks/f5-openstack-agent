@@ -184,9 +184,20 @@ class BigIPResourceHelper(object):
         :param partition: Partition name for resou
         """
         resource = self._resource(bigip)
-        if resource.exists(name=name, partition=partition):
+        try:
             obj = resource.load(name=name, partition=partition)
             obj.delete()
+        except HTTPError as ex:
+            if ex.response.status_code == 401:
+                raise
+            elif ex.response.status_code == 404:
+                LOG.debug("Ignore HTTP error: %s", ex.message)
+            else:
+                LOG.exception(ex)
+                raise
+        except Exception as ex:
+            LOG.exception(ex)
+            raise
 
     @retry_icontrol
     def load(self, bigip, name=None, partition=None,
