@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from f5.bigip import ManagementRoot
-from f5_openstack_agent.client.encrypt import decrypt_data
 from f5_openstack_agent.lbaasv2.drivers.bigip.confd import F5OSClient
 from f5_openstack_agent.lbaasv2.drivers.bigip.confd import LAG
 from f5_openstack_agent.lbaasv2.drivers.bigip.confd import Tenant
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
     import retry_icontrol
+from f5_openstack_agent.utils.encrypt import decrypt_data
 
 from oslo_log import log
 

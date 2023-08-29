@@ -32,11 +32,11 @@ try:
 except ImportError:
     from neutron import context as ncontext
 
-from f5_openstack_agent.client.encrypt import decrypt_data
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import opts
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.utils.encrypt import decrypt_data
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
