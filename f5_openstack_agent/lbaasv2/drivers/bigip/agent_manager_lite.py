@@ -1372,6 +1372,28 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         """Handle RPC cast from plugin to create_loadbalancer."""
         lb_id = loadbalancer['id']
         listeners = service.get("listeners", [])
+        pools = service.get('pools', [])
+        members = service.get("members", [])
+        monitors = service.get("healthmonitors", [])
+        l7policies = service.get("l7policies", [])
+
+        # For 'reuse the create code', the order of rebuild is important
+        # pool is needs by all resource when rebuild.
+        # The Pool rebuild is not dependent on any other process, except
+        # loadbalancer.
+        # Listener needs pool:
+        # 1. if a listener and its default pool are both absent,
+        #    the pool must rebuild first, since the listener rebuild
+        #    wil configure its default pool.
+        # 2. if a listener is absent, the default pool of listener
+        #    must exist.
+        # Member needs pool:
+        # 1. if member and pool are both absent, the pool must rebuild
+        #    first, since the member needs the pool eixsts for updating
+        #    the pool member in member create process.
+        # 2. if a member is absent, the pool must exist for updating
+        #    the pool member.
+        # Monitor is the same as the member.
 
         try:
             bigip_device.set_bigips(service, self.conf)
@@ -1380,6 +1402,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr.create(loadbalancer, service)
             LOG.debug("Finish to create loadbalancer %s", lb_id)
 
+            for pl in pools:
+                pl_id = pl['id']
+                service['pool'] = pl
+
+                mgr = resource_manager.PoolManager(self.lbdriver)
+                mgr.create(pl, service)
+                LOG.debug("Finish to create pool %s", pl_id)
+
             for lstn in listeners:
                 ls_id = lstn['id']
                 service['listener'] = lstn
@@ -1387,6 +1417,32 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 mgr = resource_manager.ListenerManager(self.lbdriver)
                 mgr.create(lstn, service)
                 LOG.debug("Finish to create listener %s", ls_id)
+
+            for mb in members:
+                mb_id = mb['id']
+                service['member'] = mb
+
+                mgr = resource_manager.MemberManager(self.lbdriver)
+                mgr.create(mb, service)
+                LOG.debug("Finish to create member %s", mb_id)
+
+            for mn in monitors:
+                mn_id = mn['id']
+                service["healthmonitor"] = mn
+
+                mgr = resource_manager.MonitorManager(
+                    self.lbdriver, type=mn['type'])
+                mgr.create(mn, service)
+                LOG.debug("Finish to create monitor %s", mn_id)
+
+            # a l7policy contains l7rules, no need to rebuild l7rule.
+            for plc in l7policies:
+                plc_id = plc['id']
+                service["l7policy"] = plc
+
+                mgr = resource_manager.L7PolicyManager(self.lbdriver)
+                mgr.create(plc, service)
+                LOG.debug("Finish to create l7policy %s", plc_id)
 
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
