@@ -1418,6 +1418,22 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 mgr.create(lstn, service)
                 LOG.debug("Finish to create listener %s", ls_id)
 
+                acl_group = lstn.get("acl_group")
+                acl_bind = lstn.get("acl_group_bind")
+                if acl_group and acl_bind:
+                    # set base resource
+                    service['acl_group'] = acl_group
+
+                    acl_mgr = resource_manager.ACLGroupManager(self.lbdriver)
+                    acl_mgr.create(acl_group, service)
+
+                    LOG.debug("Finish to create data group of acl group %s",
+                              acl_group['id'])
+
+                    mgr.update_acl_bind(lstn, acl_bind, service)
+                    LOG.debug("Finish to add ACL bind irule of listener %s",
+                              ls_id)
+
             for mb in members:
                 mb_id = mb['id']
                 service['member'] = mb
