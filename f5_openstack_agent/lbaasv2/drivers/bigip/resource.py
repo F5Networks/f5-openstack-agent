@@ -93,6 +93,14 @@ class Vlan(BigIPResource):
         super(Vlan, self).__init__(**kwargs)
         self.helper = BigIPResourceHelper(ResourceType.vlan)
 
+    def add_interface(self, vlan, interface_model):
+        self.helper.add_to_subcollection(vlan, "interfaces", interface_model)
+
+    def add_interface_by_name(self, bigip, vlan_name, interface_model,
+                              partition="Common"):
+        vlan = self.helper.load(bigip, name=vlan_name, partition=partition)
+        self.add_interface(vlan, interface_model)
+
 
 class Route(BigIPResource):
     def __init__(self, **kwargs):

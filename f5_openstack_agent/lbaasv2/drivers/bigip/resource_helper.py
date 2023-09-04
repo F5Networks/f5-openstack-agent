@@ -284,6 +284,27 @@ class BigIPResourceHelper(object):
 
         return False
 
+    @retry_icontrol
+    def add_to_subcollection(self, obj, sub_name, model, ignore=[409]):
+        try:
+            sub_s = getattr(obj, sub_name + "_s")
+            sub = getattr(sub_s, sub_name)
+            sub.create(**model)
+        except AttributeError as ex:
+            LOG.exception(ex)
+            raise
+        except HTTPError as ex:
+            if ex.response.status_code == 401:
+                raise
+            elif ex.response.status_code in ignore:
+                LOG.debug("Ignore HTTP error: %s", ex.message)
+            else:
+                LOG.exception(ex)
+                raise
+        except Exception as ex:
+            LOG.exception(ex)
+            raise
+
     def _resource(self, bigip):
         return {
             ResourceType.nat: lambda bigip: bigip.tm.ltm.nats.nat,

@@ -22,7 +22,6 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
-from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
     import Route
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
@@ -451,7 +450,7 @@ class NetworkHelper(object):
 
         vlan_exists = False
         try:
-            obj = v.create(bigip, payload, ignore=[])
+            vlan = v.create(bigip, payload, ignore=[])
         except HTTPError as ex:
             if ex.response.status_code == 409:
                 vlan_exists = True
@@ -467,13 +466,7 @@ class NetworkHelper(object):
                 else:
                     payload['untagged'] = True
 
-                i = obj.interfaces_s.interfaces
-                try:
-                    i.create(**payload)
-                except TagModeDisallowedForTMOSVersion as e:
-                    # Providing the tag-mode is not supported
-                    LOG.warn(e.message)
-                    i.create(**payload)
+                v.add_interface(vlan, payload)
 
             if not partition == const.DEFAULT_PARTITION:
                 self.add_vlan_to_domain_by_id(bigip, name, partition,
