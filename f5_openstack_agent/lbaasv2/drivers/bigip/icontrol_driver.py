@@ -31,8 +31,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.cluster_manager import \
     ClusterManager
 from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2 as f5const
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
-from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_builder import \
-    LBaaSBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.lbaas_driver import \
     LBaaSBaseDriver
 from f5_openstack_agent.lbaasv2.drivers.bigip import network_helper
@@ -48,8 +46,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
 from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
     BigipTenantManager
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
-from f5_openstack_agent.lbaasv2.drivers.bigip.virtual_address import \
-    VirtualAddress
 
 LOG = logging.getLogger(__name__)
 
@@ -365,7 +361,6 @@ class iControlDriver(LBaaSBaseDriver):
         self.tenant_manager = None
         self.cluster_manager = None
         self.system_helper = None
-        self.lbaas_builder = None
         self.service_adapter = None
         self.l3_binding = None
         self.cert_manager = None  # overrides register_OPTS
@@ -447,7 +442,6 @@ class iControlDriver(LBaaSBaseDriver):
         self.tenant_manager = BigipTenantManager(self.conf, self)
         self.cluster_manager = ClusterManager()
         self.system_helper = SystemHelper()
-        self.lbaas_builder = LBaaSBuilder(self.conf, self)
 
         if self.conf.f5_global_routed_mode:
             self.network_builder = None
@@ -546,38 +540,6 @@ class iControlDriver(LBaaSBaseDriver):
                             }
         return deployed_pool_dict
 
-    @is_operational
-    def get_stats(self, service):
-        lb_stats = {}
-        stats = ['clientside.bitsIn',
-                 'clientside.bitsOut',
-                 'clientside.curConns',
-                 'clientside.totConns']
-        loadbalancer = service['loadbalancer']
-
-        try:
-            # sum virtual server stats for all BIG-IPs
-            vs_stats = self.lbaas_builder.get_listener_stats(service, stats)
-
-            # convert to bytes
-            lb_stats[f5const.F5_STATS_IN_BYTES] = \
-                vs_stats['clientside.bitsIn']/8
-            lb_stats[f5const.F5_STATS_OUT_BYTES] = \
-                vs_stats['clientside.bitsOut']/8
-            lb_stats[f5const.F5_STATS_ACTIVE_CONNECTIONS] = \
-                vs_stats['clientside.curConns']
-            lb_stats[f5const.F5_STATS_TOTAL_CONNECTIONS] = \
-                vs_stats['clientside.totConns']
-
-            # update Neutron
-            self.plugin_rpc.update_loadbalancer_stats(
-                loadbalancer['id'], lb_stats)
-        except Exception as e:
-            LOG.error("Error getting loadbalancer stats: %s", e.message)
-
-        finally:
-            return lb_stats
-
     def fdb_add(self, fdb):
         # Add (L2toL3) forwarding database entries
         for bigip in self.get_all_bigips():
@@ -613,26 +575,6 @@ class iControlDriver(LBaaSBaseDriver):
 
         # Tunnel sync sent.
         return False
-
-    def service_rename_required(self, service):
-        rename_required = False
-
-        # Returns whether the bigip has a pool for the service
-        if not service['loadbalancer']:
-            return False
-
-        bigips = service['bigips']
-        loadbalancer = service['loadbalancer']
-
-        # Does the correctly named virtual address exist?
-        for bigip in bigips:
-            virtual_address = VirtualAddress(self.service_adapter,
-                                             loadbalancer)
-            if not virtual_address.exists(bigip):
-                rename_required = True
-                break
-
-        return rename_required
 
     def get_loadbalancers_in_tenant(self, tenant_id):
         loadbalancers = self.plugin_rpc.get_all_loadbalancers()
@@ -861,30 +803,6 @@ class iControlDriver(LBaaSBaseDriver):
             LOG.debug('Loadbalancer provisioning status is active')
         else:
             LOG.error('Loadbalancer provisioning status is invalid')
-
-    @is_operational
-    def update_operating_status(self, service):
-        if 'members' in service:
-            if self.network_builder:
-                # append route domain to member address
-                try:
-                    self.network_builder._annotate_service_route_domains(
-                        service)
-                except f5ex.InvalidNetworkType as exc:
-                    LOG.warning(exc.message)
-                    return
-
-            # get currrent member status
-            self.lbaas_builder.update_operating_status(service)
-
-            # udpate Neutron
-            for member in service['members']:
-                if member['provisioning_status'] == f5const.F5_ACTIVE:
-                    operating_status = member.get('operating_status', None)
-                    self.plugin_rpc.update_member_status(
-                        member['id'],
-                        provisioning_status=None,
-                        operating_status=operating_status)
 
     def get_active_bigip(self):
         bigips = self.get_all_bigips()

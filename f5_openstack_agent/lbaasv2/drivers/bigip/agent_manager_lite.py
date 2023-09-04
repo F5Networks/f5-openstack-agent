@@ -512,7 +512,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         try:
             bigip_device.set_bigips(service, self.conf)
 
-            self.lbdriver.get_stats(service)
             self.cache.put(service, self.agent_host)
         except f5_ex.F5NeutronException as exc:
             LOG.error("f5_ex.F5NeutronException: %s" % exc.msg)

@@ -30,6 +30,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.irule \
     import iRuleHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.l7policy_adapter \
     import L7PolicyServiceAdapter
+from f5_openstack_agent.lbaasv2.drivers.bigip.listener_service \
+    import ListenerServiceBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.ltm_policy \
     import LTMPolicyRedirect
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_service import \
@@ -673,6 +675,12 @@ class ListenerManager(ResourceManager):
         self.tcp_helper = TCPProfileHelper()
         self.tcp_irule_helper = iRuleHelper()
 
+        self.listener_builder = ListenerServiceBuilder(
+            self.driver.conf,
+            self.driver.service_adapter,
+            self.driver.cert_manager
+        )
+
         self.mutable_props = {
             "name": "description",
             "default_pool_id": "pool",
@@ -870,7 +878,7 @@ class ListenerManager(ResourceManager):
             return self._create_source_addr_persist_profile(bigip, vs, persist)
 
     def _create_app_cookie_persist_profile(self, bigip, vs, persist):
-        listener_builder = self.driver.lbaas_builder.listener_builder
+        listener_builder = self.listener_builder
         listener_builder._add_cookie_persist_rule(vs, persist, bigip)
         return "app_cookie_" + vs['name']
 
@@ -930,13 +938,13 @@ class ListenerManager(ResourceManager):
         return name
 
     def _create_ssl_profile(self, bigip, vs, tls):
-        listener_builder = self.driver.lbaas_builder.listener_builder
+        listener_builder = self.listener_builder
         tls['name'] = vs['name']
         tls['partition'] = vs['partition']
         listener_builder.add_ssl_profile(tls, vs, bigip)
 
     def _delete_app_cookie_persist_profile(self, bigip, vs):
-        listener_builder = self.driver.lbaas_builder.listener_builder
+        listener_builder = self.listener_builder
         listener_builder._remove_cookie_persist_rule(vs, bigip)
 
     def _delete_http_cookie_persist_profile(self, bigip, vs):
@@ -963,7 +971,7 @@ class ListenerManager(ResourceManager):
         self._delete_source_addr_persist_profile(bigip, vs)
 
     def _delete_ssl_profiles(self, bigip, vs, service):
-        listener_builder = self.driver.lbaas_builder.listener_builder
+        listener_builder = self.listener_builder
         tls = self.driver.service_adapter.get_tls(service)
         tls['name'] = vs['name']
         listener_builder.remove_ssl_profiles(tls, bigip)
