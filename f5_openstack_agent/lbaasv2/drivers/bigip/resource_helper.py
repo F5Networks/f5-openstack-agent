@@ -93,8 +93,6 @@ def retry_icontrol(function):
                     if attempt < max_attempt:
                         sleep(interval)
                         continue
-
-                LOG.exception(ex)
                 raise
 
     return retry
@@ -136,7 +134,9 @@ class BigIPResourceHelper(object):
         try:
             obj = resource.create(**model)
         except HTTPError as ex:
-            if ex.response.status_code == 409 and overwrite:
+            if ex.response.status_code == 401:
+                raise
+            elif ex.response.status_code == 409 and overwrite:
                 if par:
                     LOG.debug("Overwrite resource %s in partition %s",
                               name, par)
@@ -148,7 +148,11 @@ class BigIPResourceHelper(object):
                 LOG.debug("Ignore HTTP error: %s", ex.message)
                 obj = self.load(bigip, name=name, partition=par)
             else:
+                LOG.exception(ex)
                 raise
+        except Exception as ex:
+            LOG.exception(ex)
+            raise
         return obj
 
     @retry_icontrol
