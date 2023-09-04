@@ -173,6 +173,7 @@ class BigipSelfIpManager(object):
             self, bigip, subnet, lb_id, binding_profile
     ):
         u"""Ensure a selfip address is allocated on Neutron network."""
+
         # Get ip address for selfip to use on BIG-IP.
         if self.driver.conf.unlegacy_setting_placeholder:
             LOG.debug('setting vnic_type to normal instead of baremetal')
@@ -184,7 +185,10 @@ class BigipSelfIpManager(object):
         selfip_name = "local-" + bigip.device_name + "-" + subnet['id']
         ports = self.driver.plugin_rpc.get_port_by_name(port_name=selfip_name)
         if len(ports) > 0:
-            port = ports[0]
+            port = utils.update_port(
+                subnet, ports[0], binding_profile,
+                self.driver.plugin_rpc
+            )
         else:
             host_passed = None
             if self.driver.conf.separate_host:

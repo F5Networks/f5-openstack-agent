@@ -378,3 +378,76 @@ def get_vlan_mac(helper, bigip, network, device):
 def vlan_to_rd_id(name):
     rd_id = name.split("-")[-1]
     return int(rd_id)
+
+
+def check_port_llinfo(device, port):
+    # return the comparsion result of mac and vtep
+    # first element is the mac, the second element is the vtep
+
+    # 1. the port may have or not have local_link_information
+    # 2. if port have no local_link_information, it means
+    #    the old environment port, nothing needs to change.
+    # 3. if port have local_link_information, it must contain
+    #    "lb_mac" and "node_vtep_ip"
+    # 4. device must have local_link_information
+
+    mac = True
+    vtep = True
+
+    LOG.debug(
+        "check on local_link_information with device %s "
+        "and port %s." % (device, port)
+    )
+
+    port_bp = port.get("binding:profile", {})
+    port_llinfo = port_bp.get("local_link_information", [])
+    # some ports in 9.4 do not have local_link_information
+    # this is for backward compatible.
+    if not port_llinfo or not port_llinfo[0]:
+        return mac, vtep
+
+    port_mac = port_llinfo[0].get("lb_mac")
+    port_vtep = port_llinfo[0].get("node_vtep_ip")
+
+    device_llinfo = device.get("local_link_information", [])
+    # device_llinfo must contain "lb_mac" and "node_vtep_ip"
+    device_mac = device_llinfo[0].get("lb_mac")
+    device_vtep = device_llinfo[0].get("node_vtep_ip")
+
+    return port_mac == device_mac, port_vtep == device_vtep
+
+
+def update_port(subnet, port, binding_profile, rpc):
+    # When a device is designated, and the new bigip hostname is as the
+    # original device, the selfip port need to update.
+
+    # 1. if vtep is not changed, we only update port mac
+    # 2. if vtep is changed, we raise exception
+    # 3. step 1 and 2 only change neutron db.
+
+    same_mac, same_vtep = check_port_llinfo(
+        binding_profile, port)
+
+    if not same_vtep:
+        raise Exception(
+            "vtep ip is not suppose to change\n."
+            "the port is %s\n."
+            "the changed link binding profile is %s." % (
+                port, binding_profile
+            )
+        )
+
+    # vtep is certainly not changed
+    if not same_mac:
+        try:
+            port = rpc.update_port_on_subnet(
+                port_id=port['id'],
+                binding_profile=binding_profile
+            )
+        except Exception:
+            LOG.error(
+                "fail to update port %s. same_mac is %s, same_vtep is %s." %
+                (port, same_mac, same_vtep))
+            raise
+
+    return port
