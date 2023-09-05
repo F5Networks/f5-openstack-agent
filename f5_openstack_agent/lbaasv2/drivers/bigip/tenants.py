@@ -67,20 +67,19 @@ class BigipTenantManager(object):
         folder_name = self.service_adapter.get_folder_name(tenant_id)
         LOG.debug("Creating tenant folder %s" % folder_name)
         for bigip in service['bigips']:
-            if not self.system_helper.folder_exists(bigip, folder_name):
-                folder = self.service_adapter.get_folder(service)
-                # This folder is a dict config obj, that can be passed to
-                # folder.create in the SDK
-                try:
-                    self.system_helper.create_folder(bigip, folder)
-                except Exception as err:
-                    # XXX Maybe we can make this more specific?
-                    LOG.exception(
-                        "Error creating folder %s: %s" %
-                        (folder, err.message))
-                    raise f5ex.SystemCreationException(
-                        "Folder creation error for tenant %s" %
-                        (tenant_id))
+            folder = self.service_adapter.get_folder(service)
+            # This folder is a dict config obj, that can be passed to
+            # folder.create in the SDK
+            try:
+                self.system_helper.create_folder(bigip, folder)
+            except Exception as err:
+                # XXX Maybe we can make this more specific?
+                LOG.exception(
+                    "Error creating folder %s: %s" %
+                    (folder, err.message))
+                raise f5ex.SystemCreationException(
+                    "Folder creation error for tenant %s" %
+                    (tenant_id))
 
     def assure_tenant_cleanup(self, service):
         """Delete tenant partition."""

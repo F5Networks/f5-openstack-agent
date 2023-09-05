@@ -265,11 +265,14 @@ class NetworkServiceBuilder(object):
         lb_subnets = kwargs.get("subnets", service['lb_netinfo']["subnets"])
 
         subnetinfo = {'network': lb_network}
-        for subnet in lb_subnets:
-            subnetinfo['subnet'] = subnet
-            for bigip in service['bigips']:
+        for bigip in service['bigips']:
+            device = service['device']
+            vlan_mac = utils.get_vlan_mac(
+                self.vlan_manager, bigip, lb_network, device)
+            for subnet in lb_subnets:
+                subnetinfo['subnet'] = subnet
                 self.bigip_selfip_manager.assure_bigip_selfip(
-                    bigip, service, subnetinfo)
+                    bigip, service, subnetinfo, vlan_mac)
 
     def config_snat(self, service):
         flavor = service["loadbalancer"].get("flavor")
@@ -403,24 +406,16 @@ class NetworkServiceBuilder(object):
         self.set_network_route_domain(network, route_domain)
 
         try:
-            exists = self.network_helper.route_domain_exists(
-                bigip, partition=partition, name=name
+            self.network_helper.create_route_domain(
+                bigip,
+                route_domain,
+                name,
+                partition=partition,
+                strictness=self.conf.f5_route_domain_strictness
             )
 
-            if exists:
-                LOG.info("route domain: %s, %s exists on bigip: %s"
-                         % (name, route_domain, bigip.hostname))
-            else:
-                self.network_helper.create_route_domain(
-                    bigip,
-                    route_domain,
-                    name,
-                    partition=partition,
-                    strictness=self.conf.f5_route_domain_strictness
-                )
-
-                LOG.info("create route domain: %s, %s on bigip: %s"
-                         % (name, route_domain, bigip.hostname))
+            LOG.info("create route domain: %s, %s on bigip: %s"
+                     % (name, route_domain, bigip.hostname))
         except HTTPError:
             # FIXME(pzhang): what to do with multiple agent race?
             raise f5_ex.RouteDomainCreationException(

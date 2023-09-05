@@ -67,14 +67,10 @@ class VirtualAddress(object):
         return model
 
     def create(self, bigip, model=None):
-        va = None
-
         if not model:
             model = self.model()
 
-        va = self.virtual_address.create(bigip, model)
-
-        return va
+        self.virtual_address.create(bigip, model)
 
     def exists(self, bigip):
         return self.virtual_address.exists(
