@@ -169,7 +169,7 @@ class BigipSelfIpManager(object):
         ports = self.driver.plugin_rpc.get_port_by_name(port_name=selfip_name)
         if len(ports) > 0:
             port = utils.update_port(
-                subnet, ports[0], binding_profile,
+                ports[0], binding_profile,
                 self.driver.plugin_rpc
             )
         else:
