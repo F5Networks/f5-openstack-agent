@@ -417,7 +417,7 @@ def check_port_llinfo(device, port):
     return port_mac == device_mac, port_vtep == device_vtep
 
 
-def update_port(subnet, port, binding_profile, rpc):
+def update_port(port, binding_profile, rpc):
     # When a device is designated, and the new bigip hostname is as the
     # original device, the selfip port need to update.
 
