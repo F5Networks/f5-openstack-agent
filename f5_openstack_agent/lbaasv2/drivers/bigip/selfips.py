@@ -22,6 +22,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import RouteDomain
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
     import SelfIP
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
     import VirtualAddress
@@ -52,10 +54,9 @@ class BigipSelfIpManager(object):
                     "in the associated route domain") > 0):
                 try:
                     rd_id = utils.vlan_to_rd_id(model['vlan'])
-                    self.network_helper.add_vlan_to_domain_by_id(
-                        bigip, model['vlan'], model['partition'], rd_id
-                    )
-
+                    r = RouteDomain()
+                    r.add_vlan_by_id(bigip, rd_id, model["vlan"],
+                                     model["partition"])
                     selfip.create(bigip, model)
                 except HTTPError as err:
                     LOG.exception("After bind vlan to route domain. "

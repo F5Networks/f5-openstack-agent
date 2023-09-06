@@ -305,6 +305,29 @@ class BigIPResourceHelper(object):
             LOG.exception(ex)
             raise
 
+    @retry_icontrol
+    def add_to_list(self, obj, list_name, elem):
+        try:
+            list = getattr(obj, list_name, [])
+            if elem not in list:
+                list.append(elem)
+                args = {
+                    list_name: list
+                }
+                obj.modify(**args)
+        except AttributeError as ex:
+            LOG.exception(ex)
+            raise
+        except HTTPError as ex:
+            if ex.response.status_code == 401:
+                raise
+            else:
+                LOG.exception(ex)
+                raise
+        except Exception as ex:
+            LOG.exception(ex)
+            raise
+
     def _resource(self, bigip):
         return {
             ResourceType.nat: lambda bigip: bigip.tm.ltm.nats.nat,

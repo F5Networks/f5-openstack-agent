@@ -36,9 +36,6 @@ class TestVLANCreate(object):
     @pytest.fixture
     def network_helper(self, bigip):
         nh = NetworkHelper()
-        nh.get_route_domain_by_id = mock.MagicMock(
-            return_value=bigip.tm.net.route_domains.route_domain)
-
         return nh
 
     def test_create_vlan_no_name(self, bigip, network_helper):
