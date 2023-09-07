@@ -15,8 +15,6 @@
 #
 
 from oslo_log import log as logging
-from requests import HTTPError
-from time import sleep
 
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5ex
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
@@ -130,32 +128,26 @@ class BigipTenantManager(object):
         # Delete resource from BIG-IP, do not igore error.
         for rtype in types:
             helper = BigIPResourceHelper(rtype)
-            for r in helper.get_resources(bigip, partition):
-                max_attempt = 3
-                interval = 1
-                attempt = 0
-                while attempt < max_attempt:
-                    attempt = attempt + 1
-                    try:
-                        tag = 0
-                        if rtype == ResourceType.vlan:
-                            tag = r.tag
-                        r.delete()
+            the_resources = helper.get_resources(bigip, partition)
+            LOG.debug(the_resources)
 
-                        # delete vlan in f5os
-                        if tag:
-                             self.driver.network_builder.l2_service._delete_f5os_vlan_network(bigip.hostname, tag)  # noqa
-                    except HTTPError as ex:
-                        if ex.response.status_code == 401:
-                            LOG.debug("Attempt %s: %s", attempt, ex.message)
-                            if attempt < max_attempt:
-                                sleep(interval)
-                                continue
-                            LOG.exception(ex)
-                            raise
-                    except Exception as err:
-                        LOG.exception(err)
-                        raise
+            name_2_tag_map = {}
+            for each in the_resources:
+                if rtype == ResourceType.vlan:
+                    name_2_tag_map[each.name] = each.tag
+                else:
+                    name_2_tag_map[each.name] = 0
+
+            for each_name, tag in name_2_tag_map.items():
+                LOG.debug("each_name %s tag %s" % (each_name, tag))
+                try:
+                    helper.delete(bigip, name=each_name, partition=partition)
+
+                    # delete vlan in f5os
+                    if tag:
+                        self.driver.network_builder.l2_service._delete_f5os_vlan_network(tag, bigip)  # noqa
+                except Exception as err:
+                    LOG.warn("not deleted resource: %s", err.message)
 
         LOG.info("Delete empty partition: %s" % partition)
         for domain_name in domain_names:
@@ -167,7 +159,6 @@ class BigipTenantManager(object):
                 LOG.debug("Failed to delete route domain %s. "
                           "%s. Manual intervention might be required."
                           % (domain_name, err.message))
-                raise
 
         try:
             self.system_helper.delete_folder(bigip, partition)
@@ -175,7 +166,6 @@ class BigipTenantManager(object):
             LOG.debug(
                 "Folder deletion exception for tenant partition %s occurred. "
                 "Manual cleanup might be required." % (tenant_id))
-            raise
 
     def _partition_empty(self, bigip, partition):
         virtual_addresses = self.va_helper.get_resources(
