@@ -1368,11 +1368,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @log_helpers.log_method_call
     def rebuild_loadbalancer(self, context, loadbalancer, service):
-        """Handle RPC cast from plugin to create_loadbalancer."""
+
         lb_id = loadbalancer['id']
         listeners = service.get("listeners", [])
         pools = service.get('pools', [])
-        members = service.get("members", [])
         monitors = service.get("healthmonitors", [])
         l7policies = service.get("l7policies", [])
 
@@ -1409,6 +1408,11 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 mgr.create(pl, service)
                 LOG.debug("Finish to create pool %s", pl_id)
 
+                mgr = resource_manager.MemberManager(self.lbdriver)
+                mgr.rebuild(pl, service)
+                LOG.debug(
+                    "Finish to create all the members of the pool %s", pl_id)
+
             for lstn in listeners:
                 ls_id = lstn['id']
                 service['listener'] = lstn
@@ -1432,14 +1436,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     mgr.update_acl_bind(lstn, acl_bind, service)
                     LOG.debug("Finish to add ACL bind irule of listener %s",
                               ls_id)
-
-            for mb in members:
-                mb_id = mb['id']
-                service['member'] = mb
-
-                mgr = resource_manager.MemberManager(self.lbdriver)
-                mgr.create(mb, service)
-                LOG.debug("Finish to create member %s", mb_id)
 
             for mn in monitors:
                 mn_id = mn['id']

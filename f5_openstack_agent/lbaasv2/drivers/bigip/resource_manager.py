@@ -1994,6 +1994,43 @@ class MemberManager(ResourceManager):
 
         self._create_single(resource, service, **kwargs)
 
+    @serialized('MemberManager.rebuild')
+    @log_helpers.log_method_call
+    def rebuild(self, resource, service, **kwargs):
+
+        pool_id = resource['id']
+        mbs = self._rebuild_mbsRef(pool_id, service)
+        self._rebuild_pool_mbs(service, resource, mbs)
+
+        return []
+
+    def _rebuild_mbsRef(self, pool_id, service):
+        """return all members of the rebuild pool """
+
+        mbsRef = []
+        lb = service['loadbalancer']
+        members = service.get("members", [])
+
+        for mb in members:
+            if mb['pool_id'] == pool_id:
+                content = self._create_member_payload(lb, mb)
+                mbsRef.append(content)
+        return mbsRef
+
+    def _rebuild_pool_mbs(self, service, pool, mbs):
+        lb = service['loadbalancer']
+        pool = self.driver.service_adapter.init_pool_name(
+            lb, pool)
+        bigips = service['bigips']
+
+        for bigip in bigips:
+            model = {
+                "partition": pool['partition'],
+                "name": pool['name'],
+                "membersReference": {"items": mbs}
+            }
+            self._pool_mgr.pool_helper.update(bigip, model)
+
     def _create_single(self, resource, service, **kwargs):
 
         if not self.driver.conf.f5_global_routed_mode:
