@@ -292,7 +292,117 @@ class NetworkHelper(object):
         else:
             payload['parent'] = '/' + const.DEFAULT_PARTITION + '/0'
 
-        rd.create(bigip, payload)
+        cleanup = False
+        create = False
+        o_rd_id = ""
+        try:
+            rd.create(bigip, payload, ignore=[])
+        except HTTPError as ex:
+            if ex.response.status_code == 409:
+                try:
+                    existing_rd = rd.load(bigip, name=name,
+                                          partition=partition)
+                    if existing_rd.id == rd_id:
+                        # Reuse existing route domain
+                        cleanup = False
+                        create = False
+                    else:
+                        # Route domain in current folder is obsolete
+                        o_rd_id = existing_rd.id
+                        cleanup = True
+                        create = True
+                except HTTPError as ex:
+                    if ex.response.status_code == 404:
+                        # Another job have cleanup route doamin
+                        cleanup = False
+                        create = True
+                    else:
+                        raise
+            elif ex.response.status_code == 400 and \
+                    "the domain id already exists" in ex.message:
+                # Route domain in an unknown folder is obsolete
+                cleanup = True
+                create = True
+            else:
+                raise
+
+        if cleanup:
+            if o_rd_id:
+                # Cleanup in current folder
+                self.cleanup_rd_in_current_folder(bigip, o_rd_id, partition)
+            else:
+                # Cleanup in another folder
+                self.cleanup_rd_in_another_folder(bigip, rd_id, partition)
+
+        if create:
+            rd.create(bigip, payload)
+
+    @log_helpers.log_method_call
+    def cleanup_rd_in_current_folder(self, bigip, id, partition):
+        rd_name = ""
+        r = RouteDomain()
+        rds = r.get_resources(bigip, partition=partition)
+        for rd in rds:
+            if rd.id == id:
+                rd_name = rd.name
+                rd_partition = rd.partition
+                break
+
+        if not rd_name:
+            # Obsolete route domain disappears.
+            # It might be deleted by another job.
+            return
+
+        self.cleanup_rd(bigip, id, rd_name, rd_partition)
+
+    @log_helpers.log_method_call
+    def cleanup_rd_in_another_folder(self, bigip, id, partition):
+        rd_name = ""
+        r = RouteDomain()
+        rds = r.get_resources(bigip)
+        for rd in rds:
+            if rd.id == id and rd.partition != partition:
+                rd_name = rd.name
+                rd_partition = rd.partition
+                break
+
+        if not rd_name:
+            # Obsolete route domain disappears.
+            # It might be deleted by another job.
+            return
+
+        self.cleanup_rd(bigip, id, rd_name, rd_partition)
+
+    @log_helpers.log_method_call
+    def cleanup_rd(self, bigip, id, rd_name, rd_partition):
+        """Cleanup route domain, vlan, selfip and default route"""
+        route = Route()
+        routes = route.get_resources(bigip, partition=rd_partition)
+        elem_names = []
+        for elem in routes:
+            if elem.gw.endswith("%" + str(id)):
+                elem_names.append(elem.name)
+        for name in elem_names:
+            route.delete(bigip, name=name, partition=rd_partition)
+
+        # Cleanup SelfIP
+        selfip = SelfIP()
+        selfips = selfip.get_resources(bigip, partition=rd_partition)
+        elem_names = []
+        for elem in selfips:
+            if elem.vlan.endswith("vlan-" + str(id)):
+                elem_names.append(elem.name)
+        for name in elem_names:
+            selfip.delete(bigip, name=name, partition=rd_partition)
+
+        # Cleanup Vlan
+        vlan = Vlan()
+        vlan_name = "vlan-" + str(id)
+        vlan.delete(bigip, name=vlan_name, partition=rd_partition)
+
+        # Cleanup Route Domain
+        r = RouteDomain()
+        r.delete(bigip, name=rd_name, partition=rd_partition)
 
     @log_helpers.log_method_call
     def delete_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
