@@ -1356,7 +1356,7 @@ class ListenerManager(ResourceManager):
             ip_version = self._get_ip_version(loadbalancer)
             self.tcp_helper.add_profile(
                 service, vs, bigip,
-                side="server",
+                side="client",
                 tcp_options=self._get_tcp_options(ip_version)
             )
             self.tcp_irule_helper.create_iRule(
@@ -1437,7 +1437,7 @@ class ListenerManager(ResourceManager):
             ip_version = self._get_ip_version(loadbalancer)
             self.tcp_helper.update_profile(
                 service, vs, bigip,
-                side="server",
+                side="client",
                 tcp_options=self._get_tcp_options(ip_version)
             )
             self.tcp_irule_helper.update_iRule(
@@ -1484,7 +1484,7 @@ class ListenerManager(ResourceManager):
         if tcp_ip_update:
             if self.tcp_helper.delete_profile is True:
                 self.tcp_helper.remove_profile(
-                    service, vs, bigip, side="server"
+                    service, vs, bigip, side="client"
                 )
             if self.tcp_irule_helper.delete_iRule is True:
                 self.tcp_irule_helper.remove_iRule(
@@ -1504,7 +1504,7 @@ class ListenerManager(ResourceManager):
         if tcp_ip_enable:
             self.tcp_helper.remove_profile(
                 service, vs, bigip,
-                side="server"
+                side="client"
             )
             self.tcp_irule_helper.remove_iRule(
                 service, vs, bigip
