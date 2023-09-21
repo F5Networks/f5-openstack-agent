@@ -117,7 +117,8 @@ class BigIPResourceHelper(object):
         self.resource_type = resource_type
 
     @retry_icontrol
-    def create(self, bigip, model, ret=False, overwrite=False, ignore=[409]):
+    def create(self, bigip, model, ret=False, overwrite=False,
+               ignore=[409], suppress=[]):
         u"""Create/update resource (e.g., pool) on a BIG-IP system.
 
         First checks to see if resource has been created and creates
@@ -134,6 +135,8 @@ class BigIPResourceHelper(object):
         on BIG-IP. Default value is False.
         :param ignore: A list of HTTP error code to ignore. Default value
         is [409].
+        :param suppress: A list of HTTP error code to suppress its exception
+        log. Default value is [].
         :returns: created or updated resource object.
         """
         name = model["name"]
@@ -159,7 +162,8 @@ class BigIPResourceHelper(object):
                 if ret:
                     obj = self.load(bigip, name=name, partition=par)
             else:
-                LOG.exception(ex)
+                if ex.response.status_code not in suppress:
+                    LOG.exception(ex)
                 raise
         except Exception as ex:
             LOG.exception(ex)

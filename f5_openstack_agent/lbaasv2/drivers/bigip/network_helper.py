@@ -296,7 +296,7 @@ class NetworkHelper(object):
         create = False
         o_rd_id = ""
         try:
-            rd.create(bigip, payload, ignore=[])
+            rd.create(bigip, payload, ignore=[], suppress=[400, 409])
         except HTTPError as ex:
             if ex.response.status_code == 409:
                 try:
@@ -317,6 +317,7 @@ class NetworkHelper(object):
                         cleanup = False
                         create = True
                     else:
+                        LOG.exception(ex)
                         raise
             elif ex.response.status_code == 400 and \
                     "the domain id already exists" in ex.message:
@@ -324,6 +325,7 @@ class NetworkHelper(object):
                 cleanup = True
                 create = True
             else:
+                LOG.exception(ex)
                 raise
 
         if cleanup:
