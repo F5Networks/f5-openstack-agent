@@ -22,7 +22,6 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
-from f5.bigip.tm.net.vlan import TagModeDisallowedForTMOSVersion
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
     import Route
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
@@ -153,9 +152,9 @@ class NetworkHelper(object):
         else:
             obj = t.create(**payload)
             if not payload['partition'] == const.DEFAULT_PARTITION:
-                self.add_vlan_to_domain_by_id(bigip, payload['name'],
-                                              payload['partition'],
-                                              route_domain_id)
+                r = RouteDomain()
+                r.add_vlan_by_id(bigip, route_domain_id, payload["name"],
+                                 payload["partition"])
         return obj
 
     @log_helpers.log_method_call
@@ -237,29 +236,6 @@ class NetworkHelper(object):
         if domain_id:
             name += '_aux_' + str(domain_id)
         return r.exists(bigip, name=name, partition=partition)
-
-    @log_helpers.log_method_call
-    def get_route_domain_by_id(self, bigip, partition=const.DEFAULT_PARTITION,
-                               id=const.DEFAULT_ROUTE_DOMAIN_ID):
-        """Returns the route domain by id
-
-        This takes in an id and attempts to find the domain by ID and partition
-        off of the BIG-IP and returns the Route Domain object.
-        args:
-            bigip - should be a f5.bigip.RootManager object instance
-        kwargs:
-            partition - default is Common - a str that contains the name of the
-                tenant's partition
-            domain_id - int containing the domain's id
-        """
-        ret_rd = None
-        rdc = RouteDomain()
-        route_domains = rdc.get_resources(bigip, partition=partition)
-        for rd in route_domains:
-            if rd.id == id:
-                ret_rd = rd
-                break
-        return ret_rd
 
     @log_helpers.log_method_call
     def get_next_domain_id(self, bigips):
@@ -451,7 +427,7 @@ class NetworkHelper(object):
 
         vlan_exists = False
         try:
-            obj = v.create(bigip, payload, ignore=[])
+            vlan = v.create(bigip, payload, ignore=[])
         except HTTPError as ex:
             if ex.response.status_code == 409:
                 vlan_exists = True
@@ -467,17 +443,11 @@ class NetworkHelper(object):
                 else:
                     payload['untagged'] = True
 
-                i = obj.interfaces_s.interfaces
-                try:
-                    i.create(**payload)
-                except TagModeDisallowedForTMOSVersion as e:
-                    # Providing the tag-mode is not supported
-                    LOG.warn(e.message)
-                    i.create(**payload)
+                v.add_interface(vlan, payload)
 
             if not partition == const.DEFAULT_PARTITION:
-                self.add_vlan_to_domain_by_id(bigip, name, partition,
-                                              route_domain_id)
+                r = RouteDomain()
+                r.add_vlan_by_id(bigip, route_domain_id, name, partition)
 
     @log_helpers.log_method_call
     def delete_vlan(
@@ -488,35 +458,6 @@ class NetworkHelper(object):
         """Delete VLAN from partition."""
         v = Vlan()
         v.delete(bigip, name=name, partition=partition)
-
-    @log_helpers.log_method_call
-    def add_vlan_to_domain_by_id(self, bigip, name,
-                                 partition=const.DEFAULT_PARTITION,
-                                 id=const.DEFAULT_ROUTE_DOMAIN_ID):
-        """Add VLANs to Domain by ID."""
-        rd = self.get_route_domain_by_id(bigip, partition, id)
-        if rd:
-            existing_vlans = getattr(rd, 'vlans', [])
-            if name in existing_vlans:
-                return False
-        else:
-            return False
-        existing_vlans.append(name)
-        rd.modify(vlans=existing_vlans)
-        return True
-
-    @log_helpers.log_method_call
-    def get_vlans_in_route_domain_by_id(self, bigip,
-                                        partition=const.DEFAULT_PARTITION,
-                                        id=const.DEFAULT_ROUTE_DOMAIN_ID):
-        rd = self.get_route_domain_by_id(bigip, partition, id)
-        vlans = []
-        if not rd:
-            return vlans
-        if getattr(rd, 'vlans', None):
-            for vlan in rd.vlans:
-                vlans.append(vlan)
-        return vlans
 
     @log_helpers.log_method_call
     def arp_delete_by_mac(self,

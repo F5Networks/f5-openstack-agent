@@ -87,11 +87,33 @@ class RouteDomain(BigIPResource):
         super(RouteDomain, self).__init__(**kwargs)
         self.helper = BigIPResourceHelper(ResourceType.route_domain)
 
+    def add_vlan(self, rd, vlan_name):
+        self.helper.add_to_list(rd, "vlans", vlan_name)
+
+    def add_vlan_by_name(self, bigip, rd_name, vlan_name, partition="Common"):
+        rd = self.helper.load(bigip, name=rd_name, partition=partition)
+        self.helper.add_to_list(rd, "vlans", vlan_name)
+
+    def add_vlan_by_id(self, bigip, rd_id, vlan_name, partition="Common"):
+        rds = self.helper.get_resources(bigip, partition=partition)
+        for rd in rds:
+            if rd.id == rd_id:
+                self.add_vlan(rd, vlan_name)
+                break
+
 
 class Vlan(BigIPResource):
     def __init__(self, **kwargs):
         super(Vlan, self).__init__(**kwargs)
         self.helper = BigIPResourceHelper(ResourceType.vlan)
+
+    def add_interface(self, vlan, interface_model):
+        self.helper.add_to_subcollection(vlan, "interfaces", interface_model)
+
+    def add_interface_by_name(self, bigip, vlan_name, interface_model,
+                              partition="Common"):
+        vlan = self.helper.load(bigip, name=vlan_name, partition=partition)
+        self.add_interface(vlan, interface_model)
 
 
 class Route(BigIPResource):
