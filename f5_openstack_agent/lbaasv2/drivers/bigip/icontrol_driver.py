@@ -375,6 +375,9 @@ class iControlDriver(LBaaSBaseDriver):
         self.pool_manager = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
 
+        if self.conf.password_cipher_mode and self.conf.os_password:
+            self.conf.os_password = base64.b64decode(self.conf.os_password)
+
         try:
             # debug logging of service requests recieved by driver
             if self.conf.trace_service_requests:
