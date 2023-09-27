@@ -5,6 +5,54 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.6 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2840] Rebuild change for agent
+* [OPENSTACK-2847] Retry 401 when initialize bigip connection
+* [OPENSTACK-2847] Retry 401 when cleanup partition
+* [OPENSTACK-2859] Ignore icontrol 409 by default when creating resource
+* [OPENSTACK-2860] TOA tcp option setting for IPv4 and IPv6 separately and add port number
+* [OPENSTACK-2840] Fix vxlan update fdb for rebuild
+* [OPENSTACK-2840] Declare rd_id as None
+* [OPENSTACK-2840] Add rebuild member function
+* [OPENSTACK-2840] Rebuild pool
+* [OPENSTACK-2840] Rebuild healthmonitor for a pool
+* [OPENSTACK-2840] Rebuild l7policies and l7rules
+* [OPENSTACK-2860] Remove TOA irule log
+* [OPENSTACK-2720] NG F5OS rSeries
+* [OPENSTACK-2720] Remove password_cipher_mode
+* [OPENSTACK-2720] Add f5os and l2 related logic
+* [OPENSTACK-2792] Modify l2 part and remove f5os configs
+* [OPENSTACK-2868] Add password_cipher_mode back
+* [OPENSTACK-2859] Remove obsolete code (lbaas builder)
+* [OPENSTACK-2866] Remove obsolete inventory code
+* [OPENSTACK-2865] Enable acl rebuild function
+* [OPENSTACK-2858] Do not print exception of ignored HTTP errors
+* [OPENSTACK-2840] Rebuild lb tree inplace
+* [OPENSTACK-2858] Reduce iControl calls for LB creation
+* [OPENSTACK-2858] Reduce iControl calls when deleting LB
+* [OPENSTACK-2840] Remove the useless subnet argument
+* [OPENSTACK-2873] Retry 401 when adding vlan interfaces
+* [OPENSTACK-2873] Retry 401 when adding vlan to route domain
+* [OPENSTACK-2840] Do not overwrite existing http2 profile
+* [OPENSTACK-2840] Create all the members of a pool at once
+* [OPENSTACK-2875] new way to delete in _remove_tenant_replication_mode
+
+Bug Fixes
+`````````
+* [OPENSTACK-2861] Selfip not deleted
+* [OPENSTACK-2867] Fix creating vlan racing problem
+* [OPENSTACK-2867] Needn't to detach redirect policy after removing vs
+* [OPENSTACK-2867] Fix creating route domain racing problem
+* [OPENSTACK-2886] Fix TOA profile, only create client side tcp profile
+
+Limitations
+```````````
+
 v9.10.5 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
