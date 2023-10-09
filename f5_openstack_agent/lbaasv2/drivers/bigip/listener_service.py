@@ -81,6 +81,9 @@ class ListenerServiceBuilder(object):
             if persist and persist.get('type', "") == "APP_COOKIE":
                 self._add_cookie_persist_rule(vip, persist, bigip)
 
+            if persist and persist.get('type', "") == "SOURCE_IP_PORT":
+                self._add_source_ip_port_persist_rule(vip, persist, bigip)
+
             if ftp_enable:
                 self.ftp_helper.add_profile(service, vip, bigip)
 
@@ -103,6 +106,7 @@ class ListenerServiceBuilder(object):
             if not persist:
                 try:
                     self._remove_cookie_persist_rule(vip, bigip)
+                    self._remove_source_ip_port_persist_rule(vip, bigip)
                 except HTTPError as err:
                     LOG.exception(err.message)
 
@@ -166,9 +170,10 @@ class ListenerServiceBuilder(object):
                     # data inconsistency?
                     LOG.exception(err.message)
 
-            # delete cookie perist rules
+            # delete perist rules
             try:
                 self._remove_cookie_persist_rule(vip, bigip)
+                self._remove_source_ip_port_persist_rule(vip, bigip)
             except HTTPError as err:
                 LOG.exception(err.message)
 
@@ -479,6 +484,85 @@ class ListenerServiceBuilder(object):
         rule_text += "}\n\n"
         return rule_text
 
+    def _add_source_ip_port_persist_rule(self, vip, persistence, bigip):
+        """Add source ip port persist rules to virtual server instance.
+
+        :param vip: Dictionary which contains name and partition of
+        virtual server.
+        :param persistence: Persistence definition.
+        :param bigip: Single BigIP instances to update.
+        """
+        LOG.debug("SP_DEBUG: adding source ip port persist: %s -- %s",
+                  persistence, vip)
+
+        # persistence_timeout might be a string
+        try:
+            timeout = int(persistence.get("persistence_timeout") or 0)
+        except ValueError as ex:
+            LOG.warning(ex.message)
+            timeout = 0
+        if timeout <= 0:
+            timeout = self.conf.persistence_timeout
+
+        rule_name = 'source_ip_port_' + vip['name']
+        rule_def = self._create_source_ip_port_persist_rule(timeout)
+
+        r = bigip.tm.ltm.rules.rule
+        if not r.exists(name=rule_name, partition=vip["partition"]):
+            try:
+                r.create(name=rule_name,
+                         apiAnonymous=rule_def,
+                         partition=vip["partition"])
+                LOG.debug("Created rule %s" % rule_name)
+            except Exception as err:
+                LOG.error("Failed to create rule %s", rule_name)
+                LOG.exception(err)
+        else:
+            try:
+                r_obj = r.load(name=rule_name,
+                               partition=vip["partition"])
+                r_obj.modify(apiAnonymous=rule_def)
+                LOG.debug("Updated rule %s" % rule_name)
+            except Exception as err:
+                LOG.error("Failed to update rule %s", rule_name)
+                LOG.exception(err)
+
+        u = bigip.tm.ltm.persistence.universals.universal
+        if not u.exists(name=rule_name, partition=vip["partition"]):
+            try:
+                u.create(name=rule_name,
+                         rule=rule_name,
+                         timeout=str(timeout),
+                         partition=vip["partition"])
+                LOG.debug("Created persistence universal %s" % rule_name)
+            except Exception as err:
+                LOG.error("Failed to create persistence universal %s" %
+                          rule_name)
+                LOG.exception(err)
+        else:
+            try:
+                u_obj = u.load(name=rule_name,
+                               partition=vip["partition"])
+                u_obj.modify(rule=rule_name, timeout=str(timeout))
+                LOG.debug("Updated persistence universal %s" % rule_name)
+            except Exception as err:
+                LOG.error("Failed to update persistence universal %s" %
+                          rule_name)
+                LOG.exception(err)
+
+    def _create_source_ip_port_persist_rule(self, timeout):
+        """Create source ip port persistence rule.
+
+        :param timeout: timeout for source ip port persistence.
+        """
+        rule_text = """
+when CLIENT_ACCEPTED {
+    set client_remote "[IP::client_addr]:[TCP::client_port]"
+    persist hash ($client_remote) %d
+}
+""" % (timeout)
+        return rule_text
+
     def _remove_cookie_persist_rule(self, vip, bigip):
         """Delete cookie persist rule.
 
@@ -487,6 +571,27 @@ class ListenerServiceBuilder(object):
         :param bigip: Single BigIP instances to update.
         """
         rule_name = 'app_cookie_' + vip['name']
+
+        u = bigip.tm.ltm.persistence.universals.universal
+        if u.exists(name=rule_name, partition=vip["partition"]):
+            obj = u.load(name=rule_name, partition=vip["partition"])
+            obj.delete()
+            LOG.debug("Deleted persistence universal %s" % rule_name)
+
+        r = bigip.tm.ltm.rules.rule
+        if r.exists(name=rule_name, partition=vip["partition"]):
+            obj = r.load(name=rule_name, partition=vip["partition"])
+            obj.delete()
+            LOG.debug("Deleted rule %s" % rule_name)
+
+    def _remove_source_ip_port_persist_rule(self, vip, bigip):
+        """Delete source ip port persist rule.
+
+        :param vip: Dictionary which contains name and partition of
+        virtual server.
+        :param bigip: Single BigIP instances to update.
+        """
+        rule_name = 'source_ip_port_' + vip['name']
 
         u = bigip.tm.ltm.persistence.universals.universal
         if u.exists(name=rule_name, partition=vip["partition"]):
