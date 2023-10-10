@@ -103,7 +103,6 @@ class TestVirtualAddress(TestVirtualAddressBuilder):
             virtual_address.adapter.prefix)
         assert(virtual_address.address == "192.168.100.5")
         assert(virtual_address.traffic_group == "traffic-group-local-only")
-        assert(virtual_address.description == "lb1:")
         assert(virtual_address.enabled == "yes")
 
     def test_iwb_update(self, virtual_address, bigip, mock_logger):

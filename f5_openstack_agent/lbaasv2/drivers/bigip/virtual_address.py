@@ -42,7 +42,6 @@ class VirtualAddress(object):
         self.address = loadbalancer.get('vip_address', "")
 
         # Mutable attributes
-        self.description = self.adapter.get_resource_description(loadbalancer)
         self.traffic_group = loadbalancer.get('traffic_group', "")
 
         self.auto_delete = False
@@ -58,7 +57,6 @@ class VirtualAddress(object):
         model = {"name": self.name,
                  "partition": self.partition,
                  "address": self.address,
-                 "description": self.description,
                  "trafficGroup": self.traffic_group,
                  "autoDelete": self.auto_delete,
                  "enabled": self.enabled,

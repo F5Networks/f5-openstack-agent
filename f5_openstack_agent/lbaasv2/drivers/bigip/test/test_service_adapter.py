@@ -304,8 +304,6 @@ class TestServiceAdapter(object):
         # pool['provisioning_status'] = "ACTIVE"
         loadbalancer = basic_service['loadbalancer']
         listener = basic_service['listener']
-        description = 'description'
-        target.get_resource_description = Mock(return_value=description)
 
         proto_port = listener['protocol_port']
         vip_address = loadbalancer['vip_address'].replace('%0', '')
@@ -315,7 +313,7 @@ class TestServiceAdapter(object):
             partition="pre-_" + loadbalancer['tenant_id'],
             destination=vip_address + ':' + proto_port, ipProtocol='tcp',
             connectionLimit=0,
-            description=description, enabled=True,
+            enabled=True,
             pool="pre-_" + pool['id'], mask="255.255.255.255",
             vlansDisabled=True,
             profiles=['/Common/http', '/Common/oneconnect'],
