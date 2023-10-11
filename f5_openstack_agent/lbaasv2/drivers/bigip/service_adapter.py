@@ -260,9 +260,6 @@ class ServiceModelAdapter(object):
         healthmonitor = self.init_monitor_name(loadbalancer,
                                                lbaas_healthmonitor)
 
-        healthmonitor["description"] = self.get_resource_description(
-            lbaas_healthmonitor)
-
         # type
         if "type" in lbaas_healthmonitor:
             # healthmonitor["type"] = lbaas_healthmonitor["type"].lower()
@@ -372,8 +369,6 @@ class ServiceModelAdapter(object):
     def _map_pool(self, loadbalancer, lbaas_pool, lbaas_hm, lbaas_members):
         pool = self.init_pool_name(loadbalancer, lbaas_pool)
 
-        pool["description"] = self.get_resource_description(pool)
-
         if "lb_algorithm" in lbaas_pool:
             lbaas_lb_method = lbaas_pool['lb_algorithm'].upper()
             pool['loadBalancingMode'] = \
@@ -443,8 +438,6 @@ class ServiceModelAdapter(object):
         if policies:
             LOG.debug("L7_debug: policies: %s", policies)
         vip = self._init_virtual_name(loadbalancer, listener)
-
-        vip["description"] = self.get_resource_description(listener)
 
         if pool:
             pool_name = self.init_pool_name(loadbalancer, pool)
