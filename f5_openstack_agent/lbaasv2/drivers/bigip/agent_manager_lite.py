@@ -41,6 +41,7 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import opts
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
@@ -155,7 +156,6 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.cluster_manager = ClusterManager()
         self.conf = conf
         self.context = ncontext.get_admin_context_without_session()
-        self.serializer = None
 
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
@@ -170,6 +170,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self.resync_interval = conf.resync_interval
         LOG.debug('setting service resync intervl to %d seconds' %
                   self.resync_interval)
+
+        self.service_queue_map = {"default": []}
 
         # Load the driver.
         self._load_driver(conf)
@@ -394,6 +396,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     # handlers for all in bound requests and notifications from controller
     #
     ######################################################################
+    @serialized('create_loadbalancer')
     @log_helpers.log_method_call
     def create_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to create_loadbalancer."""
@@ -423,6 +426,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of loadbalancer %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('update_loadbalancer')
     @log_helpers.log_method_call
     def update_loadbalancer(self, context, old_loadbalancer,
                             loadbalancer, service):
@@ -452,6 +456,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of loadbalancer %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('delete_loadbalancer')
     @log_helpers.log_method_call
     def delete_loadbalancer(self, context, loadbalancer, service):
         """Handle RPC cast from plugin to delete_loadbalancer."""
@@ -518,6 +523,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         except Exception as exc:
             LOG.error("Exception: %s" % exc.message)
 
+    @serialized('create_listener')
     @log_helpers.log_method_call
     def create_listener(self, context, listener, service):
         """Handle RPC cast from plugin to create_listener."""
@@ -550,6 +556,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of listener %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('update_listener')
     @log_helpers.log_method_call
     def update_listener(self, context, old_listener, listener, service):
         """Handle RPC cast from plugin to update_listener."""
@@ -581,6 +588,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of listener %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('delete_listener')
     @log_helpers.log_method_call
     def delete_listener(self, context, listener, service):
         """Handle RPC cast from plugin to delete_listener."""
@@ -617,6 +625,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of listener %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('create_pool')
     @log_helpers.log_method_call
     def create_pool(self, context, pool, service):
         """Handle RPC cast from plugin to create_pool."""
@@ -649,6 +658,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of pool %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('update_pool')
     @log_helpers.log_method_call
     def update_pool(self, context, old_pool, pool, service):
         """Handle RPC cast from plugin to update_pool."""
@@ -681,6 +691,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.error("Fail to update status of pool %s "
                           "Exception: %s", id, ex.message)
 
+    @serialized('delete_pool')
     @log_helpers.log_method_call
     def delete_pool(self, context, pool, service):
         """Handle RPC cast from plugin to delete_pool."""
@@ -715,6 +726,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of pool %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('create_member')
     @log_helpers.log_method_call
     def create_member(
         self, context, member, service,
@@ -776,6 +788,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     LOG.exception("Fail to update status of member %s "
                                   "Exception: %s", id, ex.message)
 
+    @serialized('update_member')
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
         """Handle RPC cast from plugin to update_member."""
@@ -807,6 +820,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of member %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('delete_member')
     @log_helpers.log_method_call
     def delete_member(self, context, member, service):
         """Handle RPC cast from plugin to delete_member."""
@@ -870,6 +884,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     LOG.exception("Fail to update status of member %s "
                                   "Exception: %s", id, ex.message)
 
+    @serialized('create_health_monitor')
     @log_helpers.log_method_call
     def create_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to create_pool_health_monitor."""
@@ -906,6 +921,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of health_monitor %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('update_health_monitor')
     @log_helpers.log_method_call
     def update_health_monitor(self, context, old_health_monitor,
                               health_monitor, service):
@@ -941,6 +957,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of health_monitor %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('delete_health_monitor')
     @log_helpers.log_method_call
     def delete_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to delete_health_monitor."""
@@ -1051,6 +1068,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         except Exception as exc:
             LOG.error("update_fdb_entries: Exception: %s" % exc.message)
 
+    @serialized('create_l7policy')
     @log_helpers.log_method_call
     def create_l7policy(self, context, l7policy, service):
         """Handle RPC cast from plugin to create_l7policy."""
@@ -1083,6 +1101,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7policy %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('update_l7policy')
     @log_helpers.log_method_call
     def update_l7policy(self, context, old_l7policy, l7policy, service):
         """Handle RPC cast from plugin to update_l7policy."""
@@ -1115,6 +1134,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7policy %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('delete_l7policy')
     @log_helpers.log_method_call
     def delete_l7policy(self, context, l7policy, service):
         """Handle RPC cast from plugin to delete_l7policy."""
@@ -1150,6 +1170,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7policy %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('create_l7rule')
     @log_helpers.log_method_call
     def create_l7rule(self, context, l7rule, service):
         """Handle RPC cast from plugin to create_l7rule."""
@@ -1182,6 +1203,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7rule %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('update_l7rule')
     @log_helpers.log_method_call
     def update_l7rule(self, context, old_l7rule, l7rule, service):
         """Handle RPC cast from plugin to update_l7rule."""
@@ -1214,6 +1236,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of l7 rule %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('delete_l7rule')
     @log_helpers.log_method_call
     def delete_l7rule(self, context, l7rule, service):
         """Handle RPC cast from plugin to delete_l7rule."""
@@ -1273,6 +1296,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("Fail to delete ACL Group %s "
                       "Exception: %s", id, ex.message)
 
+    @serialized('update_acl_group')
     @log_helpers.log_method_call
     def update_acl_group(self, context, acl_group, service):
         """Handle RPC cast from plugin to update ACL Group."""
@@ -1290,6 +1314,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                           ))
             raise ex
 
+    @serialized('add_acl_bind')
     @log_helpers.log_method_call
     def add_acl_bind(self, context, listener,
                      acl_group, acl_bind, service):
@@ -1322,6 +1347,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                           ))
             raise ex
 
+    @serialized('remove_acl_bind')
     @log_helpers.log_method_call
     def remove_acl_bind(self, context, listener,
                         acl_group, acl_bind, service):
@@ -1358,6 +1384,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                           ))
             raise ex
 
+    @serialized('rebuild_loadbalancer')
     @log_helpers.log_method_call
     def rebuild_loadbalancer(self, context, loadbalancer, service):
 

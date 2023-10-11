@@ -25,7 +25,6 @@ class LBaaSBaseDriver(object):
         self.agent_id = None
         self.plugin_rpc = None  # XXX overridden in the only known subclass
         self.connected = False  # XXX overridden in the only known subclass
-        self.service_queue_map = {"default": []}
         self.agent_configurations = {}  # XXX overridden in subclass
 
     def set_context(self, context):

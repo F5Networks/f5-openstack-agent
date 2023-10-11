@@ -45,7 +45,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
     SystemHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tenants import \
     BigipTenantManager
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 
 LOG = logging.getLogger(__name__)
 
@@ -507,7 +506,6 @@ class iControlDriver(LBaaSBaseDriver):
             bigip.assured_tenant_snat_subnets = {}
             bigip.assured_gateway_subnets = []
 
-    @serialized('get_all_pools_for_one_bigip')
     @is_operational
     def get_all_pools_for_one_bigip(self, bigip):
         LOG.debug('getting deployed pools for member on BIG-IPs')
