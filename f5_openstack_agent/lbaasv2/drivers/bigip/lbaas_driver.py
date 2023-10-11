@@ -79,7 +79,7 @@ class LBaaSBaseDriver(object):
         """LBaaS Delete Pool."""
         raise NotImplementedError()
 
-    def create_member(self, member, service, the_port_id=None):
+    def create_member(self, member, service):
         """LBaaS Create Member."""
         raise NotImplementedError()
 
