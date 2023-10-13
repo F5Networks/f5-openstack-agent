@@ -296,7 +296,7 @@ class NetworkHelper(object):
 
     @log_helpers.log_method_call
     def delete_route_domain(self, bigip, partition=const.DEFAULT_PARTITION,
-                            name=None):
+                            name=None, retry=0):
         """Deletes the route domain off of the bigip instance
 
         This will attempt to delete the provided Route Domain from off of the
@@ -315,7 +315,7 @@ class NetworkHelper(object):
             if not name:
                 name = partition
         r = RouteDomain()
-        r.delete(bigip, name=name, partition=partition)
+        r.delete(bigip, name=name, partition=partition, retry=retry)
 
     @log_helpers.log_method_call
     def get_route_domain_ids(self, bigip, partition=const.DEFAULT_PARTITION):

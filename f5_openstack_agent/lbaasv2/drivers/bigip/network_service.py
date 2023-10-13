@@ -629,9 +629,17 @@ class NetworkServiceBuilder(object):
                                 opflex_net_id)
                             deleted_names.add(opflex_net_port)
 
-                    self.delete_route_domain(
-                        bigip, network_folder, network
+                    rd_name = self.get_rd_name(network)
+                    # It requires a little more time to accomplish deleting
+                    # the SelfIP. Need to retry, if it fails to delete the
+                    # Route Domain.
+                    self.network_helper.delete_route_domain(
+                        bigip,
+                        partition=network_folder,
+                        name=rd_name,
+                        retry=2
                     )
+
                     self.l2_service.delete_bigip_network(
                         bigip, network, service['device'])
 
@@ -727,26 +735,6 @@ class NetworkServiceBuilder(object):
                   % str(subnet['cidr']))
 
         return inuse
-
-    def delete_route_domain(self, bigip, partition, network):
-        LOG.info("Deleting route domain of network %s",
-                 network)
-
-        name = self.get_rd_name(network)
-        try:
-            self.network_helper.delete_route_domain(
-                bigip,
-                partition=partition,
-                name=name
-            )
-        except HTTPError as err:
-            if err.response.status_code == 404:
-                LOG.warning(
-                    "The deleting route domain"
-                    "is not found: %s", err.message
-                )
-            else:
-                raise err
 
     def add_bigip_fdb(self, bigip, fdb):
         self.l2_service.add_bigip_fdb(bigip, fdb)

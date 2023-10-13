@@ -13,6 +13,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from requests import HTTPError
+from time import sleep
+
 from oslo_log import log as logging
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource_helper \
@@ -86,6 +89,29 @@ class RouteDomain(BigIPResource):
     def __init__(self, **kwargs):
         super(RouteDomain, self).__init__(**kwargs)
         self.helper = BigIPResourceHelper(ResourceType.route_domain)
+
+    def delete(self, bigip, name=None, partition=None, retry=0):
+        if retry >= 0:
+            attempt = retry + 1
+        else:
+            attempt = 1
+
+        while attempt > 0:
+            attempt = attempt - 1
+            try:
+                self.helper.delete(bigip, name=name, partition=partition)
+            except HTTPError as ex:
+                if attempt <= 0:
+                    raise
+                elif ex.response.status_code == 400:
+                    if "is referenced by one or more self IPs" in ex.message:
+                        LOG.debug("Retry deleting route domain: %s", name)
+                        sleep(0.5)
+                        continue
+                    else:
+                        raise
+                else:
+                    raise
 
     def add_vlan(self, rd, vlan_name):
         self.helper.add_to_list(rd, "vlans", vlan_name)
