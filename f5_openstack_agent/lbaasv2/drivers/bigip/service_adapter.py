@@ -123,6 +123,7 @@ class ServiceModelAdapter(object):
 
         pool = self.get_vip_default_pool(service)
 
+        # here it replaced the sp with pool's sp.
         if pool and "session_persistence" in pool:
             listener["session_persistence"] = pool["session_persistence"]
 
@@ -381,7 +382,11 @@ class ServiceModelAdapter(object):
             # source IP loadbalancing. See issue #344 for details.
             if lbaas_pool['lb_algorithm'].upper() == 'SOURCE_IP':
                 # SOURCE_IP lb algorithm use source-ip persist profile
-                lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
+                # not replace this for CALL_ID
+                if lbaas_pool.get('session_persistence', None) and lbaas_pool['session_persistence'].get('type') == 'CALL_ID': # noqa
+                    LOG.debug('not replace for call_id')
+                else:
+                    lbaas_pool['session_persistence'] = {'type': 'SOURCE_IP'}
 
         if lbaas_hm:
             hm = self.init_monitor_name(loadbalancer, lbaas_hm)
@@ -553,7 +558,7 @@ class ServiceModelAdapter(object):
 
         protocol = listener.get('protocol', "")
         if protocol not in ["HTTP", "HTTPS", "TCP", 'FTP',
-                            "TERMINATED_HTTPS", "UDP"]:
+                            "TERMINATED_HTTPS", "UDP", "SIP"]:
             LOG.warning("Listener protocol unrecognized: %s",
                         listener["protocol"])
 
@@ -589,7 +594,7 @@ class ServiceModelAdapter(object):
                 virtual_type = "mr"
                 add_diameter = True
 
-        if protocol == "UDP":
+        if protocol == "UDP" or protocol == "SIP":
             vip["ipProtocol"] = "udp"
         else:
             vip["ipProtocol"] = "tcp"
@@ -598,7 +603,7 @@ class ServiceModelAdapter(object):
             vip['profiles'] = ['/Common/fastL4']
         elif virtual_type == 'standard' and protocol == 'TCP':
             vip['profiles'] = ['/Common/tcp']
-        elif virtual_type == 'standard' and protocol == 'UDP':
+        elif virtual_type == 'standard' and protocol in ('UDP', 'SIP'):
             vip['profiles'] = ['/Common/udp']
         elif virtual_type == 'mr' and protocol == 'TCP':
             vip['profiles'] = ['/Common/tcp']
@@ -614,9 +619,7 @@ class ServiceModelAdapter(object):
             persistence = pool.get('session_persistence', None)
             lb_algorithm = pool.get('lb_algorithm', 'ROUND_ROBIN')
 
-        valid_persist_types = [
-            'SOURCE_IP', 'APP_COOKIE', 'HTTP_COOKIE', 'SOURCE_IP_PORT'
-        ]
+        valid_persist_types = ['SOURCE_IP', 'APP_COOKIE', 'HTTP_COOKIE', 'SOURCE_IP_PORT', 'CALL_ID'] # noqa
         if persistence:
             persistence_type = persistence.get('type', "")
             if persistence_type not in valid_persist_types:
@@ -633,6 +636,10 @@ class ServiceModelAdapter(object):
             elif persistence_type == 'SOURCE_IP':
                 vip['persist'] = [{'name': '/Common/source_addr'}]
 
+            elif persistence_type == 'CALL_ID':
+                LOG.debug('CALL_ID here')
+                vip['persist'] = [{'name': 'sip_' + vip['name']}]
+
             elif persistence_type == 'HTTP_COOKIE':
                 vip['persist'] = [{'name': '/Common/cookie'}]
 
@@ -643,7 +650,8 @@ class ServiceModelAdapter(object):
             if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
                 vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
-        if add_sip:
+        if add_sip or protocol == 'SIP':
+            LOG.debug('adding sip profile')
             if '/Common/sip' not in vip['profiles']:
                 vip['profiles'].append('/Common/sip')
 
