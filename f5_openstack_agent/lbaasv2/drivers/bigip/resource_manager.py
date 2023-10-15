@@ -665,6 +665,8 @@ class ListenerManager(ResourceManager):
             resource_helper.ResourceType.cookie_persistence)
         self.source_addr_persist_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.source_addr_persistence)
+        self.sip_persist_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.sip_persistence)
         self.ftp_helper = FTPProfileHelper()
         self.http_helper = HTTPProfileHelper()
         self.acl_helper = ACLHelper()
@@ -877,6 +879,8 @@ class ListenerManager(ResourceManager):
             return self._create_http_cookie_persist_profile(bigip, vs, persist)
         elif persist_type == "SOURCE_IP":
             return self._create_source_addr_persist_profile(bigip, vs, persist)
+        elif persist_type == "CALL_ID":
+            return self._create_sip_persist_profile(bigip, vs, persist)
 
     def _create_app_cookie_persist_profile(self, bigip, vs, persist):
         listener_builder = self.listener_builder
@@ -887,6 +891,28 @@ class ListenerManager(ResourceManager):
         listener_builder = self.listener_builder
         listener_builder._add_source_ip_port_persist_rule(vs, persist, bigip)
         return "source_ip_port_" + vs['name']
+
+    def _create_sip_persist_profile(self, bigip, vs, persist):
+        name = "sip_" + vs['name']
+
+        try:
+            timeout = int(persist.get("persistence_timeout") or 0)
+        except ValueError as ex:
+            LOG.warning(ex.message)
+            timeout = 0
+        if timeout <= 0:
+            timeout = self.driver.conf.persistence_timeout
+
+        payload = {
+            "name": name,
+            "partition": vs['partition'],
+            "timeout": str(timeout),
+            "sipInfo": "Call-ID"
+        }
+        super(ListenerManager, self)._create(
+            bigip, payload, None, None,
+            helper=self.sip_persist_helper)
+        return name
 
     def _create_http_cookie_persist_profile(self, bigip, vs, persist):
         name = "http_cookie_" + vs['name']
@@ -975,11 +1001,21 @@ class ListenerManager(ResourceManager):
             bigip, payload, None, None,
             helper=self.source_addr_persist_helper)
 
+    def _delete_sip_persist_profile(self, bigip, vs):
+        payload = {
+            "name": "sip_" + vs['name'],
+            "partition": vs['partition'],
+        }
+        super(ListenerManager, self)._delete(
+            bigip, payload, None, None,
+            helper=self.sip_persist_helper)
+
     def _delete_persist_profile(self, bigip, vs):
         self._delete_app_cookie_persist_profile(bigip, vs)
         self._delete_source_ip_port_persist_profile(bigip, vs)
         self._delete_http_cookie_persist_profile(bigip, vs)
         self._delete_source_addr_persist_profile(bigip, vs)
+        self._delete_sip_persist_profile(bigip, vs)
 
     def _delete_ssl_profiles(self, bigip, vs, service):
         listener_builder = self.listener_builder
