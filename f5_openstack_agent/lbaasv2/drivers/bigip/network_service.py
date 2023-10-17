@@ -608,18 +608,6 @@ class NetworkServiceBuilder(object):
                     local_selfip_name = "local-" + bigip.device_name \
                         + "-" + subnet['id']
 
-                    selfip_address = self.bigip_selfip_manager.get_selfip_addr(
-                        bigip,
-                        local_selfip_name,
-                        partition=network_folder
-                    )
-
-                    if not selfip_address:
-                        LOG.warning(
-                            "Failed to get self IP address %s in cleanup.",
-                            local_selfip_name
-                        )
-
                     self.bigip_selfip_manager.delete_selfip(
                         bigip,
                         local_selfip_name,
