@@ -610,7 +610,9 @@ class ServiceModelAdapter(object):
             persistence = pool.get('session_persistence', None)
             lb_algorithm = pool.get('lb_algorithm', 'ROUND_ROBIN')
 
-        valid_persist_types = ['SOURCE_IP', 'APP_COOKIE', 'HTTP_COOKIE']
+        valid_persist_types = [
+            'SOURCE_IP', 'APP_COOKIE', 'HTTP_COOKIE', 'SOURCE_IP_PORT'
+        ]
         if persistence:
             persistence_type = persistence.get('type', "")
             if persistence_type not in valid_persist_types:
@@ -620,6 +622,9 @@ class ServiceModelAdapter(object):
 
             if persistence_type == 'APP_COOKIE':
                 vip['persist'] = [{'name': 'app_cookie_' + vip['name']}]
+
+            if persistence_type == 'SOURCE_IP_PORT':
+                vip['persist'] = [{'name': 'source_ip_port_' + vip['name']}]
 
             elif persistence_type == 'SOURCE_IP':
                 vip['persist'] = [{'name': '/Common/source_addr'}]

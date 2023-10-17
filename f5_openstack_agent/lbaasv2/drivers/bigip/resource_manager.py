@@ -870,6 +870,9 @@ class ListenerManager(ResourceManager):
         persist_type = persist.get('type', "")
         if persist_type == "APP_COOKIE":
             return self._create_app_cookie_persist_profile(bigip, vs, persist)
+        elif persist_type == "SOURCE_IP_PORT":
+            return self._create_source_ip_port_persist_profile(
+                bigip, vs, persist)
         elif persist_type == "HTTP_COOKIE":
             return self._create_http_cookie_persist_profile(bigip, vs, persist)
         elif persist_type == "SOURCE_IP":
@@ -879,6 +882,11 @@ class ListenerManager(ResourceManager):
         listener_builder = self.listener_builder
         listener_builder._add_cookie_persist_rule(vs, persist, bigip)
         return "app_cookie_" + vs['name']
+
+    def _create_source_ip_port_persist_profile(self, bigip, vs, persist):
+        listener_builder = self.listener_builder
+        listener_builder._add_source_ip_port_persist_rule(vs, persist, bigip)
+        return "source_ip_port_" + vs['name']
 
     def _create_http_cookie_persist_profile(self, bigip, vs, persist):
         name = "http_cookie_" + vs['name']
@@ -945,6 +953,10 @@ class ListenerManager(ResourceManager):
         listener_builder = self.listener_builder
         listener_builder._remove_cookie_persist_rule(vs, bigip)
 
+    def _delete_source_ip_port_persist_profile(self, bigip, vs):
+        listener_builder = self.listener_builder
+        listener_builder._remove_source_ip_port_persist_rule(vs, bigip)
+
     def _delete_http_cookie_persist_profile(self, bigip, vs):
         payload = {
             "name": "http_cookie_" + vs['name'],
@@ -965,6 +977,7 @@ class ListenerManager(ResourceManager):
 
     def _delete_persist_profile(self, bigip, vs):
         self._delete_app_cookie_persist_profile(bigip, vs)
+        self._delete_source_ip_port_persist_profile(bigip, vs)
         self._delete_http_cookie_persist_profile(bigip, vs)
         self._delete_source_addr_persist_profile(bigip, vs)
 
