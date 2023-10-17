@@ -31,6 +31,7 @@ class iRuleHelper(object):
         )
         self.proxy_allowed = ["TCP"]
         self.delete_iRule = False
+        self.delete_xff_irule = False
 
     @staticmethod
     def create_v4_iRule_content(tcp_options):
@@ -106,11 +107,43 @@ when SERVER_CONNECTED {
 }"""
         return template
 
+    def get_irule_full_path(self, service, vip, prefix):
+        irule_partition = vip['partition']
+        irule_name = self.get_irule_name(service, prefix)
+        irule_fullPath = "/" + irule_partition + "/" + irule_name
+        return irule_fullPath
+
+    def create_specific_irule(self, service, vip, bigip, prefix=None,
+                              apiAnonymous=None):
+        irule_partition = vip['partition']
+        irule_name = self.get_irule_name(service, prefix)
+        irule_fullPath = "/" + irule_partition + "/" + irule_name
+
+        irule_exists = self.irule_helper.exists(
+            bigip,
+            name=irule_name,
+            partition=irule_partition
+        )
+
+        if not irule_exists:
+            payload = dict(
+                name=irule_name,
+                partition=irule_partition,
+                apiAnonymous=apiAnonymous
+            )
+            LOG.info(
+                "Create iRule: {} for "
+                "BIGIP: {} ".format(
+                    irule_fullPath, bigip.hostname
+                )
+            )
+            self.irule_helper.create(bigip, payload)
+        return irule_fullPath
+
     def create_iRule(self, service, vip, bigip, **kwargs):
         tcp_options = kwargs.get("tcp_options")
         # pzhang we need to create iRule content for IPv6 and IPv4
         ip_version = kwargs.get("ip_version")
-        payload = {}
 
         listener = service.get('listener')
         protocol = listener.get('protocol')
@@ -125,30 +158,9 @@ when SERVER_CONNECTED {
                 irule_apiAnonymous = self.create_v6_iRule_content(
                     tcp_options)
 
-        irule_partition = vip['partition']
-        irule_name = self.get_irule_name(service, "TOA")
-        irule_fullPath = "/" + irule_partition + "/" + irule_name
-
-        irule_exists = self.irule_helper.exists(
-            bigip,
-            name=irule_name,
-            partition=irule_partition
-        )
-
-        if not irule_exists:
-            payload = dict(
-                name=irule_name,
-                partition=irule_partition,
-                apiAnonymous=irule_apiAnonymous
-            )
-            LOG.info(
-                "Create TOA iRule: {} for "
-                "BIGIP: {} ".format(
-                    irule_fullPath, bigip.hostname
-                )
-            )
-            self.irule_helper.create(bigip, payload)
-
+        irule_fullPath = self.create_specific_irule(
+            service, vip, bigip, prefix="TOA",
+            apiAnonymous=irule_apiAnonymous)
         if vip['rules']:
             if irule_fullPath not in vip['rules']:
                 vip['rules'].append(irule_fullPath)
@@ -164,8 +176,6 @@ when SERVER_CONNECTED {
         new_listener = service.get("listener")
         transparent = new_listener.get("transparent")
 
-        payload = {}
-
         if ip_version == 4:
             irule_apiAnonymous = self.create_v4_iRule_content(
                 tcp_options)
@@ -173,65 +183,46 @@ when SERVER_CONNECTED {
             irule_apiAnonymous = self.create_v6_iRule_content(
                 tcp_options)
 
-        vs_name = vip['name']
         irule_partition = vip['partition']
         irule_name = self.get_irule_name(service, "TOA")
         irule_fullPath = "/" + irule_partition + "/" + irule_name
-
-        irule_exists = self.irule_helper.exists(
-            bigip,
-            name=irule_name,
-            partition=irule_partition
-        )
-
-        vs = self.vs_helper.load(bigip, name=vs_name,
+        vs = self.vs_helper.load(bigip, name=vip['name'],
                                  partition=irule_partition)
 
         if transparent:
-            if not irule_exists:
-                payload = dict(
-                    name=irule_name,
-                    partition=irule_partition,
-                    apiAnonymous=irule_apiAnonymous
-                )
-
-                LOG.info(
-                    "Updating to create TOA iRule: {} for "
-                    "BIGIP: {} ".format(
-                        irule_fullPath, bigip.hostname
-                    )
-                )
-                self.irule_helper.create(bigip, payload)
-
+            self.create_specific_irule(service, vip, bigip, prefix="TOA",
+                                       apiAnonymous=irule_apiAnonymous)
             vip_rules = [irule_fullPath]
             vip_rules += vs.rules if vs.rules is not None else list()
             vip['rules'] = vip_rules
 
             self.delete_iRule = False
         else:
-            vip_rules = vs.rules if vs.rules is not None else list()
-
-            if vip_rules and irule_fullPath in vip_rules:
-                num = vip_rules.count(irule_fullPath)
-                for _ in range(num):
-                    vip_rules.remove(irule_fullPath)
-
-            vip['rules'] = vip_rules
-
-            LOG.info(
-                "Updating to unbind TOA iRule: {} for "
-                "BIGIP: {} ".format(
-                    irule_fullPath, bigip.hostname
-                )
-            )
-
+            self.unbind_specific_irule(vip, vs, bigip, irule_fullPath)
             self.delete_iRule = True
 
-    def remove_iRule(self, service, vip, bigip):
+    def unbind_specific_irule(self, vip, vs, bigip, irule_fullPath):
+        vip_rules = vs.rules if vs.rules is not None else list()
+
+        if vip_rules and irule_fullPath in vip_rules:
+            num = vip_rules.count(irule_fullPath)
+            for _ in range(num):
+                vip_rules.remove(irule_fullPath)
+
+        vip['rules'] = vip_rules
+
+        LOG.info(
+            "Updating to unbind iRule: {} for "
+            "BIGIP: {} ".format(
+                irule_fullPath, bigip.hostname
+            )
+        )
+
+    def remove_iRule(self, service, vip, bigip, prefix=None):
         # pzhang: the listener is removed, before the irule is removed.
 
         irule_partition = vip['partition']
-        irule_name = self.get_irule_name(service, "TOA")
+        irule_name = self.get_irule_name(service, prefix)
 
         LOG.info(
             "Remove customized TCP irule: {} from "
@@ -300,3 +291,69 @@ when SERVER_CONNECTED {
                      .format(irule_fullPath, bigip.hostname))
 
         irule.modify(apiAnonymous=irule_apiAnonymous)
+
+    def enable_rewrite_xff(self, service):
+        listener = service.get('listener')
+        if listener is None:
+            return False
+        if listener.get('rewrite_xff'):
+            protocol = listener.get('protocol')
+            if protocol not in ['HTTP', 'TERMINATED_HTTPS']:
+                return False
+            return True
+        else:
+            return False
+
+    def need_update_rewrite_xff(self, old_listener, listener):
+        if old_listener is None or listener is None:
+            return False
+
+        if listener['protocol'] in ['HTTP', 'TERMINATED_HTTPS']:
+            if old_listener['rewrite_xff'] != listener['rewrite_xff']:
+                return True
+        return False
+
+    @staticmethod
+    def rewrite_xff_irule_content():
+        template = \
+            """
+            when HTTP_REQUEST {
+    HTTP::header replace X-Forwarded-For [getfield \
+[HTTP::header X-Forwarded-For] "," 1]
+}"""
+        return template
+
+    def create_rewrite_xff(self, service, vip, bigip):
+        content = self.rewrite_xff_irule_content()
+
+        irule_fullPath = self.create_specific_irule(service, vip, bigip,
+                                                    prefix="rewrite_xff",
+                                                    apiAnonymous=content)
+        if vip['rules']:
+            if irule_fullPath not in vip['rules']:
+                vip['rules'].append(irule_fullPath)
+        else:
+            vip['rules'] = [irule_fullPath]
+
+    def update_rewrite_xff_irule(self, service, vip, bigip):
+        new_listener = service.get("listener")
+        rewrite_xff = new_listener.get("rewrite_xff")
+        irule_partition = vip['partition']
+        irule_name = self.get_irule_name(service, "rewrite_xff")
+        irule_fullPath = "/" + irule_partition + "/" + irule_name
+        vs = self.vs_helper.load(bigip, name=vip['name'],
+                                 partition=irule_partition)
+        if rewrite_xff:
+            content = self.rewrite_xff_irule_content()
+            self.create_specific_irule(service, vip, bigip,
+                                       prefix="rewrite_xff",
+                                       apiAnonymous=content)
+            vip_rules = [irule_fullPath]
+            vip_rules += vs.rules if vs.rules is not None else list()
+            vip['rules'] = vip_rules
+
+            self.delete_xff_irule = False
+        else:
+            self.unbind_specific_irule(vip, vs, bigip, irule_fullPath)
+
+            self.delete_xff_irule = True
