@@ -566,6 +566,10 @@ class NetworkServiceBuilder(object):
         subnets_to_delete = self._get_subnets_to_delete(
             bigip, service
         )
+
+        # A set of networks to be deleteed
+        networks = {}
+
         for subnetinfo in subnets_to_delete:
             try:
                 if not self.conf.f5_snat_mode:
@@ -579,6 +583,8 @@ class NetworkServiceBuilder(object):
                 else:
                     network_folder = self.service_adapter.get_folder_name(
                         service['loadbalancer']['tenant_id'])
+
+                networks[network["id"]] = (network, network_folder)
 
                 subnet = subnetinfo['subnet']
                 if self.conf.f5_populate_static_arp:
@@ -602,18 +608,6 @@ class NetworkServiceBuilder(object):
                     local_selfip_name = "local-" + bigip.device_name \
                         + "-" + subnet['id']
 
-                    selfip_address = self.bigip_selfip_manager.get_selfip_addr(
-                        bigip,
-                        local_selfip_name,
-                        partition=network_folder
-                    )
-
-                    if not selfip_address:
-                        LOG.warning(
-                            "Failed to get self IP address %s in cleanup.",
-                            local_selfip_name
-                        )
-
                     self.bigip_selfip_manager.delete_selfip(
                         bigip,
                         local_selfip_name,
@@ -628,16 +622,15 @@ class NetworkServiceBuilder(object):
                             opflex_net_port = "bigip-opflex-{}".format(
                                 opflex_net_id)
                             deleted_names.add(opflex_net_port)
-
-                    self.delete_route_domain(
-                        bigip, network_folder, network
-                    )
-                    self.l2_service.delete_bigip_network(
-                        bigip, network, service['device'])
-
             except Exception as exc:
                 LOG.debug("_delete_shared_nets_config: exception: %s\n"
                           % str(exc.message))
+
+        for id in networks.keys():
+            network, folder = networks[id]
+            self.delete_route_domain(bigip, folder, network)
+            self.l2_service.delete_bigip_network(
+                bigip, network, service['device'])
 
         return deleted_names
 
