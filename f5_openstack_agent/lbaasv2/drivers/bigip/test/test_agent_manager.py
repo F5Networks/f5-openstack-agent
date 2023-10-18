@@ -105,7 +105,6 @@ class TestLbaasAgentManagerMockBuilder(mock_builder_base_class.MockBuilderBase,
         """
         # Mock() objects here should be filled in with the appropriate mocks...
         mocked_target.context = 'context'
-        mocked_target.serializer = None
         mocked_target.cache = mock.Mock()
         mocked_target.last_resync = mock.Mock()
         mocked_target.needs_resync = False

@@ -44,7 +44,6 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tcp_profile \
     import TCPProfileHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import tenants
-from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 from f5_openstack_agent.lbaasv2.drivers.bigip import virtual_address
 from icontrol.exceptions import iControlUnexpectedHTTPError
 
@@ -65,7 +64,6 @@ class ResourceManager(object):
 
     def __init__(self, driver):
         self.driver = driver
-        self.service_queue_map = driver.service_queue_map
         self.mutable_props = {}
 
     def _shrink_payload(self, payload, **kwargs):
@@ -244,7 +242,6 @@ class LoadBalancerManager(ResourceManager):
 
         return payload
 
-    @serialized('LoadBalancerManager.create')
     @log_helpers.log_method_call
     def create(self, loadbalancer, service, **kwargs):
         self._pre_create(service)
@@ -591,7 +588,6 @@ class LoadBalancerManager(ResourceManager):
 
         LOG.debug('ends _update_access_log')
 
-    @serialized('LoadBalancerManager.update')
     @log_helpers.log_method_call
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
         self._update_bwc(old_loadbalancer, loadbalancer, service)
@@ -619,7 +615,6 @@ class LoadBalancerManager(ResourceManager):
                     old_loadbalancer, loadbalancer, service
                 )
 
-    @serialized('LoadBalancerManager.delete')
     @log_helpers.log_method_call
     def delete(self, loadbalancer, service, **kwargs):
         self._pre_delete(service)
@@ -1521,7 +1516,6 @@ class ListenerManager(ResourceManager):
             )
         self.tcp_helper.delete_keepalive_profile(service, vs, bigip)
 
-    @serialized('ListenerManager.create')
     @log_helpers.log_method_call
     def create(self, listener, service, **kwargs):
         loadbalancer = service.get("loadbalancer", None)
@@ -1534,7 +1528,6 @@ class ListenerManager(ResourceManager):
                 service, traffic_group)
         super(ListenerManager, self).create(listener, service)
 
-    @serialized('ListenerManager.update')
     @log_helpers.log_method_call
     def update(self, old_listener, listener, service, **kwargs):
         super(ListenerManager, self).update(
@@ -1544,7 +1537,6 @@ class ListenerManager(ResourceManager):
     # and we add unbind_acl
     # bind_acl will consider enable and disableo
     # unbind_acl will clear everything whatever it enable or disable
-    @serialized('ListenerManager.update_acl_bind')
     @log_helpers.log_method_call
     def update_acl_bind(self, listener, acl_bind, service, **kwargs):
         enable = self.acl_helper.enable_acl(acl_bind)
@@ -1590,7 +1582,6 @@ class ListenerManager(ResourceManager):
         LOG.debug("Finish to update ACL bind %s %s",
                   self._resource, str(acl_bind))
 
-    @serialized('ListenerManager.delete')
     @log_helpers.log_method_call
     def delete(self, listener, service, **kwargs):
         self._search_element(listener, service)
@@ -1747,17 +1738,14 @@ class PoolManager(ResourceManager):
         for member in members:
             self._delete_member_node(loadbalancer, member, bigip)
 
-    @serialized('PoolManager.create')
     @log_helpers.log_method_call
     def create(self, pool, service, **kwargs):
         super(PoolManager, self).create(pool, service)
 
-    @serialized('PoolManager.update')
     @log_helpers.log_method_call
     def update(self, old_pool, pool, service, **kwargs):
         super(PoolManager, self).update(old_pool, pool, service)
 
-    @serialized('PoolManager.delete')
     @log_helpers.log_method_call
     def delete(self, pool, service, **kwargs):
         self.driver.annotate_service_members(service)
@@ -1865,12 +1853,10 @@ class MonitorManager(ResourceManager):
             else:
                 raise err
 
-    @serialized('MonitorManager.create')
     @log_helpers.log_method_call
     def create(self, monitor, service, **kwargs):
         super(MonitorManager, self).create(monitor, service)
 
-    @serialized('MonitorManager.update')
     @log_helpers.log_method_call
     def update(self, old_monitor, monitor, service, **kwargs):
         super(MonitorManager, self).update(
@@ -1902,7 +1888,6 @@ class MonitorManager(ResourceManager):
         LOG.debug(payload)
         return payload
 
-    @serialized('MonitorManager.delete')
     @log_helpers.log_method_call
     def delete(self, monitor, service, **kwargs):
         super(MonitorManager, self).delete(monitor, service)
@@ -1994,13 +1979,11 @@ class MemberManager(ResourceManager):
 
         return members_payload
 
-    @serialized('MemberManager.create')
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
 
         self._create_single(resource, service, **kwargs)
 
-    @serialized('MemberManager.rebuild')
     @log_helpers.log_method_call
     def rebuild(self, resource, service, **kwargs):
 
@@ -2084,7 +2067,6 @@ class MemberManager(ResourceManager):
 
         LOG.debug("Finish to create %s %s", self._resource, resource['id'])
 
-    @serialized('MemberManager.delete')
     @log_helpers.log_method_call
     def delete(self, resource, service, **kwargs):
         if not service.get(self._key):
@@ -2139,7 +2121,6 @@ class MemberManager(ResourceManager):
 
         LOG.debug("Finish to delete %s %s", self._resource, resource['id'])
 
-    @serialized('MemberManager.update')
     @log_helpers.log_method_call
     def update(self, old_resource, resource, service, **kwargs):
         self.driver.annotate_service_members(service)
@@ -2306,17 +2287,14 @@ class L7PolicyManager(ResourceManager):
                l7rule['compare_type'] == "REGEX":
                 self.l7rule_mgr._delete(bigip, None, l7rule, service)
 
-    @serialized('L7PolicyManager.create')
     @log_helpers.log_method_call
     def create(self, l7policy, service, **kwargs):
         super(L7PolicyManager, self).create(l7policy, service)
 
-    @serialized('L7PolicyManager.update')
     @log_helpers.log_method_call
     def update(self, old_l7policy, l7policy, service, **kwargs):
         super(L7PolicyManager, self).create(l7policy, service)
 
-    @serialized('L7PolicyManager.delete')
     @log_helpers.log_method_call
     def delete(self, l7policy, service, **kwargs):
         super(L7PolicyManager, self).delete(l7policy, service)
@@ -2403,19 +2381,16 @@ class L7RuleManager(ResourceManager):
                                                    None, None, None)
         super(L7RuleManager, self)._delete(bigip, irule, None, None)
 
-    @serialized('L7RuleManager._create_irule')
     @log_helpers.log_method_call
     def _create_irule(self, l7rule, service, **kwargs):
         # Just a wrapper to utilize serialized decorator appropriately
         super(L7RuleManager, self).create(l7rule, service)
 
-    @serialized('L7RuleManager._update_irule')
     @log_helpers.log_method_call
     def _update_irule(self, old_l7rule, l7rule, service, **kwargs):
         # Just a wrapper to utilize serialized decorator appropriately
         super(L7RuleManager, self).update(old_l7rule, l7rule, service)
 
-    @serialized('L7RuleManager._delete_irule')
     @log_helpers.log_method_call
     def _delete_irule(self, l7rule, service, **kwargs):
         # Just a wrapper to utilize serialized decorator appropriately

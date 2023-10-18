@@ -54,7 +54,7 @@ def serialized(method_name):
         """Decorator to serialize calls to configure via iControl."""
         def wrapper(*args, **kwargs):
             """Necessary wrapper."""
-            # args[0] must be an instance of iControlDriver
+            # args[0] must have service_queue_map attribute
             service_queue_map = args[0].service_queue_map
             service_queue = service_queue_map["default"]
             my_request_id = uuid.uuid4()
