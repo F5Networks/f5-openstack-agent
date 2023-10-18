@@ -375,7 +375,8 @@ class iControlDriver(LBaaSBaseDriver):
             resource_helper.ResourceType.pool)
 
         if self.conf.password_cipher_mode and self.conf.os_password:
-            self.conf.os_password = base64.b64decode(self.conf.os_password)
+            self.conf.os_password = decrypt_data(self.conf.os_username,
+                                                 self.conf.os_password)
 
         try:
             # debug logging of service requests recieved by driver
