@@ -827,6 +827,9 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         self, context, member, service,
     ):
         """Handle RPC cast from plugin to create_member."""
+
+        # TODO(X): delete the multiple code
+
         loadbalancer = service['loadbalancer']
         multiple = service.get("multiple", False)
         id = member['id']
@@ -885,6 +888,43 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('update_member')
     @log_helpers.log_method_call
+    def create_bulk_member(
+        self, context, members, service,
+    ):
+        """Handle RPC cast from plugin to create_member."""
+        loadbalancer = service['loadbalancer']
+
+        try:
+            bigip_device.set_bigips(service, self.conf)
+            mgr = resource_manager.MemberManager(self.lbdriver)
+            mgr.create_bulk(members, service)
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+
+            LOG.debug("Finish to create multiple members")
+        except Exception as ex:
+            LOG.error("Fail to create multiple members "
+                      "Exception: %s", ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+        finally:
+            try:
+                for m in members:
+                    self.plugin_rpc.update_member_status(
+                        m['id'], provision_status, operating_status
+                    )
+
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.info("Finish to update status of multiple members")
+
+            except Exception as ex:
+                LOG.exception("Fail to update status of multiple members "
+                              "Exception: %s", ex.message)
+
+    @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
         """Handle RPC cast from plugin to update_member."""
         loadbalancer = service['loadbalancer']
@@ -919,6 +959,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def delete_member(self, context, member, service):
         """Handle RPC cast from plugin to delete_member."""
+        # TODO(X): delete the multiple code
+
         loadbalancer = service['loadbalancer']
         multiple = service.get("multiple", False)
         id = member['id']
@@ -980,6 +1022,50 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                                   "Exception: %s", id, ex.message)
 
     @serialized('create_health_monitor')
+    @log_helpers.log_method_call
+    def delete_bulk_member(
+        self, context, members, service,
+    ):
+        """Handle RPC cast from plugin to delete members."""
+        loadbalancer = service['loadbalancer']
+
+        try:
+            bigip_device.set_bigips(service, self.conf)
+            mgr = resource_manager.MemberManager(self.lbdriver)
+            mgr.delete_bulk(members, service)
+            provision_status = constants_v2.F5_ACTIVE
+
+            # when delete succeed the member should be offline?
+            operating_status = constants_v2.F5_ONLINE
+
+            for mb in members:
+                self.plugin_rpc.member_destroyed(mb['id'])
+
+            LOG.debug("Finish to delete multiple members")
+        except Exception as ex:
+            LOG.error("Fail to delete multiple members "
+                      "Exception: %s", ex.message)
+            provision_status = constants_v2.F5_ERROR
+            operating_status = constants_v2.F5_OFFLINE
+
+            # update operating status for members,
+            # only when delete error happens ?
+            for m in members:
+                self.plugin_rpc.update_member_status(
+                    m['id'], provision_status, operating_status
+                )
+        finally:
+            try:
+                self.plugin_rpc.update_loadbalancer_status(
+                    loadbalancer['id'], provision_status,
+                    loadbalancer['operating_status']
+                )
+                LOG.info("Finish to update status of multiple members")
+
+            except Exception as ex:
+                LOG.exception("Fail to update status of multiple members "
+                              "Exception: %s", ex.message)
+
     @log_helpers.log_method_call
     def create_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to create_pool_health_monitor."""

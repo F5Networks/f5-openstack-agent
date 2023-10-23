@@ -1931,12 +1931,14 @@ class MemberManager(ResourceManager):
     def _create_member_payload(self, loadbalancer, member):
         return self.driver.service_adapter._map_member(loadbalancer, member)
 
+    # TODO(X): remove member argument
     def _create_payload(self, member, service):
         return self.driver.service_adapter.get_member(service)
 
-    def _merge_members(self, lbaas_members, bigip_members, pool_id, service):
-        members_payload = []
-        name_list = []
+    def _merge_members(self, lbaas_members, bigip_members, delete=False):
+        # why use merge ? perhaps to in case of existed member status change?
+
+        ret = {}
 
         start_time = time()
         """ old members from bigip """
@@ -1962,22 +1964,122 @@ class MemberManager(ResourceManager):
                 del content['session']
                 del content['state']
 
-            members_payload.append(content)
-            name_list.append(content['name'])
+            ret[content['name']] = content
 
-        """ new members from bigip """
-        lb = service['loadbalancer']
-        for item in lbaas_members:
-            if item['name'] not in name_list and \
-               item['pool_id'] == pool_id:
-                content = self._create_member_payload(lb, item)
-                members_payload.append(content)
+        if not delete:
+            for mb in lbaas_members:
+                name = mb['name']
+                if name not in ret:
+                    ret[name] = mb
+        else:
+            for mb in lbaas_members:
+                name = mb['name']
+                if name in ret:
+                    ret.pop(name)
 
         if time() - start_time > .001:
             LOG.debug("For merge_members took %.5f secs" %
                       (time() - start_time))
 
-        return members_payload
+        return ret.values()
+
+    @log_helpers.log_method_call
+    def create_bulk(self, resource, service, **kwargs):
+
+        LOG.debug("Begin to create bulk %s %s", self._resource, resource)
+        if not self.driver.conf.f5_global_routed_mode:
+            # TODO(X): remove resource arguement in prep_mb_network
+            self.driver.network_builder.prep_mb_network(
+                None, service)
+
+        # all members are from same subnet and in the same pool
+        sample_mb = resource[0]
+        pool_id = sample_mb['pool_id']
+
+        pool = {'id': pool_id}
+        self._pool_mgr._search_element(pool, service)
+        pool_payload = self._pool_mgr._create_payload(pool, service)
+        lbaas_mbs = pool_payload.get('members', [])
+
+        bigips = service['bigips']
+        for bigip in bigips:
+            pool_resource = self._pool_mgr.pool_helper.load(
+                bigip,
+                name=urllib.quote(pool_payload['name']),
+                partition=pool_payload['partition']
+            )
+            bigip_mbs = pool_resource.members_s.get_collection()
+            payload = self._merge_members(
+                lbaas_mbs, bigip_mbs, delete=False)
+            pool_payload['members'] = payload
+            self._shrink_payload(
+                pool_payload,
+                keys_to_keep=[
+                    'partition', 'name', 'members', 'loadBalancingMode']
+            )
+
+            self._pool_mgr._update(
+                bigip, pool_payload, None, None, service)
+
+        LOG.debug("Finish to create bulk %s %s", self._resource, resource)
+
+    @log_helpers.log_method_call
+    def delete_bulk(self, resource, service, **kwargs):
+
+        LOG.debug("Begin to delete bulk %s %s", self._resource, resource)
+        lbaas_mbs = []
+        for mb in resource:
+            service["member"] = mb
+            # calculate member name and addr at local
+            member_name, member_addr = self._get_member_name(service)
+            mb['address'] = member_addr
+            lbaas_mbs.append({'name': member_name})
+
+        # all members are from same subnet and in the same pool
+        sample_mb = resource[0]
+        pool_id = sample_mb['pool_id']
+
+        pool = {'id': pool_id}
+        self._pool_mgr._search_element(pool, service)
+        pool_payload = self._pool_mgr._create_payload(pool, service)
+
+        loadbalancer = service.get('loadbalancer')
+        bigips = service['bigips']
+        for bigip in bigips:
+            pool_resource = self._pool_mgr.pool_helper.load(
+                bigip,
+                name=urllib.quote(pool_payload['name']),
+                partition=pool_payload['partition']
+            )
+            bigip_mbs = pool_resource.members_s.get_collection()
+            payload = self._merge_members(
+                lbaas_mbs, bigip_mbs, delete=True)
+            pool_payload['members'] = payload
+            self._shrink_payload(
+                pool_payload,
+                keys_to_keep=[
+                    'partition', 'name', 'members', 'loadBalancingMode'
+                ]
+            )
+
+            self._pool_mgr._update(
+                bigip, pool_payload, None, None, service)
+
+            for mb in resource:
+                self._pool_mgr._delete_member_node(loadbalancer, mb, bigip)
+
+            # Modify pool if its loadBalancingMode changes
+            if pool_resource.loadBalancingMode != \
+               pool_payload["loadBalancingMode"]:
+                self._shrink_payload(
+                    pool_payload,
+                    keys_to_keep=[
+                        'partition', 'name', 'loadBalancingMode'
+                    ])
+                self._pool_mgr._update(bigip, pool_payload,
+                                       None, None, service)
+
+        LOG.debug("Finish to delete bulk %s %s", self._resource, resource)
 
     @log_helpers.log_method_call
     def create(self, resource, service, **kwargs):
