@@ -828,10 +828,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     ):
         """Handle RPC cast from plugin to create_member."""
 
-        # TODO(X): delete the multiple code
-
         loadbalancer = service['loadbalancer']
-        multiple = service.get("multiple", False)
         id = member['id']
 
         try:
@@ -840,51 +837,26 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr.create(member, service)
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
-            if multiple:
-                LOG.debug("Finish to create multiple members")
-            else:
-                LOG.debug("Finish to create member %s", id)
+            LOG.debug("Finish to create member %s", id)
         except Exception as ex:
-            if multiple:
-                LOG.error("Fail to create multiple members "
-                          "Exception: %s", ex.message)
-            else:
-                LOG.error("Fail to create member %s "
-                          "Exception: %s", id, ex.message)
+            LOG.error("Fail to create member %s "
+                      "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
             operating_status = constants_v2.F5_OFFLINE
         finally:
             try:
-                members = []
-                if not multiple:
-                    members.append(member)
-                else:
-                    for m in service['members']:
-                        if m['provisioning_status'] == \
-                           constants_v2.F5_PENDING_CREATE:
-                            members.append(m)
-
-                for m in members:
-                    self.plugin_rpc.update_member_status(
-                        m['id'], provision_status, operating_status
-                    )
+                self.plugin_rpc.update_member_status(
+                    id, provision_status, operating_status
+                )
 
                 self.plugin_rpc.update_loadbalancer_status(
                     loadbalancer['id'], provision_status,
                     loadbalancer['operating_status']
                 )
-                if multiple:
-                    LOG.info("Finish to update status of multiple members")
-                else:
-                    LOG.info("Finish to update status of member %s", id)
-
+                LOG.info("Finish to update status of member %s", id)
             except Exception as ex:
-                if multiple:
-                    LOG.exception("Fail to update status of multiple members "
-                                  "Exception: %s", ex.message)
-                else:
-                    LOG.exception("Fail to update status of member %s "
-                                  "Exception: %s", id, ex.message)
+                LOG.exception("Fail to update status of member %s "
+                              "Exception: %s", id, ex.message)
 
     @serialized('update_member')
     @log_helpers.log_method_call
@@ -959,10 +931,8 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
     @log_helpers.log_method_call
     def delete_member(self, context, member, service):
         """Handle RPC cast from plugin to delete_member."""
-        # TODO(X): delete the multiple code
 
         loadbalancer = service['loadbalancer']
-        multiple = service.get("multiple", False)
         id = member['id']
 
         try:
@@ -970,56 +940,32 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             mgr = resource_manager.MemberManager(self.lbdriver)
             mgr.delete(member, service)
             provision_status = constants_v2.F5_ACTIVE
-            if multiple:
-                LOG.debug("Finish to delete multiple members")
-            else:
-                LOG.debug("Finish to delete member %s", id)
+            LOG.debug("Finish to delete member %s", id)
         except f5_ex.ProjectIDException as ex:
             LOG.debug("Delete Member with ProjectIDException")
             provision_status = constants_v2.F5_ACTIVE
         except Exception as ex:
-            if multiple:
-                LOG.error("Fail to delete multiple members "
-                          "Exception: %s", ex.message)
-            else:
-                LOG.error("Fail to delete member %s "
-                          "Exception: %s", id, ex.message)
+            LOG.error("Fail to delete member %s "
+                      "Exception: %s", id, ex.message)
             provision_status = constants_v2.F5_ERROR
         finally:
             try:
-                members = []
-                if not multiple:
-                    members.append(member)
+                if provision_status == constants_v2.F5_ACTIVE:
+                    self.plugin_rpc.member_destroyed(member['id'])
                 else:
-                    for m in service['members']:
-                        if m['provisioning_status'] == \
-                           constants_v2.F5_PENDING_DELETE:
-                            members.append(m)
-
-                for m in members:
-                    if provision_status == constants_v2.F5_ACTIVE:
-                        self.plugin_rpc.member_destroyed(m['id'])
-                    else:
-                        self.plugin_rpc.update_member_status(
-                            m['id'], provision_status,
-                            m['operating_status']
-                        )
+                    self.plugin_rpc.update_member_status(
+                        member['id'], provision_status,
+                        member['operating_status']
+                    )
 
                 self.plugin_rpc.update_loadbalancer_status(
                     loadbalancer['id'], provision_status,
                     loadbalancer['operating_status']
                 )
-                if multiple:
-                    LOG.info("Finish to update status of multiple members")
-                else:
-                    LOG.info("Finish to update status of member %s", id)
+                LOG.info("Finish to update status of member %s", id)
             except Exception as ex:
-                if multiple:
-                    LOG.exception("Fail to update status of multiple members "
-                                  "Exception: %s", ex.message)
-                else:
-                    LOG.exception("Fail to update status of member %s "
-                                  "Exception: %s", id, ex.message)
+                LOG.exception("Fail to update status of member %s "
+                              "Exception: %s", id, ex.message)
 
     @serialized('create_health_monitor')
     @log_helpers.log_method_call
