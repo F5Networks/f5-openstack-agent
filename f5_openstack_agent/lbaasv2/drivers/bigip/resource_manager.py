@@ -1955,7 +1955,6 @@ class MemberManager(ResourceManager):
     def _create_member_payload(self, loadbalancer, member):
         return self.driver.service_adapter._map_member(loadbalancer, member)
 
-    # TODO(X): remove member argument
     def _create_payload(self, member, service):
         return self.driver.service_adapter.get_member(service)
 
