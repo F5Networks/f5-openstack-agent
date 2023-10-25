@@ -2012,9 +2012,7 @@ class MemberManager(ResourceManager):
 
         LOG.debug("Begin to create bulk %s %s", self._resource, resource)
         if not self.driver.conf.f5_global_routed_mode:
-            # TODO(X): remove resource arguement in prep_mb_network
-            self.driver.network_builder.prep_mb_network(
-                None, service)
+            self.driver.network_builder.prep_mb_network(service)
 
         # all members are from same subnet and in the same pool
         sample_mb = resource[0]
@@ -2149,8 +2147,7 @@ class MemberManager(ResourceManager):
     def _create_single(self, resource, service, **kwargs):
 
         if not self.driver.conf.f5_global_routed_mode:
-            self.driver.network_builder.prep_mb_network(
-                resource, service)
+            self.driver.network_builder.prep_mb_network(service)
 
         if not service.get(self._key):
             self._search_element(resource, service)

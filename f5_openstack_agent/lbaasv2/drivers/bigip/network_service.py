@@ -187,7 +187,7 @@ class NetworkServiceBuilder(object):
 
         return True
 
-    def prep_mb_network(self, resource, service):
+    def prep_mb_network(self, service):
         if self.conf.f5_global_routed_mode:
             return
         if not self.is_service_connected(service):
