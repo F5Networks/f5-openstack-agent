@@ -215,6 +215,7 @@ class LoadBalancerManager(ResourceManager):
         self.vs_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.virtual)
         self.mutable_props = {
+            "description": "description",
             "admin_state_up": "enabled",
             "flavor": "connectionLimit"
         }
@@ -675,6 +676,7 @@ class ListenerManager(ResourceManager):
         )
 
         self.mutable_props = {
+            "description": "description",
             "default_pool_id": "pool",
             "connection_limit": "connectionLimit"
         }
@@ -1624,6 +1626,7 @@ class PoolManager(ResourceManager):
         self.pool_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
         self.mutable_props = {
+            "description": "description",
             "lb_algorithm": "loadBalancingMode"
         }
 
@@ -1810,6 +1813,7 @@ class MonitorManager(ResourceManager):
             monitor_type
         )
         self.mutable_props = {
+            "name": "description",
             "timeout": "timeout",
             "max_retries": "timeout",
             "http_method": "send",

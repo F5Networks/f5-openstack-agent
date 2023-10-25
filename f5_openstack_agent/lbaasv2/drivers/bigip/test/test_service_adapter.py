@@ -312,6 +312,7 @@ class TestServiceAdapter(object):
             name="pre-_" + listener['id'],
             partition="pre-_" + loadbalancer['tenant_id'],
             destination=vip_address + ':' + proto_port, ipProtocol='tcp',
+            description=u" ",
             connectionLimit=0,
             enabled=True,
             pool="pre-_" + pool['id'], mask="255.255.255.255",

@@ -57,6 +57,7 @@ class VirtualAddress(object):
         model = {"name": self.name,
                  "partition": self.partition,
                  "address": self.address,
+                 "description": " ",
                  "trafficGroup": self.traffic_group,
                  "autoDelete": self.auto_delete,
                  "enabled": self.enabled,
