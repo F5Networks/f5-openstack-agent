@@ -391,7 +391,7 @@ class BigIPResourceHelper(object):
             ResourceType.msrdp_persistence:
                 lambda bigip: bigip.tm.ltm.persistence.msrdp,
             ResourceType.sip_persistence:
-                lambda bigip: bigip.tm.ltm.persistence.sips,
+                lambda bigip: bigip.tm.ltm.persistence.sips.sip,
             ResourceType.source_addr_persistence:
                 lambda bigip:
                     bigip.tm.ltm.persistence.source_addrs.source_addr,
