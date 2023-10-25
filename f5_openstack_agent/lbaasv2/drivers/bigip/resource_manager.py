@@ -854,6 +854,8 @@ class ListenerManager(ResourceManager):
                 self._check_http2_changed(old_listener, listener) or \
                 self.tcp_helper.need_update_tcp(old_listener, listener) or \
                 self.http_helper.need_update_xff(old_listener, listener) or \
+                self.tcp_irule_helper.need_update_rewrite_xff(old_listener,
+                                                              listener) or \
                 self.tcp_irule_helper.need_update_proxy(old_listener,
                                                         listener) or \
                 self.tcp_helper.need_update_keepalive(old_listener, listener):
@@ -1376,6 +1378,11 @@ class ListenerManager(ResourceManager):
                 service, vs, bigip,
             )
 
+        if self.tcp_irule_helper.enable_rewrite_xff(service):
+            self.tcp_irule_helper.create_rewrite_xff(
+                service, vs, bigip
+            )
+
         super(ListenerManager, self)._create(bigip, vs, listener, service)
 
         if self._isRedirect(listener):
@@ -1459,6 +1466,10 @@ class ListenerManager(ResourceManager):
                 ip_version=ip_version
             )
 
+        if self.tcp_irule_helper.need_update_rewrite_xff(old_listener,
+                                                         listener):
+            self.tcp_irule_helper.update_rewrite_xff_irule(service, vs, bigip)
+
         # If no vs property to update, do not call icontrol patch api.
         # This happens, when vs payload only contains 'customized'.
         if set(sorted(vs.keys())) > set(['name', 'partition']):
@@ -1493,7 +1504,14 @@ class ListenerManager(ResourceManager):
                 )
             if self.tcp_irule_helper.delete_iRule is True:
                 self.tcp_irule_helper.remove_iRule(
-                    service, vs, bigip
+                    service, vs, bigip, prefix="TOA"
+                )
+
+        if self.tcp_irule_helper.need_update_rewrite_xff(old_listener,
+                                                         listener):
+            if self.tcp_irule_helper.delete_xff_irule is True:
+                self.tcp_irule_helper.remove_iRule(
+                    service, vs, bigip, prefix="rewrite_xff"
                 )
 
     def _delete(self, bigip, vs, listener, service):
@@ -1512,9 +1530,11 @@ class ListenerManager(ResourceManager):
                 side="client"
             )
             self.tcp_irule_helper.remove_iRule(
-                service, vs, bigip
+                service, vs, bigip, prefix="TOA"
             )
         self.tcp_helper.delete_keepalive_profile(service, vs, bigip)
+        self.tcp_irule_helper.remove_iRule(service, vs, bigip,
+                                           prefix="rewrite_xff")
 
     @log_helpers.log_method_call
     def create(self, listener, service, **kwargs):
