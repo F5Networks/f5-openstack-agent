@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-import ast
 import netaddr
 
 from oslo_log import log as logging
@@ -534,26 +533,6 @@ class ServiceModelAdapter(object):
 
         return vip
 
-    def parse_descript_opts(self, listener):
-        extra_opts = {}
-        listener_id = listener.get('id')
-        descript = listener.get('description')
-
-        if descript:
-            try:
-                extra_opts = ast.literal_eval(descript)
-                LOG.debug("listener %s get extra descript options %s" %
-                          (listener_id, descript))
-            except Exception as exc:
-                LOG.error("listener id: %s can not parse extra options %s" %
-                          (listener_id, descript))
-                LOG.error("exception is %s" % exc)
-                LOG.error(
-                    "CAUTION: listener will show on neutron lbaas " +
-                    "table, BUT it will not be configure on BIGIP device")
-                raise exc
-        return extra_opts
-
     def _add_profiles_session_persistence(self, listener, pool, vip):
 
         protocol = listener.get('protocol', "")
@@ -566,33 +545,6 @@ class ServiceModelAdapter(object):
             virtual_type = 'fastl4'
         else:
             virtual_type = 'standard'
-
-        extra_options = self.parse_descript_opts(listener)
-
-        add_sip = False
-        add_diameter = False
-        # according to the extra_options,
-        # some vip profile will be overwrite
-        if extra_options:
-            listener_type = extra_options.get('Listener-type')
-            extra_profile = extra_options.get('Add-profile')
-
-            other_proto = extra_options.get('Listener-proto')
-            # add this for TCP source ip transparent
-            if other_proto == 'UDP':
-                # TCP with UDP description, it will become UDP
-                protocol = "UDP"
-                # change listener protocol here
-                listener["protocol"] = "UDP"
-
-            if listener_type == 'standard':
-                virtual_type = 'standard'
-
-            if extra_profile == 'SIP':
-                add_sip = True
-            elif extra_profile == 'Diameter':
-                virtual_type = "mr"
-                add_diameter = True
 
         if protocol == "UDP" or protocol == "SIP":
             vip["ipProtocol"] = "udp"
@@ -650,27 +602,10 @@ class ServiceModelAdapter(object):
             if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
                 vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
-        if add_sip or protocol == 'SIP':
+        if protocol == 'SIP':
             LOG.debug('adding sip profile')
             if '/Common/sip' not in vip['profiles']:
                 vip['profiles'].append('/Common/sip')
-
-        if add_diameter:
-            diameter_session = extra_options.get('ds')
-            diameter_router = extra_options.get('dr')
-
-            if not diameter_session:
-                diameter_session = '/Common/diametersession'
-            else:
-                diameter_session = '/Common/' + diameter_session
-
-            if not diameter_router:
-                diameter_router = '/Common/diameterrouter'
-
-            if diameter_session not in vip['profiles'] and \
-                    diameter_router not in vip['profiles']:
-                vip['profiles'] += [diameter_session,
-                                    diameter_router]
 
     def get_vlan(self, vip, bigip, network_id):
         if network_id in bigip.assured_networks:
