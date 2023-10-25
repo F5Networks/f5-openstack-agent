@@ -41,6 +41,8 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
 from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
     import CipherRule
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
+from f5_openstack_agent.lbaasv2.drivers.bigip.sip_profile \
+    import SIPProfileHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.tcp_profile \
     import TCPProfileHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip import tenants
@@ -670,6 +672,7 @@ class ListenerManager(ResourceManager):
             resource_helper.ResourceType.rule)
         self.tcp_helper = TCPProfileHelper()
         self.tcp_irule_helper = iRuleHelper()
+        self.sip_helper = SIPProfileHelper()
 
         self.listener_builder = ListenerServiceBuilder(
             self.driver.conf,
@@ -1371,6 +1374,10 @@ class ListenerManager(ResourceManager):
         if ftp_enable:
             self.ftp_helper.add_profile(service, vs, bigip)
 
+        is_sip = self.sip_helper.enable_sip(service)
+        if is_sip:
+            self.sip_helper.add_profile(vs, bigip)
+
         loadbalancer = service.get('loadbalancer', dict())
         network_id = loadbalancer.get('network_id', "")
         self.driver.service_adapter.get_vlan(vs, bigip, network_id)
@@ -1562,6 +1569,11 @@ class ListenerManager(ResourceManager):
         ftp_enable = self.ftp_helper.enable_ftp(service)
         if ftp_enable:
             self.ftp_helper.remove_profile(service, vs, bigip)
+
+        is_sip = self.sip_helper.enable_sip(service)
+        if is_sip:
+            self.sip_helper.remove_profile(vs, bigip)
+
         tcp_ip_enable = self.tcp_helper.need_delete_tcp(service)
         if tcp_ip_enable:
             self.tcp_helper.remove_profile(

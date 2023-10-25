@@ -602,11 +602,6 @@ class ServiceModelAdapter(object):
             if persistence_type in ['HTTP_COOKIE', 'APP_COOKIE']:
                 vip['profiles'] = ['/Common/http', '/Common/oneconnect']
 
-        if protocol == 'SIP':
-            LOG.debug('adding sip profile')
-            if '/Common/sip' not in vip['profiles']:
-                vip['profiles'].append('/Common/sip')
-
     def get_vlan(self, vip, bigip, network_id):
         if network_id in bigip.assured_networks:
             vip['vlans'].append(

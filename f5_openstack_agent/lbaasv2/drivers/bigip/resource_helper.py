@@ -75,6 +75,7 @@ class ResourceType(Enum):
     device = 47
     cipher_group = 48
     cipher_rule = 49
+    sip_profile = 50
 
 
 def retry_icontrol(function):
@@ -407,6 +408,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert,
             ResourceType.ftp_profile:
                 lambda bigip: bigip.tm.ltm.profile.ftps.ftp,
+            ResourceType.sip_profile:
+                lambda bigip: bigip.tm.ltm.profile.sips.sip,
             ResourceType.bwc_policy:
                 lambda bigip: bigip.tm.net.bwc.policys.policy,
             ResourceType.internal_data_group:
