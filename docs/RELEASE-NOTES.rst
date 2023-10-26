@@ -5,6 +5,77 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.6 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+*  [OPENSTACK-2912] Add sip profile manipulation
+*  [OPENSTACK-2912] remove old description way
+*  [OPENSTACK-2899] SIP VS
+*  [OPENSTACK-2900] remove useless comment
+*  [OPENSTACK-2908] remove 'multiple' code for member create/delete
+*  [OPENSTACK-2908] remove useless arguement for prep_mb_network.
+*  [OPENSTACK-2911] create and update description with empty
+*  [OPENSTACK-2910] Listener support rewrite_xff.
+*  [OPENSTACK-2900] add bulk member create/delete
+*  [OPENSTACK-2898] Restore os_password AES decryption code
+*  [OPENSTACK-2787] Occupy device
+*  [OPENSTACK-2879] Remove redundant loading selfip action
+*  [OPENSTACK-2879] Remove redundant deleting route domain action
+*  [OPENSTACK-2863] Update travis deploy condition.
+*  [OPENSTACK-2863] Remove 9.9 and 9.8 release notes.
+*  [OPENSTACK-2863] Update documentation deploy to compatible with 4-digit version numbers.
+*  [OPENSTACK-2901] Add source ip port persistence support.
+*  [OPENSTACK-2787] Enqueue provisioning job at the very beginning
+*  [OPENSTACK-2894] remove bigip decription for vip, vs, pool, healthmonitor
+*  [OPENSTACK-2900] remove pool_port_<member-id>
+*  [OPENSTACK-2875] new way to delete in _remove_tenant_replication_mode
+*  [OPENSTACK-2840] create all the members of a pool at once
+*  [OPENSTACK-2840] Do not overwrite existing http2 profile.
+*  [OPENSTACK-2873] Retry 401 when adding vlan to route domain
+*  [OPENSTACK-2873] Retry 401 when adding vlan interfaces
+*  [OPENSTACK-2840] remove the useless subnet argument.
+*  [OPENSTACK-2858] Reduce iControl calls when deleting LB
+*  [OPENSTACK-2858] Reduce iControl calls for LB creation
+*  [OPENSTACK-2840] rebuild lb tree inplace.
+*  [OPENSTACK-2858] Do not print exception of ignored HTTP errors
+*  [OPENSTACK-2865] enable acl rebuild function
+*  [OPENSTACK-2866] Remove obsolete inventory code.
+*  [OPENSTACK-2859] Remove obsolete code (lbaas builder)
+*  [OPENSTACK-2868] add password_cipher_mode back
+*  [OPENSTACK-2792] modify l2 part and remove f5os configs
+*  [OPENSTACK-2720] add f5os and l2 related logic
+*  [OPENSTACK-2720] remove password_cipher_mode
+*  [OPENSTACK-2720] ng F5OS rSeries
+*  [OPENSTACK-2860] Remove TOA irule log.
+*  [OPENSTACK-2840] rebuild l7policies and l7rules
+*  [OPENSTACK-2840] rebuild healthmonitor for a pool
+*  [OPENSTACK-2840] rebuild pool
+*  [OPENSTACK-2840] add rebuild member function
+*  [OPENSTACK-2840] declare rd_id as None
+*  [OPENSTACK-2840] fix vxlan update fdb for rebuild
+*  [OPENSTACK-2860] TOA tcp option setting for IPv4 and IPv6 separately and add port number.
+*  [OPENSTACK-2859] Ignore icontrol 409 by default when creating resource
+*  [OPENSTACK-2847] Retry 401 when cleanup partition
+*  [OPENSTACK-2847] Retry 401 when initialize bigip connection
+*  [OPENSTACK-2840] rebuild change for agent
+
+Bug Fixes
+`````````
+*  [OPENSTACK-2886] Fix TOA profile, only create client side tcp profile.
+*  [OPENSTACK-2867] Fix creating route domain racing problem
+*  [OPENSTACK-2867] Fix creating vlan racing problem
+*  [OPENSTACK-2867] Needn't to detach redirect policy after removing vs
+*  [OPENSTACK-2861] selfip not deleted
+
+Limitations
+```````````
+
+Release Notes for F5 Openstack Agent
+====================================
+
 v9.10.5 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
