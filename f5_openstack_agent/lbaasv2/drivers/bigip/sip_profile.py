@@ -74,7 +74,8 @@ class SIPProfileHelper(object):
             )
             self.sip_helper.create(bigip, payload)
 
-        vs['profiles'].append(profile)
+        if profile not in vs['profiles']:
+            vs['profiles'].append(profile)
 
     def remove_profile(self, vs, bigip):
         partition = vs['partition']
