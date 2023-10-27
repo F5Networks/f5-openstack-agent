@@ -584,8 +584,6 @@ class NetworkServiceBuilder(object):
                     network_folder = self.service_adapter.get_folder_name(
                         service['loadbalancer']['tenant_id'])
 
-                networks[network["id"]] = (network, network_folder)
-
                 subnet = subnetinfo['subnet']
                 if self.conf.f5_populate_static_arp:
                     self.network_helper.arp_delete_by_subnet(
@@ -615,6 +613,8 @@ class NetworkServiceBuilder(object):
                     )
 
                     deleted_names.add(local_selfip_name)
+
+                    networks[network["id"]] = (network, network_folder)
 
                     if self.conf.f5_network_segment_physical_network:
                         opflex_net_id = network.get('id')
