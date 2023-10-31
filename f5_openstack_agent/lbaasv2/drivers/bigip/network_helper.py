@@ -22,14 +22,11 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from requests.exceptions import HTTPError
 
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
-    import Route
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
-    import RouteDomain
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
-    import SelfIP
-from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
-    import Vlan
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource import Node
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource import Route
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource import RouteDomain
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource import SelfIP
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource import Vlan
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 
@@ -615,7 +612,8 @@ class NetworkHelper(object):
     @log_helpers.log_method_call
     def get_node_addresses(self, bigip, partition=const.DEFAULT_PARTITION):
         """Get the addresses of nodes within the partition."""
-        nodes = bigip.tm.ltm.nodes.get_collection(partition=partition)
+        n = Node()
+        nodes = n.get_resources(bigip, partition=partition)
 
         node_addrs = []
         for node in nodes:
