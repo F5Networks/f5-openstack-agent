@@ -89,11 +89,23 @@ def retry_icontrol(function):
             try:
                 return function(*args, **kwargs)
             except HTTPError as ex:
+                in_retry_scope = False
+
                 if ex.response.status_code == 401:
+                    in_retry_scope = True
+
+                if ex.response.status_code == 400 and \
+                   "Device or resource busy" in ex.message:
+                    in_retry_scope = True
+
+                if in_retry_scope:
                     LOG.debug("Attempt %s: %s", attempt, ex.message)
                     if attempt < max_attempt:
                         sleep(interval)
                         continue
+                    else:
+                        LOG.exception(ex)
+
                 raise
 
     return retry
@@ -190,6 +202,9 @@ class BigIPResourceHelper(object):
             obj.delete()
         except HTTPError as ex:
             if ex.response.status_code == 401:
+                raise
+            elif ex.response.status_code == 400 and \
+                    "Device or resource busy" in ex.message:
                 raise
             elif ex.response.status_code == 404:
                 LOG.debug("Ignore HTTP error: %s", ex.message)
