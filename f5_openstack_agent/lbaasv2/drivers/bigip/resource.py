@@ -122,6 +122,12 @@ class Route(BigIPResource):
         self.helper = BigIPResourceHelper(ResourceType.route)
 
 
+class Node(BigIPResource):
+    def __init__(self, **kwargs):
+        super(Node, self).__init__(**kwargs)
+        self.helper = BigIPResourceHelper(ResourceType.node)
+
+
 class CipherGroup(BigIPResource):
     def __init__(self, **kwargs):
         super(CipherGroup, self).__init__(**kwargs)
