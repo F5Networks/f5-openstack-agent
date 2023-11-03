@@ -1141,7 +1141,6 @@ class LargeSNATHelper(SNATHelper):
         self.large_snat_network = self.driver.plugin_rpc.create_network(**body)
         snat_network_id = self.large_snat_network['id']
 
-        flavor = self.service['loadbalancer']['flavor']
         self.large_snat_subnet = {}
 
         ip_versions = []
@@ -1151,16 +1150,11 @@ class LargeSNATHelper(SNATHelper):
 
         # Create large SNAT subnets
         for ip_version in ip_versions:
-            if flavor == 7:
-                if ip_version == 6:
-                    prefixlen = 121
-                else:
-                    prefixlen = 25
+            # SNAT subnet size is always 128
+            if ip_version == 6:
+                prefixlen = 121
             else:
-                if ip_version == 6:
-                    prefixlen = 122
-                else:
-                    prefixlen = 26
+                prefixlen = 25
 
             if ip_version == 6:
                 pool_id = self.driver.conf.snat_subnetpool_v6
