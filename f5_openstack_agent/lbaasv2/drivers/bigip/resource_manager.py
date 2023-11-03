@@ -228,6 +228,23 @@ class LoadBalancerManager(ResourceManager):
                                              loadbalancer)
         return vip.model()
 
+    def _update_payload(self, old_lb, lb, service, **kwargs):
+        payload = super(LoadBalancerManager,
+                        self)._update_payload(old_lb, lb, service)
+
+        if "connectionLimit" not in payload:
+            # Flavor 21 LB may adjust its connection limit,
+            # and snat pool may need to resize
+            old_flavor = old_lb.get("flavor", 0)
+            new_flavor = lb.get("flavor", 0)
+            new_maxc = lb.get("max_concurrency", 0)
+            old_maxc = old_lb.get("max_concurrency", 0)
+            if old_flavor == new_flavor == 21 and old_maxc != new_maxc:
+                vip = self._create_payload(lb, service)
+                payload["connectionLimit"] = vip["connectionLimit"]
+
+        return payload
+
     @log_helpers.log_method_call
     def create(self, loadbalancer, service, **kwargs):
         self._pre_create(service)
@@ -480,14 +497,28 @@ class LoadBalancerManager(ResourceManager):
             LOG.error('flavor id not expected. neglect only')
             return
 
-        # add some checks
+        flavor_change = False
+        flavor21_newc_change = False
+
         if not old_flavor or old_flavor != new_flavor:
+            flavor_change = True
+
+        # Flavor 21 LB may adjust its rate limit
+        old_newc = old_loadbalancer.get("new_connection", 0)
+        new_newc = loadbalancer.get("new_connection", 0)
+        if old_flavor == new_flavor == 21 and old_newc != new_newc:
+            flavor21_newc_change = True
+
+        if flavor_change or flavor21_newc_change:
             if new_flavor == 0:
                 listener_rate_limit = 0
             else:
                 ratio = self.driver.conf.connection_rate_limit_ratio
-                listener_rate_limit = \
-                    new_limit['rate_limit'] / ratio
+                rate_limit = new_limit['rate_limit']
+                # Overwrite the default value for flavor 21 only
+                if new_flavor == 21:
+                    rate_limit = new_newc or rate_limit
+                listener_rate_limit = rate_limit / ratio
 
             LOG.info('listener_rate_limit to use: %s', listener_rate_limit)
 
@@ -562,6 +593,9 @@ class LoadBalancerManager(ResourceManager):
 
     @log_helpers.log_method_call
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
+        if self.driver.network_builder:
+            self.driver.network_builder._annotate_service_route_domains(
+                    service)
         self._update_bwc(old_loadbalancer, loadbalancer, service)
         self._update_2_limits(old_loadbalancer, loadbalancer, service)
         self._update_flavor_snat(old_loadbalancer, loadbalancer, service)
@@ -574,8 +608,14 @@ class LoadBalancerManager(ResourceManager):
         self, old_loadbalancer, loadbalancer, service
     ):
         if self.driver.network_builder:
-            if loadbalancer.get('flavor') != \
-                    old_loadbalancer.get('flavor'):
+            # If flavor changes or flavor21 max_concurrency changes,
+            # snat pool may need to resize
+            new_flavor = loadbalancer.get('flavor', 0)
+            old_flavor = old_loadbalancer.get('flavor', 0)
+            new_maxc = loadbalancer.get("max_concurrency", 0)
+            old_maxc = old_loadbalancer.get("max_concurrency", 0)
+            if new_flavor != old_flavor or \
+               (new_flavor == old_flavor == 21 and new_maxc != old_maxc):
                 self.driver.network_builder.lb_netinfo_to_assure(service)
                 self.driver.network_builder.update_flavor_snat(
                     old_loadbalancer, loadbalancer, service

@@ -512,8 +512,11 @@ class ServiceModelAdapter(object):
                     LOG.error("Flavor is invalid. Skip to configure limit.")
                     return vip
 
-                listener_rate_limit = \
-                    limit_value['rate_limit'] / ratio
+                rate_limit = limit_value['rate_limit']
+                # Overwrite the default value for flavor 21 only
+                if flavor_id == 21:
+                    rate_limit = loadbalancer.get("new_connection", rate_limit)
+                listener_rate_limit = rate_limit / ratio
 
                 vip["rateLimit"] = listener_rate_limit
 
