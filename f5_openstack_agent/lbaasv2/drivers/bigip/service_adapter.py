@@ -567,13 +567,9 @@ class ServiceModelAdapter(object):
                 LOG.debug("listener %s get extra descript options %s" %
                           (listener_id, descript))
             except Exception as exc:
-                LOG.error("listener id: %s can not parse extra options %s" %
-                          (listener_id, descript))
-                LOG.error("exception is %s" % exc)
-                LOG.error(
-                    "CAUTION: listener will show on neutron lbaas " +
-                    "table, BUT it will not be configure on BIGIP device")
-                raise exc
+                LOG.warning("listener id: %s can not parse extra options %s" %
+                            (listener_id, descript))
+                LOG.warning("description ignored. Details: %s" % exc)
         return extra_opts
 
     def _add_profiles_session_persistence(self, listener, pool, vip):
