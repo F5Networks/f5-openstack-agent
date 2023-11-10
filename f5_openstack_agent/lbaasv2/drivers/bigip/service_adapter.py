@@ -544,7 +544,7 @@ class ServiceModelAdapter(object):
                           (listener_id, descript))
             except Exception as exc:
                 LOG.warning("listener id: %s can not parse extra options %s" %
-                          (listener_id, descript))
+                            (listener_id, descript))
                 LOG.warning("description ignored. Details: %s" % exc)
         return extra_opts
 
