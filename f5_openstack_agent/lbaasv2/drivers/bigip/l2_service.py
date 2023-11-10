@@ -381,7 +381,6 @@ class L2ServiceBuilder(object):
         if self.vcmp_manager and self.vcmp_manager.get_vcmp_host(bigip):
             interface = None
         elif self.f5os_client:
-            interface = None
             # If vlan is not in tenant partition, need to wait for F5OS to sync
             # it to /Common, delete it and then create it in tenant partition.
             interval = 1
