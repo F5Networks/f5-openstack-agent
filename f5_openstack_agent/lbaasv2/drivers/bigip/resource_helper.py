@@ -81,7 +81,7 @@ class ResourceType(Enum):
 def retry_icontrol(function):
 
     def retry(*args, **kwargs):
-        max_attempt = 3
+        max_attempt = 30
         interval = 1
         attempt = 0
         while attempt < max_attempt:
