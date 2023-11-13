@@ -30,6 +30,8 @@ Bug Fixes
 * [OPENSTACK-2482] Delete cafile for mtls profile.
 * [OPENSTACK-2482] Remove certs and keys as removing ssl profiles.
 * [OPENSTACK-2483] Fix confusing logs to avoid misunderstanding.
+* [OPENSTACK-2892] interface was set incorrectly
+* [OPENSTACK-2928] arbitrary desc breaks creation
 
 Limitations
 ```````````
