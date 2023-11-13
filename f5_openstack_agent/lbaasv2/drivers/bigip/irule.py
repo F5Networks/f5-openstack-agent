@@ -114,7 +114,7 @@ when SERVER_CONNECTED {
         return irule_fullPath
 
     def create_specific_irule(self, service, vip, bigip, prefix=None,
-                              apiAnonymous=None):
+                              apiAnonymous=None, delete=False):
         irule_partition = vip['partition']
         irule_name = self.get_irule_name(service, prefix)
         irule_fullPath = "/" + irule_partition + "/" + irule_name
@@ -124,6 +124,15 @@ when SERVER_CONNECTED {
             name=irule_name,
             partition=irule_partition
         )
+
+        # NOTE(xxx) the 'delete' arguement and this odd snippet for
+        # leftover TOA irule campatibility. it will update leftover TOA irule
+        # to new form. Maybe delete this snippet in futrue.
+        if delete and irule_exists:
+            self.irule_helper.delete(
+                partition=irule_partition,
+                name=irule_name
+            )
 
         if not irule_exists:
             payload = dict(
@@ -160,7 +169,7 @@ when SERVER_CONNECTED {
 
         irule_fullPath = self.create_specific_irule(
             service, vip, bigip, prefix="TOA",
-            apiAnonymous=irule_apiAnonymous)
+            apiAnonymous=irule_apiAnonymous, delete=True)
         if vip['rules']:
             if irule_fullPath not in vip['rules']:
                 vip['rules'].append(irule_fullPath)
