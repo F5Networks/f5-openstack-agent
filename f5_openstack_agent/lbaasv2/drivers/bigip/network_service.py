@@ -276,10 +276,10 @@ class NetworkServiceBuilder(object):
 
     def config_snat(self, service):
         flavor = service["loadbalancer"].get("flavor")
-        if flavor in [7, 8, 21]:
-            MyHelper = LargeSNATHelper
-        else:
+        if flavor in [11, 12, 13]:
             MyHelper = SNATHelper
+        else:
+            MyHelper = LargeSNATHelper
 
         snat_helper = MyHelper(
             self.driver, service, service['lb_netinfo'],
@@ -291,10 +291,10 @@ class NetworkServiceBuilder(object):
 
     def remove_flavor_snat(self, service):
         flavor = service["loadbalancer"].get("flavor")
-        if flavor in [7, 8, 21]:
-            MyHelper = LargeSNATHelper
-        else:
+        if flavor in [11, 12, 13]:
             MyHelper = SNATHelper
+        else:
+            MyHelper = LargeSNATHelper
 
         snat_helper = MyHelper(
             self.driver, service, service['lb_netinfo'],
@@ -310,18 +310,15 @@ class NetworkServiceBuilder(object):
         new = loadbalancer.get("flavor")
         old = old_loadbalancer.get("flavor")
 
-        if new in [7, 8] or old in [7, 8]:
+        if (new in [11, 12, 13] and old not in [11, 12, 13]) or \
+           (new not in [11, 12, 13] and old in [11, 12, 13]):
             raise f5_ex.SNATCreationException(
-                "Do not support to update flavor 7/8")
+                "Flavor 11/12/13 do not support large SNAT style")
 
-        if new == 21 or old == 21:
-            if new != old:
-                raise f5_ex.SNATCreationException(
-                    "Do not support to change flavor 21 type")
-            else:
-                MyHelper = LargeSNATHelper
-        else:
+        if new in [11, 12, 13] and old in [11, 12, 13]:
             MyHelper = SNATHelper
+        else:
+            MyHelper = LargeSNATHelper
 
         snat_helper = MyHelper(
             self.driver, service, service['lb_netinfo'],
@@ -1017,12 +1014,12 @@ class SNATHelper(object):
             snat_name = self.snat_manager.get_snat_name(
                 lb_id, subnet['ip_version'])
 
-            # Flavor 7/8/21 need to delete network after delete port,
+            # Large SNAT style need to delete network after delete port,
             # so that cast=False.
-            if self.flavor in [7, 8, 21]:
-                cast = False
-            else:
+            if self.flavor in [11, 12, 13]:
                 cast = True
+            else:
+                cast = False
             self.driver.plugin_rpc.delete_port_by_name(
                 port_name=snat_name, cast=cast)
 
