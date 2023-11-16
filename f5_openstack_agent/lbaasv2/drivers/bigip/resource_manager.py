@@ -257,7 +257,9 @@ class LoadBalancerManager(ResourceManager):
         lb_net_id = loadbalancer['network_id']
         network = self.driver.service_adapter.get_network_from_service(
             service, lb_net_id)
-        net_project_id = network["project_id"]
+        net_project_id = network.get('project_id', None) or \
+            network.get('tenant_id')
+        LOG.debug(net_project_id)
 
         if self.driver.conf.f5_global_routed_mode:
             shared = network["shared"]
@@ -1481,7 +1483,9 @@ class MemberManager(ResourceManager):
             meb_net_id = meb["network_id"]
             network = self.driver.service_adapter.get_network_from_service(
                 service, meb_net_id)
-            net_project_id = network["project_id"]
+            net_project_id = network.get('project_id', None) or \
+                network.get('tenant_id')
+            LOG.debug(net_project_id)
 
             if self.driver.conf.f5_global_routed_mode:
                 shared = network["shared"]
