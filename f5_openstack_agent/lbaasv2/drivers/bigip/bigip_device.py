@@ -114,11 +114,18 @@ class BigipDevice(object):
             "Build connection of device %s for resource config" %
             host
         )
-        bigip = build_connection(host, info, self.conf.icontrol_token)
+        try:
+            bigip = build_connection(host, info, self.conf.icontrol_token)
+        except Exception as ex:
+            LOG.warning(ex)
+            LOG.warning("connection to %s not built here." % host)
+            LOG.debug("mapping %s to None here" % host)
+            bigip = None
         self._bigips[host] = bigip
 
-        LOG.info("Add and refresh host %s in cache." % host)
-        BigipDevice.cache_pool[host] = info
+        if bigip:
+            LOG.info("Add and refresh host %s in cache." % host)
+            BigipDevice.cache_pool[host] = info
 
     # only for bigip service configuration
     def get_all_bigips(self, **kwargs):
@@ -128,4 +135,9 @@ class BigipDevice(object):
            kwargs.get('no_bigip_exception') is True:
             raise Exception("No active bigips!")
 
-        return return_bigips
+        # some items might be none, meaning they are not connectable,
+        # filter them out here.
+        not_none_bigips = filter(None, return_bigips)
+        if len(not_none_bigips) == 0:
+            raise Exception("No active bigips")
+        return not_none_bigips
