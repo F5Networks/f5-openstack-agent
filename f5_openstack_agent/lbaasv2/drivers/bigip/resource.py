@@ -28,8 +28,10 @@ class BigIPResource(object):
     def __init__(self, **kwargs):
         pass
 
-    def create(self, bigip, model, ret=False, overwrite=False, ignore=[409]):
-        return self.helper.create(bigip, model, ret, overwrite, ignore)
+    def create(self, bigip, model, ret=False, overwrite=False,
+               ignore=[409], suppress=[]):
+        return self.helper.create(bigip, model, ret, overwrite,
+                                  ignore, suppress)
 
     def exists(self, bigip, name=None, partition=None):
         return self.helper.exists(bigip, name=name, partition=partition)
