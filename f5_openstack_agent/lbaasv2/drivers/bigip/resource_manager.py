@@ -593,6 +593,9 @@ class LoadBalancerManager(ResourceManager):
 
     @log_helpers.log_method_call
     def update(self, old_loadbalancer, loadbalancer, service, **kwargs):
+        if self.driver.network_builder:
+            self.driver.network_builder._annotate_service_route_domains(
+                    service)
         self._update_bwc(old_loadbalancer, loadbalancer, service)
         self._update_2_limits(old_loadbalancer, loadbalancer, service)
         self._update_flavor_snat(old_loadbalancer, loadbalancer, service)

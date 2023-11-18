@@ -276,7 +276,7 @@ class NetworkServiceBuilder(object):
 
     def config_snat(self, service):
         flavor = service["loadbalancer"].get("flavor")
-        if flavor in [7, 8]:
+        if flavor in [7, 8, 21]:
             MyHelper = LargeSNATHelper
         else:
             MyHelper = SNATHelper
@@ -291,7 +291,7 @@ class NetworkServiceBuilder(object):
 
     def remove_flavor_snat(self, service):
         flavor = service["loadbalancer"].get("flavor")
-        if flavor in [7, 8]:
+        if flavor in [7, 8, 21]:
             MyHelper = LargeSNATHelper
         else:
             MyHelper = SNATHelper
@@ -309,15 +309,27 @@ class NetworkServiceBuilder(object):
     ):
         new = loadbalancer.get("flavor")
         old = old_loadbalancer.get("flavor")
+
         if new in [7, 8] or old in [7, 8]:
             raise f5_ex.SNATCreationException(
                 "Do not support to update flavor 7/8")
 
-        snat_helper = SNATHelper(
+        if new == 21 or old == 21:
+            if new != old:
+                raise f5_ex.SNATCreationException(
+                    "Do not support to change flavor 21 type")
+            else:
+                MyHelper = LargeSNATHelper
+        else:
+            MyHelper = SNATHelper
+
+        snat_helper = MyHelper(
             self.driver, service, service['lb_netinfo'],
             self.bigip_snat_manager,
-            self.l2_service
+            self.l2_service,
+            net_service=self
         )
+
         snat_helper.snat_update(old_loadbalancer, loadbalancer)
 
     def _rd_exist(self, addr):
@@ -969,6 +981,11 @@ class SNATHelper(object):
             return self.FLAVOR_MAP[ipversion][flavor]
 
         v4_snat = int(math.ceil(float(maxc) / 65536))
+
+        # Max snat ip number is 122
+        if v4_snat > 122:
+            v4_snat = 122
+
         if ipversion == 6 and v4_snat > 1:
             return v4_snat - 1
         else:
@@ -1000,9 +1017,9 @@ class SNATHelper(object):
             snat_name = self.snat_manager.get_snat_name(
                 lb_id, subnet['ip_version'])
 
-            # Flavor 7/8 need to delete network after delete port,
+            # Flavor 7/8/21 need to delete network after delete port,
             # so that cast=False.
-            if self.flavor in [7, 8]:
+            if self.flavor in [7, 8, 21]:
                 cast = False
             else:
                 cast = True
@@ -1023,11 +1040,7 @@ class SNATHelper(object):
     ):
         # Ensure snat for subnet exists on bigips
         lb_id = self.service['loadbalancer']['id']
-        rd = 0
-
-        if not self.driver.conf.f5_global_routed_mode:
-            device = self.service['device']
-            rd = get_route_domain(self.snat_net['network'], device)
+        rd = self.snat_net["network"]["route_domain_id"]
 
         new_snat_addrs = set()
 
@@ -1122,6 +1135,55 @@ class LargeSNATHelper(SNATHelper):
 
         super(LargeSNATHelper, self).snat_create()
 
+    def snat_update(
+        self, old_loadbalancer, loadbalancer
+    ):
+        lb_id = self.service['loadbalancer']['id']
+        network_name = "snat-" + lb_id
+        subnet_v4_name = "snat-v4-" + lb_id
+        subnet_v6_name = "snat-v6-" + lb_id
+        rpc = self.driver.plugin_rpc
+
+        # Get large SNAT network
+        nets, netc = rpc.get_network_by_name(name=network_name)
+        if netc != 1:
+            raise Exception("Found %s snat networks %s",
+                            netc, network_name)
+        self.large_snat_network = nets[0]
+        self.large_snat_network["route_domain_id"] = \
+            self.snat_net["network"]["route_domain_id"]
+
+        ip_versions = []
+        for subnet in self.snat_net["subnets"]:
+            if subnet["ip_version"] not in ip_versions:
+                ip_versions.append(subnet["ip_version"])
+
+        self.large_snat_subnet = {}
+        # Get large SNAT subnets
+        for ip_version in ip_versions:
+            if ip_version == 4:
+                snet4s, snet4c = rpc.get_subnet_by_name(name=subnet_v4_name)
+                if snet4c != 1:
+                    raise Exception("Found %s snat v4 subnets %s",
+                                    snet4c, subnet_v4_name)
+                self.large_snat_subnet[ip_version] = snet4s[0]
+            if ip_version == 6:
+                snet6s, snet6c = rpc.get_subnet_by_name(name=subnet_v6_name)
+                if snet6c != 1:
+                    raise Exception("Found %s snat v6 subnets %s",
+                                    snet6c, subnet_v6_name)
+                self.large_snat_subnet[ip_version] = snet6s[0]
+
+        # Modify snat network information in memory and utilize
+        # the existing code to allocate SNAT IPs
+        self.snat_net["network"] = self.large_snat_network
+        self.snat_net["subnets"] = []
+        for key in self.large_snat_subnet:
+            self.snat_net["subnets"].append(self.large_snat_subnet[key])
+
+        super(LargeSNATHelper, self).snat_update(old_loadbalancer,
+                                                 loadbalancer)
+
     def snat_remove(self):
         super(LargeSNATHelper, self).snat_remove()
         self.delete_large_snat_network()
@@ -1155,7 +1217,6 @@ class LargeSNATHelper(SNATHelper):
         self.large_snat_network = self.driver.plugin_rpc.create_network(**body)
         snat_network_id = self.large_snat_network['id']
 
-        flavor = self.service['loadbalancer']['flavor']
         self.large_snat_subnet = {}
 
         ip_versions = []
@@ -1165,16 +1226,12 @@ class LargeSNATHelper(SNATHelper):
 
         # Create large SNAT subnets
         for ip_version in ip_versions:
-            if flavor == 7:
-                if ip_version == 6:
-                    prefixlen = 121
-                else:
-                    prefixlen = 25
+            # SNAT subnet size is always 128
+            if ip_version == 6:
+                prefixlen = 121
             else:
-                if ip_version == 6:
-                    prefixlen = 122
-                else:
-                    prefixlen = 26
+                prefixlen = 25
+
             if ip_version == 6:
                 pool_id = self.driver.conf.snat_subnetpool_v6
                 subnet_name = subnet_v6_name
@@ -1263,7 +1320,7 @@ class LargeSNATHelper(SNATHelper):
 
         # Delete SelfIP of SNAT subnet
         for name in [subnet_v4_name, subnet_v6_name]:
-            subnets = self.driver.plugin_rpc.get_subnet_by_name(name=name)
+            subnets, _ = self.driver.plugin_rpc.get_subnet_by_name(name=name)
             for subnet in subnets:
                 for bigip in bigips:
                     selfip = "local-" + bigip.device_name + "-" + subnet["id"]

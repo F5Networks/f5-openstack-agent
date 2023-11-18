@@ -362,6 +362,27 @@ class LBaaSv2PluginRPC(object):
         return network
 
     @log_helpers.log_method_call
+    def get_network_by_name(self, name):
+        """Get neutron network by name."""
+        networks = None
+        count = 0
+
+        try:
+            networks = self._call(
+                self.context,
+                self._make_msg('get_network_by_name', name=name),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: "
+                      "get_network_by_name")
+
+        if networks:
+            count = len(networks)
+
+        return networks, count
+
+    @log_helpers.log_method_call
     def delete_network_by_name(self, name=None):
         """Delete a neutron network."""
         networks = None
@@ -409,6 +430,9 @@ class LBaaSv2PluginRPC(object):
     @log_helpers.log_method_call
     def get_subnet_by_name(self, name=None):
         """Get subnet by name."""
+        subnets = None
+        count = 0
+
         try:
             subnets = self._call(
                 self.context,
@@ -419,7 +443,10 @@ class LBaaSv2PluginRPC(object):
             LOG.error("agent->plugin RPC exception caught: "
                       "get_subnet_by_name")
 
-        return subnets
+        if subnets:
+            count = len(subnets)
+
+        return subnets, count
 
     @log_helpers.log_method_call
     def get_router_id_by_subnet(self, subnet_id=None):
