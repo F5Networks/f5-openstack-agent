@@ -424,7 +424,7 @@ class NetworkHelper(object):
 
         vlan_exists = False
         try:
-            vlan = v.create(bigip, payload, ignore=[])
+            vlan = v.create(bigip, payload, ignore=[], suppress=[409])
         except HTTPError as ex:
             if ex.response.status_code == 409:
                 vlan_exists = True
