@@ -11,6 +11,14 @@ NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack rele
 
 Added Functionality
 ```````````````````
+*  [OPENSTACK-2890] Suppress vlan 409 error log
+*  [OPENSTACK-2915] New implementation of flavor 21
+*  [OPENSTACK-2915] Always create snat subnet with 128 size
+*  [OPENSTACK-2930] Raise exception if all bigips offline
+*  [OPENSTACK-2890] Retry 30 times when 401 or device busy happens
+*  [OPENSTACK-2890] 400 retry for device or resource busy
+*  [OPENSTACK-2890] 401 retry for loading nodes
+*  [OPENSTACK-2912] Not append if profile already exists
 *  [OPENSTACK-2912] Add sip profile manipulation
 *  [OPENSTACK-2912] remove old description way
 *  [OPENSTACK-2899] SIP VS
@@ -64,6 +72,9 @@ Added Functionality
 
 Bug Fixes
 `````````
+*  [OPENSTACK-2905] Lock route domain when inserting vlan
+*  [OPENSTACK-2905] Don't handle vlan not in rd error when creating selfip
+*  [OPENSTACK-2879] Only delete empty route domain
 *  [OPENSTACK-2886] Fix TOA profile, only create client side tcp profile.
 *  [OPENSTACK-2867] Fix creating route domain racing problem
 *  [OPENSTACK-2867] Fix creating vlan racing problem
@@ -72,9 +83,6 @@ Bug Fixes
 
 Limitations
 ```````````
-
-Release Notes for F5 Openstack Agent
-====================================
 
 v9.10.5 (Pike, Queens)
 --------------------------------------------
