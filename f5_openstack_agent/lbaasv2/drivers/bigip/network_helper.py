@@ -442,9 +442,9 @@ class NetworkHelper(object):
 
                 v.add_interface(vlan, payload)
 
-            if not partition == const.DEFAULT_PARTITION:
-                r = RouteDomain()
-                r.add_vlan_by_id(bigip, route_domain_id, name, partition)
+        if not partition == const.DEFAULT_PARTITION:
+            r = RouteDomain()
+            r.add_vlan_by_id(bigip, route_domain_id, name, partition)
 
     @log_helpers.log_method_call
     def delete_vlan(
