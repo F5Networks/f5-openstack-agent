@@ -1478,7 +1478,11 @@ class MemberManager(ResourceManager):
 
         members = service["members"]
         for meb in members:
-            meb_net_id = meb["network_id"]
+            meb_subnet_id = meb["subnet_id"]
+            subnet = self.driver.service_adapter.get_subnet_from_service(
+                service, meb_subnet_id
+            )
+            meb_net_id = subnet["network_id"]
             network = self.driver.service_adapter.get_network_from_service(
                 service, meb_net_id)
             net_project_id = network["project_id"]
