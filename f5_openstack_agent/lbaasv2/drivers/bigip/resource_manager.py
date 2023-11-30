@@ -1548,9 +1548,12 @@ class ListenerManager(ResourceManager):
 
         if tcp_ip_update:
             if self.tcp_helper.delete_profile is True:
-                self.tcp_helper.remove_profile(
-                    service, vs, bigip, side="client"
-                )
+                # server side profile may exist due to older
+                # TOA implementation
+                for side in ('client', 'server'):
+                    self.tcp_helper.remove_profile(
+                        service, vs, bigip, side=side
+                    )
             if self.tcp_irule_helper.delete_iRule is True:
                 self.tcp_irule_helper.remove_iRule(
                     service, vs, bigip, prefix="TOA"
@@ -1579,10 +1582,11 @@ class ListenerManager(ResourceManager):
 
         tcp_ip_enable = self.tcp_helper.need_delete_tcp(service)
         if tcp_ip_enable:
-            self.tcp_helper.remove_profile(
-                service, vs, bigip,
-                side="client"
-            )
+            # server side profile may exist due to older TOA implementation
+            for side in ('client', 'server'):
+                self.tcp_helper.remove_profile(
+                    service, vs, bigip, side=side
+                )
             self.tcp_irule_helper.remove_iRule(
                 service, vs, bigip, prefix="TOA"
             )
