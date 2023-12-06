@@ -328,21 +328,136 @@ class NetworkServiceBuilder(object):
         )
         snat_helper.snat_remove()
 
+    def snat_network_exists(self, lb_id):
+        network_name = "snat-" + lb_id
+
+        rpc = self.driver.plugin_rpc
+        nets, netc = rpc.get_network_by_name(name=network_name)
+
+        if netc > 1:
+            # Invalid path
+            raise Exception("SNAT network %s count is %s.",
+                            network_name,  netc)
+        elif netc == 1:
+            return True
+        else:
+            return False
+
+    def snat_subnet_size(self, lb_id):
+        subnet_v4_name = "snat-v4-" + lb_id
+        subnet_v6_name = "snat-v6-" + lb_id
+
+        rpc = self.driver.plugin_rpc
+        snet4s, snet4c = rpc.get_subnet_by_name(name=subnet_v4_name)
+        snet6s, snet6c = rpc.get_subnet_by_name(name=subnet_v6_name)
+
+        size4 = 0
+        size6 = 0
+        if snet4c > 1:
+            # Invalid path
+            raise Exception("SNAT subnet %s count is %s.",
+                            subnet_v4_name, snet4c)
+        elif snet4c == 1:
+            cidr4 = snet4s[0]["cidr"]
+            size4 = 32 - int(cidr4.split("/")[-1])
+
+        if snet6c > 1:
+            # Invalid path
+            raise Exception("SNAT subnet %s count is %s.",
+                            subnet_v6_name, snet6c)
+        elif snet6c == 1:
+            cidr6 = snet6s[0]["cidr"]
+            size6 = 128 - int(cidr6.split("/")[-1])
+
+        if size4 > 0 and size6 > 0 and size4 != size6:
+            # Invalid path
+            raise Exception("SNAT subnet size v4 %s and v6 %s is "
+                            "inconsistent.", subnet_v4_name,
+                            subnet_v6_name)
+
+        return size4 or size6
+
+    def snat_port_exists(self, lb_id):
+        port_v4_name = self.bigip_snat_manager.get_snat_name(lb_id, 4)
+        port_v6_name = self.bigip_snat_manager.get_snat_name(lb_id, 6)
+
+        rpc = self.driver.plugin_rpc
+        port_v4 = rpc.get_port_by_name(port_name=port_v4_name)
+        port_v6 = rpc.get_port_by_name(port_name=port_v6_name)
+        port4c = len(port_v4)
+        port6c = len(port_v6)
+        portc = port4c + port6c
+
+        if port4c > 1:
+            # Invalid path
+            raise Exception("SNAT v4 port %s count is %s.",
+                            port_v4_name,  port4c)
+        elif port6c > 1:
+            # Invalid path
+            raise Exception("SNAT v6 port %s count is %s.",
+                            port_v6_name, port6c)
+        elif portc > 0:
+            return True
+        else:
+            return False
+
     def update_flavor_snat(
         self, old_loadbalancer, loadbalancer, service
     ):
+        # NOTE(qzhao): There are totally 4 supported update cases:
+        # Case 1:
+        #   The movement inside of old style of flavor 1-6, or the movement
+        #   from old style of flavor 21 to old style of flavor 1-6.
+        # Case 2:
+        #   The movement inside of new style of flavor 1-8,21.
+        # Case 3:
+        #   The movement inside of old style of flavor 11-13.
+        # Case 4:
+        #   The movement from old style of flavor 1-6,21 to new style of
+        #   flavor 7-8,21.
+        # Others are not supported.
+
+        lb_id = loadbalancer["id"]
         new = loadbalancer.get("flavor")
         old = old_loadbalancer.get("flavor")
 
-        if (new in [11, 12, 13] and old not in [11, 12, 13]) or \
-           (new not in [11, 12, 13] and old in [11, 12, 13]):
+        if old == new:
+            if new == 21:
+                new_maxc = loadbalancer.get("max_concurrency")
+                old_maxc = old_loadbalancer.get("max_concurrency")
+                if old_maxc == new_maxc:
+                    return
+            else:
+                return
+
+        if (11 <= old <= 13 and not 11 <= new <= 13) or \
+           (11 <= new <= 13 and not 11 <= old <= 13):
             raise f5_ex.SNATCreationException(
                 "Flavor 11/12/13 do not support large SNAT style")
 
-        if new in [11, 12, 13] and old in [11, 12, 13]:
+        snat_network_exists = self.snat_network_exists(lb_id)
+        snat_subnet_size = self.snat_subnet_size(lb_id)
+        snat_port_exists = self.snat_port_exists(lb_id)
+
+        migrate = False
+        if 11 <= old <= 13 and 11 <= new <= 13:
+            # Case 3
             MyHelper = SNATHelper
-        else:
+        elif snat_network_exists and snat_subnet_size == 7:
+            # Case 2
             MyHelper = LargeSNATHelper
+        elif ((1 <= old <= 6 and 1 <= new <= 6) or
+                (old == 21 and 1 <= new <= 6)) and \
+                not snat_network_exists and snat_port_exists:
+            # Case 1
+            MyHelper = SNATHelper
+        elif 1 <= old <= 6 and new in [7, 8, 21]:
+            # Case 4
+            MyHelper = LargeSNATHelper
+            migrate = True
+        else:
+            raise f5_ex.SNATCreationException(
+                "Unsupported loadbalancer flavor change")
 
         snat_helper = MyHelper(
             self.driver, service, service['lb_netinfo'],
@@ -351,7 +466,12 @@ class NetworkServiceBuilder(object):
             net_service=self
         )
 
-        snat_helper.snat_update(old_loadbalancer, loadbalancer)
+        if migrate:
+            # Only remove SNAT port
+            snat_helper.snat_remove(rm_pool=False)
+            snat_helper.snat_create()
+        else:
+            snat_helper.snat_update(old_loadbalancer, loadbalancer)
 
     def _rd_exist(self, addr):
         return "%" in addr
@@ -997,6 +1117,8 @@ class SNATHelper(object):
     def count_SNATIPs(self, ipversion, lb):
         flavor = lb["flavor"]
         maxc = lb.get("max_concurrency", 1000000)
+        if maxc is None:
+            maxc = 1000000
 
         if flavor != 21:
             return self.FLAVOR_MAP[ipversion][flavor]
@@ -1012,40 +1134,41 @@ class SNATHelper(object):
         else:
             return v4_snat
 
-    def snat_remove(self):
+    def snat_remove(self, rm_pool=True, rm_port=True):
         bigips = self.service['bigips']
         self.snat_pools_exist()
-        self.lb_snat_delete(bigips)
+        self.lb_snat_delete(bigips, rm_pool, rm_port)
 
-    def lb_snat_delete(self, bigips):
+    def lb_snat_delete(self, bigips, rm_pool=True, rm_port=True):
         lb_id = self.service['loadbalancer']['id']
         LOG.debug("Getting snat addrs for: %s" %
                   self.snat_net['subnets'])
 
-        snat_pool = self.driver.service_adapter.get_folder_name(
-            lb_id)
-        if self.l2_service.is_common_network(self.snat_net['network']):
-            partition = 'Common'
-        else:
-            partition = self.partition
-
-        for bigip in bigips:
-            self.snat_manager.delete_flavor_snats(
-                bigip, partition, snat_pool
-            )
-
-        for subnet in self.snat_net['subnets']:
-            snat_name = self.snat_manager.get_snat_name(
-                lb_id, subnet['ip_version'])
-
-            # Large SNAT style need to delete network after delete port,
-            # so that cast=False.
-            if self.flavor in [11, 12, 13]:
-                cast = True
+        if rm_pool:
+            snat_pool = self.driver.service_adapter.get_folder_name(lb_id)
+            if self.l2_service.is_common_network(self.snat_net['network']):
+                partition = 'Common'
             else:
-                cast = False
-            self.driver.plugin_rpc.delete_port_by_name(
-                port_name=snat_name, cast=cast)
+                partition = self.partition
+
+            for bigip in bigips:
+                self.snat_manager.delete_flavor_snats(
+                    bigip, partition, snat_pool
+                )
+
+        if rm_port:
+            for subnet in self.snat_net['subnets']:
+                snat_name = self.snat_manager.get_snat_name(
+                    lb_id, subnet['ip_version'])
+
+                # Large SNAT style need to delete network after delete port,
+                # so that cast=False.
+                if self.flavor in [11, 12, 13]:
+                    cast = True
+                else:
+                    cast = False
+                self.driver.plugin_rpc.delete_port_by_name(
+                    port_name=snat_name, cast=cast)
 
     def snat_update(
         self, old_loadbalancer, loadbalancer
@@ -1205,8 +1328,8 @@ class LargeSNATHelper(SNATHelper):
         super(LargeSNATHelper, self).snat_update(old_loadbalancer,
                                                  loadbalancer)
 
-    def snat_remove(self):
-        super(LargeSNATHelper, self).snat_remove()
+    def snat_remove(self, rm_pool=True, rm_port=True):
+        super(LargeSNATHelper, self).snat_remove(rm_pool, rm_port)
         self.delete_large_snat_network()
 
     def create_large_snat_network(self, ip_version=4):
