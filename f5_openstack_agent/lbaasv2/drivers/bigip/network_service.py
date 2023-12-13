@@ -771,6 +771,11 @@ class NetworkServiceBuilder(object):
                     "The deleting route domain"
                     "is not found: %s", err.message
                 )
+            if err.response.status_code == 400:
+                LOG.warning(
+                    "Route domain may referenced by self-ips when"
+                    "concurrent deleting lb: %s", err.message
+                )
             else:
                 raise err
 
