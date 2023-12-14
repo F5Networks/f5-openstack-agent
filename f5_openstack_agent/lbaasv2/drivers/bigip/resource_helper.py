@@ -255,8 +255,13 @@ class BigIPResourceHelper(object):
         partition = None
         if "partition" in model:
             partition = model["partition"]
-        resource = self.load(bigip, name=model["name"], partition=partition)
-        resource.modify(**model)
+        try:
+            resource = self.load(bigip, name=model["name"],
+                                 partition=partition)
+            resource.modify(**model)
+        except Exception as ex:
+            LOG.exception(ex)
+            raise
 
         return resource
 

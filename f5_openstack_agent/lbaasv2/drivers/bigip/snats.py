@@ -51,7 +51,8 @@ class BigipSnatManager(object):
             "members": members
         }
         try:
-            self.snatpool_manager.create(bigip, snat_pool_model)
+            self.snatpool_manager.create(bigip, snat_pool_model,
+                                         overwrite=True)
         except Exception:
             raise f5_ex.SNATCreationException(
                 "Error creating snat pool: %s" %

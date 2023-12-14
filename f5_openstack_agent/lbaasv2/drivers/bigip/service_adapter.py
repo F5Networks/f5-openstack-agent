@@ -516,6 +516,9 @@ class ServiceModelAdapter(object):
                 # Overwrite the default value for flavor 21 only
                 if flavor_id == 21:
                     rate_limit = loadbalancer.get("new_connection", rate_limit)
+                    if rate_limit is None:
+                        rate_limit = limit_value['rate_limit']
+
                 listener_rate_limit = rate_limit / ratio
 
                 vip["rateLimit"] = listener_rate_limit
