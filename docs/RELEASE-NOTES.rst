@@ -5,6 +5,24 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.6.1 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2905] New implementation of flavor 1-6 SNAT
+* [OPENSTACK-2934] Delete server side profile created by previous TOA implementation
+* [OPENSTACK-2905] Rebuild compatibility for legacy SNAT style
+* [OPENSTACK-2936] Update LB flavor in a new manner
+
+Bug Fixes
+`````````
+* [OPENSTACK-2939] Ignore 400 error of deleting route domain when concurrent deleting lb
+
+Limitations
+```````````
+
 v9.10.6 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
