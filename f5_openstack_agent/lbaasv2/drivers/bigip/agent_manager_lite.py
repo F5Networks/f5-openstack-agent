@@ -858,7 +858,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of member %s "
                               "Exception: %s", id, ex.message)
 
-    @serialized('update_member')
+    @serialized('create_bulk_member')
     @log_helpers.log_method_call
     def create_bulk_member(
         self, context, members, service,
@@ -896,6 +896,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of multiple members "
                               "Exception: %s", ex.message)
 
+    @serialized('update_member')
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
         """Handle RPC cast from plugin to update_member."""
@@ -967,7 +968,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of member %s "
                               "Exception: %s", id, ex.message)
 
-    @serialized('create_health_monitor')
+    @serialized('delete_bulk_member')
     @log_helpers.log_method_call
     def delete_bulk_member(
         self, context, members, service,
@@ -1012,6 +1013,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of multiple members "
                               "Exception: %s", ex.message)
 
+    @serialized('create_health_monitor')
     @log_helpers.log_method_call
     def create_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to create_pool_health_monitor."""
@@ -1400,6 +1402,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Failt to updte status of l7rule %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('create_acl_group')
     @log_helpers.log_method_call
     def create_acl_group(self, context, acl_group):
         """Handle RPC cast from plugin to create ACL Group."""
@@ -1412,6 +1415,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("Fail to create acl_group %s "
                       "Exception: %s", id, ex.message)
 
+    @serialized('delete_acl_group')
     @log_helpers.log_method_call
     def delete_acl_group(self, context, acl_group):
         """Handle RPC cast from plugin to delete ACL Group."""
