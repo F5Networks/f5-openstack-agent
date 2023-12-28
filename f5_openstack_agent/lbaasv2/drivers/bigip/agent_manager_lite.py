@@ -15,7 +15,10 @@
 # limitations under the License.
 #
 
+import copy
 from datetime import datetime
+import eventlet
+from f5_openstack_agent.utils import timer
 import random
 import re
 import sys
@@ -722,15 +725,37 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('create_pool')
     @log_helpers.log_method_call
+    @timer.timeit
     def create_pool(self, context, pool, service):
         """Handle RPC cast from plugin to create_pool."""
         loadbalancer = service['loadbalancer']
         id = pool['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.PoolManager(self.lbdriver)
-            mgr.create(pool, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            failures = []
+
+            def _create_pool(pool, service, bigip):
+                try:
+                    mgr = resource_manager.PoolManager(self.lbdriver)
+                    service['bigips'] = [bigip]
+                    mgr.create(pool, service)
+                except Exception as ex:
+                    failures.append(ex)
+
+            exec_pool = eventlet.GreenPool()
+            for bip in allbips:
+                exec_pool.spawn(_create_pool,
+                                pool, copy.deepcopy(service), bip)
+            exec_pool.waitall()
+            if failures:
+                for failure in failures:
+                    LOG.exception("Fail to create pool Exception: %s",
+                                  failure.message)
+                raise failures[0]
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create pool %s", id)
