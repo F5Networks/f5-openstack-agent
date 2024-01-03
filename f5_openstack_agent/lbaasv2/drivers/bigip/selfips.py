@@ -137,6 +137,8 @@ class BigipSelfIpManager(object):
         selfip_address = ""
         selfip_name = "local-" + bigip.device_name + "-" + subnet['id']
         ports = self.driver.plugin_rpc.get_port_by_name(port_name=selfip_name)
+
+        # pzhang migrate selfip
         if len(ports) > 0:
             port = utils.update_port(
                 ports[0], binding_profile,
