@@ -1081,6 +1081,7 @@ class SNATHelper(object):
                 else:
                     vnic_type = "baremetal"
 
+                # pzhang migrate snat
                 port = self.driver.plugin_rpc.get_port_by_name(
                     port_name=snat_name
                 )
@@ -1095,7 +1096,10 @@ class SNATHelper(object):
                         binding_profile=binding_profile
                     )
                 else:
-                    port = port[0]
+                    port = utils.update_port(
+                        port[0], binding_profile,
+                        self.driver.plugin_rpc
+                    )
 
                 snat_addrs |= {
                     addr_info['ip_address'] for addr_info in port['fixed_ips']
