@@ -264,13 +264,38 @@ class NetworkServiceBuilder(object):
         route_helper.remove_default_route(
             bigip, subnet)
 
+    def _is_device_migrate(self, device):
+        from_device = device.get("from_device")
+        return from_device
+
+    def _migrate_remove_selfip(self, device, subnets):
+        from_device = device.get("from_device")
+
+        if from_device:
+            device_members = from_device["device_info"]["members"]
+
+            for dev in device_members:
+                for subnet in subnets:
+                    device_name = dev["device_info"]["device_name"]
+                    selfip_name = "local-" + device_name + "-" + subnet['id']
+
+                    self.driver.plugin_rpc.delete_port_by_name(
+                        port_name=selfip_name)
+
     def config_selfips(self, service, **kwargs):
         lb_network = kwargs.get("network", service['lb_netinfo']["network"])
         lb_subnets = kwargs.get("subnets", service['lb_netinfo']["subnets"])
 
         subnetinfo = {'network': lb_network}
+        device = service['device']
+        is_snat_selfip = kwargs.get("snat")
+
+        if is_snat_selfip:
+            if self._is_device_migrate(device):
+                self._migrate_remove_selfip(device, lb_subnets)
+
         for bigip in service['bigips']:
-            device = service['device']
+
             vlan_mac = utils.get_vlan_mac(
                 self.vlan_manager, bigip, lb_network, device)
             for subnet in lb_subnets:
@@ -1081,7 +1106,6 @@ class SNATHelper(object):
                 else:
                     vnic_type = "baremetal"
 
-                # pzhang migrate snat
                 port = self.driver.plugin_rpc.get_port_by_name(
                     port_name=snat_name
                 )
@@ -1501,11 +1525,13 @@ class LargeSNATHelper(SNATHelper):
         LOG.debug("after large snat vlan create")
 
         LOG.debug("before large snat selfip create")
+
         # Create selfip in bigips
         self.net_service.config_selfips(
             self.service,
             network=self.large_snat_network,
-            subnets=self.large_snat_subnet.values()
+            subnets=self.large_snat_subnet.values(),
+            snat=True
         )
         LOG.debug("after large snat selfip create")
 
