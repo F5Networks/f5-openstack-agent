@@ -368,6 +368,12 @@ class ServiceModelAdapter(object):
             monitor_type = lbaas_healthmonitor["type"]
         return monitor_type
 
+    # NOTE(x): in ng, the lbaas_members argument is all the members of the
+    # current updating pool for create and delete.
+    # however, in bulk create (bulk delete use another way to construct
+    # members) the lbaas_members argument is the delta
+    # value of changed members. Since bulk create will merge members
+    # from bigips, the merged result is total members of the pool for updating.
     def _map_pool(self, loadbalancer, lbaas_pool, lbaas_hm, lbaas_members):
         pool = self.init_pool_name(loadbalancer, lbaas_pool)
         pool["description"] = " "

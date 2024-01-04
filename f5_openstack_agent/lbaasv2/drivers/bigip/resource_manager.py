@@ -2014,8 +2014,9 @@ class MemberManager(ResourceManager):
     def _create_payload(self, member, service):
         return self.driver.service_adapter.get_member(service)
 
+    # NOTE(x) based on the existed bigip members, we add or remove delta value
+    # of bulk changed members.
     def _merge_members(self, lbaas_members, bigip_members, delete=False):
-        # why use merge ? perhaps to in case of existed member status change?
 
         ret = {}
 
