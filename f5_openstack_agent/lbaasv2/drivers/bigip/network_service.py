@@ -318,7 +318,7 @@ class NetworkServiceBuilder(object):
         )
         snat_helper.snat_create()
 
-    def remove_flavor_snat(self, service):
+    def remove_flavor_snat(self, service, rm_port=True):
         flavor = service["loadbalancer"].get("flavor")
         if flavor in [11, 12, 13]:
             MyHelper = SNATHelper
@@ -332,7 +332,7 @@ class NetworkServiceBuilder(object):
             snat_network_type=self.conf.snat_network_type,
             net_service=self
         )
-        snat_helper.snat_remove()
+        snat_helper.snat_remove(rm_port=rm_port)
 
     def snat_network_exists(self, lb_id):
         network_name = "snat-" + lb_id
@@ -649,7 +649,7 @@ class NetworkServiceBuilder(object):
                 LOG.exception(ermsg)
         return True
 
-    def post_service_networking(self, service):
+    def post_service_networking(self, service, rm_port=True):
         # Assure networks are deleted from big-ips
         if self.conf.f5_global_routed_mode:
             return
@@ -664,9 +664,10 @@ class NetworkServiceBuilder(object):
             deleted_names |= self._delete_shared_nets_config(
                 bigip, service)
 
-        for port_name in deleted_names:
-            self.driver.plugin_rpc.delete_port_by_name(
-                port_name=port_name)
+        if rm_port:
+            for port_name in deleted_names:
+                self.driver.plugin_rpc.delete_port_by_name(
+                    port_name=port_name)
 
     def update_bigip_l2(self, service):
         # Update fdb entries on bigip
@@ -1354,7 +1355,7 @@ class LargeSNATHelper(SNATHelper):
 
         self.delete_vlan_selfip()
         super(LargeSNATHelper, self).snat_remove(rm_pool, rm_port)
-        self.delete_large_snat_network()
+        self.delete_large_snat_network(rm_port)
 
     def create_large_snat_network(self, ip_version=4):
         tenant_id = self.service['loadbalancer']['tenant_id']
@@ -1537,7 +1538,7 @@ class LargeSNATHelper(SNATHelper):
             for vlan in vlans:
                 v.delete(bigip, name=vlan, partition=self.partition)
 
-    def delete_large_snat_network(self):
+    def delete_large_snat_network(self, rm_port=True):
         lb_id = self.service['loadbalancer']['id']
         network_name = "snat-" + lb_id
         subnet_v4_name = "snat-v4-" + lb_id
@@ -1549,13 +1550,18 @@ class LargeSNATHelper(SNATHelper):
             subnet_id=vip_subnet_id)
 
         if not router_id:
-            raise Exception("No router found for subnet " + vip_subnet_id)
+            LOG.warning(
+                "router %s not found for subnet %s" %
+                (router_id, vip_subnet_id)
+            )
+            # raise Exception("No router found for subnet " + vip_subnet_id)
 
         # Detach VIP router
-        self.driver.plugin_rpc.detach_subnet_from_router(
-            router_id=router_id, subnet_name=subnet_v4_name)
-        self.driver.plugin_rpc.detach_subnet_from_router(
-            router_id=router_id, subnet_name=subnet_v6_name)
+        if router_id and rm_port:
+            self.driver.plugin_rpc.detach_subnet_from_router(
+                router_id=router_id, subnet_name=subnet_v4_name)
+            self.driver.plugin_rpc.detach_subnet_from_router(
+                router_id=router_id, subnet_name=subnet_v6_name)
 
         bigips = self.service['bigips']
 
@@ -1565,8 +1571,13 @@ class LargeSNATHelper(SNATHelper):
             for subnet in subnets:
                 for bigip in bigips:
                     selfip = "local-" + bigip.device_name + "-" + subnet["id"]
-                    self.driver.plugin_rpc.delete_port_by_name(
-                        port_name=selfip, cast=False)
+
+                    if rm_port:
+                        self.driver.plugin_rpc.delete_port_by_name(
+                            port_name=selfip, cast=False)
 
         # Empty subnets can be deleted along with network
-        self.driver.plugin_rpc.delete_network_by_name(name=network_name)
+        if rm_port:
+            self.driver.plugin_rpc.delete_network_by_name(
+                name=network_name
+            )
