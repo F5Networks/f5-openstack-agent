@@ -151,6 +151,7 @@ class BigipSelfIpManager(object):
             LOG.info('host_passed here is:')
             LOG.info(host_passed)
 
+            LOG.debug("before selfip port create")
             port = self.driver.plugin_rpc.create_port_on_subnet(
                 subnet_id=subnet['id'],
                 name=selfip_name,
@@ -160,6 +161,7 @@ class BigipSelfIpManager(object):
                 binding_profile=binding_profile,
                 host_passed=host_passed
             )
+            LOG.debug("after selfip port create")
 
         if port and 'fixed_ips' in port:
             fixed_ip = port['fixed_ips'][0]
