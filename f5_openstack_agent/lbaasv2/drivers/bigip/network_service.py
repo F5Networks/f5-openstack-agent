@@ -282,6 +282,9 @@ class NetworkServiceBuilder(object):
                     self.driver.plugin_rpc.delete_port_by_name(
                         port_name=selfip_name)
 
+    def _rm_source_vip_selfip_port(self, device):
+        return device.get("rm_selfip_port")
+
     def config_selfips(self, service, **kwargs):
         lb_network = kwargs.get("network", service['lb_netinfo']["network"])
         lb_subnets = kwargs.get("subnets", service['lb_netinfo']["subnets"])
@@ -290,9 +293,12 @@ class NetworkServiceBuilder(object):
         device = service['device']
         is_snat_selfip = kwargs.get("snat")
 
-        if is_snat_selfip:
-            if self._is_device_migrate(device):
+        if self._is_device_migrate(device):
+            if is_snat_selfip:
                 self._migrate_remove_selfip(device, lb_subnets)
+            else:
+                if self._rm_source_vip_selfip_port(device):
+                    self._migrate_remove_selfip(device, lb_subnets)
 
         for bigip in service['bigips']:
 
