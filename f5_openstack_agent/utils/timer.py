@@ -14,13 +14,14 @@
 # limitations under the License.
 #
 
+from functools import wraps
 from oslo_log import log as logging
 import time
-
 LOG = logging.getLogger(__name__)
 
 
 def timeit(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
         start = time.time()
         try:
