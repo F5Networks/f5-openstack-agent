@@ -1763,3 +1763,99 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                     "Fail to update status of loadbalancer %s "
                     "Exception: %s", lb_id, ex.message
                 )
+
+    @serialized('purge_loadbalancer')
+    @log_helpers.log_method_call
+    def purge_loadbalancer(self, context, loadbalancer, service):
+        lb_id = loadbalancer['id']
+        listeners = service.get("listeners", [])
+        pools = service.get('pools', [])
+        monitors = service.get("healthmonitors", [])
+        l7policies = service.get("l7policies", [])
+
+        try:
+            bigip_device.set_bigips(service, self.conf)
+
+            # a l7policy contains l7rules, no need to purge l7rule.
+            for plc in l7policies:
+                plc_id = plc['id']
+                service["l7policy"] = plc
+
+                mgr = resource_manager.L7PolicyManager(self.lbdriver)
+                mgr.delete(plc, service)
+                LOG.debug("Finish to purge l7policy %s", plc_id)
+            LOG.debug("Finish to purge all l7policy in the lb")
+
+            for mn in monitors:
+                mn_id = mn['id']
+                service["healthmonitor"] = mn
+
+                mgr = resource_manager.MonitorManager(
+                    self.lbdriver, type=mn['type'])
+                mgr.delete(mn, service)
+                LOG.debug("Finish to purge monitor %s", mn_id)
+            LOG.debug("Finish to purge all monitors in the lb")
+
+            for pl in pools:
+                pl_id = pl['id']
+                service['pool'] = pl
+
+                mgr = resource_manager.PoolManager(self.lbdriver)
+                mgr.delete(pl, service)
+                LOG.debug("Finish to purge pool %s", pl_id)
+            LOG.debug("Finish to purge all pools in the lb")
+
+            for lstn in listeners:
+                ls_id = lstn['id']
+                service['listener'] = lstn
+
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+
+                acl_group = lstn.get("acl_group")
+                acl_bind = lstn.get("acl_group_bind")
+
+                if acl_group and acl_bind:
+                    service['acl_group'] = acl_group
+                    acl_mgr = resource_manager.ACLGroupManager(self.lbdriver)
+
+                    acl_bind["enabled"] = False
+                    mgr.update_acl_bind(lstn, acl_bind, service)
+                    LOG.debug("removed ACL bind irule of listener %s", ls_id)
+
+                    acl_mgr.try_delete(acl_group, service)
+                    LOG.debug("deleted dg of acl group %s", acl_group['id'])
+
+                mgr.delete(lstn, service)
+                LOG.debug("Finish to purge listener %s", ls_id)
+            LOG.debug("Finish to purge all listeners in lb")
+
+            mgr = resource_manager.LoadBalancerManager(
+                self.lbdriver, rm_ports=False
+            )
+            mgr.delete(loadbalancer, service)
+            LOG.debug("Finish to purge loadbalancer %s", lb_id)
+
+            provision_status = constants_v2.F5_ACTIVE
+            operating_status = constants_v2.F5_ONLINE
+        except Exception as ex:
+            LOG.error("Fail to purge loadbalancer %s ", lb_id)
+            LOG.exception(ex)
+            provision_status = constants_v2.F5_ERROR
+            # UnboundLocalError: local variable 'operating_status'
+            # referenced before assignment
+            operating_status = constants_v2.F5_ONLINE
+        finally:
+            try:
+                self.plugin_rpc.update_loadbalancer_status(
+                    lb_id, provision_status,
+                    operating_status
+                )
+                LOG.info(
+                    "Finished updating status of loadbalancer %s",
+                    lb_id
+                )
+            except Exception as ex:
+                LOG.exception(
+                    "Failed to update status of loadbalancer %s "
+                    "Exception: %s", lb_id, ex.message
+                )
