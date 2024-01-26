@@ -309,6 +309,7 @@ class NetworkServiceBuilder(object):
             self.driver, service, service['lb_netinfo'],
             self.bigip_snat_manager,
             self.l2_service,
+            snat_network_type=self.conf.snat_network_type,
             net_service=self
         )
         snat_helper.snat_create()
@@ -324,6 +325,7 @@ class NetworkServiceBuilder(object):
             self.driver, service, service['lb_netinfo'],
             self.bigip_snat_manager,
             self.l2_service,
+            snat_network_type=self.conf.snat_network_type,
             net_service=self
         )
         snat_helper.snat_remove()
@@ -463,6 +465,7 @@ class NetworkServiceBuilder(object):
             self.driver, service, service['lb_netinfo'],
             self.bigip_snat_manager,
             self.l2_service,
+            snat_network_type=self.conf.snat_network_type,
             net_service=self
         )
 
@@ -1270,6 +1273,7 @@ class LargeSNATHelper(SNATHelper):
             driver, service, lb_netinfo, snat_manager, l2_service
         )
         self.net_service = kwargs.get("net_service")
+        self.snat_network_type = kwargs.get("snat_network_type")
 
     def snat_create(self):
         # Create dedicated SNAT network
@@ -1283,6 +1287,10 @@ class LargeSNATHelper(SNATHelper):
             self.snat_net["subnets"].append(self.large_snat_subnet[key])
 
         super(LargeSNATHelper, self).snat_create()
+
+        # SDN will assign vlan id after creating port with vtep ip in binding
+        # profile. Have to create vlan in BIGIP after allocating SNAT address.
+        self.create_vlan_selfip()
 
     def snat_update(
         self, old_loadbalancer, loadbalancer
@@ -1353,14 +1361,15 @@ class LargeSNATHelper(SNATHelper):
         if not router_id:
             raise Exception("No router found for subnet " + vip_subnet_id)
 
-        # Create large SNAT network
+        # Create large SNAT network. SNAT network type can be vlan or vxlan.
+        # It depends on SDN vendor's choice.
         body = {
             "tenant_id": tenant_id,
             "name": network_name,
             "shared": False,
             "admin_state_up": True,
             "provider:network_type":
-                self.snat_net["network"]["provider:network_type"],
+                self.snat_network_type,
             "availability_zone_hints":
                 self.snat_net["network"]["availability_zones"]
         }
@@ -1432,10 +1441,20 @@ class LargeSNATHelper(SNATHelper):
                 subnet_id=self.large_snat_subnet[ip_version]['id']
             )
 
-        # Need to refresh network information because SDN might not
-        # assign a vlan id before creating the 1st port
+        # Needn't create route domain
+        # Only create snat vlan in VIP route domain
+        self.large_snat_network["route_domain_id"] = \
+            self.snat_net["network"]["route_domain_id"]
+
+    def create_vlan_selfip(self):
+        LOG.debug("before large snat vlan create")
+        snat_network_id = self.large_snat_network['id']
+        rd_id = self.large_snat_network["route_domain_id"]
+
+        # Refresh snat network after creating snat port
         self.large_snat_network = \
             self.driver.plugin_rpc.get_network_by_id(id=snat_network_id)
+
         if "segments" in self.large_snat_network:
             for segment in self.large_snat_network["segments"]:
                 if segment["provider:network_type"] == "vlan":
@@ -1450,16 +1469,18 @@ class LargeSNATHelper(SNATHelper):
             LOG.error(msg)
             raise Exception(msg)
 
-        # Needn't create route domain
-        # Only create snat vlan in VIP route domain
-        self.large_snat_network["route_domain_id"] = \
-            self.snat_net["network"]["route_domain_id"]
+        LOG.debug("large snat vlan id is %s",
+                  str(self.large_snat_network["provider:segmentation_id"]))
+
+        self.large_snat_network["route_domain_id"] = rd_id
+
         bigips = self.service['bigips']
         for bigip in bigips:
             self.l2_service.assure_bigip_network(
                 bigip, self.large_snat_network,
                 self.service['device']
             )
+        LOG.debug("after large snat vlan create")
 
         # Create selfip in bigips
         self.net_service.config_selfips(

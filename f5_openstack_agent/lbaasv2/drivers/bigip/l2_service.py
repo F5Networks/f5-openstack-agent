@@ -303,7 +303,8 @@ class L2ServiceBuilder(object):
                      'description': network['id'],
                      'route_domain_id': network['route_domain_id']}
             self.network_helper.create_vlan(bigip, model)
-        except Exception:
+        except Exception as ex:
+            LOG.exception(ex)
             raise f5_ex.VLANCreationException(
                 "Failed to create vlan: %s" % vlan_name
             )
