@@ -26,6 +26,10 @@ from f5_openstack_agent.lbaasv2.drivers.bigip.l2_service import \
     L2ServiceBuilder
 from f5_openstack_agent.lbaasv2.drivers.bigip.network_helper import \
     NetworkHelper
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import SelfIP
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource \
+    import Vlan
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_helper
 from f5_openstack_agent.lbaasv2.drivers.bigip.route import RouteHelper
 from f5_openstack_agent.lbaasv2.drivers.bigip.selfips import BigipSelfIpManager
@@ -1342,6 +1346,11 @@ class LargeSNATHelper(SNATHelper):
                                                  loadbalancer)
 
     def snat_remove(self, rm_pool=True, rm_port=True):
+        # NOTE(qzhao): Must delete vlan in bigip before deleting
+        # snat port in neutron, because SDN might deallocate vlan
+        # id when removing snat port.
+
+        self.delete_vlan_selfip()
         super(LargeSNATHelper, self).snat_remove(rm_pool, rm_port)
         self.delete_large_snat_network()
 
@@ -1489,6 +1498,39 @@ class LargeSNATHelper(SNATHelper):
             subnets=self.large_snat_subnet.values()
         )
 
+    def delete_vlan_selfip(self):
+        lb_id = self.service['loadbalancer']['id']
+        subnet_v4_name = "snat-v4-" + lb_id
+        subnet_v6_name = "snat-v6-" + lb_id
+
+        bigips = self.service['bigips']
+
+        # NOTE(qzhao): Delete SelfIP of SNAT subnet. Also need to gather vlan
+        # name from selfip, because it is hard to query vlan id here from
+        # Neutron, if SNAT network has multiple segments.
+        s = SelfIP()
+        vlans = []
+        for name in [subnet_v4_name, subnet_v6_name]:
+            subnets, _ = self.driver.plugin_rpc.get_subnet_by_name(name=name)
+            for subnet in subnets:
+                for bigip in bigips:
+                    selfip = "local-" + bigip.device_name + "-" + subnet["id"]
+                    ret = s.load(bigip, name=selfip, partition=self.partition,
+                                 ignore=[404])
+                    if ret:
+                        vlan = ret.vlan[ret.vlan.index("/", 1) + 1::]
+                        if vlan not in vlans:
+                            vlans.append(vlan)
+                        s.delete(bigip, name=selfip, partition=self.partition)
+
+        # Delete SNAT vlan
+        # TODO(qzhao): This implementation does not deleting vlans from F5OS.
+        # Need to refactor the whole deleting procedure in the future.
+        v = Vlan()
+        for bigip in bigips:
+            for vlan in vlans:
+                v.delete(bigip, name=vlan, partition=self.partition)
+
     def delete_large_snat_network(self):
         lb_id = self.service['loadbalancer']['id']
         network_name = "snat-" + lb_id
@@ -1511,24 +1553,14 @@ class LargeSNATHelper(SNATHelper):
 
         bigips = self.service['bigips']
 
-        # Delete SelfIP of SNAT subnet
+        # Delete SelfIP neutron port
         for name in [subnet_v4_name, subnet_v6_name]:
             subnets, _ = self.driver.plugin_rpc.get_subnet_by_name(name=name)
             for subnet in subnets:
                 for bigip in bigips:
                     selfip = "local-" + bigip.device_name + "-" + subnet["id"]
-                    self.net_service.bigip_selfip_manager.delete_selfip(
-                        bigip, selfip, partition=self.partition
-                    )
                     self.driver.plugin_rpc.delete_port_by_name(
                         port_name=selfip, cast=False)
 
         # Empty subnets can be deleted along with network
-        networks = self.driver.plugin_rpc.delete_network_by_name(
-            name=network_name)
-
-        if networks:
-            for bigip in bigips:
-                for network in networks:
-                    self.l2_service.delete_bigip_network(
-                        bigip, network, self.service['device'])
+        self.driver.plugin_rpc.delete_network_by_name(name=network_name)
