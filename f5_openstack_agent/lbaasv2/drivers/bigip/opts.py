@@ -196,6 +196,11 @@ OPTS = [
         help=('Maximum MBtyes value of bandwidth')
     ),
     cfg.StrOpt(
+        'snat_network_type',
+        default='vxlan',
+        help=('SNAT netowrk type (vxlan/vlan)')
+    ),
+    cfg.StrOpt(
         'snat_subnetpool_v4',
         default='',
         help=('Reserved SNAT IPv4 subnetpool id')
