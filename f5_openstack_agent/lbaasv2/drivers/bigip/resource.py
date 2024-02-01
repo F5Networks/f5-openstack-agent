@@ -43,9 +43,10 @@ class BigIPResource(object):
         return self.helper.exists(bigip, name=name, partition=partition)
 
     def load(self, bigip, name="", partition="",
-             expand_subcollections=False):
-        return self.helper.load(bigip, name=name, partition=partition,
-                                expand_subcollections=expand_subcollections)
+             expand_subcollections=False, ignore=[]):
+        return self.helper.load(
+            bigip, name=name, partition=partition, ignore=ignore,
+            expand_subcollections=expand_subcollections)
 
     def update(self, bigip, model):
         return self.helper.create(bigip, model)
