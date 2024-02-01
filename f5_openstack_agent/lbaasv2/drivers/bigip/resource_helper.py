@@ -221,7 +221,7 @@ class BigIPResourceHelper(object):
 
     @retry_icontrol
     def load(self, bigip, name=None, partition=None,
-             expand_subcollections=False):
+             expand_subcollections=False, ignore=[]):
         u"""Retrieve a BIG-IP resource from a BIG-IP.
 
         Populates a resource object with attributes for instance on a
@@ -238,8 +238,16 @@ class BigIPResourceHelper(object):
                 "expandSubcollections": str(expand_subcollections).lower()
             }
         }
-        return resource.load(name=name, partition=partition,
-                             requests_params=params)
+        try:
+            return resource.load(name=name, partition=partition,
+                                 requests_params=params)
+        except HTTPError as ex:
+            if ex.response.status_code in ignore:
+                LOG.debug("Ignore HTTP error: %s", ex.message)
+                return None
+            else:
+                LOG.exception(ex)
+                raise
 
     @retry_icontrol
     def update(self, bigip, model):
