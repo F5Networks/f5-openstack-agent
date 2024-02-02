@@ -19,6 +19,8 @@ Added Functionality
 Bug Fixes
 `````````
 * [OPENSTACK-2939] Ignore 400 error of deleting route domain when concurrent deleting lb
+* [OPENSTACK-2986] Create vxlan SNAT network
+* [OPENSTACK-2986] Delete vxlan SNAT network
 
 Limitations
 ```````````
