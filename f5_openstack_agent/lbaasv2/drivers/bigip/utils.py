@@ -419,33 +419,35 @@ def check_port_llinfo(device, port):
 
 def update_port(port, binding_profile, rpc):
     # When a device is designated, and the new bigip hostname is as the
-    # original device, the selfip port need to update.
+    # original device, the port (selfip/snatip) need to update.
 
-    # 1. if vtep is not changed, we only update port mac
-    # 2. if vtep is changed, we raise exception
-    # 3. step 1 and 2 only change neutron db.
+    # either mac or vtep is changed, we update the port
 
     same_mac, same_vtep = check_port_llinfo(
         binding_profile, port)
 
-    if not same_vtep:
-        raise Exception(
-            "vtep ip is not suppose to change\n."
-            "the port is %s\n."
-            "the changed link binding profile is %s." % (
-                port, binding_profile
-            )
-        )
-
-    # vtep is certainly not changed
-    if not same_mac:
+    if not all([same_vtep, same_mac]):
         try:
+            reserve_dev_owner = port["device_owner"]
+            if not reserve_dev_owner:
+                reserve_dev_owner = "network:f5lbaasv2"
+
+            LOG.info("smae_mac, same_vtep is changed, reset port device owner")
             port = rpc.update_port_on_subnet(
                 port_id=port['id'],
-                binding_profile=binding_profile
+                device_owner=""
             )
+
+            LOG.info("reassign port attrs binding_profile %s, device_owner %s",
+                     binding_profile, reserve_dev_owner)
+            port = rpc.update_port_on_subnet(
+                port_id=port['id'],
+                binding_profile=binding_profile,
+                device_owner=reserve_dev_owner
+            )
+
         except Exception:
-            LOG.error(
+            LOG.exception(
                 "fail to update port %s. same_mac is %s, same_vtep is %s." %
                 (port, same_mac, same_vtep))
             raise
