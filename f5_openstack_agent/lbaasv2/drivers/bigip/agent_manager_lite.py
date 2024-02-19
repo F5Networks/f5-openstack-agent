@@ -15,7 +15,10 @@
 # limitations under the License.
 #
 
+import copy
 from datetime import datetime
+import eventlet
+from f5_openstack_agent.utils import timer
 import random
 import re
 import sys
@@ -722,15 +725,37 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('create_pool')
     @log_helpers.log_method_call
+    @timer.timeit
     def create_pool(self, context, pool, service):
         """Handle RPC cast from plugin to create_pool."""
         loadbalancer = service['loadbalancer']
         id = pool['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.PoolManager(self.lbdriver)
-            mgr.create(pool, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            failures = []
+
+            def _create_pool(pool, service, bigip):
+                try:
+                    mgr = resource_manager.PoolManager(self.lbdriver)
+                    service['bigips'] = [bigip]
+                    mgr.create(pool, service)
+                except Exception as ex:
+                    failures.append(ex)
+
+            exec_pool = eventlet.GreenPool()
+            for bip in allbips:
+                exec_pool.spawn(_create_pool,
+                                pool, copy.deepcopy(service), bip)
+            exec_pool.waitall()
+            if failures:
+                for failure in failures:
+                    LOG.exception("Fail to create pool Exception: %s",
+                                  failure.message)
+                raise failures[0]
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create pool %s", id)
@@ -755,16 +780,38 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('update_pool')
     @log_helpers.log_method_call
+    @timer.timeit
     def update_pool(self, context, old_pool, pool, service):
         """Handle RPC cast from plugin to update_pool."""
         loadbalancer = service['loadbalancer']
         id = pool['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            # TODO(qzhao): Deploy config to BIG-IP
-            mgr = resource_manager.PoolManager(self.lbdriver)
-            mgr.update(old_pool, pool, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            failures = []
+
+            def _update_pool(old_pool, pool, service, bigip):
+                try:
+                    # TODO(qzhao): Deploy config to BIG-IP
+                    mgr = resource_manager.PoolManager(self.lbdriver)
+                    service['bigips'] = [bigip]
+                    mgr.update(old_pool, pool, service)
+                except Exception as ex:
+                    failures.append(ex)
+
+            exec_pool = eventlet.GreenPool()
+            for bip in allbips:
+                exec_pool.spawn(_update_pool, old_pool,
+                                pool, copy.deepcopy(service), bip)
+            exec_pool.waitall()
+            if failures:
+                for failure in failures:
+                    LOG.exception("Fail to update pool Exception: %s",
+                                  failure.message)
+                raise failures[0]
+
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update pool %s", id)
         except Exception as ex:
@@ -788,15 +835,37 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('delete_pool')
     @log_helpers.log_method_call
+    @timer.timeit
     def delete_pool(self, context, pool, service):
         """Handle RPC cast from plugin to delete_pool."""
         loadbalancer = service['loadbalancer']
         id = pool['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.PoolManager(self.lbdriver)
-            mgr.delete(pool, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            failures = []
+
+            def _delete_pool(pool, service, bigip):
+                try:
+                    mgr = resource_manager.PoolManager(self.lbdriver)
+                    service['bigips'] = [bigip]
+                    mgr.delete(pool, service)
+                except Exception as ex:
+                    failures.append(ex)
+
+            exec_pool = eventlet.GreenPool()
+            for bip in allbips:
+                exec_pool.spawn(_delete_pool,
+                                pool, copy.deepcopy(service), bip)
+            exec_pool.waitall()
+            if failures:
+                for failure in failures:
+                    LOG.exception("Fail to delete pool Exception: %s",
+                                  failure.message)
+                raise failures[0]
+
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete pool %s", id)
         except Exception as ex:
@@ -858,7 +927,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of member %s "
                               "Exception: %s", id, ex.message)
 
-    @serialized('update_member')
+    @serialized('create_bulk_member')
     @log_helpers.log_method_call
     def create_bulk_member(
         self, context, members, service,
@@ -896,6 +965,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of multiple members "
                               "Exception: %s", ex.message)
 
+    @serialized('update_member')
     @log_helpers.log_method_call
     def update_member(self, context, old_member, member, service):
         """Handle RPC cast from plugin to update_member."""
@@ -967,7 +1037,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of member %s "
                               "Exception: %s", id, ex.message)
 
-    @serialized('create_health_monitor')
+    @serialized('delete_bulk_member')
     @log_helpers.log_method_call
     def delete_bulk_member(
         self, context, members, service,
@@ -1012,18 +1082,41 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Fail to update status of multiple members "
                               "Exception: %s", ex.message)
 
+    @serialized('create_health_monitor')
     @log_helpers.log_method_call
+    @timer.timeit
     def create_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to create_pool_health_monitor."""
         loadbalancer = service['loadbalancer']
         id = health_monitor['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.MonitorManager(
-                self.lbdriver, type=health_monitor['type']
-            )
-            mgr.create(health_monitor, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            failures = []
+
+            def _create_health_monitor(health_monitor, service, bigip):
+                try:
+                    mgr = resource_manager.MonitorManager(
+                        self.lbdriver, type=health_monitor['type']
+                    )
+                    service['bigips'] = [bigip]
+                    mgr.create(health_monitor, service)
+                except Exception as ex:
+                    failures.append(ex)
+
+            exec_pool = eventlet.GreenPool()
+            for bip in allbips:
+                exec_pool.spawn(_create_health_monitor,
+                                health_monitor, copy.deepcopy(service), bip)
+            exec_pool.waitall()
+            if failures:
+                for failure in failures:
+                    LOG.exception("Fail to create health monitor: %s",
+                                  failure.message)
+                raise failures[0]
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create monitor %s", id)
@@ -1050,6 +1143,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('update_health_monitor')
     @log_helpers.log_method_call
+    @timer.timeit
     def update_health_monitor(self, context, old_health_monitor,
                               health_monitor, service):
         """Handle RPC cast from plugin to update_health_monitor."""
@@ -1057,11 +1151,33 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = health_monitor['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.MonitorManager(
-                self.lbdriver, type=health_monitor['type']
-            )
-            mgr.update(old_health_monitor, health_monitor, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            failures = []
+
+            def _update_health_monitor(old_health_monitor,
+                                       health_monitor, service, bigip):
+                try:
+                    mgr = resource_manager.MonitorManager(
+                        self.lbdriver, type=health_monitor['type']
+                    )
+                    service['bigips'] = [bigip]
+                    mgr.update(old_health_monitor, health_monitor, service)
+                except Exception as ex:
+                    failures.append(ex)
+
+            exec_pool = eventlet.GreenPool()
+            for bip in allbips:
+                exec_pool.spawn(_update_health_monitor, old_health_monitor,
+                                health_monitor, copy.deepcopy(service), bip)
+            exec_pool.waitall()
+            if failures:
+                for failure in failures:
+                    LOG.exception("Fail to update health monitor: %s",
+                                  failure.message)
+                raise failures[0]
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update health_monitor %s", id)
@@ -1086,17 +1202,39 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('delete_health_monitor')
     @log_helpers.log_method_call
+    @timer.timeit
     def delete_health_monitor(self, context, health_monitor, service):
         """Handle RPC cast from plugin to delete_health_monitor."""
         loadbalancer = service['loadbalancer']
         id = health_monitor['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.MonitorManager(
-                self.lbdriver, type=health_monitor['type']
-            )
-            mgr.delete(health_monitor, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            failures = []
+
+            def _delete_health_monitor(health_monitor, service, bigip):
+                try:
+                    mgr = resource_manager.MonitorManager(
+                        self.lbdriver, type=health_monitor['type']
+                    )
+                    service['bigips'] = [bigip]
+                    mgr.delete(health_monitor, service)
+                except Exception as ex:
+                    failures.append(ex)
+
+            exec_pool = eventlet.GreenPool()
+            for bip in allbips:
+                exec_pool.spawn(_delete_health_monitor,
+                                health_monitor, copy.deepcopy(service), bip)
+            exec_pool.waitall()
+            if failures:
+                for failure in failures:
+                    LOG.exception("Fail to delete health monitor: %s",
+                                  failure.message)
+                raise failures[0]
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete health_monitor %s", id)
@@ -1400,6 +1538,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 LOG.exception("Failt to updte status of l7rule %s "
                               "Exception: %s", id, ex.message)
 
+    @serialized('create_acl_group')
     @log_helpers.log_method_call
     def create_acl_group(self, context, acl_group):
         """Handle RPC cast from plugin to create ACL Group."""
@@ -1412,6 +1551,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             LOG.error("Fail to create acl_group %s "
                       "Exception: %s", id, ex.message)
 
+    @serialized('delete_acl_group')
     @log_helpers.log_method_call
     def delete_acl_group(self, context, acl_group):
         """Handle RPC cast from plugin to delete ACL Group."""

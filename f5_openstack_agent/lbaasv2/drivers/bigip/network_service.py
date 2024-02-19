@@ -1059,6 +1059,7 @@ class SNATHelper(object):
 
         snat_addrs = set()
 
+        LOG.debug("before snat create port")
         for subnet in self.snat_net['subnets']:
             LOG.info("Creating snat addrs for subnet: %s" %
                      subnet)
@@ -1106,6 +1107,7 @@ class SNATHelper(object):
                         "The subnet info is: %s." %
                         (snats_per_subnet, len(snat_addrs), subnet)
                     )
+        LOG.debug("after snat create port")
 
         snat_info = {}
         snat_info[
@@ -1415,6 +1417,7 @@ class LargeSNATHelper(SNATHelper):
 
             subnet_size = min(subnet_size, size4, size6)
 
+        LOG.debug("before creating and attaching for large SNAT")
         # Create large SNAT subnets
         for ip_version in ip_versions:
             if ip_version == 6:
@@ -1449,6 +1452,7 @@ class LargeSNATHelper(SNATHelper):
                 router_id=router_id,
                 subnet_id=self.large_snat_subnet[ip_version]['id']
             )
+        LOG.debug("after creating and attaching for large SNAT")
 
         # Needn't create route domain
         # Only create snat vlan in VIP route domain
@@ -1491,12 +1495,14 @@ class LargeSNATHelper(SNATHelper):
             )
         LOG.debug("after large snat vlan create")
 
+        LOG.debug("before large snat selfip create")
         # Create selfip in bigips
         self.net_service.config_selfips(
             self.service,
             network=self.large_snat_network,
             subnets=self.large_snat_subnet.values()
         )
+        LOG.debug("after large snat selfip create")
 
     def delete_vlan_selfip(self):
         lb_id = self.service['loadbalancer']['id']
