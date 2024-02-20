@@ -1579,14 +1579,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('update_acl_group')
     @log_helpers.log_method_call
+    @timer.timeit
     def update_acl_group(self, context, acl_group, service):
         """Handle RPC cast from plugin to update ACL Group."""
         id = acl_group['id']
         old_acl_group = dict()
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.update(old_acl_group, acl_group, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _update_acl_group(old_acl_group, acl_group, service={}):
+                mgr = resource_manager.ACLGroupManager(self.lbdriver)
+                mgr.update(old_acl_group, acl_group, service)
+
+            _update_acl_group(old_acl_group, acl_group, service=service)
             LOG.debug("Finish to update acl_group %s", id)
         except Exception as ex:
             LOG.exception("Fail to update acl group %s.\n"
@@ -1597,6 +1604,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('add_acl_bind')
     @log_helpers.log_method_call
+    @timer.timeit
     def add_acl_bind(self, context, listener,
                      acl_group, acl_bind, service):
         """Handle RPC cast from plugin to update_acl_bind."""
@@ -1607,15 +1615,28 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         try:
             # create acl data group on each bigips first
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.create(acl_group, service)
-            LOG.debug("Finish to create data group of acl group %s",
-                      acl_id)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
 
-            # create acl irule on each bigips
-            mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.update_acl_bind(listener, acl_bind, service)
+            @exec_helper.On(allbips)
+            def _add_acl_bind(listener, acl_group, acl_bind, service={}):
+                bips = service.get('bigips', [])
+                if len(bips) == 0:
+                    raise Exception("no bigip found for acl binding.")
+                bip = bips[0].hostname
+
+                mgr = resource_manager.ACLGroupManager(self.lbdriver)
+                mgr.create(acl_group, service)
+                LOG.debug("Created acl group %s for bigip %s",
+                          acl_id, bip)
+
+                # create acl irule on each bigips
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+                mgr.update_acl_bind(listener, acl_bind, service)
+                LOG.debug("Added ACL bind to listener %s for %s",
+                          listener_id, bip)
+
+            _add_acl_bind(listener, acl_group, acl_bind, service=service)
             LOG.debug("Finish to add ACL bind irule of listener %s",
                       listener_id)
         except Exception as ex:
@@ -1630,6 +1651,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('remove_acl_bind')
     @log_helpers.log_method_call
+    @timer.timeit
     def remove_acl_bind(self, context, listener,
                         acl_group, acl_bind, service):
         """Handle RPC cast from plugin to update_acl_bind."""
@@ -1639,21 +1661,32 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         acl_id = acl_group['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
 
             # set acl_bind enabled False to remove irules
             acl_bind["enabled"] = False
 
-            mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.update_acl_bind(listener, acl_bind, service)
-            LOG.debug(
-                "Finish to remove ACL bind irule of listener %s",
-                listener_id
-            )
+            @exec_helper.On(allbips)
+            def _remove_acl_bind(listener, acl_group, acl_bind, service={}):
+                bips = service.get('bigips', [])
+                if len(bips) == 0:
+                    raise Exception("no bigip found for acl unbinding.")
+                bip = bips[0].hostname
 
-            # delete acl data group on each bigips
-            mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.try_delete(acl_group, service)
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+                mgr.update_acl_bind(listener, acl_bind, service)
+                LOG.debug(
+                    "Removed ACL bind for listener %s from %s",
+                    listener_id, bip
+                )
+
+                # delete acl data group on each bigips
+                mgr = resource_manager.ACLGroupManager(self.lbdriver)
+                mgr.try_delete(acl_group, service)
+                LOG.debug("Removed acl_group %s from %s", acl_id, bip)
+
+            _remove_acl_bind(listener, acl_group, acl_bind, service=service)
             LOG.debug("Finish to remove acl_group %s", acl_id)
         except Exception as ex:
             LOG.exception("Fail to remove acl bind of listener.\n"
