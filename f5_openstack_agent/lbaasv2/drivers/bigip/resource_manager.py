@@ -189,12 +189,12 @@ class ResourceManager(object):
     def delete(self, resource, service=dict(), **kwargs):
         if service and not service.get(self._key):
             self._search_element(resource, service)
-        payload = kwargs.get("payload",
+        payload = kwargs.pop("payload",
                              self._create_payload(resource, service))
         LOG.debug("%s payload is %s", self._resource, payload)
         bigips = service['bigips']
         for bigip in bigips:
-            self._delete(bigip, payload, resource, service)
+            self._delete(bigip, payload, resource, service, **kwargs)
         LOG.debug("Finish to delete %s %s", self._resource, payload['name'])
 
 
@@ -2395,7 +2395,8 @@ class L7PolicyManager(ResourceManager):
         policy_dict = self._get_policy_dict(l7policy, service)
         return policy_dict['f5_policy']
 
-    def _create_ltm_policy(self, bigip, payload, l7policy, service):
+    def _create_ltm_policy(self, bigip, payload, l7policy, service,
+                           purge=False):
         # Load the existing virtual server
         self.listener_mgr._search_element({"id": l7policy['listener_id']},
                                           service)
@@ -2408,6 +2409,11 @@ class L7PolicyManager(ResourceManager):
         partition = payload['partition']
 
         need_to_attach = True
+
+        if purge:
+            # Do not attach it again
+            need_to_attach = False
+
         if not payload.get('rules', list()):
             # LTM policy has no rules. Cannot attach it to virtual server
             need_to_attach = False
@@ -2424,7 +2430,7 @@ class L7PolicyManager(ResourceManager):
             super(L7PolicyManager, self)._delete(bigip, payload, None, None)
 
         # Do not create an empty policy, which cannot be attached.
-        # Purge job will cleanup all LTM policies, which are not attached
+        # Purge job will cleanup all LTM policies
         if not need_to_attach:
             return
 
@@ -2463,8 +2469,17 @@ class L7PolicyManager(ResourceManager):
             self.l7rule_mgr._create(bigip, irule, None, service)
 
     def _delete(self, bigip, payload, l7policy, service, **kwargs):
+        # NOTE(qzhao): L7policy code is still following the legacy style,
+        # which always generates and deploys LTM policy according to
+        # lbass model and will not generate empty LTM policy before
+        # l7policy becomes PENDING_DELETE. Need a new procedure to purge
+        # LTM policy.
+        # TODO(qzhao): Need to refactor l7policy code
+        purge = kwargs.get("purge", False)
+
         # Create or update LTM policy
-        self._create_ltm_policy(bigip, payload, l7policy, service)
+        self._create_ltm_policy(bigip, payload, l7policy, service, purge)
+
         # Delete all iRules of this l7policy
         for l7rule in service[self.l7rule_mgr._collection_key]:
             if l7rule['policy_id'] == l7policy['id'] and \
@@ -2481,7 +2496,7 @@ class L7PolicyManager(ResourceManager):
 
     @log_helpers.log_method_call
     def delete(self, l7policy, service, **kwargs):
-        super(L7PolicyManager, self).delete(l7policy, service)
+        super(L7PolicyManager, self).delete(l7policy, service, **kwargs)
 
 
 class L7RuleManager(ResourceManager):
