@@ -1829,7 +1829,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 service["l7policy"] = plc
 
                 mgr = resource_manager.L7PolicyManager(self.lbdriver)
-                mgr.delete(plc, service)
+                # NOTE(qzhao): L7Policy delete() does not remove LTM policy
+                # before l7policy becomes PENDING_DELETE, need to specify
+                # purge=True
+                mgr.delete(plc, service, purge=True)
                 LOG.debug("Finish to purge l7policy %s", plc_id)
             LOG.debug("Finish to purge all l7policy in the lb")
 
