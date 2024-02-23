@@ -203,7 +203,7 @@ class LoadBalancerManager(ResourceManager):
     _collection_key = 'no_collection_key'
     _key = 'loadbalancer'
 
-    def __init__(self, driver):
+    def __init__(self, driver, rm_ports=True):
         super(LoadBalancerManager, self).__init__(driver)
         self._resource = "virtual address"
         self.resource_helper = resource_helper.BigIPResourceHelper(
@@ -222,6 +222,7 @@ class LoadBalancerManager(ResourceManager):
             "flavor": "connectionLimit"
         }
         self.all_subnet_hints = {}
+        self.rm_ports = rm_ports
 
     def _create_payload(self, loadbalancer, service):
         vip = virtual_address.VirtualAddress(self.driver.service_adapter,
@@ -648,9 +649,12 @@ class LoadBalancerManager(ResourceManager):
     def _post_delete(self, service):
         # self.driver.network_builder is None in global routed mode
         if self.driver.network_builder:
-            self.driver.network_builder.remove_flavor_snat(service)
+            self.driver.network_builder.remove_flavor_snat(
+                service, rm_port=self.rm_ports
+            )
             self.driver.network_builder.post_service_networking(
-                service)
+                service, rm_port=self.rm_ports
+            )
         self.tenant_manager.assure_tenant_cleanup(service)
 
 
