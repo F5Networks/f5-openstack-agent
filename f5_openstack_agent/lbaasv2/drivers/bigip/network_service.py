@@ -1607,7 +1607,6 @@ class LargeSNATHelper(SNATHelper):
             for subnet in subnets:
                 for bigip in bigips:
                     selfip = "local-" + bigip.device_name + "-" + subnet["id"]
-
                     if rm_port:
                         self.driver.plugin_rpc.delete_port_by_name(
                             port_name=selfip, cast=False)
