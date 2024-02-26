@@ -588,7 +588,8 @@ class LBaaSv2PluginRPC(object):
     def update_port_on_subnet(self, port_id, port_name=None,
                               subnet_id=None, mac_address=None,
                               fixed_address_count=0,
-                              binding_profile=None):
+                              binding_profile=None,
+                              device_owner=None):
         """Update a neutron port to the subnet."""
         try:
             port = self._call(
@@ -600,7 +601,8 @@ class LBaaSv2PluginRPC(object):
                     subnet_id=subnet_id,
                     fixed_address_count=fixed_address_count,
                     mac_address=mac_address,
-                    binding_profile=binding_profile
+                    binding_profile=binding_profile,
+                    device_owner=device_owner
                 ),
                 topic=self.topic
             )

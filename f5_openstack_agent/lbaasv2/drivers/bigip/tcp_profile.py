@@ -307,8 +307,8 @@ class TCPProfileHelper(object):
         if protocol not in self.keepalive_allowed_protocols:
             return False
 
-        old_t = old_listener['keepalive_timeout']
-        new_t = listener['keepalive_timeout']
+        old_t = old_listener.get('keepalive_timeout', -1)
+        new_t = listener.get('keepalive_timeout', -1)
         LOG.debug("keepalive_timeout old_t is {}, new_t is {}"
                   .format(old_t, new_t))
         if new_t != -1 and new_t != old_t:

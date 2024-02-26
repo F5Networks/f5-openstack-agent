@@ -15,9 +15,8 @@
 # limitations under the License.
 #
 
-import copy
 from datetime import datetime
-import eventlet
+from f5_openstack_agent.utils import exec_helper
 from f5_openstack_agent.utils import timer
 import random
 import re
@@ -629,9 +628,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = listener['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.create(listener, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _create_listener(listener, service={}):
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+                mgr.create(listener, service)
+
+            _create_listener(listener, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create listener %s", id)
@@ -662,9 +668,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = listener['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.update(old_listener, listener, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _update_listener(old_listener, listener, service={}):
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+                mgr.update(old_listener, listener, service)
+
+            _update_listener(old_listener, listener, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update listener %s", id)
         except Exception as ex:
@@ -694,9 +707,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = listener['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.delete(listener, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _delete_listener(listener, service={}):
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+                mgr.delete(listener, service)
+
+            _delete_listener(listener, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete listener %s", id)
         except Exception as ex:
@@ -735,26 +755,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
             allbips = bigip_dev.get_all_bigips()
 
-            failures = []
+            @exec_helper.On(allbips)
+            def _create_pool(pool, service={}):
+                mgr = resource_manager.PoolManager(self.lbdriver)
+                mgr.create(pool, service)
 
-            def _create_pool(pool, service, bigip):
-                try:
-                    mgr = resource_manager.PoolManager(self.lbdriver)
-                    service['bigips'] = [bigip]
-                    mgr.create(pool, service)
-                except Exception as ex:
-                    failures.append(ex)
-
-            exec_pool = eventlet.GreenPool()
-            for bip in allbips:
-                exec_pool.spawn(_create_pool,
-                                pool, copy.deepcopy(service), bip)
-            exec_pool.waitall()
-            if failures:
-                for failure in failures:
-                    LOG.exception("Fail to create pool Exception: %s",
-                                  failure.message)
-                raise failures[0]
+            _create_pool(pool, service=service)
 
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
@@ -790,27 +796,13 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
             allbips = bigip_dev.get_all_bigips()
 
-            failures = []
+            @exec_helper.On(allbips)
+            def _update_pool(old_pool, pool, service={}):
+                # TODO(qzhao): Deploy config to BIG-IP
+                mgr = resource_manager.PoolManager(self.lbdriver)
+                mgr.update(old_pool, pool, service)
 
-            def _update_pool(old_pool, pool, service, bigip):
-                try:
-                    # TODO(qzhao): Deploy config to BIG-IP
-                    mgr = resource_manager.PoolManager(self.lbdriver)
-                    service['bigips'] = [bigip]
-                    mgr.update(old_pool, pool, service)
-                except Exception as ex:
-                    failures.append(ex)
-
-            exec_pool = eventlet.GreenPool()
-            for bip in allbips:
-                exec_pool.spawn(_update_pool, old_pool,
-                                pool, copy.deepcopy(service), bip)
-            exec_pool.waitall()
-            if failures:
-                for failure in failures:
-                    LOG.exception("Fail to update pool Exception: %s",
-                                  failure.message)
-                raise failures[0]
+            _update_pool(old_pool, pool, service=service)
 
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update pool %s", id)
@@ -845,26 +837,12 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
             allbips = bigip_dev.get_all_bigips()
 
-            failures = []
+            @exec_helper.On(allbips)
+            def _delete_pool(pool, service={}):
+                mgr = resource_manager.PoolManager(self.lbdriver)
+                mgr.delete(pool, service)
 
-            def _delete_pool(pool, service, bigip):
-                try:
-                    mgr = resource_manager.PoolManager(self.lbdriver)
-                    service['bigips'] = [bigip]
-                    mgr.delete(pool, service)
-                except Exception as ex:
-                    failures.append(ex)
-
-            exec_pool = eventlet.GreenPool()
-            for bip in allbips:
-                exec_pool.spawn(_delete_pool,
-                                pool, copy.deepcopy(service), bip)
-            exec_pool.waitall()
-            if failures:
-                for failure in failures:
-                    LOG.exception("Fail to delete pool Exception: %s",
-                                  failure.message)
-                raise failures[0]
+            _delete_pool(pool, service=service)
 
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete pool %s", id)
@@ -901,9 +879,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = member['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.MemberManager(self.lbdriver)
-            mgr.create(member, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _create_member(member, service={}):
+                mgr = resource_manager.MemberManager(self.lbdriver)
+                mgr.create(member, service)
+
+            _create_member(member, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create member %s", id)
@@ -936,9 +921,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.MemberManager(self.lbdriver)
-            mgr.create_bulk(members, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _create_bulk_member(members, service={}):
+                mgr = resource_manager.MemberManager(self.lbdriver)
+                mgr.create_bulk(members, service)
+
+            _create_bulk_member(members, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
 
@@ -973,9 +965,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = member['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.MemberManager(self.lbdriver)
-            mgr.update(old_member, member, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _update_member(old_member, member, service={}):
+                mgr = resource_manager.MemberManager(self.lbdriver)
+                mgr.update(old_member, member, service)
+
+            _update_member(old_member, member, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to update member %s", id)
         except Exception as ex:
@@ -1006,9 +1005,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = member['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.MemberManager(self.lbdriver)
-            mgr.delete(member, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _delete_member(member, service={}):
+                mgr = resource_manager.MemberManager(self.lbdriver)
+                mgr.delete(member, service)
+
+            _delete_member(member, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             LOG.debug("Finish to delete member %s", id)
         except f5_ex.ProjectIDException as ex:
@@ -1046,9 +1052,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         loadbalancer = service['loadbalancer']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.MemberManager(self.lbdriver)
-            mgr.delete_bulk(members, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _delete_bulk_member(members, service={}):
+                mgr = resource_manager.MemberManager(self.lbdriver)
+                mgr.delete_bulk(members, service)
+
+            _delete_bulk_member(members, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
 
             # when delete succeed the member should be offline?
@@ -1094,28 +1107,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
             allbips = bigip_dev.get_all_bigips()
 
-            failures = []
+            @exec_helper.On(allbips)
+            def _create_health_monitor(health_monitor, service={}):
+                mgr = resource_manager.MonitorManager(
+                    self.lbdriver, type=health_monitor['type']
+                )
+                mgr.create(health_monitor, service)
 
-            def _create_health_monitor(health_monitor, service, bigip):
-                try:
-                    mgr = resource_manager.MonitorManager(
-                        self.lbdriver, type=health_monitor['type']
-                    )
-                    service['bigips'] = [bigip]
-                    mgr.create(health_monitor, service)
-                except Exception as ex:
-                    failures.append(ex)
-
-            exec_pool = eventlet.GreenPool()
-            for bip in allbips:
-                exec_pool.spawn(_create_health_monitor,
-                                health_monitor, copy.deepcopy(service), bip)
-            exec_pool.waitall()
-            if failures:
-                for failure in failures:
-                    LOG.exception("Fail to create health monitor: %s",
-                                  failure.message)
-                raise failures[0]
+            _create_health_monitor(health_monitor, service=service)
 
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
@@ -1154,29 +1153,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
             allbips = bigip_dev.get_all_bigips()
 
-            failures = []
-
+            @exec_helper.On(allbips)
             def _update_health_monitor(old_health_monitor,
-                                       health_monitor, service, bigip):
-                try:
-                    mgr = resource_manager.MonitorManager(
-                        self.lbdriver, type=health_monitor['type']
-                    )
-                    service['bigips'] = [bigip]
-                    mgr.update(old_health_monitor, health_monitor, service)
-                except Exception as ex:
-                    failures.append(ex)
+                                       health_monitor, service={}):
+                mgr = resource_manager.MonitorManager(
+                    self.lbdriver, type=health_monitor['type']
+                )
+                mgr.update(old_health_monitor, health_monitor, service)
 
-            exec_pool = eventlet.GreenPool()
-            for bip in allbips:
-                exec_pool.spawn(_update_health_monitor, old_health_monitor,
-                                health_monitor, copy.deepcopy(service), bip)
-            exec_pool.waitall()
-            if failures:
-                for failure in failures:
-                    LOG.exception("Fail to update health monitor: %s",
-                                  failure.message)
-                raise failures[0]
+            _update_health_monitor(old_health_monitor,
+                                   health_monitor, service=service)
 
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
@@ -1212,28 +1198,14 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
             bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
             allbips = bigip_dev.get_all_bigips()
 
-            failures = []
+            @exec_helper.On(allbips)
+            def _delete_health_monitor(health_monitor, service={}):
+                mgr = resource_manager.MonitorManager(
+                    self.lbdriver, type=health_monitor['type']
+                )
+                mgr.delete(health_monitor, service)
 
-            def _delete_health_monitor(health_monitor, service, bigip):
-                try:
-                    mgr = resource_manager.MonitorManager(
-                        self.lbdriver, type=health_monitor['type']
-                    )
-                    service['bigips'] = [bigip]
-                    mgr.delete(health_monitor, service)
-                except Exception as ex:
-                    failures.append(ex)
-
-            exec_pool = eventlet.GreenPool()
-            for bip in allbips:
-                exec_pool.spawn(_delete_health_monitor,
-                                health_monitor, copy.deepcopy(service), bip)
-            exec_pool.waitall()
-            if failures:
-                for failure in failures:
-                    LOG.exception("Fail to delete health monitor: %s",
-                                  failure.message)
-                raise failures[0]
+            _delete_health_monitor(health_monitor, service=service)
 
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
@@ -1341,9 +1313,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7policy['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.L7PolicyManager(self.lbdriver)
-            mgr.create(l7policy, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _create_l7policy(l7policy, service={}):
+                mgr = resource_manager.L7PolicyManager(self.lbdriver)
+                mgr.create(l7policy, service)
+
+            _create_l7policy(l7policy, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create l7policy %s", id)
@@ -1374,9 +1353,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7policy['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.L7PolicyManager(self.lbdriver)
-            mgr.update(old_l7policy, l7policy, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _update_l7policy(old_l7policy, l7policy, service={}):
+                mgr = resource_manager.L7PolicyManager(self.lbdriver)
+                mgr.update(old_l7policy, l7policy, service)
+
+            _update_l7policy(old_l7policy, l7policy, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update l7policy %s", id)
@@ -1407,9 +1393,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7policy['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.L7PolicyManager(self.lbdriver)
-            mgr.delete(l7policy, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _delete_l7policy(l7policy, service={}):
+                mgr = resource_manager.L7PolicyManager(self.lbdriver)
+                mgr.delete(l7policy, service)
+
+            _delete_l7policy(l7policy, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete l7policy %s", id)
@@ -1443,9 +1436,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7rule['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.L7RuleManager(self.lbdriver)
-            mgr.create(l7rule, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _create_l7rule(l7rule, service={}):
+                mgr = resource_manager.L7RuleManager(self.lbdriver)
+                mgr.create(l7rule, service)
+
+            _create_l7rule(l7rule, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to create l7rule %s", id)
@@ -1476,9 +1476,16 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7rule['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.L7RuleManager(self.lbdriver)
-            mgr.update(old_l7rule, l7rule, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _update_l7rule(old_l7rule, l7rule, service=service):
+                mgr = resource_manager.L7RuleManager(self.lbdriver)
+                mgr.update(old_l7rule, l7rule, service)
+
+            _update_l7rule(old_l7rule, l7rule, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to update l7rule %s", id)
@@ -1509,10 +1516,17 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         id = l7rule['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
-            # TODO(qzhao): Deploy config to BIG-IP
-            mgr = resource_manager.L7RuleManager(self.lbdriver)
-            mgr.delete(l7rule, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _delete_l7rule(l7rule, service={}):
+                # TODO(qzhao): Deploy config to BIG-IP
+                mgr = resource_manager.L7RuleManager(self.lbdriver)
+                mgr.delete(l7rule, service)
+
+            _delete_l7rule(l7rule, service=service)
+
             provision_status = constants_v2.F5_ACTIVE
             operating_status = constants_v2.F5_ONLINE
             LOG.debug("Finish to delete l7rule %s", id)
@@ -1565,14 +1579,21 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('update_acl_group')
     @log_helpers.log_method_call
+    @timer.timeit
     def update_acl_group(self, context, acl_group, service):
         """Handle RPC cast from plugin to update ACL Group."""
         id = acl_group['id']
         old_acl_group = dict()
         try:
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.update(old_acl_group, acl_group, service)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
+
+            @exec_helper.On(allbips)
+            def _update_acl_group(old_acl_group, acl_group, service={}):
+                mgr = resource_manager.ACLGroupManager(self.lbdriver)
+                mgr.update(old_acl_group, acl_group, service)
+
+            _update_acl_group(old_acl_group, acl_group, service=service)
             LOG.debug("Finish to update acl_group %s", id)
         except Exception as ex:
             LOG.exception("Fail to update acl group %s.\n"
@@ -1583,6 +1604,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('add_acl_bind')
     @log_helpers.log_method_call
+    @timer.timeit
     def add_acl_bind(self, context, listener,
                      acl_group, acl_bind, service):
         """Handle RPC cast from plugin to update_acl_bind."""
@@ -1593,15 +1615,28 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         try:
             # create acl data group on each bigips first
-            bigip_device.set_bigips(service, self.conf)
-            mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.create(acl_group, service)
-            LOG.debug("Finish to create data group of acl group %s",
-                      acl_id)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
 
-            # create acl irule on each bigips
-            mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.update_acl_bind(listener, acl_bind, service)
+            @exec_helper.On(allbips)
+            def _add_acl_bind(listener, acl_group, acl_bind, service={}):
+                bips = service.get('bigips', [])
+                if len(bips) == 0:
+                    raise Exception("no bigip found for acl binding.")
+                bip = bips[0].hostname
+
+                mgr = resource_manager.ACLGroupManager(self.lbdriver)
+                mgr.create(acl_group, service)
+                LOG.debug("Created acl group %s for bigip %s",
+                          acl_id, bip)
+
+                # create acl irule on each bigips
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+                mgr.update_acl_bind(listener, acl_bind, service)
+                LOG.debug("Added ACL bind to listener %s for %s",
+                          listener_id, bip)
+
+            _add_acl_bind(listener, acl_group, acl_bind, service=service)
             LOG.debug("Finish to add ACL bind irule of listener %s",
                       listener_id)
         except Exception as ex:
@@ -1616,6 +1651,7 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
     @serialized('remove_acl_bind')
     @log_helpers.log_method_call
+    @timer.timeit
     def remove_acl_bind(self, context, listener,
                         acl_group, acl_bind, service):
         """Handle RPC cast from plugin to update_acl_bind."""
@@ -1625,21 +1661,32 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
         acl_id = acl_group['id']
 
         try:
-            bigip_device.set_bigips(service, self.conf)
+            bigip_dev = bigip_device.BigipDevice(service['device'], self.conf)
+            allbips = bigip_dev.get_all_bigips()
 
             # set acl_bind enabled False to remove irules
             acl_bind["enabled"] = False
 
-            mgr = resource_manager.ListenerManager(self.lbdriver)
-            mgr.update_acl_bind(listener, acl_bind, service)
-            LOG.debug(
-                "Finish to remove ACL bind irule of listener %s",
-                listener_id
-            )
+            @exec_helper.On(allbips)
+            def _remove_acl_bind(listener, acl_group, acl_bind, service={}):
+                bips = service.get('bigips', [])
+                if len(bips) == 0:
+                    raise Exception("no bigip found for acl unbinding.")
+                bip = bips[0].hostname
 
-            # delete acl data group on each bigips
-            mgr = resource_manager.ACLGroupManager(self.lbdriver)
-            mgr.try_delete(acl_group, service)
+                mgr = resource_manager.ListenerManager(self.lbdriver)
+                mgr.update_acl_bind(listener, acl_bind, service)
+                LOG.debug(
+                    "Removed ACL bind for listener %s from %s",
+                    listener_id, bip
+                )
+
+                # delete acl data group on each bigips
+                mgr = resource_manager.ACLGroupManager(self.lbdriver)
+                mgr.try_delete(acl_group, service)
+                LOG.debug("Removed acl_group %s from %s", acl_id, bip)
+
+            _remove_acl_bind(listener, acl_group, acl_bind, service=service)
             LOG.debug("Finish to remove acl_group %s", acl_id)
         except Exception as ex:
             LOG.exception("Fail to remove acl bind of listener.\n"
@@ -1782,7 +1829,10 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
                 service["l7policy"] = plc
 
                 mgr = resource_manager.L7PolicyManager(self.lbdriver)
-                mgr.delete(plc, service)
+                # NOTE(qzhao): L7Policy delete() does not remove LTM policy
+                # before l7policy becomes PENDING_DELETE, need to specify
+                # purge=True
+                mgr.delete(plc, service, purge=True)
                 LOG.debug("Finish to purge l7policy %s", plc_id)
             LOG.debug("Finish to purge all l7policy in the lb")
 

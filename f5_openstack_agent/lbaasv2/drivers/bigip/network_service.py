@@ -264,13 +264,44 @@ class NetworkServiceBuilder(object):
         route_helper.remove_default_route(
             bigip, subnet)
 
+    def _is_device_migrate(self, device):
+        from_device = device.get("from_device")
+        return from_device
+
+    def _migrate_remove_selfip(self, device, subnets):
+        from_device = device.get("from_device")
+
+        if from_device:
+            device_members = from_device["device_info"]["members"]
+
+            for dev in device_members:
+                for subnet in subnets:
+                    device_name = dev["device_info"]["device_name"]
+                    selfip_name = "local-" + device_name + "-" + subnet['id']
+
+                    self.driver.plugin_rpc.delete_port_by_name(
+                        port_name=selfip_name)
+
+    def _rm_source_vip_selfip_port(self, device):
+        return device.get("rm_selfip_port")
+
     def config_selfips(self, service, **kwargs):
         lb_network = kwargs.get("network", service['lb_netinfo']["network"])
         lb_subnets = kwargs.get("subnets", service['lb_netinfo']["subnets"])
 
         subnetinfo = {'network': lb_network}
+        device = service['device']
+        is_snat_selfip = kwargs.get("snat")
+
+        if self._is_device_migrate(device):
+            if is_snat_selfip:
+                self._migrate_remove_selfip(device, lb_subnets)
+            else:
+                if self._rm_source_vip_selfip_port(device):
+                    self._migrate_remove_selfip(device, lb_subnets)
+
         for bigip in service['bigips']:
-            device = service['device']
+
             vlan_mac = utils.get_vlan_mac(
                 self.vlan_manager, bigip, lb_network, device)
             for subnet in lb_subnets:
@@ -1095,7 +1126,10 @@ class SNATHelper(object):
                         binding_profile=binding_profile
                     )
                 else:
-                    port = port[0]
+                    port = utils.update_port(
+                        port[0], binding_profile,
+                        self.driver.plugin_rpc
+                    )
 
                 snat_addrs |= {
                     addr_info['ip_address'] for addr_info in port['fixed_ips']
@@ -1497,11 +1531,13 @@ class LargeSNATHelper(SNATHelper):
         LOG.debug("after large snat vlan create")
 
         LOG.debug("before large snat selfip create")
+
         # Create selfip in bigips
         self.net_service.config_selfips(
             self.service,
             network=self.large_snat_network,
-            subnets=self.large_snat_subnet.values()
+            subnets=self.large_snat_subnet.values(),
+            snat=True
         )
         LOG.debug("after large snat selfip create")
 
