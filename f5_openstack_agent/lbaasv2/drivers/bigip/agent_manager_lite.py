@@ -45,7 +45,9 @@ from f5_openstack_agent.lbaasv2.drivers.bigip import constants_v2
 from f5_openstack_agent.lbaasv2.drivers.bigip import exceptions as f5_ex
 from f5_openstack_agent.lbaasv2.drivers.bigip import opts
 from f5_openstack_agent.lbaasv2.drivers.bigip import plugin_rpc
+from f5_openstack_agent.lbaasv2.drivers.bigip.resource import RouteDomain
 from f5_openstack_agent.lbaasv2.drivers.bigip import resource_manager
+from f5_openstack_agent.lbaasv2.drivers.bigip import utils
 from f5_openstack_agent.lbaasv2.drivers.bigip.utils import serialized
 
 from f5_openstack_agent.lbaasv2.drivers.bigip.system_helper import \
@@ -1822,6 +1824,39 @@ class LbaasAgentManager(periodic_task.PeriodicTasks):  # b --> B
 
         try:
             bigip_device.set_bigips(service, self.conf)
+
+            # Purging might occur after rebuilding to a different device, so
+            # that network segmentation id in neutron db might already be
+            # modified by SDN. Need to check the route domain id in bigip. If
+            # it is different from the segmentation id in neutron, we need to
+            # use the route domain id in bigip to purge configuration.
+
+            lb_network_id = service["loadbalancer"]["network_id"]
+            lb_network = service["networks"][lb_network_id]
+
+            if not self.lbdriver.conf.f5_global_routed_mode and \
+               not lb_network["shared"]:
+                device = service["device"]
+                tenant_id = service["loadbalancer"]["tenant_id"]
+                partition = self.lbdriver.service_adapter.get_folder_name(
+                                tenant_id)
+                vtep_node_ip = utils.get_node_vtep(device)
+                rd_id = utils.get_vtep_vlan(lb_network, vtep_node_ip)
+                rd_name = self.lbdriver.network_builder.get_rd_name(lb_network)
+
+                r = RouteDomain()
+                for bigip in service["bigips"]:
+                    rd = r.load(bigip, name=rd_name, partition=partition,
+                                ignore=[404])
+                    if not rd:
+                        # If rd not exist, goto next bigip
+                        continue
+                    else:
+                        if rd.id != rd_id:
+                            utils.modify_vtep_vlan(lb_network, vtep_node_ip,
+                                                   rd.id)
+                        # We can complete, once we get rd id in bigip
+                        break
 
             # a l7policy contains l7rules, no need to purge l7rule.
             for plc in l7policies:
