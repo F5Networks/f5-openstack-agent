@@ -280,6 +280,31 @@ def get_vtep_vlan(network, vtep_node_ip):
     return network['provider:segmentation_id']
 
 
+def modify_vtep_vlan(network, vtep_node_ip, seg_id):
+    # NOTE(qzhao): only purge need this
+    vlanid = None
+    default_vlanid = None
+    segments = network.get('segments', [])
+
+    for seg in segments:
+        phy_net = seg["provider:physical_network"]
+        vlanid = seg["provider:segmentation_id"]
+
+        if phy_net == "default":
+            default_vlanid = vlanid
+            default_seg = seg
+        if phy_net is not None and phy_net == vtep_node_ip:
+            seg["provider:segmentation_id"] = seg_id
+            return
+
+    if default_vlanid is not None:
+        default_seg["provider:segmentation_id"] = seg_id
+        return
+
+    network['provider:segmentation_id'] = seg_id
+    return
+
+
 def get_node_vtep(device):
     if not device:
         raise Exception(
