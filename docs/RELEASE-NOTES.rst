@@ -5,6 +5,32 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.6.2 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2989] Purge LTM policy
+* [OPENSTACK-2968] LB Perf Improvement by concurrent agent configuration deployment - ACL
+* [OPENSTACK-2949] Get keepalive_timeout default value from listener dict
+* [OPENSTACK-2959] check and remove selfip from source device
+* [OPENSTACK-2959] rebuild functions for migrate
+* [OPENSTACK-2959] Either vtep or mac changes, we update port.
+* [OPENSTACK-2983] bigip concurrency for vs/l7/mbs
+* [OPENSTACK-2966] add purge in agent
+* [OPENSTACK-2964] parallel bigips for pool and monitor
+* [OPENSTACK-2961] add logs for parsing lb creation
+* [OPENSTACK-2964] deploy pool to bigips cocurrently
+
+Bug Fixes
+`````````
+* [OPENSTACK-2957] Remove one blank line made by manual cherry-pick
+* [OPENSTACK-2964] fix @serialized decorator miss and typo
+
+Limitations
+```````````
+
 v9.10.6.1 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
