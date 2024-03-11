@@ -11,6 +11,7 @@ NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack rele
 
 Added Functionality
 ```````````````````
+* [OPENSTACK-2998] Compare vlan between neutron and bigip before purging
 * [OPENSTACK-2989] Purge LTM policy
 * [OPENSTACK-2968] LB Perf Improvement by concurrent agent configuration deployment - ACL
 * [OPENSTACK-2949] Get keepalive_timeout default value from listener dict
