@@ -5,6 +5,40 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.7 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Added Functionality
+```````````````````
+* [OPENSTACK-2998] Compare vlan between neutron and bigip before purging
+* [OPENSTACK-2989] Purge LTM policy
+* [OPENSTACK-2968] LB Perf Improvement by concurrent agent configuration deployment - ACL
+* [OPENSTACK-2949] Get keepalive_timeout default value from listener dict
+* [OPENSTACK-2959] check and remove selfip from source device
+* [OPENSTACK-2959] rebuild functions for migrate
+* [OPENSTACK-2959] Either vtep or mac changes, we update port.
+* [OPENSTACK-2983] bigip concurrency for vs/l7/mbs
+* [OPENSTACK-2966] add purge in agent
+* [OPENSTACK-2964] parallel bigips for pool and monitor
+* [OPENSTACK-2961] add logs for parsing lb creation
+* [OPENSTACK-2964] deploy pool to bigips cocurrently
+* [OPENSTACK-2905] New implementation of flavor 1-6 SNAT
+* [OPENSTACK-2934] Delete server side profile created by previous TOA implementation
+* [OPENSTACK-2905] Rebuild compatibility for legacy SNAT style
+* [OPENSTACK-2936] Update LB flavor in a new manner
+
+Bug Fixes
+`````````
+* [OPENSTACK-2957] Remove one blank line made by manual cherry-pick
+* [OPENSTACK-2964] fix @serialized decorator miss and typo
+* [OPENSTACK-2939] Ignore 400 error of deleting route domain when concurrent deleting lb
+* [OPENSTACK-2986] Create vxlan SNAT network
+* [OPENSTACK-2986] Delete vxlan SNAT network
+
+Limitations
+```````````
+
 v9.10.6 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
