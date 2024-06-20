@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import errno
+# import errno
 import inspect
 import service_launcher
 import sys
@@ -46,7 +46,7 @@ try:
     except Exception:
         # m/n/o/p version
         from neutron.agent.linux.interface import OPTS as INTERFACE_OPTS
-except ImportError as Error:
+except ImportError:
     pass
 
 import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as manager
@@ -136,12 +136,13 @@ def main():
 
 if __name__ == '__main__':
     # Handle any missing dependency errors via oslo:
-    try:
-        Error
-    except NameError:
-        sys.exc_clear()
-    else:
-        # We already had an exception, ABORT!
-        LOG.exception(str(Error))
-        sys.exit(errno.ENOSYS)
+    # try:
+    #     # Error
+    #     pass
+    # except NameError:
+    #     sys.exc_clear()
+    # else:
+    #     # We already had an exception, ABORT!
+    #     LOG.exception(str(Error))
+    #     sys.exit(errno.ENOSYS)
     main()

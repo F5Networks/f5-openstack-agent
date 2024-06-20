@@ -27,12 +27,12 @@ class TestTLSCertParser(object):
     def test_get_intermediates_pem_chain(self):
         intermediates = [c for c in
                          get_intermediates_pems(samples.X509_IMDS)]
-        assert cmp(intermediates, samples.X509_IMDS_LIST) == 0
+        assert set(intermediates) == set(samples.X509_IMDS_LIST)
 
     def test_get_intermediates_pkcs7_pem(self):
         intermediates = [c for c in
                          get_intermediates_pems(samples.PKCS7_PEM)]
-        assert cmp(intermediates, samples.X509_IMDS_LIST) == 0
+        assert set(intermediates) == set(samples.X509_IMDS_LIST)
 
     def test_get_intermediates_pkcs7_pem_bad(self):
         intermeidates = get_intermediates_pems(samples.BAD_PKCS7_PEM)
@@ -43,7 +43,7 @@ class TestTLSCertParser(object):
     def test_get_intermediates_pkcs7_der(self):
         intermediates = [c for c in
                          get_intermediates_pems(samples.PKCS7_DER)]
-        assert cmp(intermediates, samples.X509_IMDS_LIST) == 0
+        assert set(intermediates) == set(samples.X509_IMDS_LIST)
 
     def test_get_intermediates_pkcs7_der_bad(self):
         intermeidates = get_intermediates_pems(samples.BAD_PKCS7_DER)

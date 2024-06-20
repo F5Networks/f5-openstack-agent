@@ -357,8 +357,8 @@ class BigipSelfIpManager(object):
                                             err.response.status_code,
                                             err.message))
         except Exception as err:
-            LOG.exception("Error getting selfip address for %s.",
-                          name)
+            LOG.exception("Error getting selfip address for %s: %s.",
+                          (name, err.message))
 
         return selfip_addr
 
@@ -407,4 +407,4 @@ class BigipSelfIpManager(object):
 
         except Exception as err:
             raise f5_ex.SelfIPDeleteException(
-                "Failed to delete selfip %s." % name)
+                "Failed to delete selfip %s: %s." % (name, err.message))
