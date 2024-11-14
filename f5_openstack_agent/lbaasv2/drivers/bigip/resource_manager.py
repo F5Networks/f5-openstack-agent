@@ -1957,6 +1957,8 @@ class MonitorManager(ResourceManager):
         for key in self.mutable_props.keys():
             if old_resource.get('type') == 'PING' and key == 'expected_codes':
                 continue
+            if old_resource.get('type') == 'TCP' and key == 'expected_codes':
+                continue
             old = old_resource.get(key)
             new = resource.get(key)
             if old != new:
