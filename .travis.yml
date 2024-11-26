@@ -90,7 +90,6 @@ deploy:
   #    tags: true
   #    python: 2.7
   #  skip_cleanup: true
-
   - provider: script
     skip_cleanup: true
     on:

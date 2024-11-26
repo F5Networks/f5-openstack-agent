@@ -1954,7 +1954,7 @@ class MonitorManager(ResourceManager):
         create_payload = kwargs.get('create_payload',
                                     self._create_payload(resource, service))
 
-        keys_ignore = ['expected_codes', 'url_path', 'http_method']
+        keys_ignore = ['expected_codes', 'url_path', 'http_method'] 
         for key in self.mutable_props.keys():
             if old_resource.get('type') == 'PING' and key in keys_ignore:
                 continue
@@ -1965,7 +1965,8 @@ class MonitorManager(ResourceManager):
             if old != new:
                 prop = self.mutable_props[key]
                 payload[prop] = create_payload[prop]
-
+        
+        LOG.info('_update_payload MonitorManager')
         LOG.info(payload)
         # changing only interval needs to update timeout as well
         if 'interval' in payload:
