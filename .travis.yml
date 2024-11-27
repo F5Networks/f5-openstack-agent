@@ -66,6 +66,13 @@ script:
 after_success:
   - md5sum ${PKG_RELEASE_EL7} > ${PKG_RELEASE_EL7}.md5 && md5sum --check ${PKG_RELEASE_EL7}.md5
   - md5sum ${PKG_RELEASE_1404} > ${PKG_RELEASE_1404}.md5 && md5sum --check ${PKG_RELEASE_1404}.md5
+
+before_deploy:
+  - yes | gem update --system --force
+  - gem install bundler
+  - gem install uri
+  - gem install logger
+
 deploy:
   - provider: releases
     api_key:
@@ -97,7 +104,7 @@ deploy:
       all_branches: true
       repo: F5Networks/f5-openstack-agent
       tags: true
-    script: rvm $(travis_internal_ruby) --fuzzy do ruby -S gem install dpl -v 'dpl-1.10.16'
+    # script: rvm $(travis_internal_ruby) --fuzzy do ruby -S gem install dpl -v 'dpl-1.10.16'
     # ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh && ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $CTLR_VERSION
       # - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh && ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $CTLR_VERSION
 
