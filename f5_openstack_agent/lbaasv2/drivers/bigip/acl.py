@@ -42,18 +42,18 @@ class ACLHelper(object):
 
     def _get_acl_template(self, acl_bind):
 
-        white_template = """when CLIENT_ACCEPTED {{
-        if {{ !([class match [IP::client_addr] eq {}]) }} {{
+        white_template = """when FLOW_INIT {{
+        if {{ !([class match [IP::remote_addr] eq {}]) }} {{
         log local0. "Dropped connection: """ + \
-            """client IP [IP::client_addr] is restricted."
-            drop}}
+            """remote IP [IP::remote_addr] is restricted."
+            ACL::action reset}}
         }}"""
 
-        black_template = """when CLIENT_ACCEPTED {{
-        if {{ [class match [IP::client_addr] eq {}] }} {{
+        black_template = """when FLOW_INIT {{
+        if {{ [class match [IP::remote_addr] eq {}] }} {{
         log local0. "Dropped connection: """ + \
-            """client IP [IP::client_addr] is restricted."
-            drop}}
+            """remote IP [IP::remote_addr] is restricted."
+            ACL::action reset}}
         }}"""
 
         bind_type = acl_bind.get("type")
@@ -126,3 +126,5 @@ class BigipInstructor(object):
     def delete(self, bigip, payload):
         self.resource_helper.delete(bigip, name=payload['name'],
                                     partition=payload['partition'])
+        
+
