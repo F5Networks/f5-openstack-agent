@@ -5,6 +5,14 @@
 Release Notes for F5 Openstack Agent
 ====================================
 
+v9.10.9 (Pike, Queens)
+--------------------------------------------
+NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
+
+Bug Fixes
+`````````
+* LBaaS | F5 OpenStack LBaaS Agents ACL irule modification from CLIENT_ACCEPT to FLOW_INIT
+
 v9.10.8 (Pike, Queens)
 --------------------------------------------
 NOTE: This version of F5 Openstack Agent supports Pike and Queens Openstack releases.
