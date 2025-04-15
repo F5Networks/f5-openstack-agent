@@ -100,16 +100,16 @@ deploy:
   #    python: 2.7
   #  skip_cleanup: true
   
-  # - provider: script
-  #   skip_cleanup: true
-  #   on:
-  #     all_branches: true
-  #     repo: F5Networks/f5-openstack-agent
-  #     tags: true
-  #   script: echo $CTLR_VERSION
-    # rvm $(travis_internal_ruby) --fuzzy do ruby -S gem install dpl -v 'dpl-1.10.16'
-    # ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh && ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $CTLR_VERSION
-      # - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh && ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $CTLR_VERSION
+  - provider: script
+    skip_cleanup: true
+    on:
+       all_branches: true
+       repo: F5Networks/f5-openstack-agent
+       tags: true
+    script: echo $CTLR_VERSION
+     rvm $(travis_internal_ruby) --fuzzy do ruby -S gem install dpl -v 'dpl-1.10.16'
+     ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh && ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $CTLR_VERSION
+       - ./docs/scripts/docker-docs.sh ./docs/scripts/test-docs.sh && ./docs/scripts/deploy-docs.sh publish-product-docs-to-prod openstack/agent $CTLR_VERSION
 
 notifications:
   slack:
