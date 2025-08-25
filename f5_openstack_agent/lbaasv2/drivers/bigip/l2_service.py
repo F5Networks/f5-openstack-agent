@@ -413,7 +413,6 @@ class L2ServiceBuilder(object):
 
         try:
             model = {'name': vlan_name,
-                     'interface': interface,
                      'tag': vlanid,
                      'partition': network_folder,
                      'description': network['id'],
