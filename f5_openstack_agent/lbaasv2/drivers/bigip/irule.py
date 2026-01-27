@@ -40,9 +40,7 @@ class iRuleHelper(object):
         template = """when SERVER_INIT {
             scan [getfield [IP::client_addr] "%%" 1] {%%d.%%d.%%d.%%d} a b c d
             TCP::option set %s [binary format cccc $a $b $c $d] all
-            set string "[TCP::client_port] $a$b$c$d"
-            log local0. "IPv4 set to tcp option %s $string"
-          }""" % (tcp_options, tcp_options)
+          }""" % tcp_options
 
         return template
 
@@ -53,9 +51,6 @@ class iRuleHelper(object):
           when SERVER_INIT {
             TCP::option set %s \
 [binary format H* [call expand_ipv6_addr [IP::client_addr]]] all
-            set string \
-[format %%04x [TCP::client_port]][call expand_ipv6_addr [IP::client_addr]]
-            log local0. "IPv6 set to tcp option %s $string"
           }
           proc expand_ipv6_addr { addr } {
               if { [catch {
@@ -94,7 +89,7 @@ class iRuleHelper(object):
               }
               return "$addr"
           }
-          """ % (tcp_options, tcp_options)
+          """ % tcp_options
 
         return template
 
