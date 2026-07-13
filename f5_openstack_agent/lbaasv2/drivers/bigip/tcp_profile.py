@@ -171,6 +171,22 @@ class TCPProfileHelper(object):
                     )
                 )
                 self.tcp_helper.create(bigip, payload)
+            else:
+                # Profile already exists but may have been created without
+                # tcpOptions (e.g. VS was initially created without ToA).
+                # Update the profile to set tcpOptions so the iRule works.
+                payload = dict(
+                    name=profile_name,
+                    partition=partition,
+                    tcpOptions=tcp_options
+                )
+                LOG.info(
+                    "Updating existing TCP profile: {} with tcpOptions"
+                    " for BIGIP: {} ".format(
+                        profile, bigip.hostname
+                    )
+                )
+                self.tcp_helper.update(bigip, payload)
 
             client_profile_body = {
                 "name": profile_name,
