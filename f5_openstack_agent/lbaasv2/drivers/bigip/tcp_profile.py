@@ -104,6 +104,21 @@ class TCPProfileHelper(object):
                 )
             )
             self.tcp_helper.create(bigip, payload)
+        else:
+            # Profile may have been created without tcpOptions; patch it so
+            # the TOA iRule can function even in abnormal residual scenarios.
+            payload = dict(
+                name=profile_name,
+                partition=partition,
+                tcpOptions=tcp_options
+            )
+            LOG.info(
+                "Add path: updating existing TCP profile: {} with tcpOptions"
+                " for BIGIP: {} ".format(
+                    profile, bigip.hostname
+                )
+            )
+            self.tcp_helper.update(bigip, payload)
 
         client_profile_body = {
             "name": profile_name,

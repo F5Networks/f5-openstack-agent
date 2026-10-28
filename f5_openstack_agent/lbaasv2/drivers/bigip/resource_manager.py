@@ -1311,8 +1311,8 @@ class ListenerManager(ResourceManager):
         vs['rules'].append("/Common/websocket_irule")
 
     def _create_redirect_policy(self, bigip, vs, listener):
-        protocol = listener.get("redirect_protocol", "")
-        if not protocol:
+        protocol = listener.get("redirect_protocol", "").lower()
+        if protocol not in ['http', 'https']:
             protocol = "https"
 
         host = "[HTTP::host]"
@@ -1954,7 +1954,13 @@ class MonitorManager(ResourceManager):
         create_payload = kwargs.get('create_payload',
                                     self._create_payload(resource, service))
 
+        keys_ignore = ['expected_codes', 'url_path', 'http_method']
+
         for key in self.mutable_props.keys():
+            if old_resource.get('type') == 'PING' and key in keys_ignore:
+                continue
+            if old_resource.get('type') == 'TCP' and key in keys_ignore:
+                continue
             old = old_resource.get(key)
             new = resource.get(key)
             if old != new:
